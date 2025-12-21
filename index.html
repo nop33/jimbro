@@ -9,11 +9,14 @@
 </head>
 <body>
   <div id="app">
-    <h1>Hello, gymbro.</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
+    <div class="page homepage">
+      <h1>Hello, gymbro.</h1>
+      <button href="/workouts" data-link>Start workout</button>
+      <a href="/templates" data-link>Templates</a>
+      <a href="/settings" data-link>Settings</a>
     </div>
   </div>
+  <script type="module" src="/src/router.ts"></script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
