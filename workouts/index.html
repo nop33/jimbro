@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gymbro - Workouts</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>">
+</head>
+<body class="app">
+  <div class="app-page">
+    <header class="app-header">
+      <a href="/" class="text-blue-500 mr-4 hover:underline flex items-center">
+        &#8592; Back
+      </a>
+      <h1 class="app-header-title">Workouts</h1>
+      <a href="/settings/" class="text-blue-500 ml-auto">Settings</a>
+    </header>
+    <div class="app-page-content">
+
+      <div>
+        <h2 class="text-2xl font-bold">Last week</h2>
+        <ul class="workout-list last-week list-none p-0 m-0 grid grid-cols-3 gap-4 w-full"></ul>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold">This week</h2>
+        <ul class="workout-list this-week list-none p-0 m-0 grid grid-cols-3 gap-4 w-full"></ul>
+      </div>
+      <template id="workout-item">
+        <li>
+          <div class="workout-card bg-neutral-800 rounded-lg shadow-md p-6 mb-4 flex flex-col gap-2 hover:bg-neutral-700 transition">
+            <h2 class="workout-title text-xl font-bold"></h2>
+            <p class="workout-status text-sm text-gray-500"></p>
+          </div>
+        </li>
+      </template>
+
+    </div>
+  </div>
+  <script type="module" src="../src/workouts.ts"></script>
+</body>
+</html>
