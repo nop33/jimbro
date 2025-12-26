@@ -9,16 +9,16 @@
 <body class="app">
   <div class="app-page">
     <header class="app-header">
-      <a href="/" class="text-blue-500 mr-4 hover:underline flex items-center">
-        &#8592; Back
+      <a href="/" class="link-primary mr-4">
+        <span class="text-xl">←</span> Back
       </a>
       <h1 class="app-header-title">Exercises</h1>
-      <button id="new-exercise-btn" class="text-blue-500 ml-auto hover:underline">+ New</button>
+      <button id="new-exercise-btn" class="link-primary ml-auto font-semibold">+ New</button>
     </header>
     <div class="app-page-content">
-      <div class="mb-4">
-        <label for="muscle-filter" class="block text-sm font-medium mb-2">Filter by muscle group</label>
-        <select id="muscle-filter" class="w-full p-2 rounded bg-neutral-800 text-neutral-100 border border-neutral-600">
+      <div class="mb-6">
+        <label for="muscle-filter">Filter by muscle group</label>
+        <select id="muscle-filter">
           <!-- Muscle groups will be rendered here -->
         </select>
       </div>
@@ -27,14 +27,14 @@
         <!-- Exercises will be rendered here -->
       </div>
       <template id="exercise-item-template">
-        <div class="bg-neutral-800 rounded-lg p-4 border border-neutral-700 hover:border-blue-500 transition hover:cursor-pointer">
-          <h3 class="exercise-name font-semibold text-lg mb-2">
+        <div class="exercise-card">
+          <h3 class="exercise-name">
             <!-- -->
           </h3>
-          <p class="exercise-muscle text-sm text-neutral-400 mb-2">
+          <p class="exercise-muscle">
             <!-- -->
           </p>
-          <p class="text-sm text-neutral-400">
+          <p class="text-sm text-neutral-400 font-medium">
             <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
           </p>
         </div>
@@ -42,31 +42,31 @@
     </div>
   </div>
 
-  <dialog id="exercise-dialog" class="bg-neutral-800 text-neutral-100 rounded-lg p-6 max-w-md">
-    <h2 id="dialog-title" class="text-xl font-bold mb-4">New Exercise</h2>
-    <form id="exercise-form" class="flex flex-col gap-4">
+  <dialog id="exercise-dialog">
+    <h2 id="dialog-title" class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">New Exercise</h2>
+    <form id="exercise-form" class="flex flex-col gap-5">
       <input type="hidden" id="exercise-id" name="id">
       <div>
-        <label for="exercise-name" class="block text-sm font-medium mb-2">Name</label>
-        <input type="text" id="exercise-name" name="name" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
+        <label for="exercise-name">Name</label>
+        <input type="text" id="exercise-name" name="name" required>
       </div>
       <div>
-        <label for="exercise-muscle" class="block text-sm font-medium mb-2">Muscle group</label>
-        <select id="exercise-muscle" name="muscle" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
+        <label for="exercise-muscle">Muscle group</label>
+        <select id="exercise-muscle" name="muscle" required>
           <!-- Muscle groups will be rendered here -->
         </select>
       </div>
       <div>
-        <label for="exercise-sets" class="block text-sm font-medium mb-2">Default sets</label>
-        <input type="number" id="exercise-sets" name="sets" min="1" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
+        <label for="exercise-sets">Default sets</label>
+        <input type="number" id="exercise-sets" name="sets" min="1" required>
       </div>
       <div>
-        <label for="exercise-reps" class="block text-sm font-medium mb-2">Default reps</label>
-        <input type="number" id="exercise-reps" name="reps" min="1" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
+        <label for="exercise-reps">Default reps</label>
+        <input type="number" id="exercise-reps" name="reps" min="1" required>
       </div>
-      <div class="flex gap-2 justify-end mt-4">
-        <button type="button" id="dialog-cancel" class="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">Cancel</button>
-        <button type="submit" class="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600">Save</button>
+      <div class="flex gap-3 justify-end mt-6">
+        <button type="button" id="dialog-cancel" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
       </div>
     </form>
   </dialog>

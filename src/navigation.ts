@@ -8,24 +8,24 @@ export function initNavigation() {
   }
 
   const bottomNav = document.createElement('nav');
-  bottomNav.className = 'bottom-nav fixed bottom-0 left-0 right-0 bg-neutral-800 border-t border-neutral-700 md:hidden z-50';
+  bottomNav.className = 'bottom-nav fixed bottom-0 left-0 right-0 md:hidden z-50';
   bottomNav.innerHTML = `
-    <div class="flex justify-around items-center h-16">
-      <a href="/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-500 transition">
-        <span class="text-xl">🏠</span>
-        <span class="text-xs mt-1">Home</span>
+    <div class="flex justify-around items-center h-20 px-2">
+      <a href="/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
+        <span class="text-2xl mb-1">🏠</span>
+        <span class="text-xs font-medium">Home</span>
       </a>
-      <a href="/workouts/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-500 transition">
-        <span class="text-xl">💪</span>
-        <span class="text-xs mt-1">Workouts</span>
+      <a href="/workouts/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
+        <span class="text-2xl mb-1">💪</span>
+        <span class="text-xs font-medium">Workouts</span>
       </a>
-      <a href="/exercises/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-500 transition">
-        <span class="text-xl">📋</span>
-        <span class="text-xs mt-1">Exercises</span>
+      <a href="/exercises/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
+        <span class="text-2xl mb-1">📋</span>
+        <span class="text-xs font-medium">Exercises</span>
       </a>
-      <a href="/templates/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-500 transition">
-        <span class="text-xl">📝</span>
-        <span class="text-xs mt-1">Templates</span>
+      <a href="/templates/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
+        <span class="text-2xl mb-1">📝</span>
+        <span class="text-xs font-medium">Templates</span>
       </a>
     </div>
   `;
@@ -34,13 +34,16 @@ export function initNavigation() {
 
   bottomNav.querySelectorAll('.nav-link').forEach(link => {
     const href = (link as HTMLAnchorElement).getAttribute('href');
-    if (href && currentPath.startsWith(href) && href !== '/') {
-      link.classList.add('text-blue-500');
+    if (href === '/' && currentPath === '/') {
+      link.classList.add('active');
+      link.classList.remove('text-neutral-400');
+    } else if (href && href !== '/' && currentPath.startsWith(href)) {
+      link.classList.add('active');
       link.classList.remove('text-neutral-400');
     }
   });
 
-  appPage.classList.add('pb-16', 'md:pb-0');
+  appPage.classList.add('pb-20', 'md:pb-0');
 
   body.appendChild(bottomNav);
 }
