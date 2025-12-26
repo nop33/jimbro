@@ -1,0 +1,170 @@
+# Gymbro - Workout Tracking App
+
+## Project Philosophy
+
+This is a learning project focused on **native web technologies** without frontend frameworks. The goal is to deepen understanding of HTML, CSS, and JavaScript fundamentals while building a functional workout tracking application.
+
+## Core Principles
+
+### 1. No Frontend Frameworks
+- **DO NOT** suggest or use React, Vue, Angular, Svelte, or any other frontend framework
+- Use **vanilla JavaScript/TypeScript** with native browser APIs
+- Prefer **Web Components (Custom Elements)** for reusable UI if needed
+- Use **native DOM APIs** for all interactions
+
+### 2. Modern Native Web Technologies
+- **HTML5**: Use semantic HTML (`<main>`, `<article>`, `<section>`, `<nav>`)
+- **Modern CSS**: Leverage CSS Custom Properties, Grid, Flexbox, Container Queries, `:has()`, `clamp()`, etc.
+- **Modern JavaScript**: ES6+ features, async/await, modules, native APIs
+- **Browser APIs**: IndexedDB, Service Workers, Custom Events, Fetch API, File API, etc.
+
+### 3. Mobile-First Design
+- Design for mobile first, then enhance for larger screens
+- Follow principles from:
+  - **Cube CSS**: Composition-based CSS methodology
+  - **Utopia**: Fluid typography and spacing
+  - **Every Layout**: Container-based layout patterns
+  - **Build Excellent Websites**: Modern web principles
+- Ensure touch targets are at least 44x44px
+- Use viewport units (dvw, dvh) and fluid typography
+- Progressive enhancement approach
+
+### 4. Tech Stack
+- **TypeScript**: For type safety and better DX
+- **Vite**: Build tool (rolldown-vite)
+- **Tailwind CSS v4**: Utility-first CSS (via `@import "tailwindcss"`)
+- **IndexedDB**: Client-side data persistence
+- **No runtime framework dependencies**: Only build tools allowed
+
+## Code Style & Patterns
+
+### Architecture
+- **Event-Driven State Management**: Use native Custom Events API
+- **Modular Structure**: Organize by feature/domain (e.g., `src/pages/`, `src/db/stores/`)
+- **Dedicated Stores**: Each IndexedDB object store has its own store class extending base Storage
+- **Single Source of Truth**: Use `as const` arrays/objects and derive types from them
+
+### TypeScript
+- Use strict mode
+- Prefer `const` arrays with `as const` over enums
+- Derive types from runtime values: `type MyType = typeof MY_CONST[number]`
+- Use interfaces for data structures
+- Avoid `any`, prefer `unknown` when needed
+
+### Data Storage
+- **IndexedDB**: Primary storage mechanism
+- Store dates as **ISO strings** (not Date objects)
+- Use migrations for schema changes
+- Shared database connection across all store instances
+
+### State Management
+- Use native **Custom Events API** for cross-component communication
+- Event-driven architecture with a simple Store class
+- No external state management libraries
+
+### CSS
+- Use Tailwind CSS utilities for styling
+- Leverage modern CSS features (Container Queries, `:has()`, CSS Nesting)
+- Respect `prefers-reduced-motion` media query
+- Use CSS Custom Properties for theming
+- Mobile-first responsive design
+
+### HTML
+- Semantic HTML5 elements
+- Use native `<dialog>` for modals
+- Use `<details>` and `<summary>` for collapsible sections
+- Native form validation attributes
+- Proper input types (`date`, `number`, `time`)
+
+### JavaScript/TypeScript
+- Use ES modules (`import`/`export`)
+- Prefer async/await over promises
+- Use native APIs (Fetch, File, IndexedDB, etc.)
+- Class-based components for UI (no framework)
+- Static methods for initialization patterns
+
+## File Organization
+
+```
+src/
+  db/
+    stores/          # IndexedDB store classes (one per object store)
+    storage.ts       # Base Storage class
+    migrations.ts    # Database migrations
+    constants.ts     # DB constants
+  pages/             # Page-specific logic
+  utils/             # Utility functions
+  style.css          # Global styles with Tailwind
+```
+
+## Best Practices
+
+### DO
+- ✅ Use native browser APIs
+- ✅ Write semantic HTML
+- ✅ Use TypeScript for type safety
+- ✅ Follow mobile-first design
+- ✅ Use IndexedDB for persistence
+- ✅ Implement PWA features (Service Workers, manifest)
+- ✅ Use native form validation
+- ✅ Respect user preferences (reduced motion, etc.)
+- ✅ Write accessible code (ARIA when needed, semantic HTML)
+- ✅ Use `as const` for single source of truth patterns
+
+### DON'T
+- ❌ Suggest or use frontend frameworks
+- ❌ Use external state management libraries
+- ❌ Add unnecessary dependencies
+- ❌ Use Date objects in IndexedDB (use ISO strings)
+- ❌ Create multiple database connections (share one)
+- ❌ Duplicate type definitions and runtime values
+- ❌ Ignore mobile/accessibility concerns
+
+## Learning Focus
+
+When suggesting solutions, prioritize:
+1. **Educational value**: Explain why a native approach is better
+2. **Modern features**: Introduce new HTML/CSS/JS capabilities
+3. **Best practices**: Follow web standards and accessibility guidelines
+4. **Performance**: Optimize for mobile and offline-first
+
+## Code Examples
+
+### Preferred Pattern (Type Derivation)
+```typescript
+export const MUSCLE_GROUPS = ['Quads', 'Calves', ...] as const;
+export type MuscleGroup = typeof MUSCLE_GROUPS[number];
+```
+
+### Preferred Pattern (Store Class)
+```typescript
+export class ExercisesStore {
+  private storeName = OBJECT_STORES.EXERCISES;
+  async getAllExercises(): Promise<Exercise[]> {
+    return storage.getAll(this.storeName);
+  }
+}
+```
+
+### Preferred Pattern (Event-Driven)
+```typescript
+store.emit(EVENTS.EXERCISE_CREATED, { exercise });
+store.on(EVENTS.EXERCISE_CREATED, (event) => { ... });
+```
+
+## Deployment Goals
+
+- Docker containerization
+- Nginx for static file serving
+- Service Worker for offline support
+- PWA capabilities
+
+## References
+
+- [MDN Web Docs](https://developer.mozilla.org/) - Primary reference
+- [web.dev](https://web.dev/) - Modern web best practices
+- [Every Layout](https://every-layout.dev/) - Layout patterns
+- [Utopia](https://utopia.fyi/) - Fluid typography
+- [Cube CSS](https://cube.fyi/) - CSS methodology
+- [Build Excellent Websites](https://buildexcellentwebsit.es/) - Modern principles
+
