@@ -16,6 +16,12 @@
       <a href="/settings/" class="text-blue-500 ml-auto">Settings</a>
     </header>
     <div class="app-page-content">
+      <div class="mb-4 flex flex-col gap-2">
+        <a href="/workout-log/" class="inline-block px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition">
+          + New Workout
+        </a>
+        <input type="text" id="workout-search" placeholder="Search workouts..." class="w-full p-2 rounded bg-neutral-800 text-neutral-100 border border-neutral-600">
+      </div>
 
       <div>
         <h2 class="text-2xl font-bold">Last week</h2>
@@ -27,15 +33,38 @@
       </div>
       <template id="workout-item">
         <li>
-          <div class="workout-card bg-neutral-800 rounded-lg shadow-md p-6 mb-4 flex flex-col gap-2 hover:bg-neutral-700 transition">
+          <div class="workout-card bg-neutral-800 rounded-lg shadow-md p-6 mb-4 flex flex-col gap-2 hover:bg-neutral-700 transition cursor-pointer">
             <h2 class="workout-title text-xl font-bold"></h2>
             <p class="workout-status text-sm text-gray-500"></p>
+            <p class="workout-date text-xs text-gray-400"></p>
           </div>
         </li>
       </template>
-
     </div>
   </div>
+
+  <dialog id="workout-detail-dialog" class="bg-neutral-800 text-neutral-100 rounded-lg p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
+    <h2 id="detail-title" class="text-2xl font-bold mb-4"></h2>
+    <div id="workout-detail-content" class="flex flex-col gap-4">
+      <!-- Workout details will be rendered here -->
+    </div>
+    <div class="flex gap-2 justify-end mt-4">
+      <button id="detail-close" class="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">Close</button>
+      <button id="detail-edit" class="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600">Edit</button>
+      <button id="detail-delete" class="px-4 py-2 rounded bg-red-500 hover:bg-red-600">Delete</button>
+    </div>
+  </dialog>
+
+  <dialog id="delete-workout-dialog" class="bg-neutral-800 text-neutral-100 rounded-lg p-6 max-w-md">
+    <h2 class="text-xl font-bold mb-4">Delete Workout</h2>
+    <p id="delete-workout-message" class="mb-4"></p>
+    <div class="flex gap-2 justify-end">
+      <button id="delete-workout-cancel" class="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">Cancel</button>
+      <button id="delete-workout-confirm" class="px-4 py-2 rounded bg-red-500 hover:bg-red-600">Delete</button>
+    </div>
+  </dialog>
+
   <script type="module" src="../src/workouts.ts"></script>
+  <script type="module" src="../src/navigation.ts"></script>
 </body>
 </html>

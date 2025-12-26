@@ -6,7 +6,7 @@
   }
 
   .app-page {
-    @apply max-w-2xl mx-auto h-screen flex flex-col bg-neutral-600;
+    @apply max-w-2xl mx-auto min-h-screen flex flex-col bg-neutral-600;
   }
 
   .app-header {
@@ -18,6 +18,37 @@
   }
 
   .app-page-content {
-    @apply flex flex-col h-full px-4 pt-8;
+    @apply flex flex-col flex-1 px-4 pt-8 pb-4 overflow-y-auto;
+  }
+
+  /* Mobile-first: Ensure touch targets are at least 44x44px */
+  button, a, input, select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  dialog {
+    @apply bg-neutral-800 text-neutral-100 rounded-lg p-6 max-w-md mx-auto my-auto;
+  }
+
+  ::backdrop {
+    backdrop-filter: blur(40px);
   }
 }

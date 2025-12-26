@@ -8,8 +8,7 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         home: resolve(__dirname, "index.html"),
-        workouts: resolve(__dirname, "workouts/index.html"),
-        settings: resolve(__dirname, "settings/index.html"),
+        exercises: resolve(__dirname, "exercises/index.html"),
       },
     },
   },
