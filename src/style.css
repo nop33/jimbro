@@ -12,18 +12,15 @@
 
 @layer components {
   .app {
-    @apply bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-neutral-50;
     background-attachment: fixed;
   }
 
   .app-page {
-    @apply max-w-2xl mx-auto min-h-screen flex flex-col bg-neutral-800/50 backdrop-blur-sm;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.3);
+    @apply max-w-2xl mx-auto min-h-screen flex flex-col;
   }
 
   .app-header {
-    @apply flex items-center border-b border-neutral-700/50 px-4 py-5 bg-neutral-800/30 backdrop-blur-md;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    @apply flex items-center border-b border-neutral-700/50 px-4 py-5;
   }
 
   .app-header-title {
@@ -49,8 +46,7 @@
 
   /* Modern card styles */
   .card {
-    @apply bg-gradient-to-br from-neutral-800/90 to-neutral-900/90 rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300;
-    backdrop-filter: blur(10px);
+    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300;
   }
 
   .card-hover {
@@ -62,7 +58,6 @@
   input[type="number"],
   select {
     @apply w-full px-4 py-3 rounded-xl bg-neutral-800/80 text-neutral-100 border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
-    backdrop-filter: blur(10px);
   }
 
   input[type="text"]:hover,
@@ -108,9 +103,8 @@
 
   /* Modern dialog styles */
   dialog {
-    @apply bg-gradient-to-br from-neutral-800 to-neutral-900 text-neutral-100 rounded-2xl p-8 max-w-md mx-auto my-auto border border-neutral-700/50;
+    @apply rounded-2xl p-8 max-w-md mx-auto my-auto border border-neutral-700/50;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(20px);
   }
 
   dialog::backdrop {
@@ -120,12 +114,11 @@
 
   /* Exercise card specific */
   .exercise-card {
-    @apply bg-gradient-to-br from-neutral-800/90 to-neutral-900/90 rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
-    backdrop-filter: blur(10px);
+    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
   }
 
   .exercise-card .exercise-name {
-    @apply text-lg font-bold text-white mb-2;
+    @apply text-lg font-bold mb-2;
   }
 
   .exercise-card .exercise-muscle {
@@ -134,18 +127,17 @@
 
   /* Workout card specific */
   .workout-card {
-    @apply bg-gradient-to-br from-neutral-800/90 to-neutral-900/90 rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
-    backdrop-filter: blur(10px);
+    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
   }
 
   /* Section headers */
   .section-header {
-    @apply text-xl font-bold text-white mb-4 mt-6 first:mt-0;
+    @apply text-xl font-bold mb-4 mt-6 first:mt-0;
   }
 
   /* Label styles */
   label {
-    @apply block text-sm font-semibold mb-2 text-neutral-300;
+    @apply block text-sm font-semibold mb-2;
   }
 }
 
