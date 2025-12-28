@@ -46,7 +46,7 @@
 
   /* Modern card styles */
   .card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300;
+    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300;
   }
 
   .card-hover {
@@ -114,7 +114,7 @@
 
   /* Exercise card specific */
   .exercise-card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
+    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
   }
 
   .exercise-card .exercise-name {
@@ -127,7 +127,7 @@
 
   /* Workout card specific */
   .workout-card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 shadow-xl hover:shadow-2xl hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
+    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
   }
 
   /* Section headers */

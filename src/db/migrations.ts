@@ -17,11 +17,33 @@ const migrations: Array<DbMigration> = [
       if (!db.objectStoreNames.contains(OBJECT_STORES.EXERSISES)) {
         db.createObjectStore(OBJECT_STORES.EXERSISES, { keyPath: 'id' })
       }
-      if (!db.objectStoreNames.contains(OBJECT_STORES.TEMPLATES)) {
-        db.createObjectStore(OBJECT_STORES.TEMPLATES, { keyPath: 'id' })
+      if (!db.objectStoreNames.contains('templates')) {
+        db.createObjectStore('templates', { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(OBJECT_STORES.WORKOUT_SESSIONS)) {
         db.createObjectStore(OBJECT_STORES.WORKOUT_SESSIONS, { keyPath: 'date' })
+      }
+    }
+  },
+  {
+    version: 2,
+    migrate: (db) => {
+      if (db.objectStoreNames.contains('templates')) {
+        db.deleteObjectStore('templates')
+      }
+      if (!db.objectStoreNames.contains('programms')) {
+        db.createObjectStore('programms', { keyPath: 'id' })
+      }
+    }
+  },
+  {
+    version: 3,
+    migrate: (db) => {
+      if (db.objectStoreNames.contains('programms')) {
+        db.deleteObjectStore('programms')
+      }
+      if (!db.objectStoreNames.contains(OBJECT_STORES.PROGRAMS)) {
+        db.createObjectStore(OBJECT_STORES.PROGRAMS, { keyPath: 'id' })
       }
     }
   }
