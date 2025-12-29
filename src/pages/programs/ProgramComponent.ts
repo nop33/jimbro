@@ -27,7 +27,7 @@ class ProgramComponent {
     }
 
     editProgramBtn.addEventListener('click', () => {
-      ProgramDialog.setup(this.program)
+      ProgramDialog.render(this.program)
       ProgramDialog.openDialog()
     })
 

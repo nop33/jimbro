@@ -1,4 +1,4 @@
-import type { Exercise } from "../../db/stores/exercisesStore";
+import { exercisesStore, type Exercise } from "../../db/stores/exercisesStore";
 import type { ExercisesListProps } from "./programTypes";
 
 interface ProgramExercisesMultiselectProps {
@@ -16,7 +16,8 @@ class ProgramExercisesMultiselect {
     })
   }
 
-  static render({ selectedExercises, allExercises }: ExercisesListProps) {
+  static render({ selectedExercises }: ExercisesListProps) {
+    const allExercises = exercisesStore.get()
     const groupMap = new Map<string, Exercise[]>();
     for (const exercise of allExercises) {
       if (!groupMap.has(exercise.muscle)) {

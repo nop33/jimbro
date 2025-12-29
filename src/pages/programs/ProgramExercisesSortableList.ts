@@ -1,4 +1,4 @@
-import type { Exercise } from "../../db/stores/exercisesStore";
+import { exercisesStore, type Exercise } from "../../db/stores/exercisesStore";
 import { nodeFromTemplate, setTextContent } from "../../utils";
 import type { ExercisesListProps } from "./programTypes";
 
@@ -59,9 +59,10 @@ class ProgramExercisesSortableList {
     return result.element;
   }
 
-  static render({ selectedExercises, allExercises }: ExercisesListProps) {
+  static render({ selectedExercises }: ExercisesListProps) {
     this.selectedExercisesList.innerHTML = ''
     const selectedExercisesIds = Array.from(selectedExercises)
+    const allExercises = exercisesStore.get()
 
     const exerciseListItems = selectedExercisesIds.map((exerciseId) => {
       const exercise = allExercises.find((exercise) => exercise.id === exerciseId)

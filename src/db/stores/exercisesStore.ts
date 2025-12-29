@@ -1,4 +1,5 @@
 import { OBJECT_STORES } from "../constants";
+import ReactiveStore from "../reactiveStore";
 import { storage } from "../storage"
 
 export interface Exercise {
@@ -26,12 +27,27 @@ export const MUSCLE_GROUPS = [
 
 export type MuscleGroup = typeof MUSCLE_GROUPS[number]
 
-export class ExercisesStore {
+export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   private storeName = OBJECT_STORES.EXERSISES
 
+  async initialize() {
+    const allExercises = await this.getAllExercises()
+    this.set(allExercises)
+  }
+
   async createExercise(item: NewExercise): Promise<Exercise> {
-    const id = crypto.randomUUID();
-    return storage.create(this.storeName, {...item, id})
+    const newExercise: Exercise = { ...item, id: crypto.randomUUID() }
+    this.update((currentExercises) => [...currentExercises, newExercise]) // optimistic update
+
+    try {
+      await storage.create(this.storeName, newExercise)
+    } catch (error) {
+      this.update((currentExercises) => {
+        return currentExercises.filter((exercise) => exercise.id !== newExercise.id) // rollback optimistic update
+      })
+      throw error
+    }
+    return newExercise
   }
 
   async getExercise(id: string): Promise<Exercise | undefined> {
@@ -39,11 +55,20 @@ export class ExercisesStore {
   }
 
   async updateExercise(item: Exercise): Promise<Exercise> {
-    return storage.update(this.storeName, item)
+    this.update((currentExercises) => currentExercises.map((exercise) => exercise.id === item.id ? item : exercise))
+
+    try {
+      await storage.update(this.storeName, item)
+    } catch (error) {
+      await this.getAllExercises()
+      throw error
+    }
+
+    return item
   }
 
   async getAllExercises(): Promise<Array<Exercise>> {
-    return storage.getAll(this.storeName)
+    return storage.getAll<Exercise>(this.storeName)
   }
 
   async countExercises(): Promise<number> {
@@ -51,4 +76,4 @@ export class ExercisesStore {
   }
 }
 
-export const exercisesStore = new ExercisesStore()
+export const exercisesStore = new ExercisesReactiveStore([])

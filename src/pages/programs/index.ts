@@ -1,9 +1,11 @@
 import { exercisesStore } from '../../db/stores/exercisesStore';
+import { programsStore } from '../../db/stores/programsStore';
 import '../../style.css';
 import ProgramDialog from './ProgramDialog';
 import ProgramList from './ProgramList';
 
-const exercises = await exercisesStore.getAllExercises()
-
+await programsStore.initialize()
 ProgramList.init()
-ProgramDialog.init({ exercises, onProgramSaved: () => { ProgramList.reload() } })
+
+await exercisesStore.initialize()
+ProgramDialog.init()

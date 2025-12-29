@@ -62,20 +62,30 @@
         <input type="text" id="program-name" name="name" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
       </div>
       <div>
-        <label class="block text-sm font-medium mb-2">Program exercises</label>
+        <label class="block text-sm font-medium mb-2">Select program exercises</label>
         <select id="exercises-selection" multiple name="selected-exercises">
           <!-- Exercises will be rendered here -->
         </select>
       </div>
       <div>
-        <h3 class="text-sm font-medium mb-2">Selected program exercises</h3>
+        <h3 class="text-sm font-medium mb-2">Reorder program exercises</h3>
         <ul id="selected-exercises-list" class="sortable-list">
           <!-- Selected exercises will be rendered here -->
         </ul>
         <template id="selected-exercise-item-template">
-          <li class="sortable-item justify-between items-center flex" draggable="true">
-            <span class="selected-exercise-name">
-              <!-- -->
+          <li class="sortable-item justify-between items-center flex cursor-move" draggable="true">
+            <span class="flex items-center gap-2">
+              <svg aria-hidden="true" focusable="false" class="inline-block w-5 h-5 text-neutral-400" viewBox="0 0 20 20" fill="currentColor">
+                <circle cx="7" cy="6" r="1.5"/>
+                <circle cx="7" cy="10" r="1.5"/>
+                <circle cx="7" cy="14" r="1.5"/>
+                <circle cx="13" cy="6" r="1.5"/>
+                <circle cx="13" cy="10" r="1.5"/>
+                <circle cx="13" cy="14" r="1.5"/>
+              </svg>
+              <span class="selected-exercise-name">
+                <!-- -->
+              </span>
             </span>
             <span class="selected-exercise-muscle text-sm text-neutral-400 font-medium">
               <!-- -->

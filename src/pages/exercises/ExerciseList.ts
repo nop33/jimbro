@@ -1,46 +1,37 @@
-import { exercisesStore, MUSCLE_GROUPS, type Exercise } from '../../db/stores/exercisesStore';
-import ExerciseComponent from './ExerciseComponent';
+import { exercisesStore, type Exercise } from "../../db/stores/exercisesStore";
+import ExerciseComponent from "./ExerciseComponent";
+import MuscleGroupSelect from "./MuscleGroupSelect";
 
 class ExerciseList {
-  private static exercisesGrid = document.querySelector('#exercises-grid') as HTMLDivElement
-  private static exercises: Array<Exercise> = []
+  private static exercisesGrid = document.querySelector("#exercises-grid") as HTMLDivElement;
 
   static init() {
-    this.setupMuscleFilter()
-    this.reload()
-  }
-
-  private static reset() {
-    this.exercisesGrid.innerHTML = ''
+    exercisesStore.subscribe((exercises) => this.render(exercises));
+    this.renderMuscleFilter();
   }
 
   static render(exercises: Array<Exercise>) {
-    this.reset()
-    this.exercisesGrid.append(...exercises.map((exercise) => new ExerciseComponent(exercise).render()))
+    this.exercisesGrid.innerHTML = "";
+    this.exercisesGrid.append(...exercises.map((exercise) => new ExerciseComponent(exercise).render()));
   }
 
-  static async reload() {
-    this.exercises = await exercisesStore.getAllExercises()
-    this.render(this.exercises)
-  }
-
-  static setupMuscleFilter() {
-    const muscleFilter = document.querySelector('#muscle-filter') as HTMLSelectElement
-    muscleFilter.innerHTML = '<option value="">Select muscle group...</option>' +
-      `<option value="All">All</option>` +
-      MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${muscle}</option>`).join('');
-
-    muscleFilter.addEventListener('change', (e) => {
-      const selectedMuscle = (e.target as HTMLSelectElement).value
-
-      if (selectedMuscle === 'All' || !selectedMuscle) {
-        this.render(this.exercises)
-      } else {
-        const filteredExercises = this.exercises.filter((exercise) => exercise.muscle === selectedMuscle)
-        this.render(filteredExercises)
+  private static renderMuscleFilter() {
+    const muscleFilter = new MuscleGroupSelect({
+      selector: "#muscle-filter",
+      onSelect: (selectedMuscle) => {
+        const filteredExercises = this.filterExercises(exercisesStore.get(), selectedMuscle);
+        this.render(filteredExercises);
       }
-    })
+    });
+
+    muscleFilter.render({ includeOptionAll: true });
+  }
+
+  private static filterExercises(exercises: Array<Exercise>, selectedMuscle: string) {
+    return selectedMuscle === "All" || !selectedMuscle
+      ? exercises
+      : exercises.filter((exercise) => exercise.muscle === selectedMuscle);
   }
 }
 
-export default ExerciseList
+export default ExerciseList;

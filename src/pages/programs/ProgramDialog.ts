@@ -2,99 +2,89 @@ import type { Exercise } from "../../db/stores/exercisesStore";
 import { programsStore, type Program } from "../../db/stores/programsStore";
 import ProgramExercisesMultiselect from "./ProgramExercisesMultiselect";
 import ProgramExercisesSortableList from "./ProgramExercisesSortableList";
-import type { ExercisesListProps } from "./programTypes";
-
-interface ProgramDialogProps {
-  exercises: Array<Exercise>;
-  onProgramSaved: () => void;
-}
 
 class ProgramDialog {
-  private static newProgramButton = document.querySelector('#new-program-btn') as HTMLButtonElement
-  private static programDialog = document.querySelector('#program-dialog') as HTMLDialogElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement;
-  private static programForm = document.querySelector('#program-form') as HTMLFormElement;
-  private static programIdInput = document.querySelector('#program-id') as HTMLInputElement;
-  private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement;
+  private static newProgramButton = document.querySelector("#new-program-btn") as HTMLButtonElement;
+  private static programDialog = document.querySelector("#program-dialog") as HTMLDialogElement;
+  private static dialogCancel = document.querySelector("#dialog-cancel") as HTMLButtonElement;
+  private static programForm = document.querySelector("#program-form") as HTMLFormElement;
+  private static programIdInput = document.querySelector("#program-id") as HTMLInputElement;
+  private static dialogTitle = document.querySelector("#dialog-title") as HTMLHeadingElement;
 
-  private static exercises: Array<Exercise> = []
-  private static selectedExercises = new Set<string>();
+  private static selectedExercises = new Set<Exercise["id"]>();
 
   static openDialog() {
-    this.programDialog.showModal()
+    this.programDialog.showModal();
   }
 
   static closeDialog() {
-    this.programDialog.close()
+    this.programDialog.close();
   }
 
-  static init({ exercises, onProgramSaved }: ProgramDialogProps) {
-    this.exercises = exercises
-
+  static init() {
     ProgramExercisesMultiselect.init({
       onSelect: (ids) => {
-        this.updateSelectedExercises(ids)
-        ProgramExercisesSortableList.render({ selectedExercises: this.selectedExercises, allExercises: this.exercises })
+        this.updateSelectedExercises(ids);
+        ProgramExercisesSortableList.render({ selectedExercises: this.selectedExercises });
       }
-    })
-    ProgramExercisesSortableList.init({ onReorder: (ids) => this.updateSelectedExercises(ids) })
+    });
+    ProgramExercisesSortableList.init({
+      onReorder: (ids) => this.updateSelectedExercises(ids)
+    });
 
-    this.newProgramButton.addEventListener('click', () => {
-      this.setup()
-      this.openDialog()
-    })
+    this.newProgramButton.addEventListener("click", () => {
+      this.render();
+      this.openDialog();
+    });
 
-    this.dialogCancel.addEventListener('click', () => {
-      this.closeDialog()
-    })
+    this.dialogCancel.addEventListener("click", () => {
+      this.closeDialog();
+    });
 
-    this.programForm.addEventListener('submit', async (e) => {
-      e.preventDefault()
+    this.programForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-      const formData = new FormData(this.programForm)
-      const id = this.programIdInput.value
-      const name = formData.get('name') as string
-      const exercises = Array.from(this.selectedExercises)
+      const formData = new FormData(this.programForm);
+      const id = this.programIdInput.value;
+      const name = formData.get("name") as string;
+      const exercises = Array.from(this.selectedExercises);
 
       try {
         if (id) {
           await programsStore.updateProgram({ id, name, exercises });
         } else {
-          await programsStore.createProgram({ name, exercises })
+          await programsStore.createProgram({ name, exercises });
         }
-        onProgramSaved()
-        this.closeDialog()
-      } catch (error) {
-        console.error('Error saving program:', error)
-      }
-    })
 
+        this.closeDialog();
+      } catch (error) {
+        console.error("Error saving program:", error);
+      }
+    });
   }
 
-  static setup(program?: Program) {
+  static render(program?: Program) {
     if (program) {
-      this.selectedExercises.clear()
-      this.selectedExercises = new Set(program.exercises)
+      this.selectedExercises.clear();
+      this.selectedExercises = new Set(program.exercises);
 
-      this.dialogTitle.textContent = 'Edit Program';
+      this.dialogTitle.textContent = "Edit Program";
       this.programIdInput.value = program.id;
-      (document.querySelector('#program-name') as HTMLInputElement).value = program.name;
+      (document.querySelector("#program-name") as HTMLInputElement).value = program.name;
     } else {
-      this.selectedExercises.clear()
-      this.dialogTitle.textContent = 'New Program';
+      this.selectedExercises.clear();
+      this.dialogTitle.textContent = "New Program";
       this.programForm.reset();
-      this.programIdInput.value = '';
+      this.programIdInput.value = "";
     }
 
-    const props: ExercisesListProps = { selectedExercises: this.selectedExercises, allExercises: this.exercises }
-
-    ProgramExercisesMultiselect.render(props)
-    ProgramExercisesSortableList.render(props)
+    ProgramExercisesMultiselect.render({ selectedExercises: this.selectedExercises });
+    ProgramExercisesSortableList.render({ selectedExercises: this.selectedExercises });
   }
 
-  private static updateSelectedExercises(selectedExerciseIds: Array<Exercise['id']>) {
-    this.selectedExercises = new Set(selectedExerciseIds)
+  private static updateSelectedExercises(selectedExerciseIds: Array<Exercise["id"]>) {
+    this.selectedExercises = new Set(selectedExerciseIds);
   }
 }
 
-export default ProgramDialog
+export default ProgramDialog;
