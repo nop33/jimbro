@@ -23,9 +23,9 @@ export function initNavigation() {
         <span class="text-2xl mb-1">📋</span>
         <span class="text-xs font-medium">Exercises</span>
       </a>
-      <a href="/programms/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
+      <a href="/programs/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">
         <span class="text-2xl mb-1">📝</span>
-        <span class="text-xs font-medium">Programms</span>
+        <span class="text-xs font-medium">Programs</span>
       </a>
     </div>
   `;

@@ -8,7 +8,7 @@ const openDatabase = async (): Promise<IDBDatabase> => {
     const request = window.indexedDB.open(DB_NAME, latestVersion)
 
     request.onsuccess = (event) => {
-      console.error('✅ Opened DB connection', event)
+      console.log('✅ Opened DB connection', event)
       resolve(request.result)
     }
 
@@ -55,6 +55,12 @@ export class Storage {
     const store = await this.getStore(storeName, 'readwrite');
     await promisifyRequest(store.add(item));
     return item;
+  }
+
+  async get<T>(storeName: string, key: string | number): Promise<T | undefined> {
+    const store = await this.getStore(storeName);
+    const result = await promisifyRequest<T | undefined>(store.get(key));
+    return result;
   }
 
   async update<T>(storeName: string, item: T): Promise<T> {

@@ -1,4 +1,4 @@
-
+import '../../style.css';
 import ExerciseDialog from "./ExerciseDialog";
 import ExerciseList from "./ExerciseList";
 

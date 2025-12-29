@@ -50,7 +50,11 @@
   }
 
   .card-hover {
-    @apply hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
+    @apply cursor-pointer;
+  }
+
+  .card-title {
+    @apply text-lg font-bold mb-2;
   }
 
   /* Modern input styles */
@@ -101,6 +105,10 @@
     scroll-behavior: smooth;
   }
 
+  summary {
+    @apply text-lg mb-2 cursor-pointer;
+  }
+
   /* Modern dialog styles */
   dialog {
     @apply rounded-2xl p-8 max-w-md mx-auto my-auto border border-neutral-700/50;
@@ -113,21 +121,13 @@
   }
 
   /* Exercise card specific */
-  .exercise-card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
-  }
-
-  .exercise-card .exercise-name {
-    @apply text-lg font-bold mb-2;
-  }
-
-  .exercise-card .exercise-muscle {
+  .exercise-muscle {
     @apply text-sm font-medium text-blue-400 mb-2;
   }
 
   /* Workout card specific */
   .workout-card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer;
+    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 cursor-pointer;
   }
 
   /* Section headers */
@@ -138,6 +138,39 @@
   /* Label styles */
   label {
     @apply block text-sm font-semibold mb-2;
+  }
+
+  select[multiple] {
+    optgroup{
+      @apply text-sm font-semibold mb-2;
+    }
+
+    option {
+      @apply py-2 ml-4 pl-2 text-base;
+    }
+
+    option:first-child {
+      @apply mt-1;
+    }
+  }
+
+
+
+  /* Sortable list styles */
+  .sortable-list {
+    @apply list-none p-0 m-0;
+  }
+
+  .sortable-item {
+    @apply mb-2 px-5 py-4 my-2 bg-white/80 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-colors transition-transform duration-200 hover:bg-blue-50 hover:scale-105;
+  }
+
+  .dragging {
+    @apply opacity-30 scale-95;
+  }
+
+  .sortable-item:last-child {
+    @apply mb-0;
   }
 }
 

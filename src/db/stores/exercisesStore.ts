@@ -34,6 +34,10 @@ export class ExercisesStore {
     return storage.create(this.storeName, {...item, id})
   }
 
+  async getExercise(id: string): Promise<Exercise | undefined> {
+    return storage.get(this.storeName, id)
+  }
+
   async updateExercise(item: Exercise): Promise<Exercise> {
     return storage.update(this.storeName, item)
   }

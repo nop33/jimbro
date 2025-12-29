@@ -1,5 +1,4 @@
 import { exercisesStore, MUSCLE_GROUPS, type Exercise } from '../../db/stores/exercisesStore';
-import '../../style.css';
 import ExerciseComponent from './ExerciseComponent';
 
 class ExerciseList {

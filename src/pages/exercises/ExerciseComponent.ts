@@ -18,7 +18,6 @@ class ExerciseComponent {
     setTextContent('.exercise-reps', this.exercise.reps.toString(), exerciseItem)
 
     exerciseItem.querySelector('div')?.addEventListener('click', () => {
-      console.log('clicked', this.exercise)
       ExerciseDialog.setup(this.exercise)
       ExerciseDialog.openDialog()
     })
