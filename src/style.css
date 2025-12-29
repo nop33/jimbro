@@ -61,7 +61,7 @@
   input[type="text"],
   input[type="number"],
   select {
-    @apply w-full px-4 py-3 rounded-xl bg-neutral-800/80 text-neutral-100 border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
+    @apply w-full px-4 py-3 rounded-xl border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
   }
 
   input[type="text"]:hover,
@@ -154,15 +154,13 @@
     }
   }
 
-
-
   /* Sortable list styles */
   .sortable-list {
     @apply list-none p-0 m-0;
   }
 
   .sortable-item {
-    @apply mb-2 px-5 py-4 my-2 bg-white/80 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-colors transition-transform duration-200 hover:bg-blue-50 hover:scale-105;
+    @apply mb-2 px-5 py-4 my-2 bg-neutral-100 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-colors transition-transform duration-200 hover:bg-blue-50 hover:scale-105;
   }
 
   .dragging {

@@ -53,13 +53,13 @@
     </div>
   </div>
 
-  <dialog id="program-dialog" class="bg-neutral-800 text-neutral-100 rounded-lg p-6 max-w-md max-h-[90vh] overflow-y-auto">
+  <dialog id="program-dialog" class="rounded-lg p-6 max-w-md max-h-[90vh] overflow-y-auto">
     <h2 id="dialog-title" class="text-xl font-bold mb-4">New program</h2>
     <form id="program-form" class="flex flex-col gap-4">
       <input type="hidden" id="program-id" name="id">
       <div>
         <label for="program-name" class="block text-sm font-medium mb-2">Name</label>
-        <input type="text" id="program-name" name="name" required class="w-full p-2 rounded bg-neutral-700 text-neutral-100 border border-neutral-600">
+        <input type="text" id="program-name" name="name" required class="w-full p-2 rounded border border-neutral-600">
       </div>
       <div>
         <label class="block text-sm font-medium mb-2">Select program exercises</label>
@@ -94,8 +94,8 @@
         </template>
       </div>
       <div class="flex gap-2 justify-end mt-4">
-        <button type="button" id="dialog-cancel" class="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">Cancel</button>
-        <button type="submit" class="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600">Save</button>
+        <button type="button" id="dialog-cancel" class="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600 text-white">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white">Save</button>
       </div>
     </form>
   </dialog>
