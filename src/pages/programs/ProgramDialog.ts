@@ -27,6 +27,12 @@ class ProgramDialog {
   static init() {
     this.programExercisesMultiselect.on('exercise-selected', ({ detail: { selectedExerciseIds } }) => {
       selectedExerciseIds.forEach((id) => this.selectedExercises.add(id));
+      const selectedExercises = Array.from(this.selectedExercises);
+      selectedExercises.forEach((id) => {
+        if (!selectedExerciseIds.includes(id)) {
+          this.selectedExercises.delete(id);
+        }
+      })
       this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises });
     })
 
