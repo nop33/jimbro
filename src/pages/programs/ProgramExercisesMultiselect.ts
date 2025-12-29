@@ -1,22 +1,29 @@
+import EventEmitter from "../../db/eventEmitter";
 import { exercisesStore, type Exercise } from "../../db/stores/exercisesStore";
 import type { ExercisesListProps } from "./programTypes";
 
-interface ProgramExercisesMultiselectProps {
-  onSelect: (selectedExerciseIds: Array<Exercise['id']>) => void;
+type ProgramExercisesMultiselectEventMap = {
+  'exercise-selected': { selectedExerciseIds: Array<Exercise['id']> };
 }
 
-class ProgramExercisesMultiselect {
-  private static exercisesSelection = document.querySelector('#exercises-selection') as HTMLSelectElement;
+class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultiselectEventMap> {
+  private exercisesSelection: HTMLSelectElement;
 
-  static init({ onSelect }: ProgramExercisesMultiselectProps) {
+  constructor(selector: string) {
+    super();
+    this.exercisesSelection = document.querySelector(selector) as HTMLSelectElement;
+    this.init();
+  }
+
+  private init() {
     this.exercisesSelection.addEventListener('change', (e) => {
       const selectedExerciseIds = Array.from((e.target as HTMLSelectElement).selectedOptions).map((option) => option.value)
 
-      onSelect(selectedExerciseIds)
+      this.emit('exercise-selected', { selectedExerciseIds })
     })
   }
 
-  static render({ selectedExercises }: ExercisesListProps) {
+  render({ selectedExercises }: ExercisesListProps) {
     const allExercises = exercisesStore.get()
     const groupMap = new Map<string, Exercise[]>();
     for (const exercise of allExercises) {

@@ -1,15 +1,22 @@
+import EventEmitter from "../../db/eventEmitter";
 import { exercisesStore, type Exercise } from "../../db/stores/exercisesStore";
 import { nodeFromTemplate, setTextContent } from "../../utils";
 import type { ExercisesListProps } from "./programTypes";
 
-type ProgramExercisesSortableListProps = {
-  onReorder: (reorderedExerciseIds: Array<Exercise['id']>) => void;
+type ProgramExercisesSortableListEventMap = {
+  'reordered-exercises': { reorderedExerciseIds: Array<Exercise['id']> };
 }
 
-class ProgramExercisesSortableList {
-  private static selectedExercisesList = document.querySelector('#selected-exercises-list') as HTMLUListElement;
+class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortableListEventMap> {
+  private selectedExercisesList: HTMLUListElement;
 
-  static init({ onReorder }: ProgramExercisesSortableListProps) {
+  constructor(selector: string) {
+    super();
+    this.selectedExercisesList = document.querySelector(selector) as HTMLUListElement;
+    this.init();
+  }
+
+  private init() {
     let draggingItem: HTMLElement | null = null;
 
     this.selectedExercisesList.addEventListener('dragstart', (e) => {
@@ -23,7 +30,7 @@ class ProgramExercisesSortableList {
       draggingItem = null;
 
       const reorderedExerciseIds = Array.from(this.selectedExercisesList.children).map((child) => child.attributes.getNamedItem('data-exercise-id')?.value).filter((id) => id !== undefined)
-      onReorder(reorderedExerciseIds)
+      this.emit('reordered-exercises', { reorderedExerciseIds })
     });
 
     this.selectedExercisesList.addEventListener('dragover', (e) => {
@@ -43,7 +50,7 @@ class ProgramExercisesSortableList {
     });
   }
 
-  private static getDragAfterElement = (container: HTMLElement, y: number) => {
+  private getDragAfterElement = (container: HTMLElement, y: number) => {
     const draggableElements = [...container.querySelectorAll('.sortable-item:not(.dragging)')];
 
     const result = draggableElements.reduce((closest, child) => {
@@ -59,7 +66,7 @@ class ProgramExercisesSortableList {
     return result.element;
   }
 
-  static render({ selectedExercises }: ExercisesListProps) {
+  render({ selectedExercises }: ExercisesListProps) {
     this.selectedExercisesList.innerHTML = ''
     const selectedExercisesIds = Array.from(selectedExercises)
     const allExercises = exercisesStore.get()

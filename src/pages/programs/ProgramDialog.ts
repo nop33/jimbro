@@ -11,6 +11,9 @@ class ProgramDialog {
   private static programIdInput = document.querySelector("#program-id") as HTMLInputElement;
   private static dialogTitle = document.querySelector("#dialog-title") as HTMLHeadingElement;
 
+  private static programExercisesMultiselect = new ProgramExercisesMultiselect("#exercises-selection");
+  private static programExercisesSortableList = new ProgramExercisesSortableList("#selected-exercises-list");
+
   private static selectedExercises = new Set<Exercise["id"]>();
 
   static openDialog() {
@@ -22,15 +25,14 @@ class ProgramDialog {
   }
 
   static init() {
-    ProgramExercisesMultiselect.init({
-      onSelect: (ids) => {
-        this.updateSelectedExercises(ids);
-        ProgramExercisesSortableList.render({ selectedExercises: this.selectedExercises });
-      }
-    });
-    ProgramExercisesSortableList.init({
-      onReorder: (ids) => this.updateSelectedExercises(ids)
-    });
+    this.programExercisesMultiselect.on('exercise-selected', ({ detail: { selectedExerciseIds } }) => {
+      selectedExerciseIds.forEach((id) => this.selectedExercises.add(id));
+      this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises });
+    })
+
+    this.programExercisesSortableList.on('reordered-exercises', ({ detail: { reorderedExerciseIds } }) => {
+      this.selectedExercises = new Set(reorderedExerciseIds);
+    })
 
     this.newProgramButton.addEventListener("click", () => {
       this.render();
@@ -65,7 +67,6 @@ class ProgramDialog {
 
   static render(program?: Program) {
     if (program) {
-      this.selectedExercises.clear();
       this.selectedExercises = new Set(program.exercises);
 
       this.dialogTitle.textContent = "Edit Program";
@@ -78,12 +79,8 @@ class ProgramDialog {
       this.programIdInput.value = "";
     }
 
-    ProgramExercisesMultiselect.render({ selectedExercises: this.selectedExercises });
-    ProgramExercisesSortableList.render({ selectedExercises: this.selectedExercises });
-  }
-
-  private static updateSelectedExercises(selectedExerciseIds: Array<Exercise["id"]>) {
-    this.selectedExercises = new Set(selectedExerciseIds);
+    this.programExercisesMultiselect.render({ selectedExercises: this.selectedExercises });
+    this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises });
   }
 }
 

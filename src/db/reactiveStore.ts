@@ -20,7 +20,7 @@ class ReactiveStore<T> {
     return this.data
   }
 
-  protected set(newData: T) {
+  set(newData: T) {
     this.data = newData
     this.notify()
   }
