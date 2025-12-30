@@ -57,6 +57,14 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
     return storage.getAll<Program>(this.storeName)
   }
 
+  async getProgramsByNames(): Promise<Record<string, string>> {
+    const programs = await this.getAllPrograms()
+    return programs.reduce((acc, program) => {
+      acc[program.id] = program.name
+      return acc
+    }, {} as Record<string, string>)
+  }
+
   async countPrograms(): Promise<number> {
     return storage.count(this.storeName)
   }

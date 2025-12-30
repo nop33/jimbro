@@ -1,6 +1,7 @@
 import type { ExportData } from './export'
 import { exercisesStore } from './stores/exercisesStore'
 import { programsStore } from './stores/programsStore'
+import { workoutSessionsStore } from './stores/workoutSessionsStore'
 
 export const importIndexedDbFromJson = async (file: File) => {
   const text = await file.text()
@@ -14,6 +15,7 @@ export const importIndexedDbFromJson = async (file: File) => {
   try {
     await importExercises(stores.exercises)
     await importPrograms(stores.programs)
+    await importWorkoutSessions(stores.workoutSessions)
 
     console.log('✅ Imported data successfully')
   } catch (error) {
@@ -38,6 +40,16 @@ const importPrograms = async (programs: ExportData['stores']['programs']) => {
   for (const program of programs) {
     if (!existingPrograms.some((p) => p.id === program.id)) {
       await programsStore.importProgram(program)
+    }
+  }
+}
+
+const importWorkoutSessions = async (workoutSessions: ExportData['stores']['workoutSessions']) => {
+  const existingWorkoutSessions = await workoutSessionsStore.getAllWorkoutSessions()
+
+  for (const workoutSession of workoutSessions) {
+    if (!existingWorkoutSessions.some((w) => w.date === workoutSession.date)) {
+      await workoutSessionsStore.createWorkoutSession(workoutSession)
     }
   }
 }

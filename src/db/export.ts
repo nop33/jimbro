@@ -1,5 +1,6 @@
 import { exercisesStore, type Exercise } from './stores/exercisesStore'
 import { programsStore, type Program } from './stores/programsStore'
+import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
 
 export interface ExportData {
   version: number
@@ -7,6 +8,7 @@ export interface ExportData {
   stores: {
     exercises: Array<Exercise>
     programs: Array<Program>
+    workoutSessions: Array<WorkoutSession>
   }
 }
 
@@ -16,7 +18,8 @@ export const exportIndexedDbToJson = async () => {
     exportDate: new Date().toISOString(),
     stores: {
       exercises: await exercisesStore.getAllExercises(),
-      programs: await programsStore.getAllPrograms()
+      programs: await programsStore.getAllPrograms(),
+      workoutSessions: await workoutSessionsStore.getAllWorkoutSessions()
     }
   }
 

@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,65 +14,47 @@
       <header class="app-header">
         <a href="/" class="link-primary mr-4"> <span class="text-xl">←</span> Back </a>
         <h1 class="app-header-title">Workouts</h1>
-        <a href="/settings/" class="link-primary ml-auto">Settings</a>
       </header>
       <div class="app-page-content">
-        <div class="mb-6 flex flex-col gap-3">
-          <a href="/workout-log/" class="btn-primary inline-block text-center"> + New Workout </a>
-          <input type="text" id="workout-search" placeholder="Search workouts..." />
+        <div id="workout-weeks" class="flex flex-col gap-4">
+          <!-- Workout weeks will be rendered here -->
         </div>
-
-        <div>
-          <h2 class="section-header">Last week</h2>
-          <ul
-            class="workout-list last-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
-          ></ul>
-        </div>
-        <div>
-          <h2 class="section-header">This week</h2>
-          <ul
-            class="workout-list this-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
-          ></ul>
-        </div>
-        <template id="workout-item">
+        <template id="workout-week-template">
+          <div class="workout-week">
+            <h2 class="workout-week-title text-xl font-bold mb-2">
+              <span class="workout-week-week">
+                <!-- -->
+              </span>
+              <span class="workout-week-year text-neutral-300">
+                <!-- -->
+              </span>
+            </h2>
+            <ul id="workout-week-list" class="grid grid-cols-3 gap-2 items-stretch">
+              <!-- Workout items will be rendered here -->
+            </ul>
+          </div>
+        </template>
+        <template id="workout-item-template">
           <li>
-            <div class="workout-card">
-              <h2 class="workout-title text-xl font-bold mb-2"></h2>
-              <p class="workout-status text-sm text-blue-400 mb-1"></p>
-              <p class="workout-date text-xs text-neutral-400"></p>
+            <div class="card h-full p-4 justify-between flex flex-col">
+              <h2 class="workout-title text-sm font-bold mb-2">
+                <!-- -->
+              </h2>
+              <div>
+                <p class="workout-date text-xs text-neutral-600">
+                  <!-- -->
+                </p>
+                <p class="workout-status text-sm text-neutral-400">
+                  <!-- -->
+                </p>
+              </div>
             </div>
           </li>
         </template>
       </div>
     </div>
 
-    <dialog id="workout-detail-dialog" class="max-w-2xl max-h-[90vh] overflow-y-auto">
-      <h2
-        id="detail-title"
-        class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
-      ></h2>
-      <div id="workout-detail-content" class="flex flex-col gap-4">
-        <!-- Workout details will be rendered here -->
-      </div>
-      <div class="flex gap-3 justify-end mt-6">
-        <button id="detail-close" class="btn-secondary">Close</button>
-        <button id="detail-edit" class="btn-primary">Edit</button>
-        <button id="detail-delete" class="btn-danger">Delete</button>
-      </div>
-    </dialog>
-
-    <dialog id="delete-workout-dialog">
-      <h2 class="text-2xl font-bold mb-4 bg-gradient-to-r from-red-400 to-rose-400 bg-clip-text text-transparent">
-        Delete Workout
-      </h2>
-      <p id="delete-workout-message" class="mb-6 text-neutral-300"></p>
-      <div class="flex gap-3 justify-end">
-        <button id="delete-workout-cancel" class="btn-secondary">Cancel</button>
-        <button id="delete-workout-confirm" class="btn-danger">Delete</button>
-      </div>
-    </dialog>
-
-    <script type="module" src="../src/workouts.ts"></script>
+    <script type="module" src="../src/pages/workouts/index.ts"></script>
     <script type="module" src="../src/navigation.ts"></script>
   </body>
 </html>

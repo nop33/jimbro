@@ -128,11 +128,6 @@
     @apply text-sm font-medium text-blue-400 mb-2;
   }
 
-  /* Workout card specific */
-  .workout-card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300 cursor-pointer;
-  }
-
   /* Section headers */
   .section-header {
     @apply text-xl font-bold mb-4 mt-6 first:mt-0;
