@@ -78,6 +78,10 @@ export class Storage {
     const store = await this.getStore(storeName);
     return promisifyRequest(store.count());
   }
+
+  async deleteDatabase() {
+    indexedDB.deleteDatabase(DB_NAME)
+  }
 }
 
 export const storage = new Storage()
