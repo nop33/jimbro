@@ -1,7 +1,7 @@
-import { OBJECT_STORES } from "./constants";
+import { OBJECT_STORES } from './constants'
 
 export interface DbMigration {
-  version: number;
+  version: number
   migrate: (db: IDBDatabase) => void
 }
 

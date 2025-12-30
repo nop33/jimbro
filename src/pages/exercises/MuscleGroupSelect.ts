@@ -1,33 +1,33 @@
-import { MUSCLE_GROUPS } from "../../db/stores/exercisesStore";
+import { MUSCLE_GROUPS } from '../../db/stores/exercisesStore'
 
 interface MuscleGroupSelectProps {
-  selector: string;
-  onSelect?: (muscleGroup: string) => void;
+  selector: string
+  onSelect?: (muscleGroup: string) => void
 }
 
 interface MuscleGroupSelectRenderProps {
-  includeOptionAll: boolean;
+  includeOptionAll: boolean
 }
 
 class MuscleGroupSelect {
-  private muscleGroupSelect: HTMLSelectElement;
+  private muscleGroupSelect: HTMLSelectElement
 
   constructor({ selector, onSelect }: MuscleGroupSelectProps) {
-    this.muscleGroupSelect = document.querySelector(selector) as HTMLSelectElement;
-    this.muscleGroupSelect.addEventListener("change", (e) => {
-      const selectedMuscle = (e.target as HTMLSelectElement).value;
-      onSelect?.(selectedMuscle);
-    });
+    this.muscleGroupSelect = document.querySelector(selector) as HTMLSelectElement
+    this.muscleGroupSelect.addEventListener('change', (e) => {
+      const selectedMuscle = (e.target as HTMLSelectElement).value
+      onSelect?.(selectedMuscle)
+    })
   }
 
   render({ includeOptionAll }: MuscleGroupSelectRenderProps) {
     const options = ['<option value="">Select muscle group...</option>']
     if (includeOptionAll) {
-      options.push(`<option value="All">All</option>`);
+      options.push(`<option value="All">All</option>`)
     }
-    options.push(...MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${muscle}</option>`));
-    this.muscleGroupSelect.innerHTML = options.join("");;
+    options.push(...MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${muscle}</option>`))
+    this.muscleGroupSelect.innerHTML = options.join('')
   }
 }
 
-export default MuscleGroupSelect;
+export default MuscleGroupSelect

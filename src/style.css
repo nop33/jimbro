@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer base {
   * {
@@ -58,14 +58,14 @@
   }
 
   /* Modern input styles */
-  input[type="text"],
-  input[type="number"],
+  input[type='text'],
+  input[type='number'],
   select {
     @apply w-full px-4 py-3 rounded-xl border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
   }
 
-  input[type="text"]:hover,
-  input[type="number"]:hover,
+  input[type='text']:hover,
+  input[type='number']:hover,
   select:hover {
     @apply border-neutral-600;
   }
@@ -95,7 +95,10 @@
   }
 
   /* Mobile-first: Ensure touch targets are at least 44x44px */
-  button, a, input, select {
+  button,
+  a,
+  input,
+  select {
     min-height: 44px;
     min-width: 44px;
   }
@@ -141,7 +144,7 @@
   }
 
   select[multiple] {
-    optgroup{
+    optgroup {
       @apply text-sm font-semibold mb-2;
     }
 

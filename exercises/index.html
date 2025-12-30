@@ -1,78 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gymbro - Exercises</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>">
-</head>
-<body class="app">
-  <div class="app-page">
-    <header class="app-header">
-      <a href="/" class="link-primary mr-4">
-        <span class="text-xl">←</span> Back
-      </a>
-      <h1 class="app-header-title">Exercises</h1>
-      <button id="new-exercise-btn" class="link-primary ml-auto font-semibold">+ New</button>
-    </header>
-    <div class="app-page-content">
-      <div class="mb-6">
-        <label for="muscle-filter">Filter by muscle group</label>
-        <select id="muscle-filter">
-          <!-- Muscle groups will be rendered here -->
-        </select>
-      </div>
-
-      <div id="exercises-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Exercises will be rendered here -->
-      </div>
-      <template id="exercise-item-template">
-        <div class="card card-hover">
-          <h3 class="exercise-name card-title">
-            <!-- -->
-          </h3>
-          <p class="exercise-muscle">
-            <!-- -->
-          </p>
-          <p class="text-sm text-neutral-400 font-medium">
-            <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
-          </p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gymbro - Exercises</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>"
+    />
+  </head>
+  <body class="app">
+    <div class="app-page">
+      <header class="app-header">
+        <a href="/" class="link-primary mr-4"> <span class="text-xl">←</span> Back </a>
+        <h1 class="app-header-title">Exercises</h1>
+        <button id="new-exercise-btn" class="link-primary ml-auto font-semibold">+ New</button>
+      </header>
+      <div class="app-page-content">
+        <div class="mb-6">
+          <label for="muscle-filter">Filter by muscle group</label>
+          <select id="muscle-filter">
+            <!-- Muscle groups will be rendered here -->
+          </select>
         </div>
-      </template>
+
+        <div id="exercises-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Exercises will be rendered here -->
+        </div>
+        <template id="exercise-item-template">
+          <div class="card card-hover">
+            <h3 class="exercise-name card-title">
+              <!-- -->
+            </h3>
+            <p class="exercise-muscle">
+              <!-- -->
+            </p>
+            <p class="text-sm text-neutral-400 font-medium">
+              <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
+            </p>
+          </div>
+        </template>
+      </div>
     </div>
-  </div>
 
-  <dialog id="exercise-dialog">
-    <h2 id="dialog-title" class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">New Exercise</h2>
-    <form id="exercise-form" class="flex flex-col gap-5">
-      <input type="hidden" id="exercise-id" name="id">
-      <div>
-        <label for="exercise-name">Name</label>
-        <input type="text" id="exercise-name" name="name" required>
-      </div>
-      <div>
-        <label for="exercise-muscle">Muscle group</label>
-        <select id="exercise-muscle" name="muscle" required>
-          <!-- Muscle groups will be rendered here -->
-        </select>
-      </div>
-      <div>
-        <label for="exercise-sets">Default sets</label>
-        <input type="number" id="exercise-sets" name="sets" min="1" required>
-      </div>
-      <div>
-        <label for="exercise-reps">Default reps</label>
-        <input type="number" id="exercise-reps" name="reps" min="1" required>
-      </div>
-      <div class="flex gap-3 justify-end mt-6">
-        <button type="button" id="dialog-cancel" class="btn-secondary">Cancel</button>
-        <button type="submit" class="btn-primary">Save</button>
-      </div>
-    </form>
-  </dialog>
+    <dialog id="exercise-dialog">
+      <h2
+        id="dialog-title"
+        class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
+      >
+        New Exercise
+      </h2>
+      <form id="exercise-form" class="flex flex-col gap-5">
+        <input type="hidden" id="exercise-id" name="id" />
+        <div>
+          <label for="exercise-name">Name</label>
+          <input type="text" id="exercise-name" name="name" required />
+        </div>
+        <div>
+          <label for="exercise-muscle">Muscle group</label>
+          <select id="exercise-muscle" name="muscle" required>
+            <!-- Muscle groups will be rendered here -->
+          </select>
+        </div>
+        <div>
+          <label for="exercise-sets">Default sets</label>
+          <input type="number" id="exercise-sets" name="sets" min="1" required />
+        </div>
+        <div>
+          <label for="exercise-reps">Default reps</label>
+          <input type="number" id="exercise-reps" name="reps" min="1" required />
+        </div>
+        <div class="flex gap-3 justify-end mt-6">
+          <button type="button" id="dialog-cancel" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Save</button>
+        </div>
+      </form>
+    </dialog>
 
-  <script type="module" src="../src/pages/exercises/index.ts"></script>
-  <script type="module" src="../src/navigation.ts"></script>
-</body>
+    <script type="module" src="../src/pages/exercises/index.ts"></script>
+    <script type="module" src="../src/navigation.ts"></script>
+  </body>
 </html>
-

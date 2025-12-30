@@ -1,7 +1,7 @@
-import { exercisesStore } from '../../db/stores/exercisesStore';
-import '../../style.css';
-import ExerciseDialog from "./ExerciseDialog";
-import ExerciseList from "./ExerciseList";
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import '../../style.css'
+import ExerciseDialog from './ExerciseDialog'
+import ExerciseList from './ExerciseList'
 
 exercisesStore.initialize()
 

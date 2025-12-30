@@ -1,13 +1,13 @@
-import { OBJECT_STORES } from "../constants";
-import ReactiveStore from "../reactiveStore";
-import { storage } from "../storage"
+import { OBJECT_STORES } from '../constants'
+import ReactiveStore from '../reactiveStore'
+import { storage } from '../storage'
 
 export interface Exercise {
-  id: string;
-  name: string;
-  muscle: MuscleGroup;
-  sets: number;
-  reps: number;
+  id: string
+  name: string
+  muscle: MuscleGroup
+  sets: number
+  reps: number
 }
 
 export type NewExercise = Omit<Exercise, 'id'>
@@ -22,10 +22,10 @@ export const MUSCLE_GROUPS = [
   'Shoulders',
   'Back',
   'Biceps',
-  'Traps',
-] as const;
+  'Traps'
+] as const
 
-export type MuscleGroup = typeof MUSCLE_GROUPS[number]
+export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
 
 export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   private storeName = OBJECT_STORES.EXERSISES
@@ -59,7 +59,7 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   }
 
   async updateExercise(item: Exercise): Promise<Exercise> {
-    this.update((currentExercises) => currentExercises.map((exercise) => exercise.id === item.id ? item : exercise))
+    this.update((currentExercises) => currentExercises.map((exercise) => (exercise.id === item.id ? item : exercise)))
 
     try {
       await storage.update(this.storeName, item)

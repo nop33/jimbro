@@ -1,8 +1,8 @@
-import { exercisesStore } from "../../db/stores/exercisesStore"
-import type { Program } from "../../db/stores/programsStore"
-import { nodeFromTemplate, setTextContent } from "../../utils"
-import ExerciseComponent from "../exercises/ExerciseComponent"
-import ProgramDialog from "./ProgramDialog"
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import type { Program } from '../../db/stores/programsStore'
+import { nodeFromTemplate, setTextContent } from '../../utils'
+import ExerciseComponent from '../exercises/ExerciseComponent'
+import ProgramDialog from './ProgramDialog'
 
 class ProgramComponent {
   private program: Program

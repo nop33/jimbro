@@ -1,6 +1,6 @@
-import type { Exercise } from "../../db/stores/exercisesStore"
-import { nodeFromTemplate, setTextContent } from "../../utils"
-import ExerciseDialog from "./ExerciseDialog"
+import type { Exercise } from '../../db/stores/exercisesStore'
+import { nodeFromTemplate, setTextContent } from '../../utils'
+import ExerciseDialog from './ExerciseDialog'
 
 class ExerciseComponent {
   private exercise: Exercise

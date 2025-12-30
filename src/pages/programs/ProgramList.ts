@@ -1,5 +1,5 @@
-import { programsStore, type Program } from "../../db/stores/programsStore"
-import ProgramComponent from "./ProgramComponent"
+import { programsStore, type Program } from '../../db/stores/programsStore'
+import ProgramComponent from './ProgramComponent'
 
 class ProgramList {
   private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement

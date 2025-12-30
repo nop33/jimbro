@@ -1,70 +1,78 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gymbro - Workouts</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>">
-</head>
-<body class="app">
-  <div class="app-page">
-    <header class="app-header">
-      <a href="/" class="link-primary mr-4">
-        <span class="text-xl">←</span> Back
-      </a>
-      <h1 class="app-header-title">Workouts</h1>
-      <a href="/settings/" class="link-primary ml-auto">Settings</a>
-    </header>
-    <div class="app-page-content">
-      <div class="mb-6 flex flex-col gap-3">
-        <a href="/workout-log/" class="btn-primary inline-block text-center">
-          + New Workout
-        </a>
-        <input type="text" id="workout-search" placeholder="Search workouts...">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gymbro - Workouts</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>"
+    />
+  </head>
+  <body class="app">
+    <div class="app-page">
+      <header class="app-header">
+        <a href="/" class="link-primary mr-4"> <span class="text-xl">←</span> Back </a>
+        <h1 class="app-header-title">Workouts</h1>
+        <a href="/settings/" class="link-primary ml-auto">Settings</a>
+      </header>
+      <div class="app-page-content">
+        <div class="mb-6 flex flex-col gap-3">
+          <a href="/workout-log/" class="btn-primary inline-block text-center"> + New Workout </a>
+          <input type="text" id="workout-search" placeholder="Search workouts..." />
+        </div>
+
+        <div>
+          <h2 class="section-header">Last week</h2>
+          <ul
+            class="workout-list last-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+          ></ul>
+        </div>
+        <div>
+          <h2 class="section-header">This week</h2>
+          <ul
+            class="workout-list this-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+          ></ul>
+        </div>
+        <template id="workout-item">
+          <li>
+            <div class="workout-card">
+              <h2 class="workout-title text-xl font-bold mb-2"></h2>
+              <p class="workout-status text-sm text-blue-400 mb-1"></p>
+              <p class="workout-date text-xs text-neutral-400"></p>
+            </div>
+          </li>
+        </template>
       </div>
+    </div>
 
-      <div>
-        <h2 class="section-header">Last week</h2>
-        <ul class="workout-list last-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"></ul>
+    <dialog id="workout-detail-dialog" class="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <h2
+        id="detail-title"
+        class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
+      ></h2>
+      <div id="workout-detail-content" class="flex flex-col gap-4">
+        <!-- Workout details will be rendered here -->
       </div>
-      <div>
-        <h2 class="section-header">This week</h2>
-        <ul class="workout-list this-week list-none p-0 m-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full"></ul>
+      <div class="flex gap-3 justify-end mt-6">
+        <button id="detail-close" class="btn-secondary">Close</button>
+        <button id="detail-edit" class="btn-primary">Edit</button>
+        <button id="detail-delete" class="btn-danger">Delete</button>
       </div>
-      <template id="workout-item">
-        <li>
-          <div class="workout-card">
-            <h2 class="workout-title text-xl font-bold mb-2"></h2>
-            <p class="workout-status text-sm text-blue-400 mb-1"></p>
-            <p class="workout-date text-xs text-neutral-400"></p>
-          </div>
-        </li>
-      </template>
-    </div>
-  </div>
+    </dialog>
 
-  <dialog id="workout-detail-dialog" class="max-w-2xl max-h-[90vh] overflow-y-auto">
-    <h2 id="detail-title" class="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"></h2>
-    <div id="workout-detail-content" class="flex flex-col gap-4">
-      <!-- Workout details will be rendered here -->
-    </div>
-    <div class="flex gap-3 justify-end mt-6">
-      <button id="detail-close" class="btn-secondary">Close</button>
-      <button id="detail-edit" class="btn-primary">Edit</button>
-      <button id="detail-delete" class="btn-danger">Delete</button>
-    </div>
-  </dialog>
+    <dialog id="delete-workout-dialog">
+      <h2 class="text-2xl font-bold mb-4 bg-gradient-to-r from-red-400 to-rose-400 bg-clip-text text-transparent">
+        Delete Workout
+      </h2>
+      <p id="delete-workout-message" class="mb-6 text-neutral-300"></p>
+      <div class="flex gap-3 justify-end">
+        <button id="delete-workout-cancel" class="btn-secondary">Cancel</button>
+        <button id="delete-workout-confirm" class="btn-danger">Delete</button>
+      </div>
+    </dialog>
 
-  <dialog id="delete-workout-dialog">
-    <h2 class="text-2xl font-bold mb-4 bg-gradient-to-r from-red-400 to-rose-400 bg-clip-text text-transparent">Delete Workout</h2>
-    <p id="delete-workout-message" class="mb-6 text-neutral-300"></p>
-    <div class="flex gap-3 justify-end">
-      <button id="delete-workout-cancel" class="btn-secondary">Cancel</button>
-      <button id="delete-workout-confirm" class="btn-danger">Delete</button>
-    </div>
-  </dialog>
-
-  <script type="module" src="../src/workouts.ts"></script>
-  <script type="module" src="../src/navigation.ts"></script>
-</body>
+    <script type="module" src="../src/workouts.ts"></script>
+    <script type="module" src="../src/navigation.ts"></script>
+  </body>
 </html>

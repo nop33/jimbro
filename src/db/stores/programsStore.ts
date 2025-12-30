@@ -1,12 +1,12 @@
-import { OBJECT_STORES } from "../constants";
-import ReactiveStore from "../reactiveStore";
-import { storage } from "../storage"
-import type { Exercise } from "./exercisesStore";
+import { OBJECT_STORES } from '../constants'
+import ReactiveStore from '../reactiveStore'
+import { storage } from '../storage'
+import type { Exercise } from './exercisesStore'
 
 export interface Program {
-  id: string;
-  name: string;
-  exercises: Array<Exercise['id']>;
+  id: string
+  name: string
+  exercises: Array<Exercise['id']>
 }
 
 export type NewProgram = Omit<Program, 'id'>
@@ -40,7 +40,7 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
 
   async updateProgram(item: Program): Promise<Program> {
     this.update((currentPrograms) => {
-      return currentPrograms.map((program) => program.id === item.id ? item : program)
+      return currentPrograms.map((program) => (program.id === item.id ? item : program))
     })
 
     try {

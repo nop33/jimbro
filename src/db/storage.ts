@@ -1,6 +1,6 @@
-import { DB_NAME } from "./constants"
-import { getLatestDbVersion, getMigrationForVersion } from "./migrations"
-import { promisifyRequest } from "./utils"
+import { DB_NAME } from './constants'
+import { getLatestDbVersion, getMigrationForVersion } from './migrations'
+import { promisifyRequest } from './utils'
 
 const openDatabase = async (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -43,40 +43,40 @@ export class Storage {
     let db = this.db
 
     if (!db) {
-      db = await this.init();
+      db = await this.init()
     }
 
-    const transaction = db.transaction([storeName], mode);
+    const transaction = db.transaction([storeName], mode)
 
-    return transaction.objectStore(storeName);
+    return transaction.objectStore(storeName)
   }
 
   async create<T>(storeName: string, item: T): Promise<T> {
-    const store = await this.getStore(storeName, 'readwrite');
-    await promisifyRequest(store.add(item));
-    return item;
+    const store = await this.getStore(storeName, 'readwrite')
+    await promisifyRequest(store.add(item))
+    return item
   }
 
   async get<T>(storeName: string, key: string | number): Promise<T | undefined> {
-    const store = await this.getStore(storeName);
-    const result = await promisifyRequest<T | undefined>(store.get(key));
-    return result;
+    const store = await this.getStore(storeName)
+    const result = await promisifyRequest<T | undefined>(store.get(key))
+    return result
   }
 
   async update<T>(storeName: string, item: T): Promise<T> {
-    const store = await this.getStore(storeName, 'readwrite');
-    await promisifyRequest(store.put(item));
-    return item;
+    const store = await this.getStore(storeName, 'readwrite')
+    await promisifyRequest(store.put(item))
+    return item
   }
 
   async getAll<T>(storeName: string): Promise<Array<T>> {
-    const store = await this.getStore(storeName);
-    return promisifyRequest(store.getAll());
+    const store = await this.getStore(storeName)
+    return promisifyRequest(store.getAll())
   }
 
   async count(storeName: string): Promise<number> {
-    const store = await this.getStore(storeName);
-    return promisifyRequest(store.count());
+    const store = await this.getStore(storeName)
+    return promisifyRequest(store.count())
   }
 
   async deleteDatabase() {
