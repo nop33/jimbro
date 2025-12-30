@@ -10,6 +10,7 @@ export default defineConfig({
         home: resolve(__dirname, "index.html"),
         exercises: resolve(__dirname, "exercises/index.html"),
         programs: resolve(__dirname, "programs/index.html"),
+        settings: resolve(__dirname, "settings/index.html"),
       },
     },
   },

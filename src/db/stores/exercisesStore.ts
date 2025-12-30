@@ -37,17 +37,21 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
 
   async createExercise(item: NewExercise): Promise<Exercise> {
     const newExercise: Exercise = { ...item, id: crypto.randomUUID() }
-    this.update((currentExercises) => [...currentExercises, newExercise]) // optimistic update
+    await this.importExercise(newExercise)
+    return newExercise
+  }
+
+  async importExercise(exercise: Exercise): Promise<void> {
+    this.update((currentExercises) => [...currentExercises, exercise]) // optimistic update
 
     try {
-      await storage.create(this.storeName, newExercise)
+      await storage.create(this.storeName, exercise)
     } catch (error) {
       this.update((currentExercises) => {
-        return currentExercises.filter((exercise) => exercise.id !== newExercise.id) // rollback optimistic update
+        return currentExercises.filter((exercise) => exercise.id !== exercise.id) // rollback optimistic update
       })
       throw error
     }
-    return newExercise
   }
 
   async getExercise(id: string): Promise<Exercise | undefined> {

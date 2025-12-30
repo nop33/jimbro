@@ -21,19 +21,21 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
 
   async createProgram(item: NewProgram): Promise<Program> {
     const newProgram: Program = { ...item, id: crypto.randomUUID() }
+    this.importProgram(newProgram)
+    return newProgram
+  }
 
-    this.update((currentPrograms) => [...currentPrograms, newProgram]) // optimistic update
+  async importProgram(program: Program): Promise<void> {
+    this.update((currentPrograms) => [...currentPrograms, program]) // optimistic update
 
     try {
-      await storage.create(this.storeName, newProgram)
+      await storage.create(this.storeName, program)
     } catch (error) {
       this.update((currentPrograms) => {
-        return currentPrograms.filter((program) => program.id !== newProgram.id) // rollback optimistic update
+        return currentPrograms.filter((program) => program.id !== program.id) // rollback optimistic update
       })
       throw error
     }
-
-    return newProgram
   }
 
   async updateProgram(item: Program): Promise<Program> {
