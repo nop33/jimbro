@@ -29,12 +29,17 @@ export type WorkoutSessionStatus = 'completed' | 'skipped' | 'incomplete'
 export class WorkoutSessionsReactiveStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
 
-  async createWorkoutSession(workoutSession: WorkoutSession): Promise<void> {
-    await storage.create(this.storeName, workoutSession)
+  async createWorkoutSession(workoutSession: WorkoutSession): Promise<WorkoutSession> {
+    return storage.create(this.storeName, workoutSession)
   }
 
   async getWorkoutSession(date: string): Promise<WorkoutSession | undefined> {
     return storage.get(this.storeName, date)
+  }
+
+  async getLatestWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
+    const workoutSessions = await this.getAllWorkoutSessions() // TODO: Improve performance by querying indexedDB instead (also, create an index for programId)
+    return workoutSessions.find((workoutSession) => workoutSession.programId === programId)
   }
 
   async getAllWorkoutSessions(): Promise<Array<WorkoutSession>> {
@@ -55,8 +60,8 @@ export class WorkoutSessionsReactiveStore {
     }, {} as Record<string, Array<WorkoutSession>>)
   }
 
-  async updateWorkoutSession(item: WorkoutSession) {
-    await storage.update(this.storeName, item)
+  async updateWorkoutSession(item: WorkoutSession): Promise<WorkoutSession> {
+    return storage.update(this.storeName, item)
   }
 
   async countWorkoutSessions(): Promise<number> {

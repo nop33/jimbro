@@ -24,7 +24,8 @@ Object.entries(workoutWeeks)
       setTextContent('.workout-title', programNames[workout.programId], workoutItem)
       setTextContent('.workout-status', workout.status, workoutItem)
       setTextContent('.workout-date', new Date(workout.date).toLocaleDateString(), workoutItem)
-      workoutItem.querySelector('div')?.classList.add(
+      const workoutItemDiv = workoutItem.querySelector('div') as HTMLDivElement
+      workoutItemDiv.classList.add(
         {
           completed: 'bg-green-200',
           skipped: 'bg-red-200',
@@ -36,20 +37,32 @@ Object.entries(workoutWeeks)
           incomplete: 'border-yellow-400'
         }[workout.status]
       )
+
+      workoutItemDiv.addEventListener('click', () => {
+        window.location.href = `/gymtime/?programId=${workout.programId}`
+      })
+
       workoutWeekList.appendChild(workoutItem)
     })
 
     if (workouts.length < 3) {
-      const isSkipped = weekKey !== currentWeek
+      const isPending = weekKey === currentWeek
       const workoutPrograms = workouts.map((workout) => workout.programId)
       Object.entries(programNames).forEach(([programId, programName]) => {
         if (!workoutPrograms.includes(programId)) {
           const workoutItem = nodeFromTemplate('#workout-item-template')
           setTextContent('.workout-title', programName, workoutItem)
-          setTextContent('.workout-status', isSkipped ? 'skipped' : 'pending', workoutItem)
-          workoutItem
-            .querySelector('div')
-            ?.classList.add(isSkipped ? 'bg-red-100' : 'bg-neutral-100', isSkipped ? 'border-red-300' : 'border-dashed')
+          setTextContent('.workout-status', isPending ? 'pending' : 'skipped', workoutItem)
+
+          const workoutItemDiv = workoutItem.querySelector('div') as HTMLDivElement
+          if (isPending) {
+            workoutItemDiv.classList.add('bg-neutral-100', 'border-dashed', 'cursor-pointer')
+          } else {
+            workoutItemDiv.classList.add('bg-red-100', 'border-red-300')
+          }
+          workoutItemDiv.addEventListener('click', () => {
+            window.location.href = `/gymtime/?programId=${programId}`
+          })
           workoutWeekList.appendChild(workoutItem)
         }
       })

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gymbro - Gymtime</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>"
+    />
+  </head>
+  <body class="app">
+    <div class="app-page">
+      <header class="app-header">
+        <a href="/" class="link-primary mr-4"> <span class="text-xl">←</span> Back </a>
+        <h1 class="app-header-title">
+          <!-- Name of program -->
+        </h1>
+        <button id="done-btn" class="link-primary ml-auto font-semibold">Done</button>
+      </header>
+      <div class="app-page-content gap-5">
+        <details open id="workout-details">
+          <summary>Workout details</summary>
+          <form id="gymtime-form" class="flex flex-col gap-2">
+            <input type="hidden" name="programId" value="" required />
+            <input class="w-full p-2 rounded border border-neutral-600" type="date" name="date" value="" required />
+            <input
+              class="w-full p-2 rounded border border-neutral-600"
+              type="text"
+              name="location"
+              placeholder="Location"
+            />
+            <textarea class="w-full p-2 rounded border border-neutral-600" name="notes" placeholder="Notes"></textarea>
+            <button type="submit" class="btn-primary text-white w-full">Save & start workout</button>
+          </form>
+        </details>
+        <div id="exercises-list" class="flex flex-col gap-2">
+          <!-- Exercises will be rendered here -->
+        </div>
+
+        <template id="exercise-item-template">
+          <div class="card">
+            <header class="flex items-center justify-between">
+              <h3 class="exercise-name card-title">
+                <!-- -->
+              </h3>
+            </header>
+            <p class="exercise-muscle">
+              <!-- -->
+            </p>
+            <details class="exercise-details">
+              <summary>Exercise sets</summary>
+              <div class="completed-sets flex flex-col gap-2">
+                <!-- Completed sets will be rendered here -->
+              </div>
+              <div class="next-set flex flex-col gap-2">
+                <h4 class="next-set-number text-md font-bold">Next set</h4>
+                <form class="next-set-form flex flex-col gap-2">
+                  <div class="flex gap-2 items-center">
+                    <label for="set-reps">Reps:</label>
+                    <input type="number" name="set-reps" min="1" required placeholder="Reps" />
+                    <label for="set-weight">Weight:</label>
+                    <input type="number" name="set-weight" min="0" required placeholder="Weight" />
+                  </div>
+                  <button type="submit" class="btn-primary text-white w-full">Finished set</button>
+                </form>
+              </div>
+            </details>
+          </div>
+        </template>
+
+        <template id="completed-set-item-template">
+          <div class="completed-set flex items-center gap-2">
+            <div>Set <span class="set-number font-bold"></span>:</div>
+            <div>Reps <span class="set-reps font-bold"></span> Weight <span class="set-weight font-bold"></span></div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <script type="module" src="../src/pages/gymtime/index.ts"></script>
+    <script type="module" src="../src/navigation.ts"></script>
+  </body>
+</html>

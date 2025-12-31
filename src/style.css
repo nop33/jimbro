@@ -57,6 +57,19 @@
     @apply text-lg font-bold mb-2;
   }
 
+  .card-success {
+    @apply bg-green-200 border-green-400;
+  }
+  .card-danger {
+    @apply bg-red-200 border-red-400;
+  }
+  .card-warning {
+    @apply bg-yellow-200 border-yellow-400;
+  }
+  .card-info {
+    @apply bg-blue-200 border-blue-400;
+  }
+
   /* Modern input styles */
   input[type='text'],
   input[type='number'],

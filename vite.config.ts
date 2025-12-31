@@ -11,7 +11,8 @@ export default defineConfig({
         exercises: resolve(__dirname, 'exercises/index.html'),
         programs: resolve(__dirname, 'programs/index.html'),
         settings: resolve(__dirname, 'settings/index.html'),
-        workouts: resolve(__dirname, 'workouts/index.html')
+        workouts: resolve(__dirname, 'workouts/index.html'),
+        gymtime: resolve(__dirname, 'gymtime/index.html')
       }
     }
   }

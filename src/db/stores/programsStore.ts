@@ -19,6 +19,10 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
     this.set(allPrograms)
   }
 
+  async getProgram(id: Program['id']): Promise<Program | undefined> {
+    return storage.get<Program>(this.storeName, id)
+  }
+
   async createProgram(item: NewProgram): Promise<Program> {
     const newProgram: Program = { ...item, id: crypto.randomUUID() }
     this.importProgram(newProgram)
