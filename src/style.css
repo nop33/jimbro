@@ -37,7 +37,7 @@
   }
 
   .btn-secondary {
-    @apply px-6 py-3 rounded-xl bg-neutral-700/50 text-neutral-200 font-medium hover:bg-neutral-700 hover:text-white transition-all duration-200 border border-neutral-600/50;
+    @apply px-6 py-3 rounded-xl font-medium hover:bg-neutral-700 hover:text-white transition-all duration-200 border border-neutral-600/50;
   }
 
   .btn-danger {

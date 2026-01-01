@@ -148,6 +148,30 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
           ...existingWorkoutSession,
           status: 'completed'
         })
+      } else {
+        const breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+        const countdown = breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
+
+        countdown.textContent = '0:10'
+
+        const countdownInterval = setInterval(() => {
+          const minutes = parseInt(countdown.textContent.split(':')[0])
+          const seconds = parseInt(countdown.textContent.split(':')[1])
+
+          if (minutes === 0 && seconds === 0) {
+            clearInterval(countdownInterval)
+            breakCountdownDialog.close()
+            sendBreakFinishedNotification()
+          } else if (seconds === 0) {
+            const nextMinutes = minutes - 1
+            countdown.textContent = `${nextMinutes < 10 ? `0${nextMinutes}` : nextMinutes - 1}:59`
+          } else {
+            const nextSeconds = seconds - 1
+            countdown.textContent = `${minutes}:${nextSeconds < 10 ? `0${nextSeconds}` : nextSeconds}`
+          }
+        }, 1000)
+
+        breakCountdownDialog.showModal()
       }
     })
   } else {
@@ -155,6 +179,34 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   }
 
   return exerciseItemTemplate
+}
+
+const sendBreakFinishedNotification = () => {
+  const notificationTitle = 'Break finished!'
+  const notificationBody = 'Time to start your next set!'
+  const notificationIcon =
+    'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>'
+  const notificationVibrate = [200, 100, 200]
+
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      new Notification(notificationTitle, {
+        body: notificationBody,
+        icon: notificationIcon,
+        vibrate: notificationVibrate
+      })
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          new Notification(notificationTitle, {
+            body: notificationBody,
+            icon: notificationIcon,
+            vibrate: notificationVibrate
+          })
+        }
+      })
+    }
+  }
 }
 
 const renderProgramExercises = async () => {
