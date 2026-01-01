@@ -37,11 +37,11 @@ export class WorkoutSessionsReactiveStore {
     return storage.get(this.storeName, date)
   }
 
-  async getLatestWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
+  async getLatestCompletedWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
     const workoutSessions = await this.getAllWorkoutSessions() // TODO: Improve performance by querying indexedDB instead (also, create an index for programId)
     return workoutSessions
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .find((workoutSession) => workoutSession.programId === programId)
+      .find((workoutSession) => workoutSession.programId === programId && workoutSession.status === 'completed')
   }
 
   async getDateOfFirstWorkoutSession(): Promise<string | undefined> {

@@ -9,6 +9,8 @@ const urlParams = new URLSearchParams(window.location.search)
 const workoutSessionProgramId = urlParams.get('programId')
 const workoutSessionDate = urlParams.get('date')
 
+let exercisesCompletedCount = 0
+
 if (!workoutSessionProgramId || !workoutSessionDate) {
   window.location.href = '/'
   throw new Error('Workout session programId and date are required')
@@ -78,6 +80,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     // Set card colors
     if (existingWorkoutSessionExercise.sets.length === programExercise.sets) {
       exerciseItemDiv.classList.add('card-success')
+      exercisesCompletedCount++
     }
 
     // Set card completed sets
@@ -97,10 +100,14 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       ?.sets.at(-1)
 
     if (!latestSet) {
-      const latestWorkoutSessionOfProgram = await workoutSessionsStore.getLatestWorkoutSessionOfProgram(program.id)
+      const latestWorkoutSessionOfProgram = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(
+        program.id
+      )
       latestSet = latestWorkoutSessionOfProgram?.exercises
         .find(({ exerciseId }) => exerciseId === programExercise.id)
-        ?.sets.at(-1) ?? { reps: programExercise.reps, weight: 0 }
+        ?.sets.at(-1)
+
+      latestSet = latestSet ?? { reps: programExercise.reps, weight: 0 }
     }
 
     nextSetRepsInput.value = latestSet.reps.toString()
@@ -125,19 +132,22 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       })
 
       const index =
-        existingWorkoutSession.exercises.find(({ exerciseId: id }) => id === programExercise.id)?.sets.length ?? 0
+        (existingWorkoutSession.exercises.find(({ exerciseId: id }) => id === programExercise.id)?.sets.length ?? 1) - 1
 
       completedSets.appendChild(renderCompletedSetItem({ set: completedSet, index }))
 
       if (index + 1 === programExercise.sets) {
+        exerciseDetails.removeAttribute('open')
+        exerciseItemDiv.classList.add('card-success')
+        nextSetDiv.remove()
+        exercisesCompletedCount++
+      }
+
+      if (exercisesCompletedCount === program.exercises.length) {
         existingWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
           ...existingWorkoutSession,
           status: 'completed'
         })
-
-        exerciseDetails.removeAttribute('open')
-        exerciseItemDiv.classList.add('card-success')
-        nextSetDiv.remove()
       }
     })
   } else {
@@ -168,7 +178,6 @@ gymtimeForm.addEventListener('submit', async (event) => {
   const date = formData.get('date') as string
   const location = formData.get('location') as string
   const notes = formData.get('notes') as string
-  console.log(programId, date, location, notes)
 
   if (existingWorkoutSession) {
     existingWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
