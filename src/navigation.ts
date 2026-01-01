@@ -46,6 +46,10 @@ export function initNavigation() {
   appPage.classList.add('pb-20', 'md:pb-0')
 
   body.appendChild(bottomNav)
+
+  document.querySelector('#back-button')?.addEventListener('click', () => {
+    window.history.back()
+  })
 }
 
 document.addEventListener('DOMContentLoaded', initNavigation)
