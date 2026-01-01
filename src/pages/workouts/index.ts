@@ -1,72 +1,90 @@
 import { programsStore } from '../../db/stores/programsStore'
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
-import { getWeekOfYear, nodeFromTemplate, setTextContent } from '../../utils'
+import { nodeFromTemplate, setTextContent } from '../../utils'
+import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
+
+const WORKOUTS_PER_WEEK = 3
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await programsStore.getProgramsByNames()
-const currentWeek = getWeekOfYear(new Date())
 
-Object.entries(workoutWeeks)
-  .reverse()
-  .forEach(([weekKey, workouts]) => {
-    const workoutWeek = nodeFromTemplate('#workout-week-template')
-    const workoutWeekList = workoutWeek.querySelector('#workout-week-list') as HTMLUListElement
-    const [year, week] = weekKey.split('-')
-    const weekNumber = week.replace('W', '')
-    setTextContent('.workout-week-week', `Week ${weekNumber}`, workoutWeek)
-    setTextContent('.workout-week-year', `of ${year}`, workoutWeek)
+const today = getSimpleDate(new Date())
+const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
+const weeksKeys = getWeeksKeysFromDateToNow(new Date(dateOfFirstWorkoutSession)).reverse()
 
-    workouts.forEach((workout) => {
-      const workoutItem = nodeFromTemplate('#workout-item-template')
-      setTextContent('.workout-title', programNames[workout.programId], workoutItem)
-      setTextContent('.workout-status', workout.status, workoutItem)
-      setTextContent('.workout-date', new Date(workout.date).toLocaleDateString(), workoutItem)
-      const workoutItemDiv = workoutItem.querySelector('div') as HTMLDivElement
-      workoutItemDiv.classList.add(
-        {
-          completed: 'bg-green-200',
-          skipped: 'bg-red-200',
-          incomplete: 'bg-yellow-100'
-        }[workout.status],
-        {
-          completed: 'border-green-400',
-          skipped: 'border-red-200',
-          incomplete: 'border-yellow-400'
-        }[workout.status]
-      )
+const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
+  const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
+  setTextContent('.workout-title', programNames[workoutSession.programId], workoutItemTemplate)
+  setTextContent('.workout-status', workoutSession.status, workoutItemTemplate)
 
-      workoutItemDiv.addEventListener('click', () => {
-        window.location.href = `/gymtime/?programId=${workout.programId}`
-      })
+  if (workoutSession.date) {
+    setTextContent('.workout-date', new Date(workoutSession.date).toLocaleDateString(), workoutItemTemplate)
+  }
 
-      workoutWeekList.appendChild(workoutItem)
+  const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
+  workoutItemDiv.classList.add(
+    {
+      completed: 'bg-green-200',
+      skipped: 'bg-red-200',
+      incomplete: 'bg-yellow-100',
+      pending: 'bg-neutral-100'
+    }[workoutSession.status],
+    {
+      completed: 'border-green-400',
+      skipped: 'border-red-200',
+      incomplete: 'border-yellow-400',
+      pending: 'border-dashed'
+    }[workoutSession.status]
+  )
+
+  if (workoutSession.status !== 'skipped') {
+    workoutItemDiv.addEventListener('click', () => {
+      const date = workoutSession.date ?? getSimpleDate(new Date())
+      window.location.href = `/gymtime/?programId=${workoutSession.programId}&date=${date}`
     })
+  }
 
-    if (workouts.length < 3) {
-      const isPending = weekKey === currentWeek
-      const workoutPrograms = workouts.map((workout) => workout.programId)
-      Object.entries(programNames).forEach(([programId, programName]) => {
-        if (!workoutPrograms.includes(programId)) {
-          const workoutItem = nodeFromTemplate('#workout-item-template')
-          setTextContent('.workout-title', programName, workoutItem)
-          setTextContent('.workout-status', isPending ? 'pending' : 'skipped', workoutItem)
+  return workoutItemTemplate
+}
 
-          const workoutItemDiv = workoutItem.querySelector('div') as HTMLDivElement
-          if (isPending) {
-            workoutItemDiv.classList.add('bg-neutral-100', 'border-dashed', 'cursor-pointer')
-          } else {
-            workoutItemDiv.classList.add('bg-red-100', 'border-red-300')
-          }
-          workoutItemDiv.addEventListener('click', () => {
-            window.location.href = `/gymtime/?programId=${programId}`
-          })
-          workoutWeekList.appendChild(workoutItem)
-        }
-      })
-    }
+weeksKeys.forEach((weekKey) => {
+  const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
+  const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
+  const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('#workout-week-list') as HTMLUListElement
 
-    workoutWeeksContainer.appendChild(workoutWeek)
+  const { year, week } = extractWeekKeyNumbers(weekKey)
+  setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
+  setTextContent('.workout-week-year', `of ${year}`, workoutWeekTemplate)
+
+  workoutsOfThisWeek.forEach((workout) => {
+    const workoutItem = renderWorkoutSession(workout)
+    workoutsOfThisWeekList.appendChild(workoutItem)
   })
+
+  if (workoutsOfThisWeek.length < WORKOUTS_PER_WEEK) {
+    const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
+    const missingProgramsIds = Object.keys(programNames).filter(
+      (programId) => !recordedWorkoutPrograms.includes(programId)
+    )
+    const currentWeek = extractWeekKeyNumbers(getWeekOfYear(new Date())).week
+
+    missingProgramsIds.forEach((missingProgramId) => {
+      const status = week === currentWeek ? 'pending' : 'skipped'
+      const workoutItem = renderWorkoutSession({
+        programId: missingProgramId,
+        status: status,
+        exercises: [],
+        location: '',
+        date: undefined
+      })
+      workoutsOfThisWeekList.appendChild(workoutItem)
+    })
+  }
+
+  workoutWeeksContainer.appendChild(workoutWeekTemplate)
+})
+
+type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'date'> & { date: undefined; status: 'pending' | 'skipped' }

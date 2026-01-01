@@ -1,4 +1,4 @@
-import { getWeekOfYear } from '../../utils'
+import { getWeekOfYear } from '../../dateUtils'
 import { OBJECT_STORES } from '../constants'
 import { storage } from '../storage'
 import type { Exercise } from './exercisesStore'
@@ -24,7 +24,7 @@ export interface ExerciseSetExecution {
   weight: number
 }
 
-export type WorkoutSessionStatus = 'completed' | 'skipped' | 'incomplete'
+export type WorkoutSessionStatus = 'completed' | 'skipped' | 'incomplete' | 'pending'
 
 export class WorkoutSessionsReactiveStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
@@ -39,7 +39,15 @@ export class WorkoutSessionsReactiveStore {
 
   async getLatestWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
     const workoutSessions = await this.getAllWorkoutSessions() // TODO: Improve performance by querying indexedDB instead (also, create an index for programId)
-    return workoutSessions.find((workoutSession) => workoutSession.programId === programId)
+    return workoutSessions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .find((workoutSession) => workoutSession.programId === programId)
+  }
+
+  async getDateOfFirstWorkoutSession(): Promise<string | undefined> {
+    // TODO: Improve performance by querying indexedDB instead
+    const workoutSessions = await this.getAllWorkoutSessions()
+    return workoutSessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]?.date
   }
 
   async getAllWorkoutSessions(): Promise<Array<WorkoutSession>> {
