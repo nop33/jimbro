@@ -27,16 +27,10 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
   workoutItemDiv.classList.add(
     {
-      completed: 'bg-green-200',
-      skipped: 'bg-red-200',
-      incomplete: 'bg-yellow-100',
-      pending: 'bg-neutral-100'
-    }[workoutSession.status],
-    {
-      completed: 'border-green-400',
-      skipped: 'border-red-200',
-      incomplete: 'border-yellow-400',
-      pending: 'border-dashed'
+      completed: 'card-success',
+      skipped: 'card-danger',
+      incomplete: 'card-warning',
+      pending: 'card-pending'
     }[workoutSession.status]
   )
 
