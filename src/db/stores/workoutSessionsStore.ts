@@ -72,6 +72,26 @@ export class WorkoutSessionsReactiveStore {
     return storage.update(this.storeName, item)
   }
 
+  async addExerciseExecutionSetToWorkoutSession({
+    workoutSession,
+    exerciseId,
+    exerciseExecutionSet
+  }: {
+    workoutSession: WorkoutSession
+    exerciseId: Exercise['id']
+    exerciseExecutionSet: ExerciseSetExecution
+  }): Promise<WorkoutSession> {
+    const workoutSessionExercise = workoutSession.exercises.find(({ exerciseId: id }) => id === exerciseId)
+
+    if (!workoutSessionExercise) {
+      workoutSession.exercises.push({ exerciseId, sets: [exerciseExecutionSet] })
+    } else {
+      workoutSessionExercise.sets.push(exerciseExecutionSet)
+    }
+
+    return this.updateWorkoutSession(workoutSession)
+  }
+
   async countWorkoutSessions(): Promise<number> {
     return storage.count(this.storeName)
   }

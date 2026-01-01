@@ -7,7 +7,7 @@ export const setCityFromGeolocation = async (locationInput: HTMLInputElement) =>
   navigator.geolocation.getCurrentPosition(async ({ coords: { latitude, longitude } }) => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-      const res = await fetch(url, { headers: { Accept: 'application/json' } })
+      const res = await fetch(url, { headers: { Accept: 'application/json', 'Accept-Language': 'en-US' } })
 
       if (res.ok) {
         const data = await res.json()
