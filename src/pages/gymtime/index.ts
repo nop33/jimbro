@@ -20,6 +20,15 @@ const appHeaderTitle = document.querySelector('.app-header-title') as HTMLHeadin
 const gymtimeForm = document.querySelector('#gymtime-form') as HTMLFormElement
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
 const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
+const breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+const countdown = breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
+const skipBreakButton = breakCountdownDialog.querySelector('#skip-break') as HTMLButtonElement
+let countdownInterval: ReturnType<typeof setInterval> | null = null
+
+skipBreakButton.addEventListener('click', () => {
+  if (countdownInterval !== null) clearInterval(countdownInterval)
+  breakCountdownDialog.close()
+})
 
 let existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(workoutSessionDate)
 const program = await programsStore.getProgram(workoutSessionProgramId)
@@ -149,19 +158,16 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
           status: 'completed'
         })
       } else {
-        const breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
-        const countdown = breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
+        countdown.textContent = '2:30'
 
-        countdown.textContent = '0:10'
-
-        const countdownInterval = setInterval(() => {
+        countdownInterval = setInterval(() => {
           const minutes = parseInt(countdown.textContent.split(':')[0])
           const seconds = parseInt(countdown.textContent.split(':')[1])
 
           if (minutes === 0 && seconds === 0) {
-            clearInterval(countdownInterval)
-            breakCountdownDialog.close()
             sendBreakFinishedNotification()
+            breakCountdownDialog.close()
+            if (countdownInterval !== null) clearInterval(countdownInterval)
           } else if (seconds === 0) {
             const nextMinutes = minutes - 1
             countdown.textContent = `${nextMinutes < 10 ? `0${nextMinutes}` : nextMinutes - 1}:59`
