@@ -3,7 +3,8 @@ import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import { setCityFromGeolocation } from './geolocation'
+import { sendBreakFinishedNotification } from './notification'
+import WorkoutSessionForm from './WorkoutSessionForm'
 
 const urlParams = new URLSearchParams(window.location.search)
 const workoutSessionProgramId = urlParams.get('programId')
@@ -17,7 +18,6 @@ if (!workoutSessionProgramId || !workoutSessionDate) {
 }
 
 const appHeaderTitle = document.querySelector('.app-header-title') as HTMLHeadingElement
-const gymtimeForm = document.querySelector('#gymtime-form') as HTMLFormElement
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
 const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
 const breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
@@ -39,29 +39,6 @@ if (!program) {
 }
 
 appHeaderTitle.textContent = program.name
-
-const initializeWorkoutSessionForm = () => {
-  const programIdInput = gymtimeForm.querySelector('input[name="programId"]') as HTMLInputElement
-  const dateInput = gymtimeForm.querySelector('input[name="date"]') as HTMLInputElement
-  const locationInput = gymtimeForm.querySelector('input[name="location"]') as HTMLInputElement
-  const notesInput = gymtimeForm.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
-  const submitButton = gymtimeForm.querySelector('button[type="submit"]') as HTMLButtonElement
-
-  programIdInput.value = program.id
-  dateInput.value = existingWorkoutSession?.date || new Date().toISOString().split('T')[0]
-  notesInput.value = existingWorkoutSession?.notes || ''
-  if (existingWorkoutSession) {
-    locationInput.value = existingWorkoutSession.location
-  } else {
-    setCityFromGeolocation(locationInput)
-  }
-
-  if (existingWorkoutSession?.status === 'completed') {
-    submitButton.textContent = 'Save'
-  } else if (existingWorkoutSession?.status === 'incomplete') {
-    submitButton.textContent = 'Save & continue workout'
-  }
-}
 
 const renderCompletedSetItem = ({ set, index }: { set: ExerciseSetExecution; index: number }) => {
   const completedSetItemTemplate = nodeFromTemplate('#completed-set-item-template')
@@ -187,31 +164,6 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   return exerciseItemTemplate
 }
 
-const sendBreakFinishedNotification = () => {
-  const notificationTitle = 'Break finished!'
-  const notificationBody = 'Time to start your next set!'
-  const notificationIcon =
-    'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>'
-
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      new Notification(notificationTitle, {
-        body: notificationBody,
-        icon: notificationIcon
-      })
-    } else if (Notification.permission !== 'denied') {
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          new Notification(notificationTitle, {
-            body: notificationBody,
-            icon: notificationIcon
-          })
-        }
-      })
-    }
-  }
-}
-
 const renderProgramExercises = async () => {
   for (const exerciseId of program.exercises) {
     const programExercise = await exercisesStore.getExercise(exerciseId)
@@ -223,33 +175,12 @@ const renderProgramExercises = async () => {
   }
 }
 
-initializeWorkoutSessionForm()
-renderProgramExercises()
-
-gymtimeForm.addEventListener('submit', async (event) => {
-  event.preventDefault()
-  const formData = new FormData(gymtimeForm)
-  const programId = formData.get('programId') as string
-  const date = formData.get('date') as string
-  const location = formData.get('location') as string
-  const notes = formData.get('notes') as string
-
-  if (existingWorkoutSession) {
-    existingWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
-      ...existingWorkoutSession,
-      location,
-      notes
-    })
-  } else {
-    existingWorkoutSession = await workoutSessionsStore.createWorkoutSession({
-      programId,
-      date,
-      location,
-      status: 'incomplete',
-      exercises: [],
-      notes
-    })
+new WorkoutSessionForm({ programId: workoutSessionProgramId, workoutSessionDate }).on(
+  'workout-session-updated',
+  ({ detail: { workoutSession } }) => {
+    existingWorkoutSession = workoutSession
+    workoutDetails.removeAttribute('open')
   }
+)
 
-  workoutDetails.removeAttribute('open')
-})
+renderProgramExercises()
