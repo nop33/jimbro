@@ -116,7 +116,7 @@ Create a registration module that:
 
 Update all HTML files to:
 
-- Link to manifest: `<link rel="manifest" href="/manifest.json">`
+- Link to manifest: `<link rel="manifest" href="/app.webmanifest">`
 - Add theme color meta tag
 - Add apple-touch-icon for iOS
 - Add mask-icon for Safari
