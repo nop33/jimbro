@@ -3,8 +3,11 @@ import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import { keepScreenAwake } from './keepScreenAwake'
 import { sendBreakFinishedNotification } from './notification'
 import WorkoutSessionForm from './WorkoutSessionForm'
+
+keepScreenAwake()
 
 const urlParams = new URLSearchParams(window.location.search)
 const workoutSessionProgramId = urlParams.get('programId')
