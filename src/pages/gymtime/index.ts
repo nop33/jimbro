@@ -150,7 +150,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
             if (countdownInterval !== null) clearInterval(countdownInterval)
           } else if (seconds === 0) {
             const nextMinutes = minutes - 1
-            countdown.textContent = `${nextMinutes < 10 ? `0${nextMinutes}` : nextMinutes - 1}:59`
+            countdown.textContent = `${nextMinutes}:59`
           } else {
             const nextSeconds = seconds - 1
             countdown.textContent = `${minutes}:${nextSeconds < 10 ? `0${nextSeconds}` : nextSeconds}`
