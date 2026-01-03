@@ -139,6 +139,10 @@
     background: rgba(0, 0, 0, 0.6);
   }
 
+  .dialog-full-screen {
+    @apply h-full w-full;
+  }
+
   /* Exercise card specific */
   .exercise-muscle {
     @apply text-sm font-medium text-blue-400 mb-2;

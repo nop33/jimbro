@@ -30,6 +30,7 @@ let countdownInterval: ReturnType<typeof setInterval> | null = null
 
 skipBreakButton.addEventListener('click', () => {
   if (countdownInterval !== null) clearInterval(countdownInterval)
+  breakCountdownDialog.classList.remove('dialog-full-screen')
   breakCountdownDialog.close()
 })
 
@@ -146,6 +147,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
 
           if (minutes === 0 && seconds === 0) {
             sendBreakFinishedNotification()
+            breakCountdownDialog.classList.remove('dialog-full-screen')
             breakCountdownDialog.close()
             if (countdownInterval !== null) clearInterval(countdownInterval)
           } else if (seconds === 0) {
@@ -157,6 +159,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
           }
         }, 1000)
 
+        breakCountdownDialog.classList.add('dialog-full-screen')
         breakCountdownDialog.showModal()
       }
     })
