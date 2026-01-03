@@ -125,7 +125,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       if (exercisesCompletedCount === program.exercises.length) {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
       } else {
-        breakTimerDialog.startTimer({ minutes: 2, seconds: 30 })
+        breakTimerDialog.startTimer({ minutes: 0, seconds: 3 })
       }
     })
   } else {
