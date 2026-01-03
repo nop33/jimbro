@@ -36,8 +36,10 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
 
   if (workoutSession.status !== 'skipped') {
     workoutItemDiv.addEventListener('click', () => {
-      const date = workoutSession.date ?? getSimpleDate(new Date())
-      window.location.href = `/gymtime/?programId=${workoutSession.programId}&date=${date}`
+      window.location.href =
+        workoutSession.status === 'pending'
+          ? `/gymtime/?programId=${workoutSession.programId}`
+          : `/gymtime/?date=${workoutSession.date}`
     })
   }
 

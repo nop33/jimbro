@@ -1,6 +1,11 @@
+import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
-import { programsStore } from '../../db/stores/programsStore'
-import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
+import { programsStore, type Program } from '../../db/stores/programsStore'
+import {
+  workoutSessionsStore,
+  type ExerciseSetExecution,
+  type WorkoutSession
+} from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { keepScreenAwake } from './keepScreenAwake'
@@ -14,10 +19,25 @@ const workoutSessionProgramId = urlParams.get('programId')
 const workoutSessionDate = urlParams.get('date')
 
 let exercisesCompletedCount = 0
+let program: Program | undefined
+let existingWorkoutSession: WorkoutSession | undefined = undefined
 
-if (!workoutSessionProgramId || !workoutSessionDate) {
+if (!workoutSessionProgramId && !workoutSessionDate) {
   window.location.href = '/'
-  throw new Error('Workout session programId and date are required')
+  throw new Error('Workout session programId or date is required')
+} else if (workoutSessionProgramId) {
+  program = await programsStore.getProgram(workoutSessionProgramId)
+  existingWorkoutSession = undefined
+} else if (workoutSessionDate) {
+  existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(workoutSessionDate)
+  program = existingWorkoutSession?.programId
+    ? await programsStore.getProgram(existingWorkoutSession.programId)
+    : undefined
+}
+
+if (!program) {
+  window.location.href = '/'
+  throw new Error('Program not found')
 }
 
 const appHeaderTitle = document.querySelector('.app-header-title') as HTMLHeadingElement
@@ -33,14 +53,6 @@ skipBreakButton.addEventListener('click', () => {
   breakCountdownDialog.classList.remove('dialog-full-screen')
   breakCountdownDialog.close()
 })
-
-let existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(workoutSessionDate)
-const program = await programsStore.getProgram(workoutSessionProgramId)
-
-if (!program) {
-  window.location.href = '/'
-  throw new Error('Program not found')
-}
 
 appHeaderTitle.textContent = program.name
 
@@ -181,12 +193,12 @@ const renderProgramExercises = async () => {
   }
 }
 
-new WorkoutSessionForm({ programId: workoutSessionProgramId, workoutSessionDate }).on(
-  'workout-session-updated',
-  ({ detail: { workoutSession } }) => {
-    existingWorkoutSession = workoutSession
-    workoutDetails.removeAttribute('open')
-  }
-)
+new WorkoutSessionForm({
+  programId: program.id,
+  workoutSessionDate: existingWorkoutSession?.date ?? getSimpleDate(new Date())
+}).on('workout-session-updated', ({ detail: { workoutSession } }) => {
+  existingWorkoutSession = workoutSession
+  workoutDetails.removeAttribute('open')
+})
 
 renderProgramExercises()
