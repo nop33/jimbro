@@ -31,5 +31,28 @@
       "sizes": "1024x1024",
       "purpose": "any maskable"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/screenshot-1.png",
+      "type": "image/webp",
+      "sizes": "1008x2244",
+      "form_factor": "narrow",
+      "caption": "See your workouts progress per week"
+    },
+    {
+      "src": "screenshots/screenshot-2.png",
+      "type": "image/webp",
+      "sizes": "1008x2244",
+      "form_factor": "narrow",
+      "caption": "Define your own exercises"
+    },
+    {
+      "src": "screenshots/screenshot-3.png",
+      "type": "image/webp",
+      "sizes": "1008x2244",
+      "form_factor": "narrow",
+      "caption": "Define your own programs"
+    }
   ]
 }
