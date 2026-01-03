@@ -8,6 +8,7 @@ import {
 } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import BreakTimerDialog from './BreakTimerDialog'
 import { keepScreenAwake } from './keepScreenAwake'
 import { sendBreakFinishedNotification } from './notification'
 import WorkoutSessionForm from './WorkoutSessionForm'
@@ -43,15 +44,10 @@ if (!program) {
 const appHeaderTitle = document.querySelector('.app-header-title') as HTMLHeadingElement
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
 const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
-const breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
-const countdown = breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
-const skipBreakButton = breakCountdownDialog.querySelector('#skip-break') as HTMLButtonElement
-let countdownInterval: ReturnType<typeof setInterval> | null = null
 
-skipBreakButton.addEventListener('click', () => {
-  if (countdownInterval !== null) clearInterval(countdownInterval)
-  breakCountdownDialog.classList.remove('dialog-full-screen')
-  breakCountdownDialog.close()
+const breakTimerDialog = new BreakTimerDialog()
+breakTimerDialog.on('break-finished', () => {
+  sendBreakFinishedNotification()
 })
 
 appHeaderTitle.textContent = program.name
@@ -151,28 +147,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
           status: 'completed'
         })
       } else {
-        countdown.textContent = '2:30'
-
-        countdownInterval = setInterval(() => {
-          const minutes = parseInt(countdown.textContent.split(':')[0])
-          const seconds = parseInt(countdown.textContent.split(':')[1])
-
-          if (minutes === 0 && seconds === 0) {
-            sendBreakFinishedNotification()
-            breakCountdownDialog.classList.remove('dialog-full-screen')
-            breakCountdownDialog.close()
-            if (countdownInterval !== null) clearInterval(countdownInterval)
-          } else if (seconds === 0) {
-            const nextMinutes = minutes - 1
-            countdown.textContent = `${nextMinutes}:59`
-          } else {
-            const nextSeconds = seconds - 1
-            countdown.textContent = `${minutes}:${nextSeconds < 10 ? `0${nextSeconds}` : nextSeconds}`
-          }
-        }, 1000)
-
-        breakCountdownDialog.classList.add('dialog-full-screen')
-        breakCountdownDialog.showModal()
+        breakTimerDialog.startTimer({ minutes: 2, seconds: 30 })
       }
     })
   } else {
