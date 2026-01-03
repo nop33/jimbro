@@ -1,5 +1,12 @@
 @import 'tailwindcss';
 
+:root {
+  --color-bg: #0c0c0c;
+  --color-surface: #481e14;
+  --color-primary: #9b3922;
+  --color-accent: #f2613f;
+}
+
 @layer base {
   * {
     @apply border-neutral-700;

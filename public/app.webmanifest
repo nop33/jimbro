@@ -3,15 +3,32 @@
   "short_name": "Jimbro",
   "description": "Track your workouts and progress",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "background_color": "#0C0C0C",
+  "theme_color": "#9B3922",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "icons/logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icons/logo-384.png",
+      "type": "image/png",
+      "sizes": "384x384"
+    },
+    {
+      "src": "icons/logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/logo-1024.png",
+      "type": "image/png",
+      "sizes": "1024x1024",
       "purpose": "any maskable"
     }
   ]
