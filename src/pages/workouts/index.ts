@@ -3,6 +3,9 @@ import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/worko
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
+import IntroText from './IntroText'
+
+IntroText.render()
 
 const WORKOUTS_PER_WEEK = 3
 
