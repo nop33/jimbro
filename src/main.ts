@@ -11,6 +11,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
 installBtn.addEventListener('click', () => {
   if (deferredPrompt && 'prompt' in deferredPrompt && typeof deferredPrompt.prompt === 'function') {
     deferredPrompt.prompt()
+  } else {
+    alert("To install the app on iOS tap the Share icon in Safari, then select 'Add to Home Screen'.")
   }
 })
 
