@@ -28,7 +28,7 @@ export const exportIndexedDbToJson = async () => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `gymbro-export-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `jimbro-export-${new Date().toISOString().split('T')[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
 }
