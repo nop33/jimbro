@@ -35,11 +35,31 @@ workoutSessionForm.on('workout-session-updated', ({ detail }) => {
   workoutDetails.removeAttribute('open')
 })
 
-const renderCompletedSetItem = ({ set, index }: { set: ExerciseSetExecution; index: number }) => {
+const renderSetItem = ({
+  set,
+  index,
+  isCompleted = true
+}: {
+  set: ExerciseSetExecution | { reps: string; weight: string }
+  index: number
+  isCompleted?: boolean
+}) => {
   const completedSetItemTemplate = nodeFromTemplate('#completed-set-item-template')
+  const completedSetItemTemplateDiv = completedSetItemTemplate.querySelector('div') as HTMLDivElement
+  const setNumber = (index + 1).toString()
+
   setTextContent('.set-reps', set.reps.toString(), completedSetItemTemplate)
   setTextContent('.set-weight', set.weight.toString(), completedSetItemTemplate)
-  setTextContent('.set-number', (index + 1).toString(), completedSetItemTemplate)
+  setTextContent('.set-number', setNumber, completedSetItemTemplate)
+
+  if (isCompleted) {
+    completedSetItemTemplateDiv.classList.add('isCompleted')
+  } else {
+    completedSetItemTemplateDiv.classList.add('isPending')
+  }
+
+  completedSetItemTemplateDiv.setAttribute('data-set-number', setNumber)
+
   return completedSetItemTemplate
 }
 
@@ -65,8 +85,14 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     }
 
     // Set card completed sets
+    let count = 0
     for (const [index, set] of existingWorkoutSessionExercise.sets.entries()) {
-      completedSets.appendChild(renderCompletedSetItem({ set, index }))
+      completedSets.appendChild(renderSetItem({ set, index }))
+      count++
+    }
+
+    for (let i = count; i < programExercise.sets; i++) {
+      completedSets.appendChild(renderSetItem({ set: { reps: '-', weight: '-' }, index: i, isCompleted: false }))
     }
   }
 
@@ -113,7 +139,11 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       const index =
         (workoutSession.exercises.find(({ exerciseId: id }) => id === programExercise.id)?.sets.length ?? 1) - 1
 
-      completedSets.appendChild(renderCompletedSetItem({ set: completedSet, index }))
+      const pendingSetItem = completedSets.querySelector(`[data-set-number="${index + 1}"]`) as HTMLDivElement
+      pendingSetItem.classList.remove('isPending')
+      pendingSetItem.classList.add('isCompleted')
+      setTextContent('.set-reps', completedSet.reps.toString(), pendingSetItem)
+      setTextContent('.set-weight', completedSet.weight.toString(), pendingSetItem)
 
       if (index + 1 === programExercise.sets) {
         exerciseDetails.removeAttribute('open')

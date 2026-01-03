@@ -13,26 +13,47 @@
   <body class="app">
     <div class="app-page">
       <header class="app-header">
-        <a id="back-button" class="link-primary"> <span class="text-xl">←</span> </a>
+        <a id="back-button" class="link-primary"
+          ><svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </a>
         <h1 class="app-header-title">Workouts</h1>
         <button id="new-workout-btn" class="link-primary ml-auto items-center flex" aria-label="Add new workout">
-          <span aria-hidden="true" class="text-2xl leading-none">＋</span><span>New workout</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          New
         </button>
       </header>
       <div class="app-page-content">
-        <div id="intro" class="text-center text-lg mb-4 bg-neutral-100 p-4 rounded-lg">
+        <div id="intro" class="text-center text-lg mb-4 bg-jim-dark-blue p-4 rounded-lg">
           <!-- Intro text will be rendered here -->
         </div>
-        <div id="workout-weeks" class="flex flex-col gap-4">
+        <div id="workout-weeks" class="flex flex-col gap-6">
           <!-- Workout weeks will be rendered here -->
         </div>
         <template id="workout-week-template">
           <div class="workout-week">
             <h2 class="workout-week-title text-xl font-bold mb-2">
-              <span class="workout-week-week">
+              <span class="workout-week-week text-jim-accent">
                 <!-- -->
               </span>
-              <span class="workout-week-year text-neutral-300">
+              <span class="workout-week-year text-jim-primary/60">
                 <!-- -->
               </span>
             </h2>
@@ -43,7 +64,7 @@
         </template>
         <template id="workout-item-template">
           <li>
-            <div class="card h-full p-4 justify-between flex flex-col">
+            <div class="card h-full p-4 justify-between flex flex-col with-bg">
               <h2 class="workout-title text-sm font-bold mb-2">
                 <!-- -->
               </h2>

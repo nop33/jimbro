@@ -13,20 +13,31 @@
   <body class="app">
     <div class="app-page">
       <header class="app-header">
-        <a href="/" class="text-blue-500 mr-4 hover:underline flex items-center"> &#8592; Back </a>
+        <a id="back-button" class="link-primary"
+          ><svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </a>
         <h1 class="app-header-title">Settings</h1>
       </header>
 
       <div class="app-page-content">
         <div class="flex flex-col gap-6">
-          <div class="card">
+          <div class="card card-hover">
             <h2 class="text-xl font-bold mb-4">Data Export</h2>
             <div class="flex flex-col gap-2">
               <button id="export-json" class="btn-primary">Export to JSON</button>
             </div>
           </div>
 
-          <div class="card">
+          <div class="card card-hover">
             <h2 class="text-xl font-bold mb-4">Data Import</h2>
             <div class="flex flex-col gap-2">
               <label for="import-input" class="block text-sm font-medium mb-2"> Import from JSON file </label>
@@ -39,10 +50,10 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card card-hover">
             <h2 class="text-xl font-bold mb-4">Reset Database</h2>
             <div class="flex flex-col gap-2">
-              <button id="reset-database" class="btn-danger">Reset Database</button>
+              <button id="reset-database" class="btn-primary btn-danger">Reset Database</button>
             </div>
           </div>
         </div>

@@ -39,6 +39,10 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
     }[workoutSession.status]
   )
 
+  if (workoutSession.status === 'incomplete') {
+    workoutItemDiv.classList.add('border-dashed')
+  }
+
   if (workoutSession.status !== 'skipped') {
     workoutItemDiv.addEventListener('click', () => {
       window.location.href =

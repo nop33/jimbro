@@ -8,7 +8,7 @@ export function initNavigation() {
   }
 
   const bottomNav = document.createElement('nav')
-  bottomNav.className = 'bottom-nav fixed bottom-0 left-0 right-0 md:hidden z-50'
+  bottomNav.className = 'bottom-nav fixed bottom-0 left-0 right-0 md:max-w-2xl md:mx-auto z-50'
   bottomNav.innerHTML = `
     <div class="flex justify-around items-center h-20 px-2">
       <a href="/" class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200">

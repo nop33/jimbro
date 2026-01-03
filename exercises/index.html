@@ -13,9 +13,32 @@
   <body class="app">
     <div class="app-page">
       <header class="app-header">
-        <a id="back-button" class="link-primary"> <span class="text-xl">←</span> </a>
+        <a id="back-button" class="link-primary"
+          ><svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </a>
         <h1 class="app-header-title">Exercises</h1>
-        <button id="new-exercise-btn" class="link-primary ml-auto font-semibold">+ New</button>
+        <button id="new-exercise-btn" class="link-primary ml-auto font-semibold">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          New
+        </button>
       </header>
       <div class="app-page-content">
         <div class="mb-6">
@@ -30,12 +53,14 @@
         </div>
         <template id="exercise-item-template">
           <div class="card card-hover">
-            <h3 class="exercise-name card-title">
-              <!-- -->
-            </h3>
-            <p class="exercise-muscle">
-              <!-- -->
-            </p>
+            <header>
+              <h3 class="exercise-name card-title">
+                <!-- -->
+              </h3>
+              <span class="exercise-muscle badge">
+                <!-- -->
+              </span>
+            </header>
             <p class="text-sm text-neutral-400 font-medium">
               <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
             </p>
@@ -45,9 +70,7 @@
     </div>
 
     <dialog id="exercise-dialog">
-      <h2 id="dialog-title" class="text-2xl font-bold mb-6 from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-        New Exercise
-      </h2>
+      <h2 id="dialog-title" class="text-2xl font-bold mb-6">New Exercise</h2>
       <form id="exercise-form" class="flex flex-col gap-5">
         <input type="hidden" id="exercise-id" name="id" />
         <div>

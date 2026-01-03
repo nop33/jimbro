@@ -1,10 +1,21 @@
 @import 'tailwindcss';
 
-:root {
-  --color-bg: #0c0c0c;
-  --color-surface: #481e14;
-  --color-primary: #9b3922;
-  --color-accent: #f2613f;
+@theme {
+  /* Base colors */
+  --color-jim-dark: #0c0c0c;
+  --color-jim-dark-blue: #191b1f;
+  --color-jim-brown: #481e14;
+  --color-jim-primary: #9b3922;
+  --color-jim-accent: #f2613f;
+  --color-jim-neutral: var(--color-neutral-300);
+  --color-jim-neutral-secondary: var(--color-neutral-400);
+  --color-jim-neutral-tertiary: var(--color-neutral-500);
+
+  /* Semantic colors */
+  --color-jim-error: #9b3922;
+  --color-jim-success: #3a7d44;
+  --color-jim-warning: #c97a2b;
+  --color-jim-info: #3a5a7a;
 }
 
 @layer base {
@@ -13,7 +24,7 @@
   }
 
   body {
-    @apply antialiased;
+    @apply antialiased bg-black text-jim-neutral;
   }
 }
 
@@ -23,7 +34,7 @@
   }
 
   .app-page {
-    @apply max-w-2xl mx-auto min-h-screen flex flex-col;
+    @apply max-w-2xl mx-auto min-h-screen flex flex-col bg-jim-dark;
   }
 
   .app-header {
@@ -31,7 +42,7 @@
   }
 
   .app-header-title {
-    @apply text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent;
+    @apply text-2xl font-bold text-jim-accent;
   }
 
   .app-page-content {
@@ -40,7 +51,7 @@
 
   /* Modern button styles */
   .btn-primary {
-    @apply px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 active:scale-100 transition-all duration-200;
+    @apply px-6 py-3 rounded-xl text-white bg-jim-primary font-semibold shadow-lg hover:scale-101 active:scale-100 transition-all duration-200 hover:bg-jim-accent/70 cursor-pointer;
   }
 
   .btn-secondary {
@@ -48,36 +59,64 @@
   }
 
   .btn-danger {
-    @apply px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white font-semibold shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105 active:scale-100 transition-all duration-200;
+    @apply bg-jim-error text-white;
   }
 
   /* Modern card styles */
   .card {
-    @apply rounded-2xl p-5 border border-neutral-700/50 hover:border-blue-500/50 transition-all duration-300;
+    @apply rounded-2xl p-5 py-3 border border-neutral-700/10 bg-jim-dark-blue/50;
+
+    header {
+      @apply mb-2 flex items-baseline justify-between;
+    }
+  }
+
+  .card-condensed {
+    @apply p-4 py-2;
   }
 
   .card-hover {
-    @apply cursor-pointer;
+    @apply hover:border-jim-primary/50 transition-all duration-300;
+  }
+
+  .card-clickable {
+    @apply hover:border-jim-primary/50 cursor-pointer;
   }
 
   .card-title {
-    @apply text-lg font-bold mb-2;
+    @apply text-lg font-bold;
   }
 
   .card-success {
-    @apply bg-green-200 border-green-300;
+    @apply border-jim-success/50;
+    position: relative;
   }
+
+  .card-success.with-bg {
+    @apply bg-jim-success/15;
+  }
+
+  .card-success::after {
+    @apply bg-jim-success rounded-full flex items-center justify-center w-5 h-5 text-sm font-bold;
+    position: absolute;
+    top: -0.3rem;
+    right: -0.3rem;
+
+    content: '\2713';
+    color: white;
+  }
+
   .card-danger {
-    @apply bg-red-100 border-red-200;
+    @apply bg-jim-error/20 border-jim-error/20;
   }
   .card-warning {
-    @apply bg-yellow-100 border-yellow-300;
+    @apply bg-jim-warning/15 border-jim-warning/20;
   }
   .card-info {
-    @apply bg-blue-100 border-blue-300;
+    @apply bg-jim-info/10 border-jim-info/20;
   }
   .card-pending {
-    @apply bg-neutral-100 border-dashed border-neutral-400/50;
+    @apply bg-jim-neutral/10 border-dashed border-jim-neutral/20;
   }
   .card-simple {
     background-color: transparent;
@@ -98,7 +137,7 @@
 
   /* Modern link styles */
   .link-primary {
-    @apply text-blue-400 hover:text-cyan-400 font-medium transition-colors duration-200 flex items-center gap-1;
+    @apply text-jim-accent/80 hover:text-jim-accent font-medium transition-colors duration-200 flex items-center gap-1 cursor-pointer;
   }
 
   /* Bottom navigation */
@@ -117,7 +156,7 @@
 
   .nav-link.active::before {
     content: '';
-    @apply absolute -top-0.5 left-1/2 -translate-x-1/2 w-12 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full;
+    @apply absolute -top-0.5 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full;
   }
 
   /* Mobile-first: Ensure touch targets are at least 44x44px */
@@ -134,13 +173,21 @@
     scroll-behavior: smooth;
   }
 
+  details {
+    &[open] {
+      summary {
+        @apply mb-4;
+      }
+    }
+  }
+
   summary {
-    @apply text-lg mb-2 cursor-pointer;
+    @apply text-lg cursor-pointer text-jim-primary;
   }
 
   /* Modern dialog styles */
   dialog {
-    @apply rounded-2xl p-8 max-w-md mx-auto my-auto border border-neutral-700/50;
+    @apply rounded-2xl p-8 max-w-md mx-auto my-auto border border-neutral-700/50 bg-jim-dark-blue text-jim-neutral;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
 
@@ -153,9 +200,8 @@
     @apply h-full w-full;
   }
 
-  /* Exercise card specific */
-  .exercise-muscle {
-    @apply text-sm font-medium text-blue-400 mb-2;
+  .badge {
+    @apply inline-block bg-neutral-800 text-jim-accent rounded-full px-3 py-1 text-xs font-semibold tracking-wide;
   }
 
   /* Section headers */
@@ -197,6 +243,14 @@
 
   .sortable-item:last-child {
     @apply mb-0;
+  }
+
+  .set.isCompleted {
+    @apply border-jim-success/50;
+  }
+
+  .set.isPending {
+    @apply border-jim-neutral/50 border-dashed opacity-50;
   }
 }
 
