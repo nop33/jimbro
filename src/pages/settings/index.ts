@@ -17,6 +17,8 @@ importInput.addEventListener('change', (event) => {
 })
 
 resetDatabaseBtn.addEventListener('click', async () => {
-  storage.deleteDatabase()
-  console.log('✅ Database reset successfully')
+  if (confirm('Are you sure you want to reset the database?')) {
+    await storage.deleteDatabase()
+    console.log('✅ Database reset successfully')
+  }
 })
