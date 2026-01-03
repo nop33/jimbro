@@ -265,3 +265,9 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media all and (display-mode: standalone) {
+  #install-btn {
+    display: none;
+  }
+}
