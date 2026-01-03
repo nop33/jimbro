@@ -31,3 +31,7 @@ export const extractWeekKeyNumbers = (weekKey: string): { year: number; week: nu
   const [year, week] = weekKey.split('-')
   return { year: parseInt(year), week: parseInt(week.replace('W', '')) }
 }
+
+export const daysAgo = (date: Date): number => {
+  return Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+}

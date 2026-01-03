@@ -13,8 +13,11 @@
   <body class="app">
     <div class="app-page">
       <header class="app-header">
-        <a id="back-button" class="link-primary mr-4"> <span class="text-xl">←</span> Back </a>
+        <a id="back-button" class="link-primary"> <span class="text-xl">←</span> </a>
         <h1 class="app-header-title">Workouts</h1>
+        <button id="new-workout-btn" class="link-primary ml-auto items-center flex" aria-label="Add new workout">
+          <span aria-hidden="true" class="text-2xl leading-none">＋</span><span>New workout</span>
+        </button>
       </header>
       <div class="app-page-content">
         <div id="intro" class="text-center text-lg mb-4 bg-neutral-100 p-4 rounded-lg">
@@ -57,6 +60,33 @@
         </template>
       </div>
     </div>
+
+    <dialog id="new-workout-dialog">
+      <h2 id="dialog-title" class="text-xl font-bold mb-4">Select program</h2>
+      <ul id="programs-list" class="grid grid-cols-1 md:grid-cols-3 gap-2 items-stretch">
+        <!-- Programs will be rendered here -->
+      </ul>
+      <div class="flex gap-3 justify-end mt-6">
+        <button type="button" id="dialog-cancel" class="btn-secondary">Cancel</button>
+      </div>
+      <template id="program-item-template">
+        <li>
+          <a class="program-link" href="#">
+            <div class="card h-full p-4 justify-between flex flex-col card-simple">
+              <h3 class="program-name card-title">
+                <!-- -->
+              </h3>
+              <p class="this-week-status">
+                <!-- -->
+              </p>
+              <p class="last-completed-date text-sm text-neutral-400">
+                <!-- -->
+              </p>
+            </div>
+          </a>
+        </li>
+      </template>
+    </dialog>
 
     <script type="module" src="../src/pages/workouts/index.ts"></script>
     <script type="module" src="../src/navigation.ts"></script>

@@ -4,8 +4,10 @@ import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
 import IntroText from './IntroText'
+import NewWorkoutDialog from './NewWorkoutDialog'
 
 IntroText.render()
+NewWorkoutDialog.init()
 
 const WORKOUTS_PER_WEEK = 3
 

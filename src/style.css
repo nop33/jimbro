@@ -72,6 +72,9 @@
   .card-pending {
     @apply bg-neutral-100 border-dashed border-neutral-400/50;
   }
+  .card-simple {
+    background-color: transparent;
+  }
 
   /* Modern input styles */
   input[type='text'],
