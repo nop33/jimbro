@@ -22,11 +22,30 @@ const weeksKeys = getWeeksKeysFromDateToNow(new Date(dateOfFirstWorkoutSession))
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
   const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
+  const workoutStatus = workoutItemTemplate.querySelector('.workout-status') as HTMLParagraphElement
+  const workoutDate = workoutItemTemplate.querySelector('.workout-date') as HTMLParagraphElement
+
   setTextContent('.workout-title', programNames[workoutSession.programId], workoutItemTemplate)
-  setTextContent('.workout-status', workoutSession.status, workoutItemTemplate)
+
+  if (workoutSession.status !== 'completed') {
+    setTextContent('.workout-status', workoutSession.status, workoutItemTemplate)
+
+    if (workoutSession.status === 'incomplete') {
+      workoutStatus.classList.add('text-jim-warning')
+    } else if (workoutSession.status === 'skipped') {
+      workoutStatus.classList.add('text-jim-error')
+    }
+  }
 
   if (workoutSession.date) {
-    setTextContent('.workout-date', new Date(workoutSession.date).toLocaleDateString(), workoutItemTemplate)
+    const dateObj = new Date(workoutSession.date)
+    const formattedDate = dateObj.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric'
+    })
+    setTextContent('.workout-date', formattedDate, workoutItemTemplate)
+  } else {
+    workoutDate.remove()
   }
 
   const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
