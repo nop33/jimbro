@@ -1,56 +1,39 @@
 import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
-import { programsStore, type Program } from '../../db/stores/programsStore'
-import {
-  workoutSessionsStore,
-  type ExerciseSetExecution,
-  type WorkoutSession
-} from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import BreakTimerDialog from './BreakTimerDialog'
 import { keepScreenAwake } from './keepScreenAwake'
 import { sendBreakFinishedNotification } from './notification'
+import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
 
 keepScreenAwake()
 
-const urlParams = new URLSearchParams(window.location.search)
-const workoutSessionProgramId = urlParams.get('programId')
-const workoutSessionDate = urlParams.get('date')
+const { program, workoutSession: _workoutSession } = await parseUrlParams()
 
+setTextContent('.app-header-title', program.name)
+
+let workoutSession = _workoutSession
 let exercisesCompletedCount = 0
-let program: Program | undefined
-let existingWorkoutSession: WorkoutSession | undefined = undefined
 
-if (!workoutSessionProgramId && !workoutSessionDate) {
-  window.location.href = '/'
-  throw new Error('Workout session programId or date is required')
-} else if (workoutSessionProgramId) {
-  program = await programsStore.getProgram(workoutSessionProgramId)
-  existingWorkoutSession = undefined
-} else if (workoutSessionDate) {
-  existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(workoutSessionDate)
-  program = existingWorkoutSession?.programId
-    ? await programsStore.getProgram(existingWorkoutSession.programId)
-    : undefined
-}
-
-if (!program) {
-  window.location.href = '/'
-  throw new Error('Program not found')
-}
-
-const appHeaderTitle = document.querySelector('.app-header-title') as HTMLHeadingElement
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
-const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
 
 const breakTimerDialog = new BreakTimerDialog()
 breakTimerDialog.on('break-finished', () => {
   sendBreakFinishedNotification()
 })
 
-appHeaderTitle.textContent = program.name
+const workoutSessionDate = workoutSession?.date ?? getSimpleDate(new Date())
+const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, workoutSessionDate })
+
+workoutSessionForm.on('workout-session-updated', ({ detail }) => {
+  workoutSession = detail.workoutSession
+
+  const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
+  workoutDetails.removeAttribute('open')
+})
 
 const renderCompletedSetItem = ({ set, index }: { set: ExerciseSetExecution; index: number }) => {
   const completedSetItemTemplate = nodeFromTemplate('#completed-set-item-template')
@@ -70,7 +53,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   setTextContent('.exercise-name', programExercise.name, exerciseItemTemplate)
   setTextContent('.exercise-muscle', programExercise.muscle, exerciseItemTemplate)
 
-  const existingWorkoutSessionExercise = existingWorkoutSession?.exercises.find(
+  const existingWorkoutSessionExercise = workoutSession?.exercises.find(
     ({ exerciseId }) => exerciseId === programExercise.id
   )
 
@@ -93,9 +76,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     const nextSetRepsInput = nextSetForm.querySelector('input[name="set-reps"]') as HTMLInputElement
     const nextSetWeightInput = nextSetForm.querySelector('input[name="set-weight"]') as HTMLInputElement
 
-    let latestSet = existingWorkoutSession?.exercises
-      .find(({ exerciseId }) => exerciseId === programExercise.id)
-      ?.sets.at(-1)
+    let latestSet = workoutSession?.exercises.find(({ exerciseId }) => exerciseId === programExercise.id)?.sets.at(-1)
 
     if (!latestSet) {
       const latestWorkoutSessionOfProgram = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(
@@ -117,20 +98,20 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       const reps = formData.get('set-reps') as string
       const weight = formData.get('set-weight') as string
 
-      if (!existingWorkoutSession) {
+      if (!workoutSession) {
         throw new Error('No existing workout session found')
       }
 
       const completedSet = { reps: parseFloat(reps), weight: parseFloat(weight) }
 
-      existingWorkoutSession = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
-        workoutSession: existingWorkoutSession,
+      workoutSession = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
+        workoutSession,
         exerciseId: programExercise.id,
         exerciseExecutionSet: completedSet
       })
 
       const index =
-        (existingWorkoutSession.exercises.find(({ exerciseId: id }) => id === programExercise.id)?.sets.length ?? 1) - 1
+        (workoutSession.exercises.find(({ exerciseId: id }) => id === programExercise.id)?.sets.length ?? 1) - 1
 
       completedSets.appendChild(renderCompletedSetItem({ set: completedSet, index }))
 
@@ -142,10 +123,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       }
 
       if (exercisesCompletedCount === program.exercises.length) {
-        existingWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
-          ...existingWorkoutSession,
-          status: 'completed'
-        })
+        workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
       } else {
         breakTimerDialog.startTimer({ minutes: 2, seconds: 30 })
       }
@@ -158,7 +136,15 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
 }
 
 const renderProgramExercises = async () => {
-  for (const exerciseId of program.exercises) {
+  let exerciseIds: Exercise['id'][] = program.exercises
+
+  if (workoutSession && (workoutSession.status === 'completed' || workoutSession.status === 'incomplete')) {
+    exerciseIds = workoutSession.exercises.map(({ exerciseId }) => exerciseId)
+  } else {
+    exerciseIds = program.exercises
+  }
+
+  for (const exerciseId of exerciseIds) {
     const programExercise = await exercisesStore.getExercise(exerciseId)
 
     if (!programExercise) continue
@@ -167,13 +153,5 @@ const renderProgramExercises = async () => {
     exercisesList.appendChild(exerciseListItem)
   }
 }
-
-new WorkoutSessionForm({
-  programId: program.id,
-  workoutSessionDate: existingWorkoutSession?.date ?? getSimpleDate(new Date())
-}).on('workout-session-updated', ({ detail: { workoutSession } }) => {
-  existingWorkoutSession = workoutSession
-  workoutDetails.removeAttribute('open')
-})
 
 renderProgramExercises()

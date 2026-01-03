@@ -1,5 +1,5 @@
 import EventEmitter from '../../db/eventEmitter'
-import type { Program } from '../../db/stores/programsStore'
+import { programsStore, type Program } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import { setCityFromGeolocation } from './geolocation'
 
@@ -59,13 +59,23 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
 
-    const existingWorkoutSession = (await workoutSessionsStore.getWorkoutSession(this.workoutSessionDate)) ?? {
-      programId,
-      date,
-      location,
-      status: 'incomplete',
-      exercises: [],
-      notes
+    let existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(this.workoutSessionDate)
+
+    if (!existingWorkoutSession) {
+      const program = await programsStore.getProgram(programId)
+
+      if (!program) {
+        throw new Error('Program not found')
+      }
+
+      existingWorkoutSession = {
+        programId,
+        date,
+        location,
+        status: 'incomplete',
+        exercises: program.exercises.map((exerciseId) => ({ exerciseId, sets: [] })),
+        notes
+      }
     }
 
     const updatedWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
