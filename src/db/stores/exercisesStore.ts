@@ -16,14 +16,14 @@ export const MUSCLE_GROUPS = [
   'Quads',
   'Calves',
   'Hamstrings',
-  'Core',
+  'Glutes',
   'Chest',
+  'Biceps',
   'Triceps',
   'Shoulders',
-  'Back',
-  'Biceps',
   'Traps',
-  'Glutes'
+  'Back',
+  'Core'
 ] as const
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
