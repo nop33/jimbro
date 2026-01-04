@@ -252,6 +252,27 @@
   .set.isPending {
     @apply border-jim-neutral/50 border-dashed opacity-50;
   }
+
+  .toast-message-popup {
+    @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 top-4 w-11/12 max-w-md z-50;
+    transform: translateX(-50%);
+
+    &.success {
+      @apply bg-jim-success border-jim-success/20;
+    }
+
+    &.error {
+      @apply bg-jim-error border-jim-error/20;
+    }
+
+    &.warning {
+      @apply bg-jim-warning border-jim-warning/20;
+    }
+
+    &.info {
+      @apply bg-jim-info border-jim-info/20;
+    }
+  }
 }
 
 /* Respect reduced motion preference */
