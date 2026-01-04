@@ -9,6 +9,7 @@ class ExerciseDialog {
   private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
   private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
+  private static deleteExerciseBtn = document.querySelector('#delete-exercise-btn') as HTMLButtonElement
 
   static openDialog() {
     this.exerciseDialog.showModal()
@@ -29,6 +30,10 @@ class ExerciseDialog {
 
     this.dialogCancel.addEventListener('click', () => {
       this.closeDialog()
+    })
+
+    this.deleteExerciseBtn.addEventListener('click', () => {
+      this.deleteExercise()
     })
 
     this.exerciseForm.addEventListener('submit', async (e) => {
@@ -74,6 +79,14 @@ class ExerciseDialog {
   static renderMusclePicker() {
     const musclePicker = new MuscleGroupSelect({ selector: '#exercise-muscle' })
     musclePicker.render({ includeOptionAll: false })
+  }
+
+  static deleteExercise() {
+    if (confirm('Are you sure you want to delete this exercise?')) {
+      exercisesStore.softDeleteExercise(this.exerciseIdInput.value)
+      this.closeDialog()
+      Toasts.show({ message: 'Exercise deleted.' })
+    }
   }
 }
 

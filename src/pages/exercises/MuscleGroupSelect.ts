@@ -11,12 +11,15 @@ interface MuscleGroupSelectRenderProps {
 
 class MuscleGroupSelect {
   private muscleGroupSelect: HTMLSelectElement
+  public selectedMuscle: string
 
   constructor({ selector, onSelect }: MuscleGroupSelectProps) {
+    this.selectedMuscle = 'All'
     this.muscleGroupSelect = document.querySelector(selector) as HTMLSelectElement
     this.muscleGroupSelect.addEventListener('change', (e) => {
       const selectedMuscle = (e.target as HTMLSelectElement).value
       onSelect?.(selectedMuscle)
+      this.selectedMuscle = selectedMuscle
     })
   }
 

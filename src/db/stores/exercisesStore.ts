@@ -9,6 +9,7 @@ export interface Exercise {
   muscle: MuscleGroup
   sets: number
   reps: number
+  isDeleted?: boolean
 }
 
 export type NewExercise = Omit<Exercise, 'id'>
@@ -61,7 +62,11 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   }
 
   async updateExercise(item: Exercise): Promise<Exercise> {
-    this.update((currentExercises) => currentExercises.map((exercise) => (exercise.id === item.id ? item : exercise)))
+    if (item.isDeleted) {
+      this.update((currentExercises) => currentExercises.filter((exercise) => exercise.id !== item.id))
+    } else {
+      this.update((currentExercises) => currentExercises.map((exercise) => (exercise.id === item.id ? item : exercise)))
+    }
 
     try {
       await storage.update(this.storeName, item)
@@ -74,7 +79,9 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   }
 
   async getAllExercises(): Promise<Array<Exercise>> {
-    return storage.getAll<Exercise>(this.storeName)
+    return storage
+      .getAll<Exercise>(this.storeName)
+      .then((exercises) => exercises.filter((exercise) => !exercise.isDeleted))
   }
 
   async countExercises(): Promise<number> {
@@ -84,6 +91,16 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
   async seedExercises(): Promise<void> {
     for (const exercise of seedExercises.exercises) {
       await this.importExercise(exercise as Exercise)
+    }
+  }
+
+  async softDeleteExercise(id: string): Promise<void> {
+    const exercise = await this.getExercise(id)
+
+    if (exercise) {
+      await this.updateExercise({ ...exercise, isDeleted: true })
+    } else {
+      throw new Error(`Exercise with id ${id} not found.`)
     }
   }
 }

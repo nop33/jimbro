@@ -200,6 +200,10 @@
     @apply h-full w-full;
   }
 
+  dialog > header {
+    @apply mb-6 flex items-center justify-between;
+  }
+
   .badge {
     @apply inline-block bg-neutral-800 text-jim-accent rounded-full px-3 py-1 text-xs font-semibold tracking-wide;
   }
