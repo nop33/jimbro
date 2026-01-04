@@ -6,15 +6,15 @@ import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDa
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 
-IntroText.render()
-NewWorkoutDialog.init()
-
 const WORKOUTS_PER_WEEK = 3
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await programsStore.getProgramsByNames()
+
+IntroText.render()
+NewWorkoutDialog.init()
 
 const today = getSimpleDate(new Date())
 const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
