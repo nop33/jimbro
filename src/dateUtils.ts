@@ -1,7 +1,7 @@
 export const getWeekOfYear = (date: Date): string => {
   const oneJan = new Date(date.getFullYear(), 0, 1)
   const numberOfDays = Math.floor((date.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000))
-  const weekNumber = Math.ceil((oneJan.getDay() + 1 + numberOfDays) / 7)
+  const weekNumber = Math.ceil((oneJan.getDay() + numberOfDays) / 7)
   const year = date.getFullYear()
 
   return constructWeekKey(weekNumber === 53 ? { year: year + 1, week: 1 } : { year, week: weekNumber })

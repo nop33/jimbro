@@ -9,7 +9,7 @@ class IntroText {
   static async render() {
     const currentWeek = getWeekOfYear(new Date())
     const workoutSessionsByWeek = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
-    const thisWeekWorkoutSessions = workoutSessionsByWeek[currentWeek]
+    const thisWeekWorkoutSessions = workoutSessionsByWeek[currentWeek] ?? []
     const thisWeekCompletedWorkoutSessions = thisWeekWorkoutSessions?.filter(
       (workoutSession) => workoutSession.status === 'completed'
     )
