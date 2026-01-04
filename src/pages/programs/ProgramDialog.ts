@@ -11,6 +11,7 @@ class ProgramDialog {
   private static programForm = document.querySelector('#program-form') as HTMLFormElement
   private static programIdInput = document.querySelector('#program-id') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
+  private static deleteProgramBtn = document.querySelector('#delete-program-btn') as HTMLButtonElement
 
   private static programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
   private static programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list')
@@ -39,6 +40,10 @@ class ProgramDialog {
 
     this.programExercisesSortableList.on('reordered-exercises', ({ detail: { reorderedExerciseIds } }) => {
       this.selectedExercises = new Set(reorderedExerciseIds)
+    })
+
+    this.deleteProgramBtn.addEventListener('click', () => {
+      this.deleteProgram()
     })
 
     this.newProgramButton.addEventListener('click', () => {
@@ -79,6 +84,7 @@ class ProgramDialog {
       this.selectedExercises = new Set(program.exercises)
 
       this.dialogTitle.textContent = 'Edit Program'
+      this.deleteProgramBtn.classList.remove('hidden')
       this.programIdInput.value = program.id
       ;(document.querySelector('#program-name') as HTMLInputElement).value = program.name
     } else {
@@ -86,10 +92,19 @@ class ProgramDialog {
       this.dialogTitle.textContent = 'New Program'
       this.programForm.reset()
       this.programIdInput.value = ''
+      this.deleteProgramBtn.classList.add('hidden')
     }
 
     this.programExercisesMultiselect.render({ selectedExercises: this.selectedExercises })
     this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises })
+  }
+
+  static deleteProgram() {
+    if (confirm('Are you sure you want to delete this program?')) {
+      programsStore.softDeleteProgram(this.programIdInput.value)
+      this.closeDialog()
+      Toasts.show({ message: 'Program deleted.' })
+    }
   }
 }
 

@@ -65,6 +65,7 @@ class ExerciseDialog {
     if (exercise) {
       this.dialogTitle.textContent = 'Edit Exercise'
       this.exerciseIdInput.value = exercise.id
+      this.deleteExerciseBtn.classList.remove('hidden')
       ;(document.querySelector('#exercise-name') as HTMLInputElement).value = exercise.name
       ;(document.querySelector('#exercise-muscle') as HTMLSelectElement).value = exercise.muscle
       ;(document.querySelector('#exercise-sets') as HTMLInputElement).value = exercise.sets.toString()
@@ -73,6 +74,7 @@ class ExerciseDialog {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
+      this.deleteExerciseBtn.classList.add('hidden')
     }
   }
 

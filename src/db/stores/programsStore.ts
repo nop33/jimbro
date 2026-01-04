@@ -8,6 +8,7 @@ export interface Program {
   id: string
   name: string
   exercises: Array<Exercise['id']>
+  isDeleted?: boolean
 }
 
 export type NewProgram = Omit<Program, 'id'>
@@ -44,9 +45,13 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
   }
 
   async updateProgram(item: Program): Promise<Program> {
-    this.update((currentPrograms) => {
-      return currentPrograms.map((program) => (program.id === item.id ? item : program))
-    })
+    if (item.isDeleted) {
+      this.update((currentPrograms) => currentPrograms.filter((program) => program.id !== item.id))
+    } else {
+      this.update((currentPrograms) => {
+        return currentPrograms.map((program) => (program.id === item.id ? item : program))
+      })
+    }
 
     try {
       await storage.update(this.storeName, item)
@@ -59,7 +64,7 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
   }
 
   async getAllPrograms(): Promise<Array<Program>> {
-    return storage.getAll<Program>(this.storeName)
+    return storage.getAll<Program>(this.storeName).then((programs) => programs.filter((program) => !program.isDeleted))
   }
 
   async getProgramsByNames(): Promise<Record<string, string>> {
@@ -77,6 +82,15 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
   async seedPrograms(): Promise<void> {
     for (const program of seedPrograms.programs) {
       await this.importProgram(program)
+    }
+  }
+
+  async softDeleteProgram(id: Program['id']): Promise<void> {
+    const program = await this.getProgram(id)
+    if (program) {
+      await this.updateProgram({ ...program, isDeleted: true })
+    } else {
+      throw new Error(`Program with id ${id} not found.`)
     }
   }
 }
