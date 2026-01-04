@@ -15,7 +15,7 @@ importInput.addEventListener('change', async (event) => {
   if (file) {
     try {
       await importIndexedDbFromJson(file)
-      Toasts.show({ message: 'Database imported!', type: 'success' })
+      Toasts.show({ message: 'Database imported!' })
     } catch (error) {
       Toasts.show({ message: 'Failed to import database.', type: 'error' })
       console.error('❌ Failed to import database', error)
@@ -26,6 +26,6 @@ importInput.addEventListener('change', async (event) => {
 resetDatabaseBtn.addEventListener('click', async () => {
   if (confirm('Are you sure you want to reset the database?')) {
     await storage.deleteDatabase()
-    Toasts.show({ message: 'Database reset.', type: 'success' })
+    Toasts.show({ message: 'Database reset.' })
   }
 })

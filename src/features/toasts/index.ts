@@ -5,7 +5,7 @@ class Toasts {
   private static messageQueue: Array<ToastMessage> = []
   private static currentlyDisplayingMessage: ToastMessage | null = null
 
-  static show({ message, type = 'info', duration = 'short' }: ToastMessageSimple) {
+  static show({ message, type = 'success', duration = 'short' }: ToastMessageSimple) {
     this.messageQueue.push({ message, type, duration })
     this.processQueue()
   }

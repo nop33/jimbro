@@ -1,6 +1,7 @@
 import EventEmitter from '../../db/eventEmitter'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
+import Toasts from '../../features/toasts'
 import { setCityFromGeolocation } from './geolocation'
 
 interface WorkoutSessionFormProps {
@@ -85,6 +86,7 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
     })
 
     this.emit('workout-session-updated', { workoutSession: updatedWorkoutSession })
+    Toasts.show({ message: 'Workout session saved.' })
   }
 }
 

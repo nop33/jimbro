@@ -1,5 +1,6 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
+import Toasts from '../../features/toasts'
 import ProgramExercisesMultiselect from './ProgramExercisesMultiselect'
 import ProgramExercisesSortableList from './ProgramExercisesSortableList'
 
@@ -65,8 +66,10 @@ class ProgramDialog {
         }
 
         this.closeDialog()
+        Toasts.show({ message: 'Program saved!' })
       } catch (error) {
         console.error('Error saving program:', error)
+        Toasts.show({ message: `Could not save program: ${error}`, type: 'error' })
       }
     })
   }

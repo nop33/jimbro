@@ -1,4 +1,5 @@
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
 class ExerciseDialog {
@@ -47,8 +48,10 @@ class ExerciseDialog {
         }
 
         this.closeDialog()
+        Toasts.show({ message: 'Exercise saved!' })
       } catch (error) {
         console.error('Error saving exercise:', error)
+        Toasts.show({ message: `Could not save exercise: ${error}`, type: 'error' })
       }
     })
   }
