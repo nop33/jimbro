@@ -22,7 +22,8 @@ export const MUSCLE_GROUPS = [
   'Shoulders',
   'Back',
   'Biceps',
-  'Traps'
+  'Traps',
+  'Glutes'
 ] as const
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
