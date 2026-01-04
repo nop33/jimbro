@@ -5,6 +5,9 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
+import { isDbEmpty } from '../../db/utils'
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import Toasts from '../../features/toasts'
 
 const WORKOUTS_PER_WEEK = 3
 
@@ -12,6 +15,7 @@ const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDi
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await programsStore.getProgramsByNames()
+const _isDbEmpty = await isDbEmpty()
 
 IntroText.render()
 NewWorkoutDialog.init()
@@ -74,41 +78,58 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   return workoutItemTemplate
 }
 
-weeksKeys.forEach((weekKey) => {
-  const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
-  const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
-  const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('#workout-week-list') as HTMLUListElement
-
-  const { year, week } = extractWeekKeyNumbers(weekKey)
-  setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
-  setTextContent('.workout-week-year', `of ${year}`, workoutWeekTemplate)
-
-  workoutsOfThisWeek.forEach((workout) => {
-    const workoutItem = renderWorkoutSession(workout)
-    workoutsOfThisWeekList.appendChild(workoutItem)
+if (_isDbEmpty) {
+  const seedDbButton = document.createElement('button')
+  seedDbButton.classList.add('btn-primary', 'mx-auto')
+  seedDbButton.textContent = 'Seed Database'
+  seedDbButton.addEventListener('click', async () => {
+    try {
+      await exercisesStore.seedExercises()
+      await programsStore.seedPrograms()
+      window.location.reload()
+    } catch (error) {
+      console.error('Error seeding database:', error)
+      Toasts.show({ message: 'Failed to seed database.', type: 'error' })
+    }
   })
+  workoutWeeksContainer.appendChild(seedDbButton)
+} else {
+  weeksKeys.forEach((weekKey) => {
+    const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
+    const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
+    const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('#workout-week-list') as HTMLUListElement
 
-  if (workoutsOfThisWeek.length < WORKOUTS_PER_WEEK) {
-    const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
-    const missingProgramsIds = Object.keys(programNames).filter(
-      (programId) => !recordedWorkoutPrograms.includes(programId)
-    )
-    const currentWeek = extractWeekKeyNumbers(getWeekOfYear(new Date())).week
+    const { year, week } = extractWeekKeyNumbers(weekKey)
+    setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
+    setTextContent('.workout-week-year', `of ${year}`, workoutWeekTemplate)
 
-    missingProgramsIds.forEach((missingProgramId) => {
-      const status = week === currentWeek ? 'pending' : 'skipped'
-      const workoutItem = renderWorkoutSession({
-        programId: missingProgramId,
-        status: status,
-        exercises: [],
-        location: '',
-        date: undefined
-      })
+    workoutsOfThisWeek.forEach((workout) => {
+      const workoutItem = renderWorkoutSession(workout)
       workoutsOfThisWeekList.appendChild(workoutItem)
     })
-  }
 
-  workoutWeeksContainer.appendChild(workoutWeekTemplate)
-})
+    if (workoutsOfThisWeek.length < WORKOUTS_PER_WEEK) {
+      const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
+      const missingProgramsIds = Object.keys(programNames).filter(
+        (programId) => !recordedWorkoutPrograms.includes(programId)
+      )
+      const currentWeek = extractWeekKeyNumbers(getWeekOfYear(new Date())).week
+
+      missingProgramsIds.forEach((missingProgramId) => {
+        const status = week === currentWeek ? 'pending' : 'skipped'
+        const workoutItem = renderWorkoutSession({
+          programId: missingProgramId,
+          status: status,
+          exercises: [],
+          location: '',
+          date: undefined
+        })
+        workoutsOfThisWeekList.appendChild(workoutItem)
+      })
+    }
+
+    workoutWeeksContainer.appendChild(workoutWeekTemplate)
+  })
+}
 
 type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'date'> & { date: undefined; status: 'pending' | 'skipped' }

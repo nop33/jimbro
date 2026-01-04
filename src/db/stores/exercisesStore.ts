@@ -1,6 +1,7 @@
 import { OBJECT_STORES } from '../constants'
 import ReactiveStore from '../reactiveStore'
 import { storage } from '../storage'
+import seedExercises from './seed-exercises.json' assert { type: 'json' }
 
 export interface Exercise {
   id: string
@@ -78,6 +79,12 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
 
   async countExercises(): Promise<number> {
     return storage.count(this.storeName)
+  }
+
+  async seedExercises(): Promise<void> {
+    for (const exercise of seedExercises.exercises) {
+      await this.importExercise(exercise as Exercise)
+    }
   }
 }
 

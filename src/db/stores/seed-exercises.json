@@ -1,0 +1,151 @@
+{
+  "exercises": [
+    {
+      "id": "08e802c1-1870-4b8d-bc02-5c72159e4f74",
+      "name": "Rope pushdowns",
+      "muscle": "Triceps",
+      "sets": 4,
+      "reps": 8
+    },
+    {
+      "name": "Pull down machine",
+      "muscle": "Back",
+      "sets": 4,
+      "reps": 8,
+      "id": "17208184-8e68-4acf-9709-643305c1ac3e"
+    },
+    {
+      "name": "Lower back raises",
+      "muscle": "Core",
+      "sets": 4,
+      "reps": 12,
+      "id": "1b7b6677-cddd-4827-82a7-9dcf592699b8"
+    },
+    {
+      "name": "Dumbbell lateral raises",
+      "muscle": "Shoulders",
+      "sets": 4,
+      "reps": 8,
+      "id": "1c8bf1ef-f721-4163-97da-0d8b3b26942e"
+    },
+    {
+      "name": "Cable curl",
+      "muscle": "Biceps",
+      "sets": 4,
+      "reps": 8,
+      "id": "296b3438-ad70-4176-b691-cadfaf289fb5"
+    },
+    {
+      "id": "2f3bb109-0006-4aa6-8e08-3601cf212fef",
+      "name": "Free barbell squat",
+      "muscle": "Quads",
+      "sets": 4,
+      "reps": 8
+    },
+    {
+      "name": "Side delt cable fly",
+      "muscle": "Shoulders",
+      "sets": 4,
+      "reps": 8,
+      "id": "46dfb9e1-d206-43e7-9825-07060f478989"
+    },
+    {
+      "name": "Front delt cable fly",
+      "muscle": "Shoulders",
+      "sets": 4,
+      "reps": 8,
+      "id": "4a6b60b3-1af6-494d-9bec-277937a623f0"
+    },
+    {
+      "name": "Incline bench dumbbell curl",
+      "muscle": "Biceps",
+      "sets": 4,
+      "reps": 8,
+      "id": "54a8590a-cb85-4093-8ea6-e5556ae2e7fa"
+    },
+    {
+      "name": "Incline dumbell fly",
+      "muscle": "Chest",
+      "sets": 4,
+      "reps": 8,
+      "id": "645e696e-7a93-4344-8ba5-4555dfde37c9"
+    },
+    {
+      "name": "Ab crunches",
+      "muscle": "Core",
+      "sets": 4,
+      "reps": 15,
+      "id": "76325262-9f17-43c9-93a1-697eef0e9e57"
+    },
+    {
+      "name": "Hamstring curls",
+      "muscle": "Hamstrings",
+      "sets": 4,
+      "reps": 8,
+      "id": "a7fa8caf-d0c9-45e8-973f-4650a50e5683"
+    },
+    {
+      "name": "Rowing machine",
+      "muscle": "Back",
+      "sets": 4,
+      "reps": 8,
+      "id": "b7ceda0a-dd7b-4fd1-a9a4-2fa17d4ed9a5"
+    },
+    {
+      "name": "Bench press",
+      "muscle": "Chest",
+      "sets": 4,
+      "reps": 8,
+      "id": "cc40a9c8-6788-4003-b4c7-8fbc6ba25630"
+    },
+    {
+      "name": "Elevated standing calf raises",
+      "muscle": "Calves",
+      "sets": 4,
+      "reps": 15,
+      "id": "d95ff5d8-ea03-462b-bfe8-1fcd114f5cb8"
+    },
+    {
+      "id": "dbce8be0-7ab8-493e-8290-1aa8124bc0ce",
+      "name": "Seated calf raises",
+      "muscle": "Calves",
+      "sets": 4,
+      "reps": 15
+    },
+    {
+      "name": "Quad extensions",
+      "muscle": "Quads",
+      "sets": 4,
+      "reps": 8,
+      "id": "e15c3651-7624-488c-9258-8a54449cf23b"
+    },
+    {
+      "name": "Rear cable delt fly",
+      "muscle": "Shoulders",
+      "sets": 4,
+      "reps": 10,
+      "id": "e52d1205-05c7-4da0-8f5a-0fefedbc75de"
+    },
+    {
+      "name": "Trap dumbbell raises",
+      "muscle": "Traps",
+      "sets": 4,
+      "reps": 15,
+      "id": "e595eac9-71ff-4cf7-8154-d09c345c9bf2"
+    },
+    {
+      "name": "Bar pushdowns",
+      "muscle": "Triceps",
+      "sets": 4,
+      "reps": 8,
+      "id": "fa46dbe0-4e90-4b1d-8c25-9aceb2243a96"
+    },
+    {
+      "name": "Seated dumbbell shoulder press",
+      "muscle": "Shoulders",
+      "sets": 4,
+      "reps": 10,
+      "id": "fbe41fe4-e6fd-4288-bfeb-903f13fc711f"
+    }
+  ]
+}

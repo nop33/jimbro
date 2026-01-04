@@ -1,4 +1,6 @@
 import { getWeekOfYear } from '../../dateUtils'
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 
 const WORKOUTS_PER_WEEK = 3
@@ -21,8 +23,10 @@ class IntroText {
       } left this week.`
     } else if (thisWeekCompletedWorkoutSessions.length === WORKOUTS_PER_WEEK) {
       this.introText.textContent = `You have completed all your workouts this week! 💪`
-    } else {
+    } else if ((await programsStore.countPrograms()) !== 0) {
       this.introText.textContent = `You have not completed any workouts this week. Time to get sweating! 💦`
+    } else if ((await exercisesStore.countExercises()) === 0) {
+      this.introText.textContent = `Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?`
     }
   }
 }
