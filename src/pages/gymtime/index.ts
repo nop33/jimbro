@@ -74,6 +74,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
   const exerciseItemDiv = exerciseItemTemplate.querySelector('div') as HTMLDivElement
   const nextSetDiv = exerciseItemTemplate.querySelector('.next-set') as HTMLDivElement
+  const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
 
   setTextContent('.exercise-name', programExercise.name, exerciseItemTemplate)
   setTextContent('.exercise-muscle', programExercise.muscle, exerciseItemTemplate)
@@ -101,6 +102,12 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     }
   } else {
     console.log('no existing workout session exercise')
+  }
+
+  if (!workoutSession) {
+    submitButton.classList.add('hidden')
+  } else {
+    submitButton.classList.remove('hidden')
   }
 
   if (!existingWorkoutSessionExercise || existingWorkoutSessionExercise.sets.length < programExercise.sets) {
