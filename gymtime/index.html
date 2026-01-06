@@ -120,11 +120,17 @@
     </div>
 
     <dialog id="break-countdown-dialog">
-      <div class="h-full w-full flex flex-col items-center justify-center">
+      <div class="h-full w-full flex flex-col items-center justify-between">
+        <p class="text-4xl font-bold"><span id="sets-done" class="text-jim-accent"></span> done.</p>
         <h2 id="countdown" class="text-9xl font-bold font-mono">
           <!-- -->
         </h2>
-        <button id="skip-break" class="btn-secondary absolute bottom-12">Skip</button>
+        <div class="w-full flex flex-col gap-4 items-center">
+          <p id="next-exercise-message" class="text-xl font-bold">
+            Coming up: <span id="next-exercise-name" class="text-jim-accent"></span>
+          </p>
+          <button id="skip-break" class="btn-secondary self-end">Skip</button>
+        </div>
       </div>
     </dialog>
 

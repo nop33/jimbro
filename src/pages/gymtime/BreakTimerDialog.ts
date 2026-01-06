@@ -10,13 +10,31 @@ class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
   private countdown = this.breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
   private countdownInterval: ReturnType<typeof setInterval> | null = null
   private skipBreakButton = this.breakCountdownDialog.querySelector('#skip-break') as HTMLButtonElement
+  private setsDone = this.breakCountdownDialog.querySelector('#sets-done') as HTMLParagraphElement
+  private nextExercise = this.breakCountdownDialog.querySelector('#next-exercise-name') as HTMLParagraphElement
+  private nextExerciseMessage = this.breakCountdownDialog.querySelector(
+    '#next-exercise-message'
+  ) as HTMLParagraphElement
 
   constructor() {
     super()
     this.skipBreakButton.addEventListener('click', () => this.skipBreak())
   }
 
-  startTimer({ minutes, seconds }: { minutes: number; seconds: number }) {
+  startTimer({
+    minutes,
+    seconds,
+    setsDone,
+    setsTotal,
+    nextExercise
+  }: {
+    minutes: number
+    seconds: number
+    setsDone: number
+    setsTotal: number
+    nextExercise?: string
+  }) {
+    this.setsDone.textContent = `${setsDone} / ${setsTotal}`
     this.countdown.textContent = `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`
     this.countdownInterval = setInterval(() => {
       const minutes = parseInt(this.countdown.textContent.split(':')[0])
@@ -33,6 +51,13 @@ class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
         this.countdown.textContent = `${minutes}:${nextSeconds < 10 ? `0${nextSeconds}` : nextSeconds}`
       }
     }, 1000)
+
+    if (nextExercise) {
+      this.nextExerciseMessage.classList.remove('hidden')
+      this.nextExercise.textContent = nextExercise
+    } else {
+      this.nextExerciseMessage.classList.add('hidden')
+    }
 
     this.openDialog()
   }

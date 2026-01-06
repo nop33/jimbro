@@ -169,7 +169,22 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       if (exercisesCompletedCount === program.exercises.length) {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
       } else {
-        breakTimerDialog.startTimer({ minutes: 2, seconds: 30 })
+        const isExerciseCompleted = programExercise.sets === index + 1
+        let nextExerciseName = undefined
+        if (isExerciseCompleted) {
+          const nextExerciseId = program.exercises[exercisesCompletedCount]
+          const nextExercise = await exercisesStore.getExercise(nextExerciseId)
+          if (nextExercise) {
+            nextExerciseName = nextExercise.name
+          }
+        }
+        breakTimerDialog.startTimer({
+          minutes: 2,
+          seconds: 30,
+          setsDone: index + 1,
+          setsTotal: programExercise.sets,
+          nextExercise: nextExerciseName
+        })
       }
     })
   } else {
