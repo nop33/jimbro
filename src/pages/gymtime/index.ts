@@ -1,6 +1,7 @@
 import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
+import Toasts from '../../features/toasts'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import BreakTimerDialog from './BreakTimerDialog'
@@ -19,6 +20,7 @@ let workoutSession = _workoutSession
 let exercisesCompletedCount = 0
 
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
+const deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
 
 const breakTimerDialog = new BreakTimerDialog()
 breakTimerDialog.on('break-finished', () => {
@@ -30,6 +32,9 @@ const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, worko
 
 workoutSessionForm.on('workout-session-updated', ({ detail }) => {
   workoutSession = detail.workoutSession
+  window.history.pushState({}, '', `?date=${workoutSession.date}`)
+  renderProgramExercises()
+  setupDeleteWorkoutSessionBtn()
 
   const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
   workoutDetails.removeAttribute('open')
@@ -94,6 +99,8 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     for (let i = count; i < programExercise.sets; i++) {
       completedSets.appendChild(renderSetItem({ set: { reps: '-', weight: '-' }, index: i, isCompleted: false }))
     }
+  } else {
+    console.log('no existing workout session exercise')
   }
 
   if (!existingWorkoutSessionExercise || existingWorkoutSessionExercise.sets.length < programExercise.sets) {
@@ -166,6 +173,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
 }
 
 const renderProgramExercises = async () => {
+  exercisesList.innerHTML = ''
   let exerciseIds: Exercise['id'][] = program.exercises
 
   if (workoutSession && (workoutSession.status === 'completed' || workoutSession.status === 'incomplete')) {
@@ -184,4 +192,21 @@ const renderProgramExercises = async () => {
   }
 }
 
+const setupDeleteWorkoutSessionBtn = () => {
+  if (workoutSession?.date) {
+    deleteWorkoutSessionBtn.classList.remove('hidden')
+    deleteWorkoutSessionBtn.addEventListener('click', () => {
+      if (!workoutSession) {
+        throw new Error('Workout session not found')
+      }
+      workoutSessionsStore.deleteWorkoutSession(workoutSession.date)
+      Toasts.show({ message: 'Workout session deleted' })
+      window.location.href = `/workouts/`
+    })
+  } else {
+    deleteWorkoutSessionBtn.classList.add('hidden')
+  }
+}
+
 renderProgramExercises()
+setupDeleteWorkoutSessionBtn()

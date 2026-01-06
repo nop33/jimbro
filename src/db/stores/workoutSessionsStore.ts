@@ -95,6 +95,14 @@ export class WorkoutSessionsReactiveStore {
   async countWorkoutSessions(): Promise<number> {
     return storage.count(this.storeName)
   }
+
+  async deleteWorkoutSession(date: string): Promise<void> {
+    const workoutSession = await this.getWorkoutSession(date)
+    if (!workoutSession) {
+      throw new Error('Workout session not found')
+    }
+    return storage.delete(this.storeName, date)
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsReactiveStore()

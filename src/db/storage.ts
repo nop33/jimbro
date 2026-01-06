@@ -82,6 +82,11 @@ export class Storage {
   async deleteDatabase() {
     indexedDB.deleteDatabase(DB_NAME)
   }
+
+  async delete(storeName: string, key: string | number): Promise<void> {
+    const store = await this.getStore(storeName, 'readwrite')
+    await promisifyRequest(store.delete(key))
+  }
 }
 
 export const storage = new Storage()
