@@ -133,8 +133,9 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     nextSetRepsInput.value = latestSet.reps.toString()
     nextSetWeightInput.value = latestSet.weight.toString()
 
-    const nextExerciseId = program.exercises[exercisesCompletedCount + 1]
-    const nextExercise = await exercisesStore.getExercise(nextExerciseId)
+    const currentExerciseIndex = program.exercises.findIndex((exerciseId) => exerciseId === programExercise.id)
+    const nextExerciseId = currentExerciseIndex >= 0 ? program.exercises[currentExerciseIndex + 1] : undefined
+    const nextExercise = nextExerciseId ? await exercisesStore.getExercise(nextExerciseId) : undefined
 
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
