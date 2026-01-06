@@ -1,6 +1,7 @@
 import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
+import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
@@ -132,6 +133,9 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     nextSetRepsInput.value = latestSet.reps.toString()
     nextSetWeightInput.value = latestSet.weight.toString()
 
+    const nextExerciseId = program.exercises[exercisesCompletedCount + 1]
+    const nextExercise = await exercisesStore.getExercise(nextExerciseId)
+
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
       const formData = new FormData(nextSetForm)
@@ -170,21 +174,23 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
       } else {
         const isExerciseCompleted = programExercise.sets === index + 1
-        let nextExerciseName = undefined
+
         if (isExerciseCompleted) {
-          const nextExerciseId = program.exercises[exercisesCompletedCount]
-          const nextExercise = await exercisesStore.getExercise(nextExerciseId)
-          if (nextExercise) {
-            nextExerciseName = nextExercise.name
-          }
+          // "happy" vibration pattern
+          // breakTimerDialog.closeDialog()
+          navigator.vibrate([50, 30, 50, 30, 70])
+          breakTimerDialog.closeDialog()
+
+          throwConfetti('Exercise done!')
+        } else {
+          breakTimerDialog.startTimer({
+            minutes: 2,
+            seconds: 30,
+            setsDone: index + 1,
+            setsTotal: programExercise.sets,
+            nextExercise: nextExercise?.name
+          })
         }
-        breakTimerDialog.startTimer({
-          minutes: 2,
-          seconds: 30,
-          setsDone: index + 1,
-          setsTotal: programExercise.sets,
-          nextExercise: nextExerciseName
-        })
       }
     })
   } else {
