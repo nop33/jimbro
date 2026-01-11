@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+@view-transition {
+  navigation: auto;
+}
+
 @theme {
   /* Base colors, inspired from https://colorhunt.co/palette/0c0c0c481e149b3922f2613f */
   --color-jim-dark: #0c0c0c;
