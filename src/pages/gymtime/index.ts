@@ -1,4 +1,5 @@
 import { getSimpleDate } from '../../dateUtils'
+import { exportIndexedDbToJson } from '../../db/export'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
@@ -174,6 +175,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
       if (exercisesCompletedCount === program.exercises.length) {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
         throwConfetti('Workout done!')
+        exportIndexedDbToJson() // Workaround to create backup in case indexedDB gets flushed by the browser.
       } else {
         const isExerciseCompleted = programExercise.sets === index + 1
 
