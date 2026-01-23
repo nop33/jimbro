@@ -300,3 +300,18 @@
     display: none;
   }
 }
+
+.exercise-details {
+  summary {
+    position: relative;
+  }
+
+  summary::after {
+    content: '';
+    position: absolute;
+    top: -48px;
+    right: -20px;
+    left: -20px;
+    bottom: -12px;
+  }
+}
