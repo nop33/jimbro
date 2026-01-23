@@ -32,6 +32,11 @@ let exerciseClickedListenerInitialized = false
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
 const deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
 const addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
+const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
+
+if (workoutSession) {
+  workoutDetails.removeAttribute('open')
+}
 
 const breakTimerDialog = new BreakTimerDialog()
 breakTimerDialog.on('break-finished', () => {
@@ -82,7 +87,6 @@ workoutSessionForm.on('workout-session-updated', ({ detail }) => {
     handleAddExercise(workoutSession)
   }
 
-  const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
   workoutDetails.removeAttribute('open')
 })
 
