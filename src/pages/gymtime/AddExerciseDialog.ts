@@ -7,9 +7,11 @@ type AddExerciseDialogEventMap = {
 
 class AddExerciseDialog extends EventEmitter<AddExerciseDialogEventMap> {
   private addExerciseDialog = document.querySelector('#add-exercise-dialog') as HTMLDialogElement
+  private dialogCancel = this.addExerciseDialog.querySelector('.dialog-cancel') as HTMLButtonElement
 
   constructor() {
     super()
+    this.dialogCancel.addEventListener('click', () => this.closeDialog())
   }
 
   openDialog() {

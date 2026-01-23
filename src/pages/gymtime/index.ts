@@ -143,8 +143,34 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   const exerciseItemDiv = exerciseItemTemplate.querySelector('div') as HTMLDivElement
   const nextSetDiv = exerciseItemTemplate.querySelector('.next-set') as HTMLDivElement
   const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
+  const deleteWorkoutSessionExerciseBtn = exerciseItemTemplate.querySelector(
+    '#delete-workout-session-exercise-btn'
+  ) as HTMLButtonElement
 
   exerciseItemDiv.setAttribute('data-exercise-id', programExercise.id)
+
+  exerciseDetails.addEventListener('toggle', () => {
+    if (exerciseDetails.open) {
+      deleteWorkoutSessionExerciseBtn.classList.remove('hidden')
+    } else {
+      deleteWorkoutSessionExerciseBtn.classList.add('hidden')
+    }
+  })
+
+  deleteWorkoutSessionExerciseBtn.addEventListener('click', async () => {
+    if (!workoutSession) {
+      throw new Error('No existing workout session found')
+    }
+
+    const confirmed = confirm('Are you sure you want to delete this exercise from the workout session?')
+    if (!confirmed) return
+
+    workoutSession = await workoutSessionsStore.deleteExerciseFromWorkoutSession({
+      workoutSession,
+      exerciseId: programExercise.id
+    })
+    renderProgramExercises()
+  })
 
   exerciseDetails.addEventListener('click', () => {
     if (!exerciseDetails.open) {
@@ -257,7 +283,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
         exercisesCompletedCount++
       }
 
-      if (exercisesCompletedCount === program.exercises.length) {
+      if (exercisesCompletedCount === workoutSession.exercises.length) {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
         throwConfetti('Workout done!')
         exportIndexedDbToJson() // Workaround to create backup in case indexedDB gets flushed by the browser.

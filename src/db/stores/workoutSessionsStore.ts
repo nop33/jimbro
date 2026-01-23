@@ -135,6 +135,19 @@ export class WorkoutSessionsReactiveStore {
       exercises: [...workoutSession.exercises, { exerciseId, sets: [] }]
     })
   }
+
+  async deleteExerciseFromWorkoutSession({
+    workoutSession,
+    exerciseId
+  }: {
+    workoutSession: WorkoutSession
+    exerciseId: Exercise['id']
+  }): Promise<WorkoutSession> {
+    return this.updateWorkoutSession({
+      ...workoutSession,
+      exercises: workoutSession.exercises.filter(({ exerciseId: id }) => id !== exerciseId)
+    })
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsReactiveStore()
