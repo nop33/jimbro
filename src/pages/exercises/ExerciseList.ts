@@ -6,7 +6,7 @@ class ExerciseList {
   private static exercisesGrid = document.querySelector('#exercises-grid') as HTMLDivElement
   private static muscleFilter: MuscleGroupSelect | null = null
 
-  static init() {
+  static async init() {
     exercisesStore.subscribe((exercises) => {
       const filteredExercises = this.filterExercises(exercises, this.muscleFilter?.selectedMuscle || 'All')
       this.render(filteredExercises)

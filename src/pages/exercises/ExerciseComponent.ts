@@ -1,6 +1,5 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import ExerciseDialog from './ExerciseDialog'
 
 class ExerciseComponent {
   private exercise: Exercise
@@ -18,8 +17,7 @@ class ExerciseComponent {
     setTextContent('.exercise-reps', this.exercise.reps.toString(), exerciseItem)
 
     exerciseItem.querySelector('div')?.addEventListener('click', () => {
-      ExerciseDialog.render(this.exercise)
-      ExerciseDialog.openDialog()
+      window.dispatchEvent(new CustomEvent('exercise-clicked', { detail: { exercise: this.exercise } }))
     })
 
     return exerciseItem

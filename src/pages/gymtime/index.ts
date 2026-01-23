@@ -1,11 +1,17 @@
 import { getSimpleDate } from '../../dateUtils'
 import { exportIndexedDbToJson } from '../../db/export'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
-import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
+import {
+  workoutSessionsStore,
+  type ExerciseSetExecution,
+  type WorkoutSession
+} from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import ExerciseList from '../exercises/ExerciseList'
+import AddExerciseDialog from './AddExerciseDialog'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog, { updateSetItem } from './EditSetDialog'
 import { keepScreenAwake } from './keepScreenAwake'
@@ -21,9 +27,11 @@ setTextContent('.app-header-title', program.name)
 
 let workoutSession = _workoutSession
 let exercisesCompletedCount = 0
+let exerciseClickedListenerInitialized = false
 
 const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
 const deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
+const addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
 
 const breakTimerDialog = new BreakTimerDialog()
 breakTimerDialog.on('break-finished', () => {
@@ -36,6 +44,31 @@ editSetDialog.on('set-edited', ({ detail }) => {
   updateSetItem(detail)
 })
 
+const addExerciseDialog = new AddExerciseDialog()
+addExerciseCard.addEventListener('click', () => {
+  addExerciseDialog.openDialog()
+})
+
+exercisesStore.initialize()
+ExerciseList.init()
+
+const handleAddExercise = (session: WorkoutSession) => {
+  window.addEventListener('exercise-clicked', async (e) => {
+    const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
+    workoutSession = await workoutSessionsStore.addExerciseToWorkoutSession({
+      workoutSession: session,
+      exerciseId: exercise.id
+    })
+    renderProgramExercises()
+    addExerciseDialog.closeDialog()
+  })
+  exerciseClickedListenerInitialized = true
+}
+
+if (workoutSession) {
+  handleAddExercise(workoutSession)
+}
+
 const workoutSessionDate = workoutSession?.date ?? getSimpleDate(new Date())
 const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, workoutSessionDate })
 
@@ -44,6 +77,10 @@ workoutSessionForm.on('workout-session-updated', ({ detail }) => {
   window.history.pushState({}, '', `?date=${workoutSession.date}`)
   renderProgramExercises()
   setupDeleteWorkoutSessionBtn()
+
+  if (!exerciseClickedListenerInitialized) {
+    handleAddExercise(workoutSession)
+  }
 
   const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
   workoutDetails.removeAttribute('open')
@@ -96,7 +133,7 @@ const renderSetItem = ({
 }
 
 const renderProgramExerciseCard = async (programExercise: Exercise) => {
-  const exerciseItemTemplate = nodeFromTemplate('#exercise-item-template')
+  const exerciseItemTemplate = nodeFromTemplate('#workout-exercise-item-template')
   const exerciseDetails = exerciseItemTemplate.querySelector('.exercise-details') as HTMLDetailsElement
   const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
   const exerciseItemDiv = exerciseItemTemplate.querySelector('div') as HTMLDivElement
@@ -254,8 +291,6 @@ const renderProgramExercises = async () => {
 
   if (workoutSession && (workoutSession.status === 'completed' || workoutSession.status === 'incomplete')) {
     exerciseIds = workoutSession.exercises.map(({ exerciseId }) => exerciseId)
-  } else {
-    exerciseIds = program.exercises
   }
 
   for (const exerciseId of exerciseIds) {

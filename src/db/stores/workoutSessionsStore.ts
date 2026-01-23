@@ -122,6 +122,19 @@ export class WorkoutSessionsReactiveStore {
     workoutSessionExercise.sets[exerciseExecutionSetIndex] = exerciseExecutionSet
     return this.updateWorkoutSession(workoutSession)
   }
+
+  async addExerciseToWorkoutSession({
+    workoutSession,
+    exerciseId
+  }: {
+    workoutSession: WorkoutSession
+    exerciseId: Exercise['id']
+  }): Promise<WorkoutSession> {
+    return this.updateWorkoutSession({
+      ...workoutSession,
+      exercises: [...workoutSession.exercises, { exerciseId, sets: [] }]
+    })
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsReactiveStore()

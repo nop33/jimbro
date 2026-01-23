@@ -64,7 +64,23 @@
           <!-- Exercises will be rendered here -->
         </div>
 
-        <template id="exercise-item-template">
+        <div id="add-exercise-card" class="card card-pending card-clickable mt-16">
+          <div class="flex items-center justify-center gap-1 h-16">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <div class="text-center text-lg font-bold">Add exercise</div>
+          </div>
+        </div>
+
+        <template id="workout-exercise-item-template">
           <div class="card">
             <header>
               <h3 class="exercise-name card-title">
@@ -96,7 +112,7 @@
                       placeholder="Weight"
                     />
                   </div>
-                  <button type="submit" class="btn-primary text-white w-full">Finished set</button>
+                  <button type="submit" class="btn-primary text-white w-full h-20">Finished set</button>
                 </form>
               </div>
             </details>
@@ -146,6 +162,39 @@
           <button type="submit" class="btn-primary">Save</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="add-exercise-dialog" class="w-full h-full">
+      <header>
+        <h2 class="text-xl font-bold">Add exercise</h2>
+      </header>
+      <div class="app-page-content">
+        <div class="mb-6">
+          <label for="muscle-filter">Filter by muscle group</label>
+          <select id="muscle-filter">
+            <!-- Muscle groups will be rendered here -->
+          </select>
+        </div>
+
+        <div id="exercises-grid" class="grid grid-cols-1 gap-4">
+          <!-- Exercises will be rendered here -->
+        </div>
+        <template id="exercise-item-template">
+          <div class="card card-hover">
+            <header>
+              <h3 class="exercise-name card-title">
+                <!-- -->
+              </h3>
+              <span class="exercise-muscle badge">
+                <!-- -->
+              </span>
+            </header>
+            <p class="text-sm text-neutral-400 font-medium">
+              <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
+            </p>
+          </div>
+        </template>
+      </div>
     </dialog>
 
     <script type="module" src="../src/pages/gymtime/index.ts"></script>
