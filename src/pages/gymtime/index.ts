@@ -78,6 +78,16 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   const nextSetDiv = exerciseItemTemplate.querySelector('.next-set') as HTMLDivElement
   const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
 
+  exerciseDetails.addEventListener('click', () => {
+    if (!exerciseDetails.open) {
+      document.querySelectorAll<HTMLDetailsElement>('.exercise-details').forEach((details) => {
+        if (details !== exerciseDetails) {
+          details.removeAttribute('open')
+        }
+      })
+    }
+  })
+
   setTextContent('.exercise-name', programExercise.name, exerciseItemTemplate)
   setTextContent('.exercise-muscle', programExercise.muscle, exerciseItemTemplate)
 
