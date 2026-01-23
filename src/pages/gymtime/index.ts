@@ -159,6 +159,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
 
   deleteWorkoutSessionExerciseBtn.addEventListener('click', async () => {
     if (!workoutSession) {
+      alert('Start a workout session first')
       throw new Error('No existing workout session found')
     }
 
