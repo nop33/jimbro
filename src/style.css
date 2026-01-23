@@ -28,7 +28,7 @@
   }
 
   body {
-    @apply antialiased bg-black text-jim-neutral;
+    @apply antialiased bg-black text-jim-neutral pb-18;
   }
 }
 

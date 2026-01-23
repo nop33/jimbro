@@ -7,6 +7,7 @@ import Toasts from '../../features/toasts'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import BreakTimerDialog from './BreakTimerDialog'
+import EditSetDialog, { updateSetItem } from './EditSetDialog'
 import { keepScreenAwake } from './keepScreenAwake'
 import { sendBreakFinishedNotification } from './notification'
 import { parseUrlParams } from './parseUrlParams'
@@ -29,6 +30,12 @@ breakTimerDialog.on('break-finished', () => {
   sendBreakFinishedNotification()
 })
 
+const editSetDialog = new EditSetDialog()
+editSetDialog.on('set-edited', ({ detail }) => {
+  workoutSession = detail.workoutSession
+  updateSetItem(detail)
+})
+
 const workoutSessionDate = workoutSession?.date ?? getSimpleDate(new Date())
 const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, workoutSessionDate })
 
@@ -45,18 +52,20 @@ workoutSessionForm.on('workout-session-updated', ({ detail }) => {
 const renderSetItem = ({
   set,
   index,
+  exerciseId,
   isCompleted = true
 }: {
-  set: ExerciseSetExecution | { reps: string; weight: string }
+  set: ExerciseSetExecution
   index: number
+  exerciseId: Exercise['id']
   isCompleted?: boolean
 }) => {
   const completedSetItemTemplate = nodeFromTemplate('#completed-set-item-template')
   const completedSetItemTemplateDiv = completedSetItemTemplate.querySelector('div') as HTMLDivElement
   const setNumber = (index + 1).toString()
 
-  setTextContent('.set-reps', set.reps.toString(), completedSetItemTemplate)
-  setTextContent('.set-weight', set.weight.toString(), completedSetItemTemplate)
+  setTextContent('.set-reps', (set.reps || '-').toString(), completedSetItemTemplate)
+  setTextContent('.set-weight', (set.weight || '-').toString(), completedSetItemTemplate)
   setTextContent('.set-number', setNumber, completedSetItemTemplate)
 
   if (isCompleted) {
@@ -66,6 +75,22 @@ const renderSetItem = ({
   }
 
   completedSetItemTemplateDiv.setAttribute('data-set-number', setNumber)
+
+  completedSetItemTemplateDiv.addEventListener('click', () => {
+    if (!completedSetItemTemplateDiv.classList.contains('isCompleted')) return
+
+    if (!workoutSession) throw new Error('No existing workout session found')
+
+    const reps = completedSetItemTemplateDiv.querySelector('.set-reps') as HTMLInputElement
+    const weight = completedSetItemTemplateDiv.querySelector('.set-weight') as HTMLInputElement
+
+    editSetDialog.openDialog({
+      set: { reps: parseFloat(reps.textContent), weight: parseFloat(weight.textContent) },
+      workoutSession,
+      exerciseId,
+      index
+    })
+  })
 
   return completedSetItemTemplate
 }
@@ -77,6 +102,8 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
   const exerciseItemDiv = exerciseItemTemplate.querySelector('div') as HTMLDivElement
   const nextSetDiv = exerciseItemTemplate.querySelector('.next-set') as HTMLDivElement
   const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
+
+  exerciseItemDiv.setAttribute('data-exercise-id', programExercise.id)
 
   exerciseDetails.addEventListener('click', () => {
     if (!exerciseDetails.open) {
@@ -105,12 +132,14 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
     // Set card completed sets
     let count = 0
     for (const [index, set] of existingWorkoutSessionExercise.sets.entries()) {
-      completedSets.appendChild(renderSetItem({ set, index }))
+      completedSets.appendChild(renderSetItem({ set, index, exerciseId: programExercise.id }))
       count++
     }
 
     for (let i = count; i < programExercise.sets; i++) {
-      completedSets.appendChild(renderSetItem({ set: { reps: '-', weight: '-' }, index: i, isCompleted: false }))
+      completedSets.appendChild(
+        renderSetItem({ set: { reps: 0, weight: 0 }, index: i, exerciseId: programExercise.id, isCompleted: false })
+      )
     }
   } else {
     console.log('no existing workout session exercise')

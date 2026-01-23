@@ -103,6 +103,25 @@ export class WorkoutSessionsReactiveStore {
     }
     return storage.delete(this.storeName, date)
   }
+
+  async updateExerciseExecutionSetInWorkoutSession({
+    workoutSession,
+    exerciseId,
+    exerciseExecutionSetIndex,
+    exerciseExecutionSet
+  }: {
+    workoutSession: WorkoutSession
+    exerciseId: Exercise['id']
+    exerciseExecutionSetIndex: number
+    exerciseExecutionSet: ExerciseSetExecution
+  }): Promise<WorkoutSession> {
+    const workoutSessionExercise = workoutSession.exercises.find(({ exerciseId: id }) => id === exerciseId)
+    if (!workoutSessionExercise) {
+      throw new Error('Exercise not found')
+    }
+    workoutSessionExercise.sets[exerciseExecutionSetIndex] = exerciseExecutionSet
+    return this.updateWorkoutSession(workoutSession)
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsReactiveStore()
