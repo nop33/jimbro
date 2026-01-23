@@ -173,6 +173,7 @@ const renderProgramExerciseCard = async (programExercise: Exercise) => {
 
       if (exercisesCompletedCount === program.exercises.length) {
         workoutSession = await workoutSessionsStore.updateWorkoutSession({ ...workoutSession, status: 'completed' })
+        throwConfetti('Workout done!')
       } else {
         const isExerciseCompleted = programExercise.sets === index + 1
 
