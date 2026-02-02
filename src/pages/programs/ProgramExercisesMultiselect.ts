@@ -26,7 +26,7 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
   }
 
   render({ selectedExercises }: ExercisesListProps) {
-    const allExercises = exercisesStore.get()
+    const allExercises = exercisesStore.getFromMemory()
     const groupMap = new Map<string, Exercise[]>()
     for (const exercise of allExercises) {
       if (!groupMap.has(exercise.muscle)) {
@@ -40,7 +40,9 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
         const options = exercises
           .map((exercise) => {
             const isSelected = selectedExercises.has(exercise.id)
-            return `<option class="multiselect-option" value="${exercise.id}"${isSelected ? ' selected' : ''}>${exercise.name}</option>`
+            return `<option class="multiselect-option" value="${exercise.id}"${isSelected ? ' selected' : ''}>${
+              exercise.name
+            }</option>`
           })
           .join('')
         return `<optgroup label="${muscle}">${options}</optgroup>`

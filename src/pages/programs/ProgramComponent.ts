@@ -22,7 +22,7 @@ class ProgramComponent {
       const exercise = await exercisesStore.getExercise(exerciseId)
 
       if (exercise) {
-        programExericesList.appendChild(new ExerciseComponent(exercise).createExerciseElement())
+        programExericesList.appendChild(new ExerciseComponent(exercise).getElement())
       }
     }
 

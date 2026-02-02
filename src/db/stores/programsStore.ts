@@ -18,7 +18,7 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
 
   async initialize() {
     const allPrograms = await this.getAllPrograms()
-    this.set(allPrograms)
+    this.setToMemory(allPrograms)
   }
 
   async getProgram(id: Program['id']): Promise<Program | undefined> {
