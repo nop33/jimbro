@@ -74,7 +74,7 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
   render({ selectedExercises }: ExercisesListProps) {
     this.selectedExercisesList.innerHTML = ''
     const selectedExercisesIds = Array.from(selectedExercises)
-    const allExercises = exercisesStore.get()
+    const allExercises = exercisesStore.getFromMemory()
 
     const exerciseListItems = selectedExercisesIds
       .map((exerciseId) => {

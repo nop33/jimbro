@@ -1,0 +1,27 @@
+<div class="app-page-content">
+  <div class="mb-6">
+    <label for="muscle-filter">Filter by muscle group</label>
+    <select id="muscle-filter">
+      <!-- Muscle groups will be rendered here -->
+    </select>
+  </div>
+
+  <div id="exercises-grid" class="grid grid-cols-1 gap-4 {=$gridClasses}">
+    <!-- Exercises will be rendered here -->
+  </div>
+  <template id="exercise-item-template">
+    <div class="card card-hover">
+      <header>
+        <h3 class="exercise-name card-title">
+          <!-- -->
+        </h3>
+        <span class="exercise-muscle badge">
+          <!-- -->
+        </span>
+      </header>
+      <p class="text-sm text-neutral-400 font-medium">
+        <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
+      </p>
+    </div>
+  </template>
+</div>

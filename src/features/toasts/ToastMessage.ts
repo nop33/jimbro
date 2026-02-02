@@ -11,7 +11,7 @@ class ToastMessagePopup {
     const toastMessagePopup = document.createElement('div')
     toastMessagePopup.classList.add('toast-message-popup')
     toastMessagePopup.classList.add(this.toastMessage.type)
-    toastMessagePopup.innerHTML = this.toastMessage.message
+    toastMessagePopup.textContent = this.toastMessage.message
 
     return toastMessagePopup
   }

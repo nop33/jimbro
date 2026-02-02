@@ -17,3 +17,12 @@ export const setTextContent = (
   }
   element.textContent = text
 }
+
+export const requireElement = <T extends Element>(
+  selector: string,
+  parent: HTMLElement | DocumentFragment = document.body
+): T => {
+  const element = parent.querySelector<T>(selector)
+  if (!element) throw new Error(`Element with selector ${selector} not found`)
+  return element
+}

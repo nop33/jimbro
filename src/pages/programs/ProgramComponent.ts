@@ -1,7 +1,7 @@
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import type { Program } from '../../db/stores/programsStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import ExerciseComponent from '../exercises/ExerciseComponent'
+import ExerciseComponent from '../exercises/components/ExerciseComponent'
 import ProgramDialog from './ProgramDialog'
 
 class ProgramComponent {
@@ -22,7 +22,7 @@ class ProgramComponent {
       const exercise = await exercisesStore.getExercise(exerciseId)
 
       if (exercise) {
-        programExericesList.appendChild(new ExerciseComponent(exercise).render())
+        programExericesList.appendChild(new ExerciseComponent(exercise).getElement())
       }
     }
 

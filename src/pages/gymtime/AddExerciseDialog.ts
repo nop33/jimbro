@@ -1,25 +1,16 @@
-import EventEmitter from '../../db/eventEmitter'
-import type { Exercise } from '../../db/stores/exercisesStore'
+import Dialog from '../../components/Dialog'
+import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import ExerciseList from '../exercises/components/ExerciseList'
 
-type AddExerciseDialogEventMap = {
-  'exercise-selected': { exercise: Exercise }
-}
-
-class AddExerciseDialog extends EventEmitter<AddExerciseDialogEventMap> {
-  private addExerciseDialog = document.querySelector('#add-exercise-dialog') as HTMLDialogElement
-  private dialogCancel = this.addExerciseDialog.querySelector('.dialog-cancel') as HTMLButtonElement
-
-  constructor() {
-    super()
-    this.dialogCancel.addEventListener('click', () => this.closeDialog())
+class AddExerciseDialog extends Dialog {
+  constructor(dialogIdSelector: string) {
+    super(dialogIdSelector)
   }
 
-  openDialog() {
-    this.addExerciseDialog.showModal()
-  }
-
-  closeDialog() {
-    this.addExerciseDialog.close()
+  async init(handleExerciseClicked: (exercise: Exercise) => void) {
+    await exercisesStore.initialize()
+    const exerciseList = new ExerciseList('#exercises-grid', handleExerciseClicked)
+    await exerciseList.init()
   }
 }
 

@@ -6,7 +6,7 @@ class ProgramList {
 
   static async init() {
     programsStore.subscribe((programs) => this.render(programs))
-    this.render(programsStore.get())
+    this.render(programsStore.getFromMemory())
   }
 
   static async render(programs: Array<Program>) {
