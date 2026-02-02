@@ -1,15 +1,5 @@
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import '../../style.css'
-import ExerciseDialog from './ExerciseDialog'
-import ExerciseList from './ExerciseList'
+import ExercisesPage from './ExercisesPage'
 
-exercisesStore.initialize()
-
-ExerciseList.init()
-ExerciseDialog.init()
-
-window.addEventListener('exercise-clicked', (e) => {
-  const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
-  ExerciseDialog.render(exercise)
-  ExerciseDialog.openDialog()
-})
+const page = new ExercisesPage()
+page.init()

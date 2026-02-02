@@ -23,3 +23,9 @@ class Toasts {
 }
 
 export default Toasts
+
+export const showErrorToast = (error: unknown, message: string) => {
+  console.error('Error:', error)
+  const errorMessage = error instanceof Error ? error.message : error
+  Toasts.show({ message: `${message}: ${errorMessage}`, type: 'error' })
+}

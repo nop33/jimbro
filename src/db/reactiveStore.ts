@@ -3,6 +3,7 @@ type ListenerCallback<T> = (data: T) => void
 class ReactiveStore<T> {
   private listenerCallbacks: Set<ListenerCallback<T>> = new Set()
   private data: T
+  private initialized = false
 
   constructor(initialData: T) {
     this.data = initialData
@@ -16,17 +17,21 @@ class ReactiveStore<T> {
     return unsubscribe
   }
 
-  get(): T {
+  getFromMemory(): T {
+    if (!this.initialized) {
+      throw new Error('Memory not initialized. Call initialize() first.')
+    }
     return this.data
   }
 
-  set(newData: T) {
+  setToMemory(newData: T) {
     this.data = newData
+    this.initialized = true
     this.notify()
   }
 
   protected update(updater: (currentData: T) => T) {
-    this.set(updater(this.data))
+    this.setToMemory(updater(this.data))
   }
 
   protected notify() {

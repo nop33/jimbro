@@ -35,7 +35,7 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
 
   async initialize() {
     const allExercises = await this.getAllExercises()
-    this.set(allExercises)
+    this.setToMemory(allExercises)
   }
 
   async createExercise(item: NewExercise): Promise<Exercise> {
@@ -51,7 +51,7 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
       await storage.create(this.storeName, exercise)
     } catch (error) {
       this.update((currentExercises) => {
-        return currentExercises.filter((exercise) => exercise.id !== exercise.id) // rollback optimistic update
+        return currentExercises.filter(({ id }) => id !== exercise.id) // rollback optimistic update
       })
       throw error
     }
