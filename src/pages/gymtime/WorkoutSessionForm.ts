@@ -1,6 +1,7 @@
-import EventEmitter from '../../eventEmitter'
-import { programsStore, type Program } from '../../db/stores/programsStore'
+import { db } from '../../db'
+import type { Program } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
+import EventEmitter from '../../eventEmitter'
 import Toasts from '../../features/toasts'
 import { setCityFromGeolocation } from './geolocation'
 
@@ -67,7 +68,7 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
         notes
       })
     } else {
-      const program = await programsStore.getProgram(this.programId)
+      const program = await db.programs.getById(this.programId)
       if (!program) {
         throw new Error('Program not found')
       }

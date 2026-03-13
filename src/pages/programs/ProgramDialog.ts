@@ -1,6 +1,7 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
-import { programsStore, type Program } from '../../db/stores/programsStore'
+import type { Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
+import ProgramsState from '../../state/ProgramsState'
 import ProgramExercisesMultiselect from './ProgramExercisesMultiselect'
 import ProgramExercisesSortableList from './ProgramExercisesSortableList'
 
@@ -65,9 +66,9 @@ class ProgramDialog {
 
       try {
         if (id) {
-          await programsStore.updateProgram({ id, name, exercises })
+          await ProgramsState.updateProgram({ id, name, exercises })
         } else {
-          await programsStore.createProgram({ name, exercises })
+          await ProgramsState.createProgram({ name, exercises })
         }
 
         this.closeDialog()
@@ -101,7 +102,7 @@ class ProgramDialog {
 
   static deleteProgram() {
     if (confirm('Are you sure you want to delete this program?')) {
-      programsStore.softDeleteProgram(this.programIdInput.value)
+      ProgramsState.softDeleteProgram(this.programIdInput.value)
       this.closeDialog()
       Toasts.show({ message: 'Program deleted.' })
     }

@@ -1,10 +1,10 @@
-import { programsStore } from '../../db/stores/programsStore'
 import ExercisesState from '../../state/ExercisesState'
+import ProgramsState from '../../state/ProgramsState'
 import '../../style.css'
 import ProgramDialog from './ProgramDialog'
 import ProgramList from './ProgramList'
 
-await programsStore.initialize()
+await ProgramsState.initialize()
 await ProgramList.init()
 
 await ExercisesState.initialize()

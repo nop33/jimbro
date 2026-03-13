@@ -1,14 +1,15 @@
-import { programsStore, type Program } from '../../db/stores/programsStore'
+import type { Program } from '../../db/stores/programsStore'
+import ProgramsState from '../../state/ProgramsState'
 import ProgramComponent from './ProgramComponent'
 
 class ProgramList {
   private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
 
   static async init() {
-    programsStore.subscribe((programs) => {
+    ProgramsState.subscribe((programs) => {
       this.render(programs).catch(console.error)
     })
-    await this.render(programsStore.get())
+    await this.render(ProgramsState.programs)
   }
 
   static async render(programs: Array<Program>) {

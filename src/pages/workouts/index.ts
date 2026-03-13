@@ -1,4 +1,4 @@
-import { programsStore } from '../../db/stores/programsStore'
+import { db } from '../../db'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
@@ -6,7 +6,6 @@ import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDa
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import { isDbEmpty } from '../../db/utils'
-import { db } from '../../db'
 import Toasts from '../../features/toasts'
 
 const WORKOUTS_PER_WEEK = 3
@@ -14,7 +13,7 @@ const WORKOUTS_PER_WEEK = 3
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
-const programNames = await programsStore.getProgramsByNames()
+const programNames = await db.programs.getNameMap()
 const _isDbEmpty = await isDbEmpty()
 
 await IntroText.render()
@@ -85,7 +84,7 @@ if (_isDbEmpty) {
   seedDbButton.addEventListener('click', async () => {
     try {
       await db.exercises.seed()
-      await programsStore.seedPrograms()
+      await db.programs.seed()
       window.location.reload()
     } catch (error) {
       console.error('Error seeding database:', error)

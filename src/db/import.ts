@@ -2,7 +2,7 @@ import { OBJECT_STORES } from './constants'
 import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
 import { db } from '.'
 import type { Exercise } from './stores/exercisesStore'
-import { programsStore, type Program } from './stores/programsStore'
+import type { Program } from './stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
 import { storage } from './storage'
 
@@ -46,7 +46,7 @@ const importPrograms = async (programs: ExportData['stores']['programs']) => {
 
   for (const program of programs) {
     if (!allExisting.some((p) => p.id === program.id)) {
-      await programsStore.importProgram(program)
+      await db.programs.create(program)
     }
   }
 }

@@ -1,6 +1,5 @@
+import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
-import ReactiveStore from '../reactiveStore'
-import { storage } from '../storage'
 import type { Exercise } from './exercisesStore'
 import seedPrograms from './seed-programs.json' assert { type: 'json' }
 
@@ -13,86 +12,40 @@ export interface Program {
 
 export type NewProgram = Omit<Program, 'id'>
 
-export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
-  private storeName = OBJECT_STORES.PROGRAMS
+export class ProgramsStore extends BaseStore<Program> {
+  protected readonly storeName = OBJECT_STORES.PROGRAMS
 
-  async initialize() {
-    const allPrograms = await this.getAllPrograms()
-    this.set(allPrograms)
+  async getAll(): Promise<Array<Program>> {
+    const all = await super.getAll()
+    return all.filter((program) => !program.isDeleted)
   }
 
-  async getProgram(id: Program['id']): Promise<Program | undefined> {
-    return storage.get<Program>(this.storeName, id)
+  async getNameMap(): Promise<Record<string, string>> {
+    const programs = await this.getAll()
+    return programs.reduce(
+      (acc, program) => {
+        acc[program.id] = program.name
+        return acc
+      },
+      {} as Record<string, string>
+    )
   }
 
-  async createProgram(item: NewProgram): Promise<Program> {
-    const newProgram: Program = { ...item, id: crypto.randomUUID() }
-    await this.importProgram(newProgram)
-    return newProgram
-  }
-
-  async importProgram(program: Program): Promise<void> {
-    this.update((currentPrograms) => [...currentPrograms, program]) // optimistic update
-
-    try {
-      await storage.create(this.storeName, program)
-    } catch (error) {
-      this.update((currentPrograms) => {
-        return currentPrograms.filter((p) => p.id !== program.id)
-      })
-      throw error
-    }
-  }
-
-  async updateProgram(item: Program): Promise<Program> {
-    if (item.isDeleted) {
-      this.update((currentPrograms) => currentPrograms.filter((program) => program.id !== item.id))
-    } else {
-      this.update((currentPrograms) => {
-        return currentPrograms.map((program) => (program.id === item.id ? item : program))
-      })
-    }
-
-    try {
-      await storage.update(this.storeName, item)
-    } catch (error) {
-      await this.getAllPrograms()
-      throw error
-    }
-
-    return item
-  }
-
-  async getAllPrograms(): Promise<Array<Program>> {
-    return storage.getAll<Program>(this.storeName).then((programs) => programs.filter((program) => !program.isDeleted))
-  }
-
-  async getProgramsByNames(): Promise<Record<string, string>> {
-    const programs = await this.getAllPrograms()
-    return programs.reduce((acc, program) => {
-      acc[program.id] = program.name
-      return acc
-    }, {} as Record<string, string>)
-  }
-
-  async countPrograms(): Promise<number> {
-    return storage.count(this.storeName)
-  }
-
-  async seedPrograms(): Promise<void> {
+  async seed(): Promise<void> {
     for (const program of seedPrograms.programs) {
-      await this.importProgram(program)
+      await this.create(program as Program)
     }
   }
 
-  async softDeleteProgram(id: Program['id']): Promise<void> {
-    const program = await this.getProgram(id)
+  async softDelete(id: string): Promise<void> {
+    const program = await this.getById(id)
+
     if (program) {
-      await this.updateProgram({ ...program, isDeleted: true })
+      await this.update({ ...program, isDeleted: true })
     } else {
       throw new Error(`Program with id ${id} not found.`)
     }
   }
 }
 
-export const programsStore = new ProgramsReactiveStore([])
+export const programsStore = new ProgramsStore()
