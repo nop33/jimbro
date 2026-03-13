@@ -1,5 +1,7 @@
-import { exercisesStore, type Exercise } from './stores/exercisesStore'
-import { programsStore, type Program } from './stores/programsStore'
+import { db } from '.'
+import type { Exercise } from './stores/exercisesStore'
+import { programsStore } from './stores/programsStore'
+import type { Program } from './stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
 
 export interface ExportData {
@@ -19,7 +21,7 @@ export const exportIndexedDbToJson = async () => {
     version: CURRENT_EXPORT_VERSION,
     exportDate: new Date().toISOString(),
     stores: {
-      exercises: await exercisesStore.getAllExercises(),
+      exercises: await db.exercises.getAll(),
       programs: await programsStore.getAllPrograms(),
       workoutSessions: await workoutSessionsStore.getAllWorkoutSessions()
     }

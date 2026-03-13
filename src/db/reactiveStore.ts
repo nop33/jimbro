@@ -25,7 +25,7 @@ class ReactiveStore<T> {
     this.notify()
   }
 
-  protected update(updater: (currentData: T) => T) {
+  update(updater: (currentData: T) => T) {
     this.set(updater(this.data))
   }
 

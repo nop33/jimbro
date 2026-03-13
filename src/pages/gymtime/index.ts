@@ -1,5 +1,6 @@
+import { db } from '../../db'
 import { exportIndexedDbToJson } from '../../db/export'
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import type { Exercise } from '../../db/stores/exercisesStore'
 import {
   workoutSessionsStore,
   type ExerciseSetExecution,
@@ -9,6 +10,7 @@ import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import ExercisesState from '../../state/ExercisesState'
 import ExerciseList from '../exercises/ExerciseList'
 import AddExerciseDialog from './AddExerciseDialog'
 import BreakTimerDialog from './BreakTimerDialog'
@@ -64,7 +66,7 @@ const init = async () => {
     addExerciseDialog.openDialog()
   })
 
-  exercisesStore.initialize()
+  ExercisesState.initialize()
   ExerciseList.init()
 
   const handleAddExercise = (session: WorkoutSession) => {
@@ -249,7 +251,7 @@ const init = async () => {
 
       const currentExerciseIndex = program.exercises.findIndex((exerciseId) => exerciseId === programExercise.id)
       const nextExerciseId = currentExerciseIndex >= 0 ? program.exercises[currentExerciseIndex + 1] : undefined
-      const nextExercise = nextExerciseId ? await exercisesStore.getExercise(nextExerciseId) : undefined
+      const nextExercise = nextExerciseId ? await db.exercises.getById(nextExerciseId) : undefined
 
       nextSetForm.addEventListener('submit', async (event) => {
         event.preventDefault()
@@ -329,7 +331,7 @@ const init = async () => {
     }
 
     for (const exerciseId of exerciseIds) {
-      const programExercise = await exercisesStore.getExercise(exerciseId)
+      const programExercise = await db.exercises.getById(exerciseId)
 
       if (!programExercise) continue
 

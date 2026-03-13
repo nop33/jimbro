@@ -6,7 +6,7 @@ import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDa
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import { isDbEmpty } from '../../db/utils'
-import { exercisesStore } from '../../db/stores/exercisesStore'
+import { db } from '../../db'
 import Toasts from '../../features/toasts'
 
 const WORKOUTS_PER_WEEK = 3
@@ -84,7 +84,7 @@ if (_isDbEmpty) {
   seedDbButton.textContent = 'Seed Database'
   seedDbButton.addEventListener('click', async () => {
     try {
-      await exercisesStore.seedExercises()
+      await db.exercises.seed()
       await programsStore.seedPrograms()
       window.location.reload()
     } catch (error) {

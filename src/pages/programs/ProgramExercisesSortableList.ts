@@ -1,5 +1,6 @@
 import EventEmitter from '../../eventEmitter'
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import type { Exercise } from '../../db/stores/exercisesStore'
+import ExercisesState from '../../state/ExercisesState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import type { ExercisesListProps } from './programTypes'
 
@@ -74,11 +75,10 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
   render({ selectedExercises }: ExercisesListProps) {
     this.selectedExercisesList.innerHTML = ''
     const selectedExercisesIds = Array.from(selectedExercises)
-    const allExercises = exercisesStore.get()
 
     const exerciseListItems = selectedExercisesIds
       .map((exerciseId) => {
-        const exercise = allExercises.find((exercise) => exercise.id === exerciseId)
+        const exercise = ExercisesState.exercises.find((exercise) => exercise.id === exerciseId)
         if (!exercise) return
 
         const exerciseItem = nodeFromTemplate('#selected-exercise-item-template')

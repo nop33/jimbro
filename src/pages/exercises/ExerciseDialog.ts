@@ -1,5 +1,6 @@
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import type { Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
+import ExercisesState from '../../state/ExercisesState'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
 class ExerciseDialog {
@@ -47,9 +48,9 @@ class ExerciseDialog {
 
       try {
         if (id) {
-          await exercisesStore.updateExercise({ id, name, muscle, sets, reps })
+          await ExercisesState.updateExercise({ id, name, muscle, sets, reps })
         } else {
-          await exercisesStore.createExercise({ name, muscle, sets, reps })
+          await ExercisesState.createExercise({ name, muscle, sets, reps })
         }
 
         this.closeDialog()
@@ -85,7 +86,7 @@ class ExerciseDialog {
 
   static deleteExercise() {
     if (confirm('Are you sure you want to delete this exercise?')) {
-      exercisesStore.softDeleteExercise(this.exerciseIdInput.value)
+      ExercisesState.softDeleteExercise(this.exerciseIdInput.value)
       this.closeDialog()
       Toasts.show({ message: 'Exercise deleted.' })
     }

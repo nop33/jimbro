@@ -1,6 +1,5 @@
+import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
-import ReactiveStore from '../reactiveStore'
-import { storage } from '../storage'
 import seedExercises from './seed-exercises.json' assert { type: 'json' }
 
 export interface Exercise {
@@ -30,79 +29,29 @@ export const MUSCLE_GROUPS = [
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
 
-export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
-  private storeName = OBJECT_STORES.EXERCISES
+export class ExercisesStore extends BaseStore<Exercise> {
+  protected readonly storeName = OBJECT_STORES.EXERCISES
 
-  async initialize() {
-    const allExercises = await this.getAllExercises()
-    this.set(allExercises)
+  async getAll(): Promise<Array<Exercise>> {
+    const all = await super.getAll()
+    return all.filter((exercise) => !exercise.isDeleted)
   }
 
-  async createExercise(item: NewExercise): Promise<Exercise> {
-    const newExercise: Exercise = { ...item, id: crypto.randomUUID() }
-    await this.importExercise(newExercise)
-    return newExercise
-  }
-
-  async importExercise(exercise: Exercise): Promise<void> {
-    this.update((currentExercises) => [...currentExercises, exercise]) // optimistic update
-
-    try {
-      await storage.create(this.storeName, exercise)
-    } catch (error) {
-      this.update((currentExercises) => {
-        return currentExercises.filter((e) => e.id !== exercise.id)
-      })
-      throw error
-    }
-  }
-
-  async getExercise(id: string): Promise<Exercise | undefined> {
-    return storage.get(this.storeName, id)
-  }
-
-  async updateExercise(item: Exercise): Promise<Exercise> {
-    if (item.isDeleted) {
-      this.update((currentExercises) => currentExercises.filter((exercise) => exercise.id !== item.id))
-    } else {
-      this.update((currentExercises) => currentExercises.map((exercise) => (exercise.id === item.id ? item : exercise)))
-    }
-
-    try {
-      await storage.update(this.storeName, item)
-    } catch (error) {
-      await this.getAllExercises()
-      throw error
-    }
-
-    return item
-  }
-
-  async getAllExercises(): Promise<Array<Exercise>> {
-    return storage
-      .getAll<Exercise>(this.storeName)
-      .then((exercises) => exercises.filter((exercise) => !exercise.isDeleted))
-  }
-
-  async countExercises(): Promise<number> {
-    return storage.count(this.storeName)
-  }
-
-  async seedExercises(): Promise<void> {
+  async seed(): Promise<void> {
     for (const exercise of seedExercises.exercises) {
-      await this.importExercise(exercise as Exercise)
+      await this.create(exercise as Exercise)
     }
   }
 
-  async softDeleteExercise(id: string): Promise<void> {
-    const exercise = await this.getExercise(id)
+  async softDelete(id: string): Promise<void> {
+    const exercise = await this.getById(id)
 
     if (exercise) {
-      await this.updateExercise({ ...exercise, isDeleted: true })
+      await this.update({ ...exercise, isDeleted: true })
     } else {
       throw new Error(`Exercise with id ${id} not found.`)
     }
   }
 }
 
-export const exercisesStore = new ExercisesReactiveStore([])
+export const exercisesStore = new ExercisesStore()

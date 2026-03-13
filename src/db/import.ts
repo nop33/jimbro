@@ -1,6 +1,7 @@
 import { OBJECT_STORES } from './constants'
 import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
-import { exercisesStore, type Exercise } from './stores/exercisesStore'
+import { db } from '.'
+import type { Exercise } from './stores/exercisesStore'
 import { programsStore, type Program } from './stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
 import { storage } from './storage'
@@ -35,7 +36,7 @@ const importExercises = async (exercises: ExportData['stores']['exercises']) => 
 
   for (const exercise of exercises) {
     if (!allExisting.some((e) => e.id === exercise.id)) {
-      await exercisesStore.importExercise(exercise)
+      await db.exercises.create(exercise)
     }
   }
 }

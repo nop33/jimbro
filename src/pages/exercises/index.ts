@@ -1,9 +1,10 @@
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import '../../style.css'
+import type { Exercise } from '../../db/stores/exercisesStore'
+import ExercisesState from '../../state/ExercisesState'
 import ExerciseDialog from './ExerciseDialog'
 import ExerciseList from './ExerciseList'
 
-await exercisesStore.initialize()
+await ExercisesState.initialize()
 
 ExerciseList.init()
 ExerciseDialog.init()

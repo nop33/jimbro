@@ -1,4 +1,5 @@
-import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
+import type { Exercise } from '../../db/stores/exercisesStore'
+import ExercisesState from '../../state/ExercisesState'
 import ExerciseComponent from './ExerciseComponent'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
@@ -7,10 +8,10 @@ class ExerciseList {
   private static muscleFilter: MuscleGroupSelect | null = null
 
   static async init() {
-    this.renderMuscleGroupExercises(exercisesStore.get(), 'All')
+    this.renderMuscleGroupExercises(ExercisesState.exercises, 'All')
     this.renderMuscleFilter()
 
-    exercisesStore.subscribe((exercises) =>
+    ExercisesState.subscribe((exercises) =>
       this.renderMuscleGroupExercises(exercises, this.muscleFilter?.selectedMuscle || 'All')
     )
   }
@@ -24,7 +25,7 @@ class ExerciseList {
   private static renderMuscleFilter() {
     this.muscleFilter = new MuscleGroupSelect({
       selector: '#muscle-filter',
-      onSelect: (muscleGroup) => this.renderMuscleGroupExercises(exercisesStore.get(), muscleGroup)
+      onSelect: (muscleGroup) => this.renderMuscleGroupExercises(ExercisesState.exercises, muscleGroup)
     })
 
     this.muscleFilter.render({ includeOptionAll: true })
