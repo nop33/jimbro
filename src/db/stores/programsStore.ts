@@ -27,7 +27,7 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
 
   async createProgram(item: NewProgram): Promise<Program> {
     const newProgram: Program = { ...item, id: crypto.randomUUID() }
-    this.importProgram(newProgram)
+    await this.importProgram(newProgram)
     return newProgram
   }
 
