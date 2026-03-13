@@ -14,8 +14,8 @@ const migrations: Array<DbMigration> = [
   {
     version: 1,
     migrate: (db) => {
-      if (!db.objectStoreNames.contains(OBJECT_STORES.EXERSISES)) {
-        db.createObjectStore(OBJECT_STORES.EXERSISES, { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(OBJECT_STORES.EXERCISES)) {
+        db.createObjectStore(OBJECT_STORES.EXERCISES, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains('templates')) {
         db.createObjectStore('templates', { keyPath: 'id' })

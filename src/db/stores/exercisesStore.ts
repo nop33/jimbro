@@ -31,7 +31,7 @@ export const MUSCLE_GROUPS = [
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
 
 export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
-  private storeName = OBJECT_STORES.EXERSISES
+  private storeName = OBJECT_STORES.EXERCISES
 
   async initialize() {
     const allExercises = await this.getAllExercises()
