@@ -5,7 +5,7 @@ import ProgramDialog from './ProgramDialog'
 import ProgramList from './ProgramList'
 
 await programsStore.initialize()
-ProgramList.init()
+await ProgramList.init()
 
 await exercisesStore.initialize()
 ProgramDialog.init()

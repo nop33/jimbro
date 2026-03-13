@@ -3,7 +3,7 @@ import '../../style.css'
 import ExerciseDialog from './ExerciseDialog'
 import ExerciseList from './ExerciseList'
 
-exercisesStore.initialize()
+await exercisesStore.initialize()
 
 ExerciseList.init()
 ExerciseDialog.init()

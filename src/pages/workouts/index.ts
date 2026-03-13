@@ -17,7 +17,7 @@ const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWe
 const programNames = await programsStore.getProgramsByNames()
 const _isDbEmpty = await isDbEmpty()
 
-IntroText.render()
+await IntroText.render()
 NewWorkoutDialog.init()
 
 const today = getSimpleDate(new Date())

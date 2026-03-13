@@ -5,8 +5,10 @@ class ProgramList {
   private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
 
   static async init() {
-    programsStore.subscribe((programs) => this.render(programs))
-    this.render(programsStore.get())
+    programsStore.subscribe((programs) => {
+      this.render(programs).catch(console.error)
+    })
+    await this.render(programsStore.get())
   }
 
   static async render(programs: Array<Program>) {
