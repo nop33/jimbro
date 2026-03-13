@@ -1,25 +1,27 @@
-import EventEmitter from '../../eventEmitter'
 import type { Exercise } from '../../db/stores/exercisesStore'
 
-type AddExerciseDialogEventMap = {
-  'exercise-selected': { exercise: Exercise }
-}
+class AddExerciseDialog {
+  private static dialog = document.querySelector('#add-exercise-dialog') as HTMLDialogElement
+  private static dialogCancel = this.dialog.querySelector('.dialog-cancel') as HTMLButtonElement
+  private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
 
-class AddExerciseDialog extends EventEmitter<AddExerciseDialogEventMap> {
-  private addExerciseDialog = document.querySelector('#add-exercise-dialog') as HTMLDialogElement
-  private dialogCancel = this.addExerciseDialog.querySelector('.dialog-cancel') as HTMLButtonElement
-
-  constructor() {
-    super()
+  static init(onExerciseClicked: (exercise: Exercise) => void) {
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
+    this.addExerciseCard.addEventListener('click', () => this.openDialog())
+
+    window.addEventListener('exercise-clicked', (e) => {
+      const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
+      onExerciseClicked(exercise)
+      this.closeDialog()
+    })
   }
 
-  openDialog() {
-    this.addExerciseDialog.showModal()
+  static openDialog() {
+    this.dialog.showModal()
   }
 
-  closeDialog() {
-    this.addExerciseDialog.close()
+  static closeDialog() {
+    this.dialog.close()
   }
 }
 

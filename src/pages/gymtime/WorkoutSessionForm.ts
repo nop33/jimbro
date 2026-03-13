@@ -1,30 +1,23 @@
 import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
-import EventEmitter from '../../eventEmitter'
 import Toasts from '../../features/toasts'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { setCityFromGeolocation } from './geolocation'
 
-type WorkoutSessionFormEventMap = {
-  'session-saved': void
-}
+class WorkoutSessionForm {
+  private static form = document.querySelector('#gymtime-form') as HTMLFormElement
+  private static programIdInput = this.form.querySelector('input[name="programId"]') as HTMLInputElement
+  private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
+  private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
+  private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
+  private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
+  private static programId: Program['id']
+  private static onSessionSaved: () => void
 
-class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
-  private gymtimeForm = document.querySelector('#gymtime-form') as HTMLFormElement
-  private programIdInput = this.gymtimeForm.querySelector('input[name="programId"]') as HTMLInputElement
-  private dateInput = this.gymtimeForm.querySelector('input[name="date"]') as HTMLInputElement
-  private locationInput = this.gymtimeForm.querySelector('input[name="location"]') as HTMLInputElement
-  private notesInput = this.gymtimeForm.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
-  private submitButton = this.gymtimeForm.querySelector('button[type="submit"]') as HTMLButtonElement
-  private programId: Program['id']
-
-  constructor(programId: Program['id']) {
-    super()
+  static init(programId: Program['id'], onSessionSaved: () => void) {
     this.programId = programId
-    this.init()
-  }
+    this.onSessionSaved = onSessionSaved
 
-  private init() {
     const session = GymtimeSessionState.session
 
     this.programIdInput.value = this.programId
@@ -43,12 +36,12 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
       this.submitButton.textContent = 'Save & continue workout'
     }
 
-    this.gymtimeForm.addEventListener('submit', this.onSubmit.bind(this))
+    this.form.addEventListener('submit', (e) => this.onSubmit(e))
   }
 
-  private async onSubmit(event: Event) {
+  private static async onSubmit(event: Event) {
     event.preventDefault()
-    const formData = new FormData(this.gymtimeForm)
+    const formData = new FormData(this.form)
     const date = formData.get('date') as string
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
@@ -69,7 +62,7 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
       })
     }
 
-    this.emit('session-saved')
+    this.onSessionSaved()
     Toasts.show({ message: 'Workout session saved.' })
   }
 }
