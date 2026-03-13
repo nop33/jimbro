@@ -1,6 +1,5 @@
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
-import seedExercises from './seed-exercises.json' assert { type: 'json' }
 
 export interface Exercise {
   id: string
@@ -38,6 +37,7 @@ export class ExercisesStore extends BaseStore<Exercise> {
   }
 
   async seed(): Promise<void> {
+    const { default: seedExercises } = await import('./seed-exercises.json', { assert: { type: 'json' } })
     for (const exercise of seedExercises.exercises) {
       await this.create(exercise as Exercise)
     }
