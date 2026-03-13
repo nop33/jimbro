@@ -5,19 +5,18 @@ import ProgramComponent from './ProgramComponent'
 class ProgramList {
   private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
 
-  static async init() {
-    ProgramsState.subscribe((programs) => {
-      this.render(programs).catch(console.error)
-    })
-    await this.render(ProgramsState.programs)
+  static init() {
+    this.render(ProgramsState.programs)
+
+    ProgramsState.subscribe((programs) => this.render(programs))
   }
 
-  static async render(programs: Array<Program>) {
+  static render(programs: Array<Program>) {
     this.programsGrid.innerHTML = ''
 
     for (const program of programs) {
       const programComponent = new ProgramComponent(program)
-      const programItem = await programComponent.render()
+      const programItem = programComponent.render()
       this.programsGrid.appendChild(programItem)
     }
   }

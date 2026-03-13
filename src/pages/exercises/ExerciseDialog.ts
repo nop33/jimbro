@@ -9,6 +9,10 @@ class ExerciseDialog {
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
   private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
+  private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
+  private static exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
+  private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
+  private static exerciseRepsInput = document.querySelector('#exercise-reps') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
   private static deleteExerciseBtn = document.querySelector('#delete-exercise-btn') as HTMLButtonElement
 
@@ -22,10 +26,16 @@ class ExerciseDialog {
 
   static init() {
     this.renderMusclePicker()
-    this.render()
+    this.populateForm()
+
+    window.addEventListener('exercise-clicked', (e) => {
+      const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
+      this.populateForm(exercise)
+      this.openDialog()
+    })
 
     this.newExerciseButton.addEventListener('click', () => {
-      this.render()
+      this.populateForm()
       this.openDialog()
     })
 
@@ -62,15 +72,15 @@ class ExerciseDialog {
     })
   }
 
-  static render(exercise?: Exercise) {
+  static populateForm(exercise?: Exercise) {
     if (exercise) {
       this.dialogTitle.textContent = 'Edit Exercise'
       this.exerciseIdInput.value = exercise.id
       this.deleteExerciseBtn.classList.remove('hidden')
-      ;(document.querySelector('#exercise-name') as HTMLInputElement).value = exercise.name
-      ;(document.querySelector('#exercise-muscle') as HTMLSelectElement).value = exercise.muscle
-      ;(document.querySelector('#exercise-sets') as HTMLInputElement).value = exercise.sets.toString()
-      ;(document.querySelector('#exercise-reps') as HTMLInputElement).value = exercise.reps.toString()
+      this.exerciseNameInput.value = exercise.name
+      this.exerciseMuscleSelect.value = exercise.muscle
+      this.exerciseSetsInput.value = exercise.sets.toString()
+      this.exerciseRepsInput.value = exercise.reps.toString()
     } else {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()
@@ -79,16 +89,21 @@ class ExerciseDialog {
     }
   }
 
-  static renderMusclePicker() {
+  private static renderMusclePicker() {
     const musclePicker = new MuscleGroupSelect({ selector: '#exercise-muscle' })
     musclePicker.render({ includeOptionAll: false })
   }
 
-  static deleteExercise() {
+  private static async deleteExercise() {
     if (confirm('Are you sure you want to delete this exercise?')) {
-      ExercisesState.softDeleteExercise(this.exerciseIdInput.value)
-      this.closeDialog()
-      Toasts.show({ message: 'Exercise deleted.' })
+      try {
+        await ExercisesState.softDeleteExercise(this.exerciseIdInput.value)
+        this.closeDialog()
+        Toasts.show({ message: 'Exercise deleted.' })
+      } catch (error) {
+        console.error('Error deleting exercise:', error)
+        Toasts.show({ message: `Could not delete exercise: ${error}`, type: 'error' })
+      }
     }
   }
 }

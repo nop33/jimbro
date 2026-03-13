@@ -11,7 +11,7 @@ class ProgramComponent {
     this.program = program
   }
 
-  async render() {
+  render() {
     const programItem = nodeFromTemplate('#program-item-template')
     const editProgramBtn = programItem.querySelector('.edit-program-btn') as HTMLButtonElement
     const programExericesList = programItem.querySelector('.exercises-grid') as HTMLDivElement
@@ -27,7 +27,7 @@ class ProgramComponent {
     }
 
     editProgramBtn.addEventListener('click', () => {
-      ProgramDialog.render(this.program)
+      ProgramDialog.populateForm(this.program)
       ProgramDialog.openDialog()
     })
 

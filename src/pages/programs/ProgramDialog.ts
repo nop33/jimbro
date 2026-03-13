@@ -11,6 +11,7 @@ class ProgramDialog {
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private static programForm = document.querySelector('#program-form') as HTMLFormElement
   private static programIdInput = document.querySelector('#program-id') as HTMLInputElement
+  private static programNameInput = document.querySelector('#program-name') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
   private static deleteProgramBtn = document.querySelector('#delete-program-btn') as HTMLButtonElement
 
@@ -48,7 +49,7 @@ class ProgramDialog {
     })
 
     this.newProgramButton.addEventListener('click', () => {
-      this.render()
+      this.populateForm()
       this.openDialog()
     })
 
@@ -80,14 +81,14 @@ class ProgramDialog {
     })
   }
 
-  static render(program?: Program) {
+  static populateForm(program?: Program) {
     if (program) {
       this.selectedExercises = new Set(program.exercises)
 
       this.dialogTitle.textContent = 'Edit Program'
       this.deleteProgramBtn.classList.remove('hidden')
       this.programIdInput.value = program.id
-      ;(document.querySelector('#program-name') as HTMLInputElement).value = program.name
+      this.programNameInput.value = program.name
     } else {
       this.selectedExercises.clear()
       this.dialogTitle.textContent = 'New Program'
@@ -100,11 +101,16 @@ class ProgramDialog {
     this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises })
   }
 
-  static deleteProgram() {
+  private static async deleteProgram() {
     if (confirm('Are you sure you want to delete this program?')) {
-      ProgramsState.softDeleteProgram(this.programIdInput.value)
-      this.closeDialog()
-      Toasts.show({ message: 'Program deleted.' })
+      try {
+        await ProgramsState.softDeleteProgram(this.programIdInput.value)
+        this.closeDialog()
+        Toasts.show({ message: 'Program deleted.' })
+      } catch (error) {
+        console.error('Error deleting program:', error)
+        Toasts.show({ message: `Could not delete program: ${error}`, type: 'error' })
+      }
     }
   }
 }

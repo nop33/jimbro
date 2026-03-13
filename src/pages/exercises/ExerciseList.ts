@@ -7,7 +7,7 @@ class ExerciseList {
   private static exercisesGrid = document.querySelector('#exercises-grid') as HTMLDivElement
   private static muscleFilter: MuscleGroupSelect | null = null
 
-  static async init() {
+  static init() {
     this.renderMuscleGroupExercises(ExercisesState.exercises, 'All')
     this.renderMuscleFilter()
 
