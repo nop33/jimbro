@@ -1,14 +1,10 @@
+import '../../style.css'
 import { db } from '../../db'
 import { exportIndexedDbToJson } from '../../db/export'
 import type { Exercise } from '../../db/stores/exercisesStore'
-import {
-  workoutSessionsStore,
-  type ExerciseSetExecution,
-  type WorkoutSession
-} from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
-import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import ExercisesState from '../../state/ExercisesState'
 import ExerciseList from '../exercises/ExerciseList'
@@ -69,11 +65,13 @@ const init = async () => {
   ExercisesState.initialize()
   ExerciseList.init()
 
-  const handleAddExercise = (session: WorkoutSession) => {
+  const initAddExerciseListener = () => {
     window.addEventListener('exercise-clicked', async (e) => {
+      if (!workoutSession) return
+
       const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
       workoutSession = await workoutSessionsStore.addExerciseToWorkoutSession({
-        workoutSession: session,
+        workoutSession,
         exerciseId: exercise.id
       })
       renderProgramExercises()
@@ -83,7 +81,7 @@ const init = async () => {
   }
 
   if (workoutSession) {
-    handleAddExercise(workoutSession)
+    initAddExerciseListener()
   }
 
   const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, existingSession: workoutSession })
@@ -95,7 +93,7 @@ const init = async () => {
     updateDeleteWorkoutSessionBtnVisibility()
 
     if (!exerciseClickedListenerInitialized) {
-      handleAddExercise(workoutSession)
+      initAddExerciseListener()
     }
 
     workoutDetails.removeAttribute('open')
@@ -127,17 +125,19 @@ const init = async () => {
     }
 
     completedSetItemTemplateDiv.setAttribute('data-set-number', setNumber)
+    completedSetItemTemplateDiv.setAttribute('data-reps', set.reps.toString())
+    completedSetItemTemplateDiv.setAttribute('data-weight', set.weight.toString())
 
     completedSetItemTemplateDiv.addEventListener('click', () => {
       if (!completedSetItemTemplateDiv.classList.contains('isCompleted')) return
 
       if (!workoutSession) throw new Error('No existing workout session found')
 
-      const reps = completedSetItemTemplateDiv.querySelector('.set-reps') as HTMLInputElement
-      const weight = completedSetItemTemplateDiv.querySelector('.set-weight') as HTMLInputElement
-
       editSetDialog.openDialog({
-        set: { reps: parseFloat(reps.textContent), weight: parseFloat(weight.textContent) },
+        set: {
+          reps: parseFloat(completedSetItemTemplateDiv.dataset.reps!),
+          weight: parseFloat(completedSetItemTemplateDiv.dataset.weight!)
+        },
         workoutSession,
         exerciseId,
         index
@@ -155,7 +155,7 @@ const init = async () => {
     const nextSetDiv = exerciseItemTemplate.querySelector('.next-set') as HTMLDivElement
     const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
     const deleteWorkoutSessionExerciseBtn = exerciseItemTemplate.querySelector(
-      '#delete-workout-session-exercise-btn'
+      '.delete-workout-session-exercise-btn'
     ) as HTMLButtonElement
 
     exerciseItemDiv.setAttribute('data-exercise-id', programExercise.id)
@@ -218,8 +218,6 @@ const init = async () => {
           renderSetItem({ set: { reps: 0, weight: 0 }, index: i, exerciseId: programExercise.id, isCompleted: false })
         )
       }
-    } else {
-      console.log('no existing workout session exercise')
     }
 
     if (!workoutSession) {
@@ -260,7 +258,9 @@ const init = async () => {
         const weight = formData.get('set-weight') as string
 
         if (weight === '0' || reps === '0') {
-          const confirmed = confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)
+          const confirmed = confirm(
+            `Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`
+          )
           if (!confirmed) return
         }
 
@@ -324,6 +324,7 @@ const init = async () => {
 
   const renderProgramExercises = async () => {
     exercisesList.innerHTML = ''
+    exercisesCompletedCount = 0
     let exerciseIds: Exercise['id'][] = program.exercises
 
     if (workoutSession && (workoutSession.status === 'completed' || workoutSession.status === 'incomplete')) {
@@ -340,9 +341,13 @@ const init = async () => {
     }
   }
 
-  deleteWorkoutSessionBtn.addEventListener('click', () => {
+  deleteWorkoutSessionBtn.addEventListener('click', async () => {
     if (!workoutSession) return
-    workoutSessionsStore.deleteWorkoutSession(workoutSession.id)
+
+    const confirmed = confirm('Are you sure you want to delete this workout session?')
+    if (!confirmed) return
+
+    await workoutSessionsStore.deleteWorkoutSession(workoutSession.id)
     Toasts.show({ message: 'Workout session deleted' })
     window.location.href = `/workouts/`
   })

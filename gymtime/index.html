@@ -88,8 +88,7 @@
                   <!-- -->
                 </h3>
                 <button
-                  id="delete-workout-session-exercise-btn"
-                  class="link-primary absolute -right-14 -top-2 font-semibold hidden z-1"
+                  class="delete-workout-session-exercise-btn link-primary absolute -right-14 -top-2 font-semibold hidden z-1"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -120,18 +119,12 @@
                 <h4 class="next-set-number text-md font-bold">Next set</h4>
                 <form class="next-set-form flex flex-col gap-2">
                   <div class="flex gap-2 items-center mb-2">
-                    <label for="set-reps">Reps:</label>
-                    <input type="number" name="set-reps" id="set-reps" min="1" required placeholder="Reps" />
-                    <label for="set-weight">Weight:</label>
-                    <input
-                      type="number"
-                      name="set-weight"
-                      id="set-weight"
-                      min="0"
-                      step="0.01"
-                      required
-                      placeholder="Weight"
-                    />
+                    <label>Reps:
+                      <input type="number" name="set-reps" min="1" required placeholder="Reps" />
+                    </label>
+                    <label>Weight:
+                      <input type="number" name="set-weight" min="0" step="0.01" required placeholder="Weight" />
+                    </label>
                   </div>
                   <button type="submit" class="btn-primary text-white w-full h-20">Finished set</button>
                 </form>

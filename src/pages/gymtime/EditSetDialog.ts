@@ -91,4 +91,6 @@ export const updateSetItem = (editedSetData: EditedSetData) => {
   ) as HTMLDivElement
   setTextContent('.set-reps', (editedSetData.set.reps || '-').toString(), oldSetItem)
   setTextContent('.set-weight', (editedSetData.set.weight || '-').toString(), oldSetItem)
+  oldSetItem.setAttribute('data-reps', editedSetData.set.reps.toString())
+  oldSetItem.setAttribute('data-weight', editedSetData.set.weight.toString())
 }
