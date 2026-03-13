@@ -38,7 +38,7 @@ export class ProgramsReactiveStore extends ReactiveStore<Array<Program>> {
       await storage.create(this.storeName, program)
     } catch (error) {
       this.update((currentPrograms) => {
-        return currentPrograms.filter((program) => program.id !== program.id) // rollback optimistic update
+        return currentPrograms.filter((p) => p.id !== program.id)
       })
       throw error
     }

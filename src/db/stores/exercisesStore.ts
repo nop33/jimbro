@@ -51,7 +51,7 @@ export class ExercisesReactiveStore extends ReactiveStore<Array<Exercise>> {
       await storage.create(this.storeName, exercise)
     } catch (error) {
       this.update((currentExercises) => {
-        return currentExercises.filter((exercise) => exercise.id !== exercise.id) // rollback optimistic update
+        return currentExercises.filter((e) => e.id !== exercise.id)
       })
       throw error
     }
