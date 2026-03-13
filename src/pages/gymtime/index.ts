@@ -1,14 +1,14 @@
 import '../../style.css'
 import { db } from '../../db'
 import type { Exercise } from '../../db/stores/exercisesStore'
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import ExercisesState from '../../state/ExercisesState'
+import GymtimeSessionState from '../../state/GymtimeSessionState'
 import ExerciseList from '../exercises/ExerciseList'
 import AddExerciseDialog from './AddExerciseDialog'
 import BreakTimerDialog from './BreakTimerDialog'
-import EditSetDialog, { updateSetItem } from './EditSetDialog'
+import EditSetDialog from './EditSetDialog'
 import { renderExerciseCard } from './ExerciseCard'
 import { keepScreenAwake } from './keepScreenAwake'
 import { sendBreakFinishedNotification } from './notification'
@@ -28,28 +28,20 @@ const showError = (message: string) => {
 const init = async () => {
   keepScreenAwake()
 
-  const { program, workoutSession: _workoutSession } = await parseUrlParams()
+  const { program, workoutSession } = await parseUrlParams()
+
+  GymtimeSessionState.initialize(workoutSession)
 
   setTextContent('.app-header-title', program.name)
 
-  let workoutSession = _workoutSession
-  let exerciseClickedListenerInitialized = false
   const exerciseDefinitions = new Map<string, Exercise>()
-
-  const isWorkoutComplete = () => {
-    if (!workoutSession) return false
-    return workoutSession.exercises.every(({ exerciseId, sets }) => {
-      const def = exerciseDefinitions.get(exerciseId)
-      return def !== undefined && sets.length >= def.sets
-    })
-  }
 
   const exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
   const deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
   const addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
   const workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
 
-  if (workoutSession) {
+  if (GymtimeSessionState.session) {
     workoutDetails.removeAttribute('open')
   }
 
@@ -59,10 +51,6 @@ const init = async () => {
   })
 
   const editSetDialog = new EditSetDialog()
-  editSetDialog.on('set-edited', ({ detail }) => {
-    workoutSession = detail.workoutSession
-    updateSetItem(detail)
-  })
 
   const addExerciseDialog = new AddExerciseDialog()
   addExerciseCard.addEventListener('click', () => {
@@ -72,52 +60,39 @@ const init = async () => {
   ExercisesState.initialize()
   ExerciseList.init()
 
-  const initAddExerciseListener = () => {
-    window.addEventListener('exercise-clicked', async (e) => {
-      if (!workoutSession) return
+  window.addEventListener('exercise-clicked', async (e) => {
+    if (!GymtimeSessionState.session) return
 
-      const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
-      workoutSession = await workoutSessionsStore.addExerciseToWorkoutSession({
-        workoutSession,
-        exerciseId: exercise.id
-      })
-      renderProgramExercises()
-      addExerciseDialog.closeDialog()
-    })
-    exerciseClickedListenerInitialized = true
-  }
+    const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
+    await GymtimeSessionState.addExercise(exercise.id)
+    renderProgramExercises()
+    addExerciseDialog.closeDialog()
+  })
 
-  if (workoutSession) {
-    initAddExerciseListener()
-  }
+  const workoutSessionForm = new WorkoutSessionForm(program.id)
 
-  const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, existingSession: workoutSession })
-
-  workoutSessionForm.on('workout-session-updated', ({ detail }) => {
-    workoutSession = detail.workoutSession
-    window.history.pushState({}, '', `?id=${workoutSession.id}`)
+  workoutSessionForm.on('session-saved', () => {
+    const session = GymtimeSessionState.session
+    if (session) window.history.pushState({}, '', `?id=${session.id}`)
     renderProgramExercises()
     updateDeleteWorkoutSessionBtnVisibility()
-
-    if (!exerciseClickedListenerInitialized) {
-      initAddExerciseListener()
-    }
-
     workoutDetails.removeAttribute('open')
   })
 
   const renderProgramExercises = async () => {
     const scrollY = window.scrollY
-    const openExerciseId = document.querySelector<HTMLDetailsElement>('.exercise-details[open]')
-      ?.closest<HTMLDivElement>('[data-exercise-id]')
-      ?.dataset.exerciseId
+    const openExerciseId = document
+      .querySelector<HTMLDetailsElement>('.exercise-details[open]')
+      ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
 
     exercisesList.innerHTML = ''
     exerciseDefinitions.clear()
+
+    const session = GymtimeSessionState.session
     let exerciseIds: Exercise['id'][] = program.exercises
 
-    if (workoutSession && (workoutSession.status === 'completed' || workoutSession.status === 'incomplete')) {
-      exerciseIds = workoutSession.exercises.map(({ exerciseId }) => exerciseId)
+    if (session && (session.status === 'completed' || session.status === 'incomplete')) {
+      exerciseIds = session.exercises.map(({ exerciseId }) => exerciseId)
     }
 
     for (const exerciseId of exerciseIds) {
@@ -130,13 +105,9 @@ const init = async () => {
         exercise,
         programId: program.id,
         programExerciseIds: program.exercises,
-        getSession: () => workoutSession,
-        setSession: (s) => {
-          workoutSession = s
-        },
+        exerciseDefinitions,
         editSetDialog,
         breakTimerDialog,
-        isWorkoutComplete,
         onExerciseDeleted: () => renderProgramExercises()
       })
       exercisesList.appendChild(card)
@@ -153,22 +124,17 @@ const init = async () => {
   }
 
   deleteWorkoutSessionBtn.addEventListener('click', async () => {
-    if (!workoutSession) return
+    if (!GymtimeSessionState.session) return
 
-    const confirmed = confirm('Are you sure you want to delete this workout session?')
-    if (!confirmed) return
+    if (!confirm('Are you sure you want to delete this workout session?')) return
 
-    await workoutSessionsStore.deleteWorkoutSession(workoutSession.id)
+    await GymtimeSessionState.delete()
     Toasts.show({ message: 'Workout session deleted' })
     window.location.href = `/workouts/`
   })
 
   const updateDeleteWorkoutSessionBtnVisibility = () => {
-    if (workoutSession) {
-      deleteWorkoutSessionBtn.classList.remove('hidden')
-    } else {
-      deleteWorkoutSessionBtn.classList.add('hidden')
-    }
+    deleteWorkoutSessionBtn.classList.toggle('hidden', !GymtimeSessionState.session)
   }
 
   renderProgramExercises()

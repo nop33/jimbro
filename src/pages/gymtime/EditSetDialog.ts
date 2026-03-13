@@ -1,79 +1,57 @@
-import EventEmitter from '../../eventEmitter'
 import type { Exercise } from '../../db/stores/exercisesStore'
-import {
-  workoutSessionsStore,
-  type ExerciseSetExecution,
-  type WorkoutSession
-} from '../../db/stores/workoutSessionsStore'
+import type { ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
+import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { setTextContent } from '../../utils'
 
-type EditedSetData = {
+interface EditSetData {
   set: ExerciseSetExecution
-  workoutSession: WorkoutSession
   exerciseId: Exercise['id']
   index: number
 }
 
-type EditSetDialogEventMap = {
-  'set-edited': { set: ExerciseSetExecution; workoutSession: WorkoutSession; exerciseId: Exercise['id']; index: number }
-}
-
-class EditSetDialog extends EventEmitter<EditSetDialogEventMap> {
+class EditSetDialog {
   private editSetDialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
   private dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private editSetForm = document.querySelector('#edit-set-form') as HTMLFormElement
   private setRepsInput = document.querySelector('#set-reps') as HTMLInputElement
   private setWeightInput = document.querySelector('#set-weight') as HTMLInputElement
-  private editedSetData: EditedSetData | null = null
+  private editedSetData: EditSetData | null = null
 
   constructor() {
-    super()
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
     this.editSetForm.addEventListener('submit', (event) => this.onSubmit(event))
   }
 
-  openDialog(editedSetData: EditedSetData) {
+  openDialog(editedSetData: EditSetData) {
     this.editedSetData = editedSetData
     this.editSetDialog.showModal()
-    this.render(editedSetData.set)
+    this.setRepsInput.value = editedSetData.set.reps.toString()
+    this.setWeightInput.value = editedSetData.set.weight.toString()
   }
 
   closeDialog() {
     this.editSetDialog.close()
   }
 
-  render(set: ExerciseSetExecution) {
-    this.setRepsInput.value = set.reps.toString()
-    this.setWeightInput.value = set.weight.toString()
-  }
-
-  async onSubmit(event: SubmitEvent) {
+  private async onSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!this.editedSetData) throw new Error('No edited set data found')
+
     const formData = new FormData(this.editSetForm)
     const reps = formData.get('set-reps') as string
     const weight = formData.get('set-weight') as string
 
     if (weight === '0' || reps === '0') {
-      const confirmed = confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)
-      if (!confirmed) return
+      if (!confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)) return
     }
 
-    if (!this.editedSetData.workoutSession) {
-      throw new Error('No existing workout session found')
-    }
+    const updatedSet = { reps: parseFloat(reps), weight: parseFloat(weight) }
 
-    const updatedWorkoutSession = await workoutSessionsStore.updateExerciseExecutionSetInWorkoutSession({
-      workoutSession: this.editedSetData.workoutSession,
-      exerciseId: this.editedSetData.exerciseId,
-      exerciseExecutionSetIndex: this.editedSetData.index,
-      exerciseExecutionSet: { reps: parseFloat(reps), weight: parseFloat(weight) }
-    })
+    await GymtimeSessionState.updateSet(this.editedSetData.exerciseId, this.editedSetData.index, updatedSet)
 
-    this.emit('set-edited', {
-      set: { reps: parseFloat(reps), weight: parseFloat(weight) },
-      workoutSession: updatedWorkoutSession,
+    updateSetItem({
+      set: updatedSet,
       exerciseId: this.editedSetData.exerciseId,
       index: this.editedSetData.index
     })
@@ -85,12 +63,12 @@ class EditSetDialog extends EventEmitter<EditSetDialogEventMap> {
 
 export default EditSetDialog
 
-export const updateSetItem = (editedSetData: EditedSetData) => {
-  const oldSetItem = document.querySelector(
-    `[data-exercise-id="${editedSetData.exerciseId}"] [data-set-number="${editedSetData.index + 1}"]`
+const updateSetItem = ({ set, exerciseId, index }: EditSetData) => {
+  const setItem = document.querySelector(
+    `[data-exercise-id="${exerciseId}"] [data-set-number="${index + 1}"]`
   ) as HTMLDivElement
-  setTextContent('.set-reps', (editedSetData.set.reps || '-').toString(), oldSetItem)
-  setTextContent('.set-weight', (editedSetData.set.weight || '-').toString(), oldSetItem)
-  oldSetItem.setAttribute('data-reps', editedSetData.set.reps.toString())
-  oldSetItem.setAttribute('data-weight', editedSetData.set.weight.toString())
+  setTextContent('.set-reps', (set.reps || '-').toString(), setItem)
+  setTextContent('.set-weight', (set.weight || '-').toString(), setItem)
+  setItem.setAttribute('data-reps', set.reps.toString())
+  setItem.setAttribute('data-weight', set.weight.toString())
 }

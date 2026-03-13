@@ -1,12 +1,9 @@
 import { db } from '../../db'
 import { exportIndexedDbToJson } from '../../db/export'
 import type { Exercise } from '../../db/stores/exercisesStore'
-import {
-  workoutSessionsStore,
-  type ExerciseSetExecution,
-  type WorkoutSession
-} from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
+import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import type BreakTimerDialog from './BreakTimerDialog'
 import type EditSetDialog from './EditSetDialog'
@@ -15,27 +12,21 @@ export interface ExerciseCardContext {
   exercise: Exercise
   programId: string
   programExerciseIds: string[]
-  getSession: () => WorkoutSession | undefined
-  setSession: (session: WorkoutSession) => void
+  exerciseDefinitions: Map<string, Exercise>
   editSetDialog: EditSetDialog
   breakTimerDialog: BreakTimerDialog
-  isWorkoutComplete: () => boolean
   onExerciseDeleted: () => void
 }
 
-export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<DocumentFragment> {
-  const {
-    exercise,
-    programId,
-    programExerciseIds,
-    getSession,
-    setSession,
-    editSetDialog,
-    breakTimerDialog,
-    isWorkoutComplete,
-    onExerciseDeleted
-  } = ctx
-
+export async function renderExerciseCard({
+  exercise,
+  programId,
+  programExerciseIds,
+  exerciseDefinitions,
+  editSetDialog,
+  breakTimerDialog,
+  onExerciseDeleted
+}: ExerciseCardContext): Promise<DocumentFragment> {
   const renderSetItem = ({
     set,
     index,
@@ -60,16 +51,13 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
 
     div.addEventListener('click', () => {
       if (!div.classList.contains('isCompleted')) return
-
-      const session = getSession()
-      if (!session) throw new Error('No existing workout session found')
+      if (!GymtimeSessionState.session) throw new Error('No existing workout session found')
 
       editSetDialog.openDialog({
         set: {
           reps: parseFloat(div.dataset.reps!),
           weight: parseFloat(div.dataset.weight!)
         },
-        workoutSession: session,
         exerciseId: exercise.id,
         index
       })
@@ -93,19 +81,14 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
   })
 
   deleteBtn.addEventListener('click', async () => {
-    const session = getSession()
-    if (!session) {
+    if (!GymtimeSessionState.session) {
       alert('Start a workout session first')
       return
     }
 
     if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
 
-    const updated = await workoutSessionsStore.deleteExerciseFromWorkoutSession({
-      workoutSession: session,
-      exerciseId: exercise.id
-    })
-    setSession(updated)
+    await GymtimeSessionState.deleteExercise(exercise.id)
     onExerciseDeleted()
   })
 
@@ -120,7 +103,7 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
   setTextContent('.exercise-name', exercise.name, template)
   setTextContent('.exercise-muscle', exercise.muscle, template)
 
-  const session = getSession()
+  const session = GymtimeSessionState.session
   const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === exercise.id)
 
   if (existingExercise) {
@@ -152,9 +135,7 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
 
     if (!latestSet) {
       const latestSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(programId)
-      latestSet = latestSession?.exercises
-        .find(({ exerciseId }) => exerciseId === exercise.id)
-        ?.sets.at(-1)
+      latestSet = latestSession?.exercises.find(({ exerciseId }) => exerciseId === exercise.id)?.sets.at(-1)
 
       latestSet = latestSet ?? { reps: exercise.reps, weight: 0 }
     }
@@ -176,20 +157,14 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
         if (!confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)) return
       }
 
-      const currentSession = getSession()
-      if (!currentSession) throw new Error('No existing workout session found')
+      if (!GymtimeSessionState.session) throw new Error('No existing workout session found')
 
       const completedSet = { reps: parseFloat(reps), weight: parseFloat(weight) }
 
-      const updated = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
-        workoutSession: currentSession,
-        exerciseId: exercise.id,
-        exerciseExecutionSet: completedSet
-      })
-      setSession(updated)
+      await GymtimeSessionState.addSet(exercise.id, completedSet)
 
-      const setIndex =
-        (updated.exercises.find(({ exerciseId: id }) => id === exercise.id)?.sets.length ?? 1) - 1
+      const updated = GymtimeSessionState.session!
+      const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === exercise.id)?.sets.length ?? 1) - 1
 
       const pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       pendingSetItem.classList.remove('isPending')
@@ -205,9 +180,8 @@ export async function renderExerciseCard(ctx: ExerciseCardContext): Promise<Docu
         nextSetDiv.remove()
       }
 
-      if (isWorkoutComplete()) {
-        const completed = await workoutSessionsStore.updateWorkoutSession({ ...updated, status: 'completed' })
-        setSession(completed)
+      if (GymtimeSessionState.isWorkoutComplete(exerciseDefinitions)) {
+        await GymtimeSessionState.complete()
         throwConfetti('Workout done!')
         exportIndexedDbToJson()
       } else {
