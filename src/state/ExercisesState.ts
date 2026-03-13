@@ -9,6 +9,10 @@ class ExercisesState {
     return this.state.get()
   }
 
+  static getById(id: string): Exercise | undefined {
+    return this.state.get().find((e) => e.id === id)
+  }
+
   static subscribe(callback: (exercises: Array<Exercise>) => void): () => void {
     return this.state.subscribe(callback)
   }
@@ -50,7 +54,7 @@ class ExercisesState {
   }
 
   static async softDeleteExercise(id: string): Promise<void> {
-    const exercise = this.state.get().find((e) => e.id === id)
+    const exercise = this.getById(id)
 
     if (!exercise) {
       throw new Error(`Exercise with id ${id} not found.`)

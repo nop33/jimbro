@@ -1,5 +1,5 @@
-import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
+import ExercisesState from '../../state/ExercisesState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import ExerciseComponent from '../exercises/ExerciseComponent'
 import ProgramDialog from './ProgramDialog'
@@ -19,7 +19,7 @@ class ProgramComponent {
     setTextContent('.program-name', this.program.name, programItem)
 
     for (const exerciseId of this.program.exercises) {
-      const exercise = await db.exercises.getById(exerciseId)
+      const exercise = ExercisesState.getById(exerciseId)
 
       if (exercise) {
         programExericesList.appendChild(new ExerciseComponent(exercise).render())

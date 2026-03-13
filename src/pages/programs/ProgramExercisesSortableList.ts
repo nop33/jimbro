@@ -78,7 +78,7 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
 
     const exerciseListItems = selectedExercisesIds
       .map((exerciseId) => {
-        const exercise = ExercisesState.exercises.find((exercise) => exercise.id === exerciseId)
+        const exercise = ExercisesState.getById(exerciseId)
         if (!exercise) return
 
         const exerciseItem = nodeFromTemplate('#selected-exercise-item-template')
