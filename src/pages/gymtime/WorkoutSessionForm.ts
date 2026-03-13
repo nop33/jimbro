@@ -1,4 +1,4 @@
-import EventEmitter from '../../db/eventEmitter'
+import EventEmitter from '../../eventEmitter'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'

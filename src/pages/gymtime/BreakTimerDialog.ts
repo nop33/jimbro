@@ -1,4 +1,4 @@
-import EventEmitter from '../../db/eventEmitter'
+import EventEmitter from '../../eventEmitter'
 
 type BreakTimerDialogEventMap = {
   'break-finished': void
@@ -41,7 +41,7 @@ class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
       const seconds = parseInt(this.countdown.textContent.split(':')[1])
 
       if (minutes === 0 && seconds === 0) {
-        this.emit('break-finished', undefined)
+        this.emit('break-finished')
         this.closeDialog()
       } else if (seconds === 0) {
         const nextMinutes = minutes - 1
@@ -74,7 +74,7 @@ class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
   }
 
   skipBreak() {
-    this.emit('break-skipped', undefined)
+    this.emit('break-skipped')
     this.closeDialog()
   }
 }
