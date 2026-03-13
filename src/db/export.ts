@@ -12,9 +12,11 @@ export interface ExportData {
   }
 }
 
+export const CURRENT_EXPORT_VERSION = 2
+
 export const exportIndexedDbToJson = async () => {
   const data: ExportData = {
-    version: 1,
+    version: CURRENT_EXPORT_VERSION,
     exportDate: new Date().toISOString(),
     stores: {
       exercises: await exercisesStore.getAllExercises(),

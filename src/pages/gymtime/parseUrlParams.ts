@@ -4,21 +4,20 @@ import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/worko
 export const parseUrlParams = async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const programIdParam = urlParams.get('programId')
-  const dateParam = urlParams.get('date')
+  const sessionIdParam = urlParams.get('id')
 
   let program: Program | undefined
-  let workoutSession: WorkoutSession | undefined = undefined
+  let workoutSession: WorkoutSession | undefined
 
-  if (!programIdParam && !dateParam) {
-    throw new Error('One of programId or date parameter is required')
+  if (!programIdParam && !sessionIdParam) {
+    throw new Error('One of programId or id parameter is required')
   }
 
-  if (programIdParam) {
-    program = await programsStore.getProgram(programIdParam)
-    workoutSession = undefined
-  } else if (dateParam) {
-    workoutSession = await workoutSessionsStore.getWorkoutSession(dateParam)
+  if (sessionIdParam) {
+    workoutSession = await workoutSessionsStore.getWorkoutSession(sessionIdParam)
     program = workoutSession?.programId ? await programsStore.getProgram(workoutSession.programId) : undefined
+  } else if (programIdParam) {
+    program = await programsStore.getProgram(programIdParam)
   }
 
   if (!program) {

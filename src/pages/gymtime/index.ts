@@ -1,4 +1,3 @@
-import { getSimpleDate } from '../../dateUtils'
 import { exportIndexedDbToJson } from '../../db/export'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import {
@@ -85,12 +84,11 @@ const init = async () => {
     handleAddExercise(workoutSession)
   }
 
-  const workoutSessionDate = workoutSession?.date ?? getSimpleDate(new Date())
-  const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, workoutSessionDate })
+  const workoutSessionForm = new WorkoutSessionForm({ programId: program.id, existingSession: workoutSession })
 
   workoutSessionForm.on('workout-session-updated', ({ detail }) => {
     workoutSession = detail.workoutSession
-    window.history.pushState({}, '', `?date=${workoutSession.date}`)
+    window.history.pushState({}, '', `?id=${workoutSession.id}`)
     renderProgramExercises()
     updateDeleteWorkoutSessionBtnVisibility()
 
@@ -342,13 +340,13 @@ const init = async () => {
 
   deleteWorkoutSessionBtn.addEventListener('click', () => {
     if (!workoutSession) return
-    workoutSessionsStore.deleteWorkoutSession(workoutSession.date)
+    workoutSessionsStore.deleteWorkoutSession(workoutSession.id)
     Toasts.show({ message: 'Workout session deleted' })
     window.location.href = `/workouts/`
   })
 
   const updateDeleteWorkoutSessionBtnVisibility = () => {
-    if (workoutSession?.date) {
+    if (workoutSession) {
       deleteWorkoutSessionBtn.classList.remove('hidden')
     } else {
       deleteWorkoutSessionBtn.classList.add('hidden')

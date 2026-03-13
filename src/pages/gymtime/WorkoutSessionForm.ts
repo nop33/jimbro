@@ -6,7 +6,7 @@ import { setCityFromGeolocation } from './geolocation'
 
 interface WorkoutSessionFormProps {
   programId: Program['id']
-  workoutSessionDate: WorkoutSession['date']
+  existingSession?: WorkoutSession
 }
 
 type WorkoutSessionFormEventMap = {
@@ -20,32 +20,30 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
   private locationInput = this.gymtimeForm.querySelector('input[name="location"]') as HTMLInputElement
   private notesInput = this.gymtimeForm.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private submitButton = this.gymtimeForm.querySelector('button[type="submit"]') as HTMLButtonElement
-  private workoutSessionDate: string
   private programId: Program['id']
+  private existingSession?: WorkoutSession
 
-  constructor({ programId, workoutSessionDate }: WorkoutSessionFormProps) {
+  constructor({ programId, existingSession }: WorkoutSessionFormProps) {
     super()
     this.programId = programId
-    this.workoutSessionDate = workoutSessionDate
+    this.existingSession = existingSession
     this.init()
   }
 
-  async init() {
-    const existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(this.workoutSessionDate)
-
+  private init() {
     this.programIdInput.value = this.programId
-    this.dateInput.value = existingWorkoutSession?.date || new Date().toISOString().split('T')[0]
-    this.notesInput.value = existingWorkoutSession?.notes || ''
+    this.dateInput.value = this.existingSession?.date || new Date().toISOString().split('T')[0]
+    this.notesInput.value = this.existingSession?.notes || ''
 
-    if (existingWorkoutSession) {
-      this.locationInput.value = existingWorkoutSession.location
+    if (this.existingSession) {
+      this.locationInput.value = this.existingSession.location
     } else {
       setCityFromGeolocation(this.locationInput)
     }
 
-    if (existingWorkoutSession?.status === 'completed') {
+    if (this.existingSession?.status === 'completed') {
       this.submitButton.textContent = 'Save'
-    } else if (existingWorkoutSession?.status === 'incomplete') {
+    } else if (this.existingSession?.status === 'incomplete') {
       this.submitButton.textContent = 'Save & continue workout'
     }
 
@@ -55,37 +53,37 @@ class WorkoutSessionForm extends EventEmitter<WorkoutSessionFormEventMap> {
   private async onSubmit(event: Event) {
     event.preventDefault()
     const formData = new FormData(this.gymtimeForm)
-    const programId = formData.get('programId') as string
     const date = formData.get('date') as string
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
 
-    let existingWorkoutSession = await workoutSessionsStore.getWorkoutSession(this.workoutSessionDate)
+    let workoutSession: WorkoutSession
 
-    if (!existingWorkoutSession) {
-      const program = await programsStore.getProgram(programId)
-
+    if (this.existingSession) {
+      workoutSession = await workoutSessionsStore.updateWorkoutSession({
+        ...this.existingSession,
+        date,
+        location,
+        notes
+      })
+    } else {
+      const program = await programsStore.getProgram(this.programId)
       if (!program) {
         throw new Error('Program not found')
       }
 
-      existingWorkoutSession = {
-        programId,
+      workoutSession = await workoutSessionsStore.createWorkoutSession({
+        programId: this.programId,
         date,
         location,
         status: 'incomplete',
         exercises: program.exercises.map((exerciseId) => ({ exerciseId, sets: [] })),
         notes
-      }
+      })
     }
 
-    const updatedWorkoutSession = await workoutSessionsStore.updateWorkoutSession({
-      ...existingWorkoutSession,
-      location,
-      notes
-    })
-
-    this.emit('workout-session-updated', { workoutSession: updatedWorkoutSession })
+    this.existingSession = workoutSession
+    this.emit('workout-session-updated', { workoutSession })
     Toasts.show({ message: 'Workout session saved.' })
   }
 }

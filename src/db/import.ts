@@ -1,21 +1,27 @@
-import type { ExportData } from './export'
-import { exercisesStore } from './stores/exercisesStore'
-import { programsStore } from './stores/programsStore'
-import { workoutSessionsStore } from './stores/workoutSessionsStore'
+import { OBJECT_STORES } from './constants'
+import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
+import { exercisesStore, type Exercise } from './stores/exercisesStore'
+import { programsStore, type Program } from './stores/programsStore'
+import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
+import { storage } from './storage'
+
+interface V1WorkoutSession extends Omit<WorkoutSession, 'id'> {
+  id?: string
+}
 
 export const importIndexedDbFromJson = async (file: File) => {
   const text = await file.text()
   const data: ExportData = JSON.parse(text)
   const { version, stores } = data
 
-  if (version !== 1) {
-    throw new Error('Unsupported version')
+  if (version > CURRENT_EXPORT_VERSION) {
+    throw new Error(`Unsupported export version: ${version}. Please update the app.`)
   }
 
   try {
     await importExercises(stores.exercises)
     await importPrograms(stores.programs)
-    await importWorkoutSessions(stores.workoutSessions)
+    await importWorkoutSessions(stores.workoutSessions, version)
 
     console.log('✅ Imported data successfully')
   } catch (error) {
@@ -25,31 +31,41 @@ export const importIndexedDbFromJson = async (file: File) => {
 }
 
 const importExercises = async (exercises: ExportData['stores']['exercises']) => {
-  const existingExercises = await exercisesStore.getAllExercises()
+  const allExisting = await storage.getAll<Exercise>(OBJECT_STORES.EXERCISES)
 
   for (const exercise of exercises) {
-    if (!existingExercises.some((e) => e.id === exercise.id)) {
+    if (!allExisting.some((e) => e.id === exercise.id)) {
       await exercisesStore.importExercise(exercise)
     }
   }
 }
 
 const importPrograms = async (programs: ExportData['stores']['programs']) => {
-  const existingPrograms = await programsStore.getAllPrograms()
+  const allExisting = await storage.getAll<Program>(OBJECT_STORES.PROGRAMS)
 
   for (const program of programs) {
-    if (!existingPrograms.some((p) => p.id === program.id)) {
+    if (!allExisting.some((p) => p.id === program.id)) {
       await programsStore.importProgram(program)
     }
   }
 }
 
-const importWorkoutSessions = async (workoutSessions: ExportData['stores']['workoutSessions']) => {
-  const existingWorkoutSessions = await workoutSessionsStore.getAllWorkoutSessions()
+const importWorkoutSessions = async (workoutSessions: Array<V1WorkoutSession | WorkoutSession>, version: number) => {
+  const allExisting = await storage.getAll<WorkoutSession>(OBJECT_STORES.WORKOUT_SESSIONS)
 
-  for (const workoutSession of workoutSessions) {
-    if (!existingWorkoutSessions.some((w) => w.date === workoutSession.date)) {
-      await workoutSessionsStore.createWorkoutSession(workoutSession)
+  for (const session of workoutSessions) {
+    if (version === 1 || !session.id) {
+      const alreadyExists = allExisting.some(
+        (existing) => existing.date === session.date && existing.programId === session.programId
+      )
+      if (!alreadyExists) {
+        const { id: _id, ...sessionWithoutId } = session as WorkoutSession
+        await workoutSessionsStore.createWorkoutSession(sessionWithoutId)
+      }
+    } else {
+      if (!allExisting.some((existing) => existing.id === session.id)) {
+        await workoutSessionsStore.importWorkoutSession(session as WorkoutSession)
+      }
     }
   }
 }

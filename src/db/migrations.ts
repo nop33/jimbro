@@ -2,7 +2,7 @@ import { OBJECT_STORES } from './constants'
 
 export interface DbMigration {
   version: number
-  migrate: (db: IDBDatabase) => void
+  migrate: (db: IDBDatabase, transaction: IDBTransaction) => void
 }
 
 export const getLatestDbVersion = (): number => migrations.at(-1)?.version ?? 0
@@ -44,6 +44,28 @@ const migrations: Array<DbMigration> = [
       }
       if (!db.objectStoreNames.contains(OBJECT_STORES.PROGRAMS)) {
         db.createObjectStore(OBJECT_STORES.PROGRAMS, { keyPath: 'id' })
+      }
+    }
+  },
+  {
+    version: 4,
+    migrate: (db, transaction) => {
+      const oldStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+      const getAllRequest = oldStore.getAll()
+
+      getAllRequest.onsuccess = () => {
+        const existingRecords = getAllRequest.result
+
+        db.deleteObjectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+
+        const newStore = db.createObjectStore(OBJECT_STORES.WORKOUT_SESSIONS, { keyPath: 'id' })
+        newStore.createIndex('date', 'date', { unique: false })
+        newStore.createIndex('programId', 'programId', { unique: false })
+
+        for (const record of existingRecords) {
+          record.id = crypto.randomUUID()
+          newStore.add(record)
+        }
       }
     }
   }

@@ -1,10 +1,10 @@
-import { getWeekOfYear } from '../../dateUtils'
 import { OBJECT_STORES } from '../constants'
 import { storage } from '../storage'
 import type { Exercise } from './exercisesStore'
 import type { Program } from './programsStore'
 
 export interface WorkoutSession {
+  id: string
   date: string
   programId: Program['id']
   exercises: Array<ExerciseExecution>
@@ -12,6 +12,8 @@ export interface WorkoutSession {
   status: WorkoutSessionStatus
   notes?: string
 }
+
+export type NewWorkoutSession = Omit<WorkoutSession, 'id'>
 
 export interface ExerciseExecution {
   exerciseId: Exercise['id']
@@ -24,30 +26,35 @@ export interface ExerciseSetExecution {
   weight: number
 }
 
-export type WorkoutSessionStatus = 'completed' | 'skipped' | 'incomplete' | 'pending'
+const WORKOUT_SESSION_STATUSES = ['completed', 'skipped', 'incomplete', 'pending'] as const
+export type WorkoutSessionStatus = (typeof WORKOUT_SESSION_STATUSES)[number]
 
-export class WorkoutSessionsReactiveStore {
+export class WorkoutSessionsStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
 
-  async createWorkoutSession(workoutSession: WorkoutSession): Promise<WorkoutSession> {
+  async createWorkoutSession(item: NewWorkoutSession): Promise<WorkoutSession> {
+    const workoutSession: WorkoutSession = { ...item, id: crypto.randomUUID() }
     return storage.create(this.storeName, workoutSession)
   }
 
-  async getWorkoutSession(date: string): Promise<WorkoutSession | undefined> {
-    return storage.get(this.storeName, date)
+  async importWorkoutSession(workoutSession: WorkoutSession): Promise<WorkoutSession> {
+    return storage.create(this.storeName, workoutSession)
+  }
+
+  async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
+    return storage.get(this.storeName, id)
   }
 
   async getLatestCompletedWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
-    const workoutSessions = await this.getAllWorkoutSessions() // TODO: Improve performance by querying indexedDB instead (also, create an index for programId)
-    return workoutSessions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .find((workoutSession) => workoutSession.programId === programId && workoutSession.status === 'completed')
+    const programSessions = await storage.getAllByIndex<WorkoutSession>(this.storeName, 'programId', programId)
+    return programSessions
+      .filter((session) => session.status === 'completed')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
   }
 
   async getDateOfFirstWorkoutSession(): Promise<string | undefined> {
-    // TODO: Improve performance by querying indexedDB instead
-    const workoutSessions = await this.getAllWorkoutSessions()
-    return workoutSessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]?.date
+    const earliest = await storage.getFirstByIndex<WorkoutSession>(this.storeName, 'date', 'next')
+    return earliest?.date
   }
 
   async getAllWorkoutSessions(): Promise<Array<WorkoutSession>> {
@@ -55,17 +62,21 @@ export class WorkoutSessionsReactiveStore {
   }
 
   async getAllWorkoutSessionsGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
+    const { getWeekOfYear } = await import('../../dateUtils')
     const workoutSessions = await this.getAllWorkoutSessions()
 
-    return workoutSessions.reduce((acc, workoutSession) => {
-      const week = getWeekOfYear(new Date(workoutSession.date))
-      if (acc[week]) {
-        acc[week].push(workoutSession)
-      } else {
-        acc[week] = [workoutSession]
-      }
-      return acc
-    }, {} as Record<string, Array<WorkoutSession>>)
+    return workoutSessions.reduce(
+      (acc, workoutSession) => {
+        const week = getWeekOfYear(new Date(workoutSession.date))
+        if (acc[week]) {
+          acc[week].push(workoutSession)
+        } else {
+          acc[week] = [workoutSession]
+        }
+        return acc
+      },
+      {} as Record<string, Array<WorkoutSession>>
+    )
   }
 
   async updateWorkoutSession(item: WorkoutSession): Promise<WorkoutSession> {
@@ -96,12 +107,12 @@ export class WorkoutSessionsReactiveStore {
     return storage.count(this.storeName)
   }
 
-  async deleteWorkoutSession(date: string): Promise<void> {
-    const workoutSession = await this.getWorkoutSession(date)
+  async deleteWorkoutSession(id: string): Promise<void> {
+    const workoutSession = await this.getWorkoutSession(id)
     if (!workoutSession) {
       throw new Error('Workout session not found')
     }
-    return storage.delete(this.storeName, date)
+    return storage.delete(this.storeName, id)
   }
 
   async updateExerciseExecutionSetInWorkoutSession({
@@ -150,4 +161,4 @@ export class WorkoutSessionsReactiveStore {
   }
 }
 
-export const workoutSessionsStore = new WorkoutSessionsReactiveStore()
+export const workoutSessionsStore = new WorkoutSessionsStore()

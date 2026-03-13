@@ -29,10 +29,11 @@ const openDatabase = async (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
+      const transaction = (event.target as IDBOpenDBRequest).transaction!
       const oldVersion = event.oldVersion
 
       for (let versionToMigrateTo = oldVersion + 1; versionToMigrateTo <= latestVersion; versionToMigrateTo++) {
-        getMigrationForVersion(versionToMigrateTo)?.(db)
+        getMigrationForVersion(versionToMigrateTo)?.(db, transaction)
       }
     }
   })
@@ -77,6 +78,31 @@ export class Storage {
     const store = await this.getStore(storeName, 'readwrite')
     await promisifyRequest(store.put(item))
     return item
+  }
+
+  async getByIndex<T>(storeName: string, indexName: string, key: string | number): Promise<T | undefined> {
+    const store = await this.getStore(storeName)
+    const index = store.index(indexName)
+    return promisifyRequest<T | undefined>(index.get(key))
+  }
+
+  async getAllByIndex<T>(storeName: string, indexName: string, key: string | number): Promise<Array<T>> {
+    const store = await this.getStore(storeName)
+    const index = store.index(indexName)
+    return promisifyRequest(index.getAll(key))
+  }
+
+  async getFirstByIndex<T>(storeName: string, indexName: string, direction: IDBCursorDirection = 'next'): Promise<T | undefined> {
+    const store = await this.getStore(storeName)
+    const index = store.index(indexName)
+    return new Promise((resolve, reject) => {
+      const cursorRequest = index.openCursor(null, direction)
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result
+        resolve(cursor ? (cursor.value as T) : undefined)
+      }
+      cursorRequest.onerror = () => reject(cursorRequest.error)
+    })
   }
 
   async getAll<T>(storeName: string): Promise<Array<T>> {

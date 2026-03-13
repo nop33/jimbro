@@ -71,7 +71,7 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
       window.location.href =
         workoutSession.status === 'pending'
           ? `/gymtime/?programId=${workoutSession.programId}`
-          : `/gymtime/?date=${workoutSession.date}`
+          : `/gymtime/?id=${workoutSession.id}`
     })
   }
 
@@ -132,4 +132,8 @@ if (_isDbEmpty) {
   })
 }
 
-type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'date'> & { date: undefined; status: 'pending' | 'skipped' }
+type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date'> & {
+  id?: undefined
+  date?: undefined
+  status: 'pending' | 'skipped'
+}
