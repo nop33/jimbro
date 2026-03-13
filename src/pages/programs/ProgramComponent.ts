@@ -13,8 +13,8 @@ class ProgramComponent {
 
   async render() {
     const programItem = nodeFromTemplate('#program-item-template')
-    const editProgramBtn = programItem.querySelector('#edit-program-btn') as HTMLButtonElement
-    const programExericesList = programItem.querySelector('#exercises-grid') as HTMLDivElement
+    const editProgramBtn = programItem.querySelector('.edit-program-btn') as HTMLButtonElement
+    const programExericesList = programItem.querySelector('.exercises-grid') as HTMLDivElement
 
     setTextContent('.program-name', this.program.name, programItem)
 

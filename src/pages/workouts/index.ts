@@ -97,7 +97,7 @@ if (_isDbEmpty) {
   weeksKeys.forEach((weekKey) => {
     const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
     const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
-    const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('#workout-week-list') as HTMLUListElement
+    const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('.workout-week-list') as HTMLUListElement
 
     const { year, week } = extractWeekKeyNumbers(weekKey)
     setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
