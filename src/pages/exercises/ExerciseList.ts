@@ -7,25 +7,24 @@ class ExerciseList {
   private static muscleFilter: MuscleGroupSelect | null = null
 
   static async init() {
-    exercisesStore.subscribe((exercises) => {
-      const filteredExercises = this.filterExercises(exercises, this.muscleFilter?.selectedMuscle || 'All')
-      this.render(filteredExercises)
-    })
+    this.renderMuscleGroupExercises(exercisesStore.get(), 'All')
     this.renderMuscleFilter()
+
+    exercisesStore.subscribe((exercises) =>
+      this.renderMuscleGroupExercises(exercises, this.muscleFilter?.selectedMuscle || 'All')
+    )
   }
 
-  static render(exercises: Array<Exercise>) {
+  static renderMuscleGroupExercises(exercises: Array<Exercise>, muscleGroup: string) {
+    const filteredExercises = this.filterExercises(exercises, muscleGroup)
     this.exercisesGrid.innerHTML = ''
-    this.exercisesGrid.append(...exercises.map((exercise) => new ExerciseComponent(exercise).render()))
+    this.exercisesGrid.append(...filteredExercises.map((exercise) => new ExerciseComponent(exercise).render()))
   }
 
   private static renderMuscleFilter() {
     this.muscleFilter = new MuscleGroupSelect({
       selector: '#muscle-filter',
-      onSelect: (selectedMuscle) => {
-        const filteredExercises = this.filterExercises(exercisesStore.get(), selectedMuscle)
-        this.render(filteredExercises)
-      }
+      onSelect: (muscleGroup) => this.renderMuscleGroupExercises(exercisesStore.get(), muscleGroup)
     })
 
     this.muscleFilter.render({ includeOptionAll: true })
