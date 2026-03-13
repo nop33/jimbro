@@ -81,7 +81,7 @@ workoutSessionForm.on('workout-session-updated', ({ detail }) => {
   workoutSession = detail.workoutSession
   window.history.pushState({}, '', `?date=${workoutSession.date}`)
   renderProgramExercises()
-  setupDeleteWorkoutSessionBtn()
+  updateDeleteWorkoutSessionBtnVisibility()
 
   if (!exerciseClickedListenerInitialized) {
     handleAddExercise(workoutSession)
@@ -334,21 +334,20 @@ const renderProgramExercises = async () => {
   }
 }
 
-const setupDeleteWorkoutSessionBtn = () => {
+deleteWorkoutSessionBtn.addEventListener('click', () => {
+  if (!workoutSession) return
+  workoutSessionsStore.deleteWorkoutSession(workoutSession.date)
+  Toasts.show({ message: 'Workout session deleted' })
+  window.location.href = `/workouts/`
+})
+
+const updateDeleteWorkoutSessionBtnVisibility = () => {
   if (workoutSession?.date) {
     deleteWorkoutSessionBtn.classList.remove('hidden')
-    deleteWorkoutSessionBtn.addEventListener('click', () => {
-      if (!workoutSession) {
-        throw new Error('Workout session not found')
-      }
-      workoutSessionsStore.deleteWorkoutSession(workoutSession.date)
-      Toasts.show({ message: 'Workout session deleted' })
-      window.location.href = `/workouts/`
-    })
   } else {
     deleteWorkoutSessionBtn.classList.add('hidden')
   }
 }
 
 renderProgramExercises()
-setupDeleteWorkoutSessionBtn()
+updateDeleteWorkoutSessionBtnVisibility()
