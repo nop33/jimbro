@@ -5,29 +5,103 @@ import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores
 import { throwConfetti } from '../../features/confetti'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import type BreakTimerDialog from './BreakTimerDialog'
-import type EditSetDialog from './EditSetDialog'
+import BreakTimerDialog from './BreakTimerDialog'
+import EditSetDialog from './EditSetDialog'
 
-export interface ExerciseCardContext {
+export interface ExerciseCardConfig {
   exercise: Exercise
   programId: string
   programExerciseIds: string[]
   exerciseDefinitions: Map<string, Exercise>
-  editSetDialog: EditSetDialog
-  breakTimerDialog: BreakTimerDialog
   onExerciseDeleted: () => void
 }
 
-export async function renderExerciseCard({
-  exercise,
-  programId,
-  programExerciseIds,
-  exerciseDefinitions,
-  editSetDialog,
-  breakTimerDialog,
-  onExerciseDeleted
-}: ExerciseCardContext): Promise<DocumentFragment> {
-  const renderSetItem = ({
+class ExerciseCard {
+  private exercise: Exercise
+  private programId: string
+  private programExerciseIds: string[]
+  private exerciseDefinitions: Map<string, Exercise>
+  private onExerciseDeleted: () => void
+
+  constructor(config: ExerciseCardConfig) {
+    this.exercise = config.exercise
+    this.programId = config.programId
+    this.programExerciseIds = config.programExerciseIds
+    this.exerciseDefinitions = config.exerciseDefinitions
+    this.onExerciseDeleted = config.onExerciseDeleted
+  }
+
+  async render(): Promise<DocumentFragment> {
+    const template = nodeFromTemplate('#workout-exercise-item-template')
+    const exerciseDetails = template.querySelector('.exercise-details') as HTMLDetailsElement
+    const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
+    const cardDiv = template.querySelector('div') as HTMLDivElement
+    const nextSetDiv = template.querySelector('.next-set') as HTMLDivElement
+    const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
+    const deleteBtn = template.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
+
+    cardDiv.setAttribute('data-exercise-id', this.exercise.id)
+
+    exerciseDetails.addEventListener('toggle', () => {
+      deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
+    })
+
+    deleteBtn.addEventListener('click', async () => {
+      if (!GymtimeSessionState.session) {
+        alert('Start a workout session first')
+        return
+      }
+
+      if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
+
+      await GymtimeSessionState.deleteExercise(this.exercise.id)
+      this.onExerciseDeleted()
+    })
+
+    exerciseDetails.addEventListener('click', () => {
+      if (!exerciseDetails.open) {
+        document.querySelectorAll<HTMLDetailsElement>('.exercise-details').forEach((details) => {
+          if (details !== exerciseDetails) details.removeAttribute('open')
+        })
+      }
+    })
+
+    setTextContent('.exercise-name', this.exercise.name, template)
+    setTextContent('.exercise-muscle', this.exercise.muscle, template)
+
+    const session = GymtimeSessionState.session
+    const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+
+    if (existingExercise) {
+      if (existingExercise.sets.length === this.exercise.sets) {
+        cardDiv.classList.add('card-success')
+      }
+
+      for (const [index, set] of existingExercise.sets.entries()) {
+        completedSets.appendChild(this.renderSetItem({ set, index }))
+      }
+
+      for (let i = existingExercise.sets.length; i < this.exercise.sets; i++) {
+        completedSets.appendChild(this.renderSetItem({ set: { reps: 0, weight: 0 }, index: i, isCompleted: false }))
+      }
+    }
+
+    if (!session) {
+      submitButton.classList.add('hidden')
+    } else {
+      submitButton.classList.remove('hidden')
+    }
+
+    if (!existingExercise || existingExercise.sets.length < this.exercise.sets) {
+      await this.setupNextSetForm(template, completedSets, exerciseDetails, cardDiv, nextSetDiv)
+    } else {
+      nextSetDiv.remove()
+    }
+
+    return template
+  }
+
+  private renderSetItem({
     set,
     index,
     isCompleted = true
@@ -35,7 +109,7 @@ export async function renderExerciseCard({
     set: ExerciseSetExecution
     index: number
     isCompleted?: boolean
-  }) => {
+  }) {
     const template = nodeFromTemplate('#completed-set-item-template')
     const div = template.querySelector('div') as HTMLDivElement
     const setNumber = (index + 1).toString()
@@ -53,12 +127,12 @@ export async function renderExerciseCard({
       if (!div.classList.contains('isCompleted')) return
       if (!GymtimeSessionState.session) throw new Error('No existing workout session found')
 
-      editSetDialog.openDialog({
+      EditSetDialog.openDialog({
         set: {
           reps: parseFloat(div.dataset.reps!),
           weight: parseFloat(div.dataset.weight!)
         },
-        exerciseId: exercise.id,
+        exerciseId: this.exercise.id,
         index
       })
     })
@@ -66,85 +140,34 @@ export async function renderExerciseCard({
     return template
   }
 
-  const template = nodeFromTemplate('#workout-exercise-item-template')
-  const exerciseDetails = template.querySelector('.exercise-details') as HTMLDetailsElement
-  const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
-  const cardDiv = template.querySelector('div') as HTMLDivElement
-  const nextSetDiv = template.querySelector('.next-set') as HTMLDivElement
-  const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
-  const deleteBtn = template.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
-
-  cardDiv.setAttribute('data-exercise-id', exercise.id)
-
-  exerciseDetails.addEventListener('toggle', () => {
-    deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
-  })
-
-  deleteBtn.addEventListener('click', async () => {
-    if (!GymtimeSessionState.session) {
-      alert('Start a workout session first')
-      return
-    }
-
-    if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
-
-    await GymtimeSessionState.deleteExercise(exercise.id)
-    onExerciseDeleted()
-  })
-
-  exerciseDetails.addEventListener('click', () => {
-    if (!exerciseDetails.open) {
-      document.querySelectorAll<HTMLDetailsElement>('.exercise-details').forEach((details) => {
-        if (details !== exerciseDetails) details.removeAttribute('open')
-      })
-    }
-  })
-
-  setTextContent('.exercise-name', exercise.name, template)
-  setTextContent('.exercise-muscle', exercise.muscle, template)
-
-  const session = GymtimeSessionState.session
-  const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === exercise.id)
-
-  if (existingExercise) {
-    if (existingExercise.sets.length === exercise.sets) {
-      cardDiv.classList.add('card-success')
-    }
-
-    for (const [index, set] of existingExercise.sets.entries()) {
-      completedSets.appendChild(renderSetItem({ set, index }))
-    }
-
-    for (let i = existingExercise.sets.length; i < exercise.sets; i++) {
-      completedSets.appendChild(renderSetItem({ set: { reps: 0, weight: 0 }, index: i, isCompleted: false }))
-    }
-  }
-
-  if (!session) {
-    submitButton.classList.add('hidden')
-  } else {
-    submitButton.classList.remove('hidden')
-  }
-
-  if (!existingExercise || existingExercise.sets.length < exercise.sets) {
+  private async setupNextSetForm(
+    template: DocumentFragment,
+    completedSets: HTMLDivElement,
+    exerciseDetails: HTMLDetailsElement,
+    cardDiv: HTMLDivElement,
+    nextSetDiv: HTMLDivElement
+  ) {
     const nextSetForm = template.querySelector('.next-set-form') as HTMLFormElement
     const nextSetRepsInput = nextSetForm.querySelector('input[name="set-reps"]') as HTMLInputElement
     const nextSetWeightInput = nextSetForm.querySelector('input[name="set-weight"]') as HTMLInputElement
 
-    let latestSet = session?.exercises.find(({ exerciseId }) => exerciseId === exercise.id)?.sets.at(-1)
+    const session = GymtimeSessionState.session
+    let latestSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)?.sets.at(-1)
 
     if (!latestSet) {
-      const latestSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(programId)
-      latestSet = latestSession?.exercises.find(({ exerciseId }) => exerciseId === exercise.id)?.sets.at(-1)
+      const latestSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(this.programId)
+      latestSet = latestSession?.exercises
+        .find(({ exerciseId }) => exerciseId === this.exercise.id)
+        ?.sets.at(-1)
 
-      latestSet = latestSet ?? { reps: exercise.reps, weight: 0 }
+      latestSet = latestSet ?? { reps: this.exercise.reps, weight: 0 }
     }
 
     nextSetRepsInput.value = latestSet.reps.toString()
     nextSetWeightInput.value = latestSet.weight.toString()
 
-    const currentIndex = programExerciseIds.findIndex((id) => id === exercise.id)
-    const nextExerciseId = currentIndex >= 0 ? programExerciseIds[currentIndex + 1] : undefined
+    const currentIndex = this.programExerciseIds.findIndex((id) => id === this.exercise.id)
+    const nextExerciseId = currentIndex >= 0 ? this.programExerciseIds[currentIndex + 1] : undefined
     const nextExercise = nextExerciseId ? await db.exercises.getById(nextExerciseId) : undefined
 
     nextSetForm.addEventListener('submit', async (event) => {
@@ -161,10 +184,11 @@ export async function renderExerciseCard({
 
       const completedSet = { reps: parseFloat(reps), weight: parseFloat(weight) }
 
-      await GymtimeSessionState.addSet(exercise.id, completedSet)
+      await GymtimeSessionState.addSet(this.exercise.id, completedSet)
 
       const updated = GymtimeSessionState.session!
-      const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === exercise.id)?.sets.length ?? 1) - 1
+      const setIndex =
+        (updated.exercises.find(({ exerciseId: id }) => id === this.exercise.id)?.sets.length ?? 1) - 1
 
       const pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       pendingSetItem.classList.remove('isPending')
@@ -174,37 +198,35 @@ export async function renderExerciseCard({
       pendingSetItem.setAttribute('data-reps', completedSet.reps.toString())
       pendingSetItem.setAttribute('data-weight', completedSet.weight.toString())
 
-      if (setIndex + 1 === exercise.sets) {
+      if (setIndex + 1 === this.exercise.sets) {
         exerciseDetails.removeAttribute('open')
         cardDiv.classList.add('card-success')
         nextSetDiv.remove()
       }
 
-      if (GymtimeSessionState.isWorkoutComplete(exerciseDefinitions)) {
+      if (GymtimeSessionState.isWorkoutComplete(this.exerciseDefinitions)) {
         await GymtimeSessionState.complete()
         throwConfetti('Workout done!')
         exportIndexedDbToJson()
       } else {
-        const isExerciseCompleted = exercise.sets === setIndex + 1
+        const isExerciseCompleted = this.exercise.sets === setIndex + 1
 
         if (isExerciseCompleted) {
           navigator.vibrate([50, 30, 50, 30, 70])
-          breakTimerDialog.closeDialog()
+          BreakTimerDialog.closeDialog()
           throwConfetti('Exercise done!')
         } else {
-          breakTimerDialog.startTimer({
+          BreakTimerDialog.startTimer({
             minutes: 2,
             seconds: 30,
             setsDone: setIndex + 1,
-            setsTotal: exercise.sets,
+            setsTotal: this.exercise.sets,
             nextExercise: nextExercise?.name
           })
         }
       }
     })
-  } else {
-    nextSetDiv.remove()
   }
-
-  return template
 }
+
+export default ExerciseCard

@@ -9,9 +9,8 @@ import ExerciseList from '../exercises/ExerciseList'
 import AddExerciseDialog from './AddExerciseDialog'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
-import { renderExerciseCard } from './ExerciseCard'
+import ExerciseCard from './ExerciseCard'
 import { keepScreenAwake } from './keepScreenAwake'
-import { sendBreakFinishedNotification } from './notification'
 import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
 
@@ -31,7 +30,6 @@ const init = async () => {
   const { program, workoutSession } = await parseUrlParams()
 
   GymtimeSessionState.initialize(workoutSession)
-
   setTextContent('.app-header-title', program.name)
 
   const exerciseDefinitions = new Map<string, Exercise>()
@@ -45,12 +43,8 @@ const init = async () => {
     workoutDetails.removeAttribute('open')
   }
 
-  const breakTimerDialog = new BreakTimerDialog()
-  breakTimerDialog.on('break-finished', () => {
-    sendBreakFinishedNotification()
-  })
-
-  const editSetDialog = new EditSetDialog()
+  EditSetDialog.init()
+  BreakTimerDialog.init()
 
   const addExerciseDialog = new AddExerciseDialog()
   addExerciseCard.addEventListener('click', () => {
@@ -81,9 +75,9 @@ const init = async () => {
 
   const renderProgramExercises = async () => {
     const scrollY = window.scrollY
-    const openExerciseId = document
-      .querySelector<HTMLDetailsElement>('.exercise-details[open]')
-      ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
+    const openExerciseId = document.querySelector<HTMLDetailsElement>('.exercise-details[open]')
+      ?.closest<HTMLDivElement>('[data-exercise-id]')
+      ?.dataset.exerciseId
 
     exercisesList.innerHTML = ''
     exerciseDefinitions.clear()
@@ -97,27 +91,23 @@ const init = async () => {
 
     for (const exerciseId of exerciseIds) {
       const exercise = await db.exercises.getById(exerciseId)
-
       if (!exercise) continue
 
       exerciseDefinitions.set(exerciseId, exercise)
-      const card = await renderExerciseCard({
+      const card = await new ExerciseCard({
         exercise,
         programId: program.id,
         programExerciseIds: program.exercises,
         exerciseDefinitions,
-        editSetDialog,
-        breakTimerDialog,
         onExerciseDeleted: () => renderProgramExercises()
-      })
+      }).render()
       exercisesList.appendChild(card)
     }
 
     if (openExerciseId) {
-      const details = exercisesList.querySelector<HTMLDetailsElement>(
-        `[data-exercise-id="${openExerciseId}"] .exercise-details`
-      )
-      details?.setAttribute('open', '')
+      exercisesList
+        .querySelector<HTMLDetailsElement>(`[data-exercise-id="${openExerciseId}"] .exercise-details`)
+        ?.setAttribute('open', '')
     }
 
     window.scrollTo(0, scrollY)
@@ -125,7 +115,6 @@ const init = async () => {
 
   deleteWorkoutSessionBtn.addEventListener('click', async () => {
     if (!GymtimeSessionState.session) return
-
     if (!confirm('Are you sure you want to delete this workout session?')) return
 
     await GymtimeSessionState.delete()

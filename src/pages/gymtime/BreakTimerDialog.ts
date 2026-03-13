@@ -1,27 +1,19 @@
-import EventEmitter from '../../eventEmitter'
+import { sendBreakFinishedNotification } from './notification'
 
-type BreakTimerDialogEventMap = {
-  'break-finished': void
-  'break-skipped': void
-}
+class BreakTimerDialog {
+  private static dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+  private static countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
+  private static countdownInterval: ReturnType<typeof setInterval> | null = null
+  private static skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
+  private static setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
+  private static nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
+  private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
 
-class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
-  private breakCountdownDialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
-  private countdown = this.breakCountdownDialog.querySelector('#countdown') as HTMLHeadingElement
-  private countdownInterval: ReturnType<typeof setInterval> | null = null
-  private skipBreakButton = this.breakCountdownDialog.querySelector('#skip-break') as HTMLButtonElement
-  private setsDone = this.breakCountdownDialog.querySelector('#sets-done') as HTMLParagraphElement
-  private nextExercise = this.breakCountdownDialog.querySelector('#next-exercise-name') as HTMLParagraphElement
-  private nextExerciseMessage = this.breakCountdownDialog.querySelector(
-    '#next-exercise-message'
-  ) as HTMLParagraphElement
-
-  constructor() {
-    super()
-    this.skipBreakButton.addEventListener('click', () => this.skipBreak())
+  static init() {
+    this.skipBreakButton.addEventListener('click', () => this.closeDialog())
   }
 
-  startTimer({
+  static startTimer({
     minutes,
     seconds,
     setsDone,
@@ -34,48 +26,42 @@ class BreakTimerDialog extends EventEmitter<BreakTimerDialogEventMap> {
     setsTotal: number
     nextExercise?: string
   }) {
-    this.setsDone.textContent = `${setsDone} / ${setsTotal}`
+    this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.countdown.textContent = `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`
     this.countdownInterval = setInterval(() => {
-      const minutes = parseInt(this.countdown.textContent.split(':')[0])
-      const seconds = parseInt(this.countdown.textContent.split(':')[1])
+      const mins = parseInt(this.countdown.textContent.split(':')[0])
+      const secs = parseInt(this.countdown.textContent.split(':')[1])
 
-      if (minutes === 0 && seconds === 0) {
-        this.emit('break-finished')
+      if (mins === 0 && secs === 0) {
+        sendBreakFinishedNotification()
         this.closeDialog()
-      } else if (seconds === 0) {
-        const nextMinutes = minutes - 1
-        this.countdown.textContent = `${nextMinutes}:59`
+      } else if (secs === 0) {
+        this.countdown.textContent = `${mins - 1}:59`
       } else {
-        const nextSeconds = seconds - 1
-        this.countdown.textContent = `${minutes}:${nextSeconds < 10 ? `0${nextSeconds}` : nextSeconds}`
+        const next = secs - 1
+        this.countdown.textContent = `${mins}:${next < 10 ? `0${next}` : next}`
       }
     }, 1000)
 
     if (nextExercise) {
-      this.nextExerciseMessage.classList.remove('hidden')
-      this.nextExercise.textContent = nextExercise
+      this.nextExerciseMessageEl.classList.remove('hidden')
+      this.nextExerciseNameEl.textContent = nextExercise
     } else {
-      this.nextExerciseMessage.classList.add('hidden')
+      this.nextExerciseMessageEl.classList.add('hidden')
     }
 
     this.openDialog()
   }
 
-  openDialog() {
-    this.breakCountdownDialog.classList.add('dialog-full-screen')
-    this.breakCountdownDialog.showModal()
+  private static openDialog() {
+    this.dialog.classList.add('dialog-full-screen')
+    this.dialog.showModal()
   }
 
-  closeDialog() {
+  static closeDialog() {
     if (this.countdownInterval !== null) clearInterval(this.countdownInterval)
-    this.breakCountdownDialog.classList.remove('dialog-full-screen')
-    this.breakCountdownDialog.close()
-  }
-
-  skipBreak() {
-    this.emit('break-skipped')
-    this.closeDialog()
+    this.dialog.classList.remove('dialog-full-screen')
+    this.dialog.close()
   }
 }
 

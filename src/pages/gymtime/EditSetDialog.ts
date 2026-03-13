@@ -11,34 +11,34 @@ interface EditSetData {
 }
 
 class EditSetDialog {
-  private editSetDialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
-  private dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
-  private editSetForm = document.querySelector('#edit-set-form') as HTMLFormElement
-  private setRepsInput = document.querySelector('#set-reps') as HTMLInputElement
-  private setWeightInput = document.querySelector('#set-weight') as HTMLInputElement
-  private editedSetData: EditSetData | null = null
+  private static dialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
+  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
+  private static form = document.querySelector('#edit-set-form') as HTMLFormElement
+  private static repsInput = document.querySelector('#set-reps') as HTMLInputElement
+  private static weightInput = document.querySelector('#set-weight') as HTMLInputElement
+  private static editedSetData: EditSetData | null = null
 
-  constructor() {
+  static init() {
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
-    this.editSetForm.addEventListener('submit', (event) => this.onSubmit(event))
+    this.form.addEventListener('submit', (event) => this.onSubmit(event))
   }
 
-  openDialog(editedSetData: EditSetData) {
-    this.editedSetData = editedSetData
-    this.editSetDialog.showModal()
-    this.setRepsInput.value = editedSetData.set.reps.toString()
-    this.setWeightInput.value = editedSetData.set.weight.toString()
+  static openDialog(data: EditSetData) {
+    this.editedSetData = data
+    this.repsInput.value = data.set.reps.toString()
+    this.weightInput.value = data.set.weight.toString()
+    this.dialog.showModal()
   }
 
-  closeDialog() {
-    this.editSetDialog.close()
+  static closeDialog() {
+    this.dialog.close()
   }
 
-  private async onSubmit(event: SubmitEvent) {
+  private static async onSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!this.editedSetData) throw new Error('No edited set data found')
 
-    const formData = new FormData(this.editSetForm)
+    const formData = new FormData(this.form)
     const reps = formData.get('set-reps') as string
     const weight = formData.get('set-weight') as string
 
