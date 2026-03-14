@@ -7,9 +7,9 @@ import GymtimePage from './GymtimePage'
 import { keepScreenAwake } from './keepScreenAwake'
 
 keepScreenAwake()
+await ExercisesState.initialize()
+
 EditSetDialog.init()
 BreakTimerDialog.init()
-ExercisesState.initialize()
 ExerciseList.init()
-
 GymtimePage.start()
