@@ -217,8 +217,13 @@ class ExerciseCard {
     nextSetWeightInput.value = latestSet.weight.toString()
 
     const currentIndex = this.programExerciseIds.findIndex((id) => id === this.exercise.id)
-    const nextExerciseId = currentIndex >= 0 ? this.programExerciseIds[currentIndex + 1] : undefined
-    const nextExercise = nextExerciseId ? await db.exercises.getById(nextExerciseId) : undefined
+
+    // For fast Playwright tests, disable the form until setup is completely done
+    const submitBtn = nextSetForm.querySelector('button[type="submit"]') as HTMLButtonElement
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      setTimeout(() => { submitBtn.disabled = false }, 50)
+    }
 
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
@@ -266,6 +271,27 @@ class ExerciseCard {
           BreakTimerDialog.closeDialog()
           throwConfetti('Exercise done!')
         } else {
+          let nextExercise
+          if (updated && currentIndex >= 0) {
+            for (let i = 1; i < this.programExerciseIds.length; i++) {
+              const checkIndex = (currentIndex + i) % this.programExerciseIds.length
+              const checkId = this.programExerciseIds[checkIndex]
+
+              if (checkId === this.exercise.id) continue
+
+              const exerciseDef = this.exerciseDefinitions.get(checkId) || await db.exercises.getById(checkId)
+              if (!exerciseDef) continue
+
+              const sessionExercise = updated.exercises.find(({ exerciseId }) => exerciseId === checkId)
+              const completedSets = sessionExercise?.sets.length || 0
+
+              if (completedSets < exerciseDef.sets) {
+                nextExercise = exerciseDef
+                break
+              }
+            }
+          }
+
           BreakTimerDialog.startTimer({
             minutes: 2,
             seconds: 30,
