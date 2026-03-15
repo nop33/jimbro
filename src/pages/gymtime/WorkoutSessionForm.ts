@@ -20,8 +20,10 @@ class WorkoutSessionForm {
 
     const session = GymtimeSessionState.session
 
+    const today = new Date().toISOString().split('T')[0]
     this.programIdInput.value = this.programId
-    this.dateInput.value = session?.date || new Date().toISOString().split('T')[0]
+    this.dateInput.value = session?.date || today
+    this.dateInput.max = today
     this.notesInput.value = session?.notes || ''
 
     if (session) {
@@ -45,6 +47,12 @@ class WorkoutSessionForm {
     const date = formData.get('date') as string
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
+
+    const today = new Date().toISOString().split('T')[0]
+    if (date > today) {
+      alert('Cannot set workout session date to a future date.')
+      return
+    }
 
     if (GymtimeSessionState.session) {
       await GymtimeSessionState.update({ date, location, notes })
