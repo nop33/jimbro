@@ -20,8 +20,15 @@ class WorkoutSessionForm {
 
     const session = GymtimeSessionState.session
 
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const today = `${year}-${month}-${day}`
+
     this.programIdInput.value = this.programId
-    this.dateInput.value = session?.date || new Date().toISOString().split('T')[0]
+    this.dateInput.value = session?.date || today
+    this.dateInput.max = today
     this.notesInput.value = session?.notes || ''
 
     if (session) {

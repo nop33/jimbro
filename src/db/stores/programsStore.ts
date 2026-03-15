@@ -31,7 +31,7 @@ export class ProgramsStore extends BaseStore<Program> {
   }
 
   async seed(): Promise<void> {
-    const { default: seedPrograms } = await import('./seed-programs.json', { assert: { type: 'json' } })
+    const { default: seedPrograms } = await import('./seed-programs.json')
     for (const program of seedPrograms.programs) {
       await this.create(program as Program)
     }

@@ -198,10 +198,15 @@ test.describe('Gymtime Page', () => {
     // 8. Delete Session (Clean up)
     // Set up dialog handler for the delete confirmation
     page.once('dialog', async confirmDialog => {
-      await confirmDialog.accept();
+      if (confirmDialog.type() === 'confirm') {
+        await confirmDialog.accept();
+      } else {
+        await confirmDialog.dismiss();
+      }
     });
 
     await page.locator('#delete-workout-session-btn').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500); // Allow UI to settle
     await page.locator('#delete-workout-session-btn').click({ force: true });
 
     // Should navigate back to workouts
