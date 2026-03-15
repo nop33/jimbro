@@ -18,6 +18,13 @@ test.describe('Gymtime Page', () => {
     const dialog = page.locator('dialog#new-workout-dialog');
     await expect(dialog).toBeVisible();
 
+    // Verify "X" button works
+    await dialog.locator('.close-dialog-btn').click();
+    await expect(dialog).not.toBeVisible();
+
+    await page.getByRole('button', { name: 'New' }).click();
+    await expect(dialog).toBeVisible();
+
     await dialog.locator('a.program-link').first().click();
 
     // Make sure we are on gymtime page
@@ -41,7 +48,7 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-weight"]').fill('100');
 
     // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    await setForm.getByRole('button', { name: 'Finished set' }).click({ force: true });
+    await setForm.locator('button:has-text("Finished set")').click({ force: true });
 
     // 4. Wait for event to trigger break timer
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -98,6 +105,14 @@ test.describe('Gymtime Page', () => {
 
     const editSetDialog = page.locator('#edit-set-dialog');
     await expect(editSetDialog).toBeVisible();
+
+    // Verify "X" button works
+    await editSetDialog.locator('.close-dialog-btn').click();
+    await expect(editSetDialog).not.toBeVisible();
+
+    await completedSetsList.first().click();
+    await expect(editSetDialog).toBeVisible();
+
     await editSetDialog.locator('input[name="set-weight"]').fill('105');
     await editSetDialog.getByRole('button', { name: 'Save' }).click();
 
@@ -110,6 +125,13 @@ test.describe('Gymtime Page', () => {
     await addExerciseCard.click();
 
     const addExerciseDialog = page.locator('#add-exercise-dialog');
+    await expect(addExerciseDialog).toBeVisible();
+
+    // Verify "X" button works
+    await addExerciseDialog.locator('.close-dialog-btn').click();
+    await expect(addExerciseDialog).not.toBeVisible();
+
+    await addExerciseCard.click();
     await expect(addExerciseDialog).toBeVisible();
 
     // Select an exercise from the dialog list (it has class .card in the dialog)
@@ -141,7 +163,11 @@ test.describe('Gymtime Page', () => {
     await firstExercise.click(); // Expand again to make sure it's open (sometimes clicking add closes it)
     const swapBtnFirst = firstExercise.locator('..').locator('.swap-workout-session-exercise-btn');
     await expect(swapBtnFirst).toBeVisible();
+
+    // Create a promise to wait for the dialog event
+    const dialogPromise = page.waitForEvent('dialog');
     await swapBtnFirst.click();
+    const dialogEvent = await dialogPromise;
     expect(dialogMessage).toContain('lost progress');
     await firstExercise.click(); // Close again
 

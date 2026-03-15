@@ -18,6 +18,10 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
+    this.newWorkoutDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
+      this.closeDialog()
+    })
+
     this.render()
   }
 

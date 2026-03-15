@@ -43,6 +43,10 @@ class ExerciseDialog {
       this.closeDialog()
     })
 
+    this.exerciseDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
+      this.closeDialog()
+    })
+
     this.deleteExerciseBtn.addEventListener('click', () => {
       this.deleteExercise()
     })
