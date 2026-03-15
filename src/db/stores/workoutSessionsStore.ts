@@ -159,6 +159,32 @@ export class WorkoutSessionsStore {
       exercises: workoutSession.exercises.filter(({ exerciseId: id }) => id !== exerciseId)
     })
   }
+
+  async swapExerciseInWorkoutSession({
+    workoutSession,
+    oldExerciseId,
+    newExerciseId
+  }: {
+    workoutSession: WorkoutSession
+    oldExerciseId: Exercise['id']
+    newExerciseId: Exercise['id']
+  }): Promise<WorkoutSession> {
+    const exerciseIndex = workoutSession.exercises.findIndex(({ exerciseId }) => exerciseId === oldExerciseId)
+    if (exerciseIndex === -1) {
+      throw new Error('Exercise not found in workout session')
+    }
+
+    const updatedExercises = [...workoutSession.exercises]
+    updatedExercises[exerciseIndex] = {
+      exerciseId: newExerciseId,
+      sets: []
+    }
+
+    return this.updateWorkoutSession({
+      ...workoutSession,
+      exercises: updatedExercises
+    })
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsStore()

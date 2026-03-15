@@ -35,6 +35,17 @@ class GymtimeSessionState {
     return updated
   }
 
+  static async swapExercise(oldExerciseId: string, newExerciseId: string): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const updated = await workoutSessionsStore.swapExerciseInWorkoutSession({
+      workoutSession: current,
+      oldExerciseId,
+      newExerciseId
+    })
+    this.store.set(updated)
+    return updated
+  }
+
   static async addSet(exerciseId: string, set: ExerciseSetExecution): Promise<WorkoutSession> {
     const current = this.requireSession()
     const updated = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({

@@ -7,6 +7,7 @@ import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
+import AddExerciseDialog from './AddExerciseDialog'
 
 export interface ExerciseCardConfig {
   exercise: Exercise
@@ -39,11 +40,25 @@ class ExerciseCard {
     const nextSetDiv = template.querySelector('.next-set') as HTMLDivElement
     const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
     const deleteBtn = template.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
+    const swapBtn = template.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
 
     cardDiv.setAttribute('data-exercise-id', this.exercise.id)
 
+    const isExerciseCompleted = () => {
+      const session = GymtimeSessionState.session
+      if (!session) return false
+      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+      return existingExercise && existingExercise.sets.length >= this.exercise.sets
+    }
+
     exerciseDetails.addEventListener('toggle', () => {
-      deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
+      if (isExerciseCompleted()) {
+        deleteBtn.classList.add('hidden')
+        swapBtn.classList.add('hidden')
+      } else {
+        deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
+        swapBtn.classList.toggle('hidden', !exerciseDetails.open)
+      }
     })
 
     deleteBtn.addEventListener('click', async () => {
@@ -52,10 +67,40 @@ class ExerciseCard {
         return
       }
 
-      if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
+      const session = GymtimeSessionState.session
+      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+
+      if (existingExercise && existingExercise.sets.length > 0) {
+        if (!confirm('This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?')) return
+      } else {
+        if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
+      }
 
       await GymtimeSessionState.deleteExercise(this.exercise.id)
       this.onExerciseDeleted()
+    })
+
+    swapBtn.addEventListener('click', () => {
+      if (!GymtimeSessionState.session) {
+        alert('Start a workout session first')
+        return
+      }
+
+      const session = GymtimeSessionState.session
+      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+
+      if (existingExercise && existingExercise.sets.length > 0) {
+        if (!confirm('This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?')) return
+      }
+
+      AddExerciseDialog.openDialog({
+        title: 'Swap exercise',
+        onExerciseClicked: async (newExercise) => {
+          if (newExercise.id === this.exercise.id) return
+          await GymtimeSessionState.swapExercise(this.exercise.id, newExercise.id)
+          this.onExerciseDeleted()
+        }
+      })
     })
 
     exerciseDetails.addEventListener('click', () => {
