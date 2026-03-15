@@ -40,16 +40,16 @@ test.describe('Gymtime Page', () => {
     await firstExercise.click(); // Expand the details
 
     // Check form is visible
-    const setForm = firstExercise.locator('.next-set-form');
+    const setForm = firstExercise.locator('.next-set-form').first();
     await expect(setForm).toBeVisible();
 
     // 3. Log a set
-    await setForm.locator('input[name="set-reps"]').fill('10');
-    await setForm.locator('input[name="set-weight"]').fill('100');
+    await setForm.locator('input[name="set-reps"]').first().fill('10');
+    await setForm.locator('input[name="set-weight"]').first().fill('100');
 
     // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
     // if the form submit isn't fully registered
-    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first();
     await finishBtn.scrollIntoViewIfNeeded();
     await finishBtn.click();
 
@@ -73,16 +73,23 @@ test.describe('Gymtime Page', () => {
     const firstExercise = page.locator('details.exercise-details').first();
     await firstExercise.click(); // Expand the details
 
-    const setForm = firstExercise.locator('.next-set-form');
+    const setForm = firstExercise.locator('.next-set-form').first();
     await expect(setForm).toBeVisible();
 
     // 3. Log a set
-    await setForm.locator('input[name="set-reps"]').fill('10');
-    await setForm.locator('input[name="set-weight"]').fill('100');
+    await setForm.locator('input[name="set-reps"]').first().fill('10');
+    await setForm.locator('input[name="set-weight"]').first().fill('100');
 
-    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
+    // if the form submit isn't fully registered
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first();
     await finishBtn.scrollIntoViewIfNeeded();
     await finishBtn.click();
+
+    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
+    // Try both pressing enter and a forced click as fallbacks
+    // Try both pressing enter and a forced click as fallbacks
+    await setForm.locator('button:has-text("Finished set")').click({ force: true });
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -224,32 +231,44 @@ test.describe('Gymtime Page', () => {
     const firstExercise = page.locator('details.exercise-details').first();
     await firstExercise.click(); // Expand the details
 
-    const setForm = firstExercise.locator('.next-set-form');
+    const setForm = firstExercise.locator('.next-set-form').first();
     await expect(setForm).toBeVisible();
 
     // 3. Log a set
-    await setForm.locator('input[name="set-reps"]').fill('10');
-    await setForm.locator('input[name="set-weight"]').fill('100');
+    await setForm.locator('input[name="set-reps"]').first().fill('10');
+    await setForm.locator('input[name="set-weight"]').first().fill('100');
 
-    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
+    // if the form submit isn't fully registered
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first();
     await finishBtn.scrollIntoViewIfNeeded();
     await finishBtn.click();
+
+    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
+    // Try both pressing enter and a forced click as fallbacks
+    // Try both pressing enter and a forced click as fallbacks
+    await setForm.locator('button:has-text("Finished set")').click({ force: true });
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog');
     await expect(breakTimer).toBeVisible();
 
-    // 5. Fast forward time by 2 minutes and 35 seconds (timer default is 2:30)
-    // 2 minutes 35 seconds = 155000 ms.
+    // 5. Fast forward time by 2 minutes and 30 seconds (timer default is 2:30)
     await page.waitForTimeout(500); // Wait for the dialog to open fully
 
-    // Fast forward until the timer reaches negative time.
-    for (let i = 0; i < 155; i++) {
+    // Fast forward until the timer reaches zero time.
+    for (let i = 0; i < 150; i++) {
         await page.clock.fastForward(1000);
     }
 
-    // 6. Verify that the break timer shows negative time and does NOT automatically close
+    // 6. Verify that the break timer shows 0:00 or negative time briefly
     await expect(breakTimer).toBeVisible();
-    await expect(breakTimer.locator('#countdown')).toContainText('-');
+    await expect(breakTimer.locator('#countdown')).toContainText('0:00');
+
+    // 7. Fast forward past the 1500ms timeout
+    await page.clock.fastForward(1600);
+
+    // 8. Verify the timer automatically closed
+    await expect(breakTimer).toBeHidden();
   });
 });

@@ -10,6 +10,7 @@ class BreakTimerDialog {
   private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
   private static targetTime: number | null = null
   private static hasPlayedSound = false
+  private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
 
   static init() {
     this.skipBreakButton.addEventListener('click', () => this.closeDialog())
@@ -42,6 +43,12 @@ class BreakTimerDialog {
     if (diffMs <= 0 && !this.hasPlayedSound) {
       playDingSound()
       this.hasPlayedSound = true
+    }
+
+    if (diffMs <= 0 && this.autoCloseTimeout === null && document.visibilityState === 'visible') {
+      this.autoCloseTimeout = setTimeout(() => {
+        this.closeDialog()
+      }, 1500)
     }
   }
 
@@ -86,6 +93,10 @@ class BreakTimerDialog {
   }
 
   static closeDialog() {
+    if (this.autoCloseTimeout !== null) {
+      clearTimeout(this.autoCloseTimeout)
+      this.autoCloseTimeout = null
+    }
     if (this.countdownInterval !== null) {
       clearInterval(this.countdownInterval)
       this.countdownInterval = null
