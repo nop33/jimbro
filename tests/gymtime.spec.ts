@@ -99,12 +99,16 @@ test.describe('Gymtime Page', () => {
     await breakTimer.getByRole('button', { name: 'Skip' }).click({ force: true });
     await expect(breakTimer).not.toBeVisible();
 
-    // Verify it was logged (completed sets wrapper should have a set now)
-    const completedSetsList = firstExercise.locator('.completed-sets .set');
-    await expect(completedSetsList.first()).toBeVisible();
+    // Verify it was logged and target an actually completed set item.
+    // The list also contains pending placeholders that do not open edit dialog.
+    const completedSetItem = firstExercise.locator('.completed-sets .set.isCompleted').first();
+    await expect(completedSetItem).toBeVisible();
+    await expect(completedSetItem).toContainText('10');
+    await expect(completedSetItem).toContainText('100');
 
     // 5. Edit the completed set
-    await completedSetsList.first().click();
+    await completedSetItem.scrollIntoViewIfNeeded();
+    await completedSetItem.click();
 
     const editSetDialog = page.locator('#edit-set-dialog');
     await expect(editSetDialog).toBeVisible();
@@ -113,14 +117,14 @@ test.describe('Gymtime Page', () => {
     await editSetDialog.locator('.close-dialog-btn').click();
     await expect(editSetDialog).not.toBeVisible();
 
-    await completedSetsList.first().click();
+    await completedSetItem.click();
     await expect(editSetDialog).toBeVisible();
 
     await editSetDialog.locator('input[name="set-weight"]').fill('105');
     await editSetDialog.getByRole('button', { name: 'Save' }).click();
 
     // Verify changes are saved (the weight span is inside the set)
-    await expect(completedSetsList.first().locator('.set-weight')).toContainText('105');
+    await expect(completedSetItem.locator('.set-weight')).toContainText('105');
 
     // 6. Add exercise on the fly
     const addExerciseCard = page.locator('#add-exercise-card');
