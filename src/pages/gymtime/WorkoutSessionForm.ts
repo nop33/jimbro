@@ -20,7 +20,12 @@ class WorkoutSessionForm {
 
     const session = GymtimeSessionState.session
 
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const today = `${year}-${month}-${day}`
+
     this.programIdInput.value = this.programId
     this.dateInput.value = session?.date || today
     this.dateInput.max = today
@@ -48,7 +53,12 @@ class WorkoutSessionForm {
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
 
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const today = `${year}-${month}-${day}`
+
     if (date > today) {
       alert('Cannot set workout session date to a future date.')
       return

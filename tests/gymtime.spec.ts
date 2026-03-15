@@ -50,7 +50,7 @@ test.describe('Gymtime Page', () => {
     // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
     // if the form submit isn't fully registered
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
-    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.waitForTimeout(500);
     await finishBtn.click();
 
     // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
@@ -81,7 +81,7 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-weight"]').fill('100');
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
-    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.waitForTimeout(500);
     await finishBtn.click();
 
     // 4. Wait for break timer dialog
@@ -198,7 +198,11 @@ test.describe('Gymtime Page', () => {
     // 8. Delete Session (Clean up)
     // Set up dialog handler for the delete confirmation
     page.once('dialog', async confirmDialog => {
-      await confirmDialog.accept();
+      if (confirmDialog.type() === 'confirm') {
+        await confirmDialog.accept();
+      } else {
+        await confirmDialog.dismiss();
+      }
     });
 
     await page.locator('#delete-workout-session-btn').scrollIntoViewIfNeeded();
@@ -227,7 +231,7 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-weight"]').fill('100');
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
-    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.waitForTimeout(500);
     await finishBtn.click();
 
     // 4. Wait for break timer dialog
