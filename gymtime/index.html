@@ -50,12 +50,26 @@
           <form id="gymtime-form" class="flex flex-col gap-2">
             <input type="hidden" name="programId" value="" required />
             <input class="w-full p-2 rounded border border-neutral-600" type="date" name="date" value="" required />
-            <input
-              class="w-full p-2 rounded border border-neutral-600"
-              type="text"
-              name="location"
-              placeholder="Location"
-            />
+            <div class="flex gap-2 w-full">
+              <input
+                class="w-full p-2 rounded border border-neutral-600 flex-grow"
+                type="text"
+                name="location"
+                placeholder="Location"
+              />
+              <button
+                type="button"
+                id="get-location-btn"
+                class="btn-secondary px-3 shrink-0"
+                aria-label="Get current location"
+                title="Get current location"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+              </button>
+            </div>
             <textarea class="w-full p-2 rounded border border-neutral-600" name="notes" placeholder="Notes"></textarea>
             <button type="submit" class="btn-primary text-white w-full">Save & start workout</button>
           </form>
