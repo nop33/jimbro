@@ -20,37 +20,72 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
   private init() {
     let draggingItem: HTMLElement | null = null
 
-    this.selectedExercisesList.addEventListener('dragstart', (e) => {
-      draggingItem = e.target as HTMLElement
-      draggingItem?.classList.add('dragging')
-    })
+    let isMoved = false
 
-    this.selectedExercisesList.addEventListener('dragend', () => {
-      draggingItem?.classList.remove('dragging')
+    const startDrag = (e: TouchEvent | MouseEvent) => {
+      const target = e.target as HTMLElement
+      const handle = target.closest('.drag-handle')
+      if (!handle) return
+
+      const item = target.closest('.sortable-item') as HTMLElement
+      if (!item) return
+
+      draggingItem = item
+      draggingItem.classList.add('dragging')
+      isMoved = false
+
+      // Add global listeners dynamically to handle dragging outside the container cleanly
+      document.addEventListener('mousemove', moveDrag, { passive: false })
+      document.addEventListener('mouseup', endDrag)
+      document.addEventListener('touchmove', moveDrag, { passive: false })
+      document.addEventListener('touchend', endDrag)
+      document.addEventListener('touchcancel', endDrag)
+    }
+
+    const moveDrag = (e: TouchEvent | MouseEvent) => {
+      if (!draggingItem) return
+
+      e.preventDefault() // prevent scrolling while dragging
+      isMoved = true
+
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      const draggingOverItem = this.getDragAfterElement(this.selectedExercisesList, clientY)
+
+      document.querySelectorAll('.sortable-item').forEach((item) => item.classList.remove('over'))
+
+      if (draggingOverItem) {
+        draggingOverItem.classList.add('over')
+        this.selectedExercisesList.insertBefore(draggingItem, draggingOverItem)
+      } else {
+        this.selectedExercisesList.appendChild(draggingItem)
+      }
+    }
+
+    const endDrag = () => {
+      if (!draggingItem) return
+
+      draggingItem.classList.remove('dragging')
       document.querySelectorAll('.sortable-item').forEach((item) => item.classList.remove('over'))
       draggingItem = null
 
-      const reorderedExerciseIds = Array.from(this.selectedExercisesList.children)
-        .map((child) => child.attributes.getNamedItem('data-exercise-id')?.value)
-        .filter((id) => id !== undefined)
-      this.emit('reordered-exercises', { reorderedExerciseIds })
-    })
+      // Clean up global listeners
+      document.removeEventListener('mousemove', moveDrag)
+      document.removeEventListener('mouseup', endDrag)
+      document.removeEventListener('touchmove', moveDrag)
+      document.removeEventListener('touchend', endDrag)
+      document.removeEventListener('touchcancel', endDrag)
 
-    this.selectedExercisesList.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      const draggingOverItem = this.getDragAfterElement(this.selectedExercisesList, e.clientY)
-      document.querySelectorAll('.sortable-item').forEach((item) => item.classList.remove('over'))
-      if (draggingOverItem) {
-        draggingOverItem.classList.add('over')
-        if (draggingItem) {
-          this.selectedExercisesList.insertBefore(draggingItem, draggingOverItem)
-        }
-      } else {
-        if (draggingItem) {
-          this.selectedExercisesList.appendChild(draggingItem)
-        }
+      if (isMoved) {
+        const reorderedExerciseIds = Array.from(this.selectedExercisesList.children)
+          .map((child) => child.attributes.getNamedItem('data-exercise-id')?.value)
+          .filter((id) => id !== undefined)
+        this.emit('reordered-exercises', { reorderedExerciseIds })
       }
-    })
+    }
+
+    // Initialize list listeners to start the drag
+    this.selectedExercisesList.addEventListener('touchstart', startDrag, { passive: false })
+    this.selectedExercisesList.addEventListener('mousedown', startDrag)
   }
 
   private getDragAfterElement = (container: HTMLElement, y: number) => {
