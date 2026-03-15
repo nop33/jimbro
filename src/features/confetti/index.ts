@@ -24,6 +24,8 @@ export const throwConfetti = (text: string) => {
   const centerX = 50 + (Math.random() - 0.5) * 10 // 45-55vw
   const centerY = 50 + (Math.random() - 0.5) * 10 // 45-55vh
 
+  const animations: { element: HTMLDivElement; keyframes: Keyframe[]; options: KeyframeAnimationOptions }[] = []
+
   for (let i = 0; i < confettiCount; i++) {
     const confetti = document.createElement('div')
     const color = confettiColors[Math.floor(Math.random() * confettiColors.length)]
@@ -50,9 +52,9 @@ export const throwConfetti = (text: string) => {
     confetti.style.borderRadius = `${size * 0.2}rem`
     confetti.style.transformOrigin = 'center center'
 
-    // Pop animation: scale up, explode outward, spin, then fade
-    confetti.animate(
-      [
+    animations.push({
+      element: confetti,
+      keyframes: [
         {
           transform: `translate(0, 0) scale(0) rotate(${initialRotation}deg) skewY(${skew}deg)`,
           opacity: 1
@@ -76,17 +78,27 @@ export const throwConfetti = (text: string) => {
           opacity: 0
         }
       ],
-      {
+      options: {
         duration: 500 + Math.random() * 300, // 0.5–0.8s
         easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy spring effect
         fill: 'forwards'
       }
-    )
+    })
 
     confettiContainer.appendChild(confetti)
   }
 
   document.body.appendChild(confettiContainer)
+
+  // Wait a frame to ensure elements are registered in the DOM before animating.
+  // This fixes an issue on iOS Safari where Web Animations API fails on detached elements.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      for (const { element, keyframes, options } of animations) {
+        element.animate(keyframes, options)
+      }
+    })
+  })
 
   // Add "Exercise done!" text that zooms in after confetti
   const textElement = document.createElement('div')
@@ -109,31 +121,33 @@ export const throwConfetti = (text: string) => {
   document.body.appendChild(textElement)
 
   // Start text animation after confetti (max confetti duration is ~800ms)
-  setTimeout(() => {
-    // Zoom in animation
-    textElement.animate(
-      [
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // Zoom in animation
+      textElement.animate(
+        [
+          {
+            transform: 'translate(-50%, -50%) scale(0)',
+            opacity: 0
+          },
+          {
+            transform: 'translate(-50%, -50%) scale(1.1)',
+            opacity: 1,
+            offset: 0.6
+          },
+          {
+            transform: 'translate(-50%, -50%) scale(1)',
+            opacity: 1
+          }
+        ],
         {
-          transform: 'translate(-50%, -50%) scale(0)',
-          opacity: 0
-        },
-        {
-          transform: 'translate(-50%, -50%) scale(1.1)',
-          opacity: 1,
-          offset: 0.6
-        },
-        {
-          transform: 'translate(-50%, -50%) scale(1)',
-          opacity: 1
+          duration: 400,
+          easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy spring effect
+          fill: 'forwards'
         }
-      ],
-      {
-        duration: 400,
-        easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy spring effect
-        fill: 'forwards'
-      }
-    )
-  }, 0)
+      )
+    })
+  })
 
   setTimeout(() => {
     confettiContainer.remove()
