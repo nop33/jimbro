@@ -27,7 +27,7 @@ class ExerciseCardList {
     const session = GymtimeSessionState.session
     let exerciseIds: Exercise['id'][] = this.programExerciseIds
 
-    if (session && (session.status === 'completed' || session.status === 'incomplete')) {
+    if (session) {
       exerciseIds = session.exercises.map(({ exerciseId }) => exerciseId)
     }
 
