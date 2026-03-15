@@ -9,6 +9,7 @@ class WorkoutSessionForm {
   private static programIdInput = this.form.querySelector('input[name="programId"]') as HTMLInputElement
   private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
   private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
+  private static getLocationBtn = this.form.querySelector('#get-location-btn') as HTMLButtonElement
   private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
   private static programId: Program['id']
@@ -33,9 +34,11 @@ class WorkoutSessionForm {
 
     if (session) {
       this.locationInput.value = session.location
-    } else {
-      setCityFromGeolocation(this.locationInput)
     }
+
+    this.getLocationBtn.addEventListener('click', () => {
+      setCityFromGeolocation(this.locationInput)
+    })
 
     if (session?.status === 'completed') {
       this.submitButton.textContent = 'Save'
