@@ -97,6 +97,11 @@ class ExerciseCard {
         title: 'Swap exercise',
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exercise.id) return
+
+          if (GymtimeSessionState.hasExercise(newExercise.id, { showAlert: true })) {
+            return
+          }
+
           await GymtimeSessionState.swapExercise(this.exercise.id, newExercise.id)
           this.onExerciseDeleted()
         }

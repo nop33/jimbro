@@ -24,6 +24,11 @@ class GymtimePage {
     ExerciseCardList.init(program.id, program.exercises)
     AddExerciseDialog.init(async (exercise) => {
       if (!GymtimeSessionState.session) return
+
+      if (GymtimeSessionState.hasExercise(exercise.id, { showAlert: true })) {
+        return
+      }
+
       await GymtimeSessionState.addExercise(exercise.id)
       ExerciseCardList.render()
     })
