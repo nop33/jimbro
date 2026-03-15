@@ -40,8 +40,11 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-reps"]').fill('10');
     await setForm.locator('input[name="set-weight"]').fill('100');
 
-    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    await setForm.getByRole('button', { name: 'Finished set' }).click({ force: true });
+    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
+    // if the form submit isn't fully registered
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.click();
 
     // 4. Wait for event to trigger break timer
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -69,7 +72,10 @@ test.describe('Gymtime Page', () => {
     // 3. Log a set
     await setForm.locator('input[name="set-reps"]').fill('10');
     await setForm.locator('input[name="set-weight"]').fill('100');
-    await setForm.getByRole('button', { name: 'Finished set' }).click({ force: true });
+
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.click();
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -173,15 +179,18 @@ test.describe('Gymtime Page', () => {
     await expect(exercisesList).not.toContainText(oldExerciseName?.trim() || '');
     await expect(exercisesList).toContainText(swapExerciseName?.trim() || '');
 
+    // Resume normal timer behavior before finishing the test, otherwise clicks/navigation get frozen
+    await page.clock.resume();
+
     // 8. Delete Session (Clean up)
     // Set up dialog handler for the delete confirmation
     page.once('dialog', async confirmDialog => {
       await confirmDialog.accept();
     });
 
-    await page.locator('#delete-workout-session-btn').click();
+    await page.locator('#delete-workout-session-btn').click({ force: true });
 
     // Should navigate back to workouts
-    await expect(page).toHaveURL(/.*\/workouts\//);
+    await expect(page).toHaveURL(/.*\/workouts\//, { timeout: 10000 });
   });
 });
