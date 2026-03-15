@@ -1,4 +1,5 @@
 import type { ToastMessage } from './toastsTypes'
+import { setTextContent } from '../../utils'
 
 class ToastMessagePopup {
   private toastMessage: ToastMessage
@@ -11,7 +12,12 @@ class ToastMessagePopup {
     const toastMessagePopup = document.createElement('div')
     toastMessagePopup.classList.add('toast-message-popup')
     toastMessagePopup.classList.add(this.toastMessage.type)
-    toastMessagePopup.textContent = this.toastMessage.message
+
+    const messageSpan = document.createElement('span')
+    messageSpan.className = 'toast-message-text'
+    toastMessagePopup.appendChild(messageSpan)
+
+    setTextContent('.toast-message-text', this.toastMessage.message, toastMessagePopup)
 
     return toastMessagePopup
   }
