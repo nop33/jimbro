@@ -176,8 +176,13 @@
     </dialog>
 
     <dialog id="edit-set-dialog">
-      <header>
+      <header class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Edit set</h2>
+        <button type="button" class="close-dialog-btn link-primary" aria-label="Close dialog">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
       </header>
       <form id="edit-set-form" class="flex flex-col gap-2">
         <input type="number" name="set-reps" id="set-reps" min="1" required placeholder="Reps" />
@@ -190,8 +195,13 @@
     </dialog>
 
     <dialog id="add-exercise-dialog" class="w-full h-full">
-      <header>
+      <header class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Add exercise</h2>
+        <button type="button" class="close-dialog-btn link-primary" aria-label="Close dialog">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
       </header>
       <div class="app-page-content">
         <div class="mb-6">

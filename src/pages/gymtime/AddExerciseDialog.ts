@@ -9,6 +9,7 @@ class AddExerciseDialog {
 
   static init(defaultOnExerciseClicked: (exercise: Exercise) => void) {
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
+    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.addExerciseCard.addEventListener('click', () => this.openDialog({ title: 'Add exercise', onExerciseClicked: defaultOnExerciseClicked }))
 
     window.addEventListener('exercise-clicked', (e) => {

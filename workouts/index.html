@@ -81,7 +81,14 @@
     </div>
 
     <dialog id="new-workout-dialog">
-      <h2 id="dialog-title" class="text-xl font-bold mb-4">Select program</h2>
+      <header class="flex justify-between items-center mb-4">
+        <h2 id="dialog-title" class="text-xl font-bold">Select program</h2>
+        <button type="button" class="close-dialog-btn link-primary" aria-label="Close dialog">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
       <ul id="programs-list" class="grid grid-cols-1 md:grid-cols-3 gap-2 items-stretch">
         <!-- Programs will be rendered here -->
       </ul>

@@ -20,6 +20,7 @@ class EditSetDialog {
 
   static init() {
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
+    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.form.addEventListener('submit', (event) => this.onSubmit(event))
   }
 
