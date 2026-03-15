@@ -1,6 +1,6 @@
 import { DB_NAME } from './constants'
 import { getLatestDbVersion, getMigrationForVersion } from './migrations'
-import { promisifyRequest } from './utils'
+import { promisifyRequest } from './promisifyRequest'
 
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().then((persistent) => {
