@@ -37,7 +37,7 @@ export class ExercisesStore extends BaseStore<Exercise> {
   }
 
   async seed(): Promise<void> {
-    const { default: seedExercises } = await import('./seed-exercises.json', { assert: { type: 'json' } })
+    const { default: seedExercises } = await import('./seed-exercises.json')
     for (const exercise of seedExercises.exercises) {
       await this.create(exercise as Exercise)
     }
