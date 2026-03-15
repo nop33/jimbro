@@ -97,6 +97,13 @@ class ExerciseCard {
         title: 'Swap exercise',
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exercise.id) return
+
+          const isAlreadyInSession = GymtimeSessionState.session?.exercises.some(e => e.exerciseId === newExercise.id)
+          if (isAlreadyInSession) {
+            alert('This exercise is already in your session.')
+            return
+          }
+
           await GymtimeSessionState.swapExercise(this.exercise.id, newExercise.id)
           this.onExerciseDeleted()
         }

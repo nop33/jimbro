@@ -24,6 +24,13 @@ class GymtimePage {
     ExerciseCardList.init(program.id, program.exercises)
     AddExerciseDialog.init(async (exercise) => {
       if (!GymtimeSessionState.session) return
+
+      const isAlreadyInSession = GymtimeSessionState.session.exercises.some(e => e.exerciseId === exercise.id)
+      if (isAlreadyInSession) {
+        alert('This exercise is already in your session.')
+        return
+      }
+
       await GymtimeSessionState.addExercise(exercise.id)
       ExerciseCardList.render()
     })
