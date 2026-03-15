@@ -51,7 +51,10 @@ test.describe('Gymtime Page', () => {
     // if the form submit isn't fully registered
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
     await finishBtn.scrollIntoViewIfNeeded();
-    await finishBtn.click({ force: true });
+    await finishBtn.click();
+
+    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
+    await setForm.locator('button:has-text("Finished set")').click({ force: true });
 
     // 4. Wait for event to trigger break timer
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -79,7 +82,7 @@ test.describe('Gymtime Page', () => {
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
     await finishBtn.scrollIntoViewIfNeeded();
-    await finishBtn.click({ force: true });
+    await finishBtn.click();
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -153,41 +156,28 @@ test.describe('Gymtime Page', () => {
 
     // Try to swap first exercise which has a logged set
     // Open the first exercise details first to make the button visible
-    await firstExercise.click({ force: true }); // Expand again to make sure it's open (sometimes clicking add closes it)
-    await page.waitForTimeout(500); // Give details time to expand
-
-    // We added move buttons, so locator uses xpath=..
-    const swapBtnFirst = firstExercise.locator('xpath=..').locator('.swap-workout-session-exercise-btn');
+    await firstExercise.click(); // Expand again to make sure it's open (sometimes clicking add closes it)
+    const swapBtnFirst = firstExercise.locator('..').locator('.swap-workout-session-exercise-btn');
     await expect(swapBtnFirst).toBeVisible();
 
-    // Set up dialog handler
-    let foundLostProgressMessage = false;
-    page.once('dialog', dialog => {
-      dialogMessage = dialog.message();
-      if (dialogMessage.includes('lost progress')) {
-        foundLostProgressMessage = true;
-      }
-    });
-
-    await swapBtnFirst.click({ force: true }); // Click and wait for dialog handler
-    await page.waitForTimeout(500);
-    expect(foundLostProgressMessage).toBe(true);
-
-    await firstExercise.click({ force: true }); // Close again
-    await page.waitForTimeout(500);
+    // Create a promise to wait for the dialog event
+    const dialogPromise = page.waitForEvent('dialog');
+    await swapBtnFirst.click();
+    const dialogEvent = await dialogPromise;
+    expect(dialogMessage).toContain('lost progress');
+    await firstExercise.click(); // Close again
 
     // Get the second exercise (since the first one has progress)
     const secondExercise = page.locator('details.exercise-details').nth(1);
-    const secondExerciseCard = secondExercise.locator('xpath=..'); // Get parent card
+    const secondExerciseCard = secondExercise.locator('..'); // Get parent card
     const oldExerciseName = await secondExerciseCard.locator('.exercise-name').textContent();
 
     // Open details to reveal swap button
-    await secondExercise.click({ force: true });
-    await page.waitForTimeout(500); // Give it time to expand
+    await secondExercise.click();
 
     const swapBtn = secondExerciseCard.locator('.swap-workout-session-exercise-btn');
     await expect(swapBtn).toBeVisible();
-    await swapBtn.click({ force: true }); // This shouldn't show a confirm dialog because no progress
+    await swapBtn.click(); // This shouldn't show a confirm dialog because no progress
 
     const swapDialog = page.locator('#add-exercise-dialog');
     await expect(swapDialog).toBeVisible();
@@ -238,7 +228,7 @@ test.describe('Gymtime Page', () => {
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
     await finishBtn.scrollIntoViewIfNeeded();
-    await finishBtn.click({ force: true });
+    await finishBtn.click();
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog');
