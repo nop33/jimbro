@@ -16,9 +16,8 @@ test.describe('Confetti Animation', () => {
     const textElement = page.getByText('Test Confetti');
     await expect(textElement).toBeVisible();
 
-    // The confetti container has pointerEvents='none', zIndex='999999', position='fixed'
-    // It's attached to document.body and contains multiple child divs (confetti particles)
-    const confettiContainer = page.locator('body > div[style*="pointer-events: none"][style*="z-index: 999999"]').first();
+    // Find the container ID which starts with 'confetti-'
+    const confettiContainer = page.locator('body > div[id^="confetti-"]').first();
     const childrenCount = await confettiContainer.locator('div').count();
 
     console.log(`Found ${childrenCount} confetti pieces`);
@@ -27,9 +26,9 @@ test.describe('Confetti Animation', () => {
     await page.waitForTimeout(300);
 
     const isAnimating = await page.evaluate(() => {
-      const container = document.querySelector('body > div[style*="pointer-events: none"][style*="z-index: 999999"]');
+      const container = document.querySelector('body > div[id^="confetti-"]');
       if (!container || container.children.length === 0) return false;
-      const piece = container.children[0] as HTMLElement;
+      const piece = container.querySelector('.confetti-piece-0') as HTMLElement;
       // The element might be removed if animation is somehow broken and runs instantly
       if (!piece) return false;
 
@@ -37,10 +36,8 @@ test.describe('Confetti Animation', () => {
       return {
         transform: computed.transform,
         opacity: computed.opacity,
-        animations: piece.getAnimations().map(a => ({
-          playState: a.playState,
-          currentTime: a.currentTime
-        }))
+        animationName: computed.animationName,
+        animationPlayState: computed.animationPlayState
       };
     });
 
