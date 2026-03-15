@@ -48,7 +48,7 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-weight"]').fill('100');
 
     // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    await setForm.getByRole('button', { name: 'Finished set' }).click({ force: true });
+    await setForm.locator('button:has-text("Finished set")').click({ force: true });
 
     // 4. Wait for event to trigger break timer
     const breakTimer = page.locator('#break-countdown-dialog');
@@ -125,7 +125,11 @@ test.describe('Gymtime Page', () => {
     await firstExercise.click(); // Expand again to make sure it's open (sometimes clicking add closes it)
     const swapBtnFirst = firstExercise.locator('..').locator('.swap-workout-session-exercise-btn');
     await expect(swapBtnFirst).toBeVisible();
+
+    // Create a promise to wait for the dialog event
+    const dialogPromise = page.waitForEvent('dialog');
     await swapBtnFirst.click();
+    const dialogEvent = await dialogPromise;
     expect(dialogMessage).toContain('lost progress');
     await firstExercise.click(); // Close again
 
