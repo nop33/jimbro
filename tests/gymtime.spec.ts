@@ -65,12 +65,9 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).not.toBeVisible();
   });
 
-  test('Break timer automatically closes when it reaches 0:00', async ({ page }) => {
+  test('Complete workout session flow including edits, adds, swaps and deletes', async ({ page }) => {
     // 1. Start Workout Session
     await page.getByRole('button', { name: 'Save & start workout' }).click();
-
-    // Install clock to manipulate time after start, or just wait for elements
-    await page.clock.install();
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first();
@@ -91,18 +88,8 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog');
     await expect(breakTimer).toBeVisible();
 
-    // 5. Fast forward time by 2 minutes and 30 seconds (timer default)
-    // 2 minutes 30 seconds = 150000 ms.
-    // The interval runs every 1 second (1000ms), we will advance time in ticks
-    await page.waitForTimeout(500); // Wait for the dialog to open fully
-
-    // Fast forward until the dialog closes or we hit a timeout.
-    // By jumping in 1 second increments, we trigger setInterval callbacks.
-    for (let i = 0; i < 160; i++) {
-        await page.clock.fastForward(1000);
-    }
-
-    // 6. Verify that the break timer automatically closes
+    // Click "Skip" on break timer
+    await breakTimer.getByRole('button', { name: 'Skip' }).click({ force: true });
     await expect(breakTimer).not.toBeVisible();
 
     // Verify it was logged (completed sets wrapper should have a set now)
@@ -208,18 +195,56 @@ test.describe('Gymtime Page', () => {
     await expect(exercisesList).not.toContainText(oldExerciseName?.trim() || '');
     await expect(exercisesList).toContainText(swapExerciseName?.trim() || '');
 
-    // Resume normal timer behavior before finishing the test, otherwise clicks/navigation get frozen
-    await page.clock.resume();
-
     // 8. Delete Session (Clean up)
     // Set up dialog handler for the delete confirmation
     page.once('dialog', async confirmDialog => {
       await confirmDialog.accept();
     });
 
+    await page.locator('#delete-workout-session-btn').scrollIntoViewIfNeeded();
     await page.locator('#delete-workout-session-btn').click({ force: true });
 
     // Should navigate back to workouts
     await expect(page).toHaveURL(/.*\/workouts\//, { timeout: 10000 });
+  });
+
+  test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
+    // 1. Start Workout Session
+    await page.getByRole('button', { name: 'Save & start workout' }).click();
+
+    // Install clock to manipulate time
+    await page.clock.install();
+
+    // 2. Expand first exercise
+    const firstExercise = page.locator('details.exercise-details').first();
+    await firstExercise.click(); // Expand the details
+
+    const setForm = firstExercise.locator('.next-set-form');
+    await expect(setForm).toBeVisible();
+
+    // 3. Log a set
+    await setForm.locator('input[name="set-reps"]').fill('10');
+    await setForm.locator('input[name="set-weight"]').fill('100');
+
+    const finishBtn = setForm.getByRole('button', { name: 'Finished set' });
+    await finishBtn.scrollIntoViewIfNeeded();
+    await finishBtn.click();
+
+    // 4. Wait for break timer dialog
+    const breakTimer = page.locator('#break-countdown-dialog');
+    await expect(breakTimer).toBeVisible();
+
+    // 5. Fast forward time by 2 minutes and 35 seconds (timer default is 2:30)
+    // 2 minutes 35 seconds = 155000 ms.
+    await page.waitForTimeout(500); // Wait for the dialog to open fully
+
+    // Fast forward until the timer reaches negative time.
+    for (let i = 0; i < 155; i++) {
+        await page.clock.fastForward(1000);
+    }
+
+    // 6. Verify that the break timer shows negative time and does NOT automatically close
+    await expect(breakTimer).toBeVisible();
+    await expect(breakTimer.locator('#countdown')).toContainText('-');
   });
 });

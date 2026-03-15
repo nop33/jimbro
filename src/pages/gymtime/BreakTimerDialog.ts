@@ -8,9 +8,41 @@ class BreakTimerDialog {
   private static setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
   private static nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
   private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
+  private static targetTime: number | null = null
+  private static hasPlayedSound = false
 
   static init() {
     this.skipBreakButton.addEventListener('click', () => this.closeDialog())
+    document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
+  }
+
+  private static handleVisibilityChange() {
+    if (document.visibilityState === 'visible' && this.targetTime !== null) {
+      this.updateTimerDisplay()
+    }
+  }
+
+  private static updateTimerDisplay() {
+    if (this.targetTime === null) return
+
+    const now = Date.now()
+    const diffMs = this.targetTime - now
+
+    // Calculate the difference in seconds first to properly hit 0:00
+    const diffSecs = Math.ceil(diffMs / 1000)
+    const isNegative = diffSecs < 0
+    const absDiffSecs = Math.abs(diffSecs)
+
+    const mins = Math.floor(absDiffSecs / 60)
+    const secs = absDiffSecs % 60
+
+    const timeString = `${mins}:${secs < 10 ? `0${secs}` : secs}`
+    this.countdown.textContent = isNegative ? `-${timeString}` : timeString
+
+    if (diffMs <= 0 && !this.hasPlayedSound) {
+      playDingSound()
+      this.hasPlayedSound = true
+    }
   }
 
   static startTimer({
@@ -27,20 +59,15 @@ class BreakTimerDialog {
     nextExercise?: string
   }) {
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
-    this.countdown.textContent = `${minutes}:${seconds < 10 ? `0${seconds}` : seconds}`
-    this.countdownInterval = setInterval(() => {
-      const mins = parseInt(this.countdown.textContent.split(':')[0])
-      const secs = parseInt(this.countdown.textContent.split(':')[1])
+    this.hasPlayedSound = false
 
-      if (mins === 0 && secs === 0) {
-        playDingSound()
-        this.closeDialog()
-      } else if (secs === 0) {
-        this.countdown.textContent = `${mins - 1}:59`
-      } else {
-        const next = secs - 1
-        this.countdown.textContent = `${mins}:${next < 10 ? `0${next}` : next}`
-      }
+    const totalMs = (minutes * 60 + seconds) * 1000
+    this.targetTime = Date.now() + totalMs
+
+    this.updateTimerDisplay()
+
+    this.countdownInterval = setInterval(() => {
+      this.updateTimerDisplay()
     }, 1000)
 
     if (nextExercise) {
@@ -59,7 +86,12 @@ class BreakTimerDialog {
   }
 
   static closeDialog() {
-    if (this.countdownInterval !== null) clearInterval(this.countdownInterval)
+    if (this.countdownInterval !== null) {
+      clearInterval(this.countdownInterval)
+      this.countdownInterval = null
+    }
+    this.targetTime = null
+    this.hasPlayedSound = false
     this.dialog.classList.remove('dialog-full-screen')
     this.dialog.close()
   }
