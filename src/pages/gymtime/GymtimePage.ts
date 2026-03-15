@@ -25,8 +25,7 @@ class GymtimePage {
     AddExerciseDialog.init(async (exercise) => {
       if (!GymtimeSessionState.session) return
 
-      if (GymtimeSessionState.hasExercise(exercise.id)) {
-        alert('This exercise is already in your session.')
+      if (GymtimeSessionState.hasExercise(exercise.id, { showAlert: true })) {
         return
       }
 

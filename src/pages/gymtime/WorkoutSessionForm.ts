@@ -52,15 +52,12 @@ class WorkoutSessionForm {
       const program = await db.programs.getById(this.programId)
       if (!program) throw new Error('Program not found')
 
-      // Ensure exercises are unique
-      const uniqueExercises = Array.from(new Set(program.exercises))
-
       await GymtimeSessionState.create({
         programId: this.programId,
         date,
         location,
         status: 'incomplete',
-        exercises: uniqueExercises.map((exerciseId) => ({ exerciseId, sets: [] })),
+        exercises: program.exercises.map((exerciseId) => ({ exerciseId, sets: [] })),
         notes
       })
     }

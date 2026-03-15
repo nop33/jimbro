@@ -98,8 +98,7 @@ class ExerciseCard {
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exercise.id) return
 
-          if (GymtimeSessionState.hasExercise(newExercise.id)) {
-            alert('This exercise is already in your session.')
+          if (GymtimeSessionState.hasExercise(newExercise.id, { showAlert: true })) {
             return
           }
 

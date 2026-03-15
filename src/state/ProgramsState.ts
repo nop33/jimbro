@@ -19,12 +19,7 @@ class ProgramsState {
   }
 
   static async createProgram(data: NewProgram): Promise<Program> {
-    const program: Program = {
-      ...data,
-      exercises: this.getUniqueExercises(data.exercises),
-      id: crypto.randomUUID()
-    }
-
+    const program: Program = { ...data, id: crypto.randomUUID() }
     this.state.update((current) => [...current, program])
 
     try {
@@ -38,29 +33,20 @@ class ProgramsState {
   }
 
   static async updateProgram(program: Program): Promise<Program> {
-    const updatedProgram = {
-      ...program,
-      exercises: this.getUniqueExercises(program.exercises)
-    }
-
-    if (updatedProgram.isDeleted) {
-      this.state.update((current) => current.filter((p) => p.id !== updatedProgram.id))
+    if (program.isDeleted) {
+      this.state.update((current) => current.filter((p) => p.id !== program.id))
     } else {
-      this.state.update((current) => current.map((p) => (p.id === updatedProgram.id ? updatedProgram : p)))
+      this.state.update((current) => current.map((p) => (p.id === program.id ? program : p)))
     }
 
     try {
-      await db.programs.update(updatedProgram)
+      await db.programs.update(program)
     } catch (error) {
       await this.initialize()
       throw error
     }
 
-    return updatedProgram
-  }
-
-  private static getUniqueExercises(exercises: string[]): string[] {
-    return Array.from(new Set(exercises))
+    return program
   }
 
   static async softDeleteProgram(id: string): Promise<void> {
