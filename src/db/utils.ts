@@ -9,6 +9,14 @@ export const promisifyRequest = <T>(request: IDBRequest<T>): Promise<T> => {
   })
 }
 
+export const hasExercises = async (): Promise<boolean> => {
+  return (await storage.count(OBJECT_STORES.EXERCISES)) !== 0
+}
+
+export const hasPrograms = async (): Promise<boolean> => {
+  return (await storage.count(OBJECT_STORES.PROGRAMS)) !== 0
+}
+
 export const isDbEmpty = async (): Promise<boolean> => {
-  return (await storage.count(OBJECT_STORES.EXERCISES)) === 0 && (await storage.count(OBJECT_STORES.PROGRAMS)) === 0
+  return !(await hasExercises()) && !(await hasPrograms())
 }
