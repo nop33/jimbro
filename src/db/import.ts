@@ -33,9 +33,10 @@ export const importIndexedDbFromJson = async (file: File) => {
 
 const importExercises = async (exercises: ExportData['stores']['exercises']) => {
   const allExisting = await storage.getAll<Exercise>(OBJECT_STORES.EXERCISES)
+  const existingIds = new Set(allExisting.map((e) => e.id))
 
   for (const exercise of exercises) {
-    if (!allExisting.some((e) => e.id === exercise.id)) {
+    if (!existingIds.has(exercise.id)) {
       await db.exercises.create(exercise)
     }
   }
@@ -43,9 +44,10 @@ const importExercises = async (exercises: ExportData['stores']['exercises']) => 
 
 const importPrograms = async (programs: ExportData['stores']['programs']) => {
   const allExisting = await storage.getAll<Program>(OBJECT_STORES.PROGRAMS)
+  const existingIds = new Set(allExisting.map((p) => p.id))
 
   for (const program of programs) {
-    if (!allExisting.some((p) => p.id === program.id)) {
+    if (!existingIds.has(program.id)) {
       await db.programs.create(program)
     }
   }
@@ -53,18 +55,23 @@ const importPrograms = async (programs: ExportData['stores']['programs']) => {
 
 const importWorkoutSessions = async (workoutSessions: Array<V1WorkoutSession | WorkoutSession>, version: number) => {
   const allExisting = await storage.getAll<WorkoutSession>(OBJECT_STORES.WORKOUT_SESSIONS)
+  const existingIds = new Set<string>()
+  const existingSessionsKeys = new Set<string>()
+
+  for (const s of allExisting) {
+    existingIds.add(s.id)
+    existingSessionsKeys.add(`${s.date}|${s.programId}`)
+  }
 
   for (const session of workoutSessions) {
     if (version === 1 || !session.id) {
-      const alreadyExists = allExisting.some(
-        (existing) => existing.date === session.date && existing.programId === session.programId
-      )
+      const alreadyExists = existingSessionsKeys.has(`${session.date}|${session.programId}`)
       if (!alreadyExists) {
         const { id: _id, ...sessionWithoutId } = session as WorkoutSession
         await workoutSessionsStore.createWorkoutSession(sessionWithoutId)
       }
     } else {
-      if (!allExisting.some((existing) => existing.id === session.id)) {
+      if (!existingIds.has(session.id)) {
         await workoutSessionsStore.importWorkoutSession(session as WorkoutSession)
       }
     }
