@@ -32,6 +32,13 @@ test.describe('Programs Page', () => {
     const dialog = page.locator('dialog#program-dialog');
     await expect(dialog).toBeVisible();
 
+    // Verify "X" button works
+    await dialog.locator('.close-dialog-btn').click();
+    await expect(dialog).not.toBeVisible();
+
+    await page.getByRole('button', { name: 'New' }).click();
+    await expect(dialog).toBeVisible();
+
     await page.getByLabel('Name', { exact: true }).fill('Leg Day');
 
     // Add exercise to program

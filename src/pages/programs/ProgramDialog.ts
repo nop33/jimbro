@@ -57,6 +57,10 @@ class ProgramDialog {
       this.closeDialog()
     })
 
+    this.programDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
+      this.closeDialog()
+    })
+
     this.programForm.addEventListener('submit', async (e) => {
       e.preventDefault()
 

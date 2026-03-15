@@ -19,6 +19,13 @@ test.describe('Exercises Page', () => {
     const dialog = page.locator('dialog#exercise-dialog');
     await expect(dialog).toBeVisible();
 
+    // Verify "X" button works
+    await dialog.locator('.close-dialog-btn').click();
+    await expect(dialog).not.toBeVisible();
+
+    await page.getByRole('button', { name: 'New' }).click();
+    await expect(dialog).toBeVisible();
+
     await page.getByLabel('Name').fill('Bench Press');
     await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' });
     await page.getByLabel('Default sets').fill('3');
