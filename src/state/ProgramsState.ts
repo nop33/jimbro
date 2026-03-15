@@ -19,8 +19,12 @@ class ProgramsState {
   }
 
   static async createProgram(data: NewProgram): Promise<Program> {
-    const uniqueExercises = Array.from(new Set(data.exercises))
-    const program: Program = { ...data, exercises: uniqueExercises, id: crypto.randomUUID() }
+    const program: Program = {
+      ...data,
+      exercises: this.getUniqueExercises(data.exercises),
+      id: crypto.randomUUID()
+    }
+
     this.state.update((current) => [...current, program])
 
     try {
@@ -34,8 +38,10 @@ class ProgramsState {
   }
 
   static async updateProgram(program: Program): Promise<Program> {
-    const uniqueExercises = Array.from(new Set(program.exercises))
-    const updatedProgram = { ...program, exercises: uniqueExercises }
+    const updatedProgram = {
+      ...program,
+      exercises: this.getUniqueExercises(program.exercises)
+    }
 
     if (updatedProgram.isDeleted) {
       this.state.update((current) => current.filter((p) => p.id !== updatedProgram.id))
@@ -51,6 +57,10 @@ class ProgramsState {
     }
 
     return updatedProgram
+  }
+
+  private static getUniqueExercises(exercises: string[]): string[] {
+    return Array.from(new Set(exercises))
   }
 
   static async softDeleteProgram(id: string): Promise<void> {

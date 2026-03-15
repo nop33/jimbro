@@ -35,10 +35,16 @@ class GymtimeSessionState {
     return updated
   }
 
+  static hasExercise(exerciseId: string): boolean {
+    const session = this.store.get()
+    if (!session) return false
+    return session.exercises.some(e => e.exerciseId === exerciseId)
+  }
+
   static async swapExercise(oldExerciseId: string, newExerciseId: string): Promise<WorkoutSession> {
     const current = this.requireSession()
 
-    if (current.exercises.some(e => e.exerciseId === newExerciseId)) {
+    if (this.hasExercise(newExerciseId)) {
       throw new Error('Exercise already exists in workout session')
     }
 
@@ -81,7 +87,7 @@ class GymtimeSessionState {
   static async addExercise(exerciseId: string): Promise<WorkoutSession> {
     const current = this.requireSession()
 
-    if (current.exercises.some(e => e.exerciseId === exerciseId)) {
+    if (this.hasExercise(exerciseId)) {
       throw new Error('Exercise already exists in workout session')
     }
 
