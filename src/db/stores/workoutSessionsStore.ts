@@ -185,6 +185,40 @@ export class WorkoutSessionsStore {
       exercises: updatedExercises
     })
   }
+
+  async moveExerciseInWorkoutSession({
+    workoutSession,
+    exerciseId,
+    direction
+  }: {
+    workoutSession: WorkoutSession
+    exerciseId: Exercise['id']
+    direction: 'up' | 'down'
+  }): Promise<WorkoutSession> {
+    const exerciseIndex = workoutSession.exercises.findIndex(({ exerciseId: id }) => id === exerciseId)
+    if (exerciseIndex === -1) {
+      throw new Error('Exercise not found in workout session')
+    }
+
+    if (direction === 'up' && exerciseIndex === 0) {
+      return workoutSession
+    }
+
+    if (direction === 'down' && exerciseIndex === workoutSession.exercises.length - 1) {
+      return workoutSession
+    }
+
+    const updatedExercises = [...workoutSession.exercises]
+    const swapIndex = direction === 'up' ? exerciseIndex - 1 : exerciseIndex + 1
+    const temp = updatedExercises[swapIndex]
+    updatedExercises[swapIndex] = updatedExercises[exerciseIndex]
+    updatedExercises[exerciseIndex] = temp
+
+    return this.updateWorkoutSession({
+      ...workoutSession,
+      exercises: updatedExercises
+    })
+  }
 }
 
 export const workoutSessionsStore = new WorkoutSessionsStore()
