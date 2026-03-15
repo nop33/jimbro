@@ -262,7 +262,7 @@ class ExerciseCard {
         const isExerciseCompleted = this.exercise.sets === setIndex + 1
 
         if (isExerciseCompleted) {
-          navigator.vibrate([50, 30, 50, 30, 70])
+          navigator.vibrate?.([50, 30, 50, 30, 70])
           BreakTimerDialog.closeDialog()
           throwConfetti('Exercise done!')
         } else {
