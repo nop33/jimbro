@@ -1,4 +1,4 @@
-import { sendBreakFinishedNotification } from './notification'
+import { playDingSound } from './sound'
 
 class BreakTimerDialog {
   private static dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
@@ -33,7 +33,7 @@ class BreakTimerDialog {
       const secs = parseInt(this.countdown.textContent.split(':')[1])
 
       if (mins === 0 && secs === 0) {
-        sendBreakFinishedNotification()
+        playDingSound()
         this.closeDialog()
       } else if (secs === 0) {
         this.countdown.textContent = `${mins - 1}:59`
