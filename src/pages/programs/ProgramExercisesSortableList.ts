@@ -24,8 +24,6 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
 
     const startDrag = (e: TouchEvent | MouseEvent) => {
       const target = e.target as HTMLElement
-      const handle = target.closest('.drag-handle')
-      if (!handle) return
 
       const item = target.closest('.sortable-item') as HTMLElement
       if (!item) return
