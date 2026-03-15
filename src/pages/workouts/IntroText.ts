@@ -1,5 +1,4 @@
 import { getWeekOfYear } from '../../dateUtils'
-import { db } from '../../db'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { hasExercises, hasPrograms } from '../../db/utils'
 
