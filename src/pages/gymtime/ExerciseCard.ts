@@ -41,6 +41,8 @@ class ExerciseCard {
     const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
     const deleteBtn = template.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
     const swapBtn = template.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
+    const moveUpBtn = template.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
+    const moveDownBtn = template.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
 
     cardDiv.setAttribute('data-exercise-id', this.exercise.id)
 
@@ -55,10 +57,35 @@ class ExerciseCard {
       if (isExerciseCompleted()) {
         deleteBtn.classList.add('hidden')
         swapBtn.classList.add('hidden')
+        moveUpBtn.classList.add('hidden')
+        moveDownBtn.classList.add('hidden')
       } else {
         deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
         swapBtn.classList.toggle('hidden', !exerciseDetails.open)
+        moveUpBtn.classList.toggle('hidden', !exerciseDetails.open)
+        moveDownBtn.classList.toggle('hidden', !exerciseDetails.open)
+
+        if (exerciseDetails.open) {
+          const session = GymtimeSessionState.session
+          if (session) {
+            const exerciseIndex = session.exercises.findIndex(({ exerciseId }) => exerciseId === this.exercise.id)
+            if (exerciseIndex === 0) moveUpBtn.classList.add('hidden')
+            if (exerciseIndex === session.exercises.length - 1) moveDownBtn.classList.add('hidden')
+          }
+        }
       }
+    })
+
+    moveUpBtn.addEventListener('click', async () => {
+      if (!GymtimeSessionState.session) return
+      await GymtimeSessionState.moveExercise(this.exercise.id, 'up')
+      this.onExerciseDeleted()
+    })
+
+    moveDownBtn.addEventListener('click', async () => {
+      if (!GymtimeSessionState.session) return
+      await GymtimeSessionState.moveExercise(this.exercise.id, 'down')
+      this.onExerciseDeleted()
     })
 
     deleteBtn.addEventListener('click', async () => {

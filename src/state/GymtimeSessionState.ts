@@ -35,6 +35,17 @@ class GymtimeSessionState {
     return updated
   }
 
+  static async moveExercise(exerciseId: string, direction: 'up' | 'down'): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const updated = await workoutSessionsStore.moveExerciseInWorkoutSession({
+      workoutSession: current,
+      exerciseId,
+      direction
+    })
+    this.store.set(updated)
+    return updated
+  }
+
   static hasExercise(exerciseId: string, options: { showAlert?: boolean } = {}): boolean {
     const session = this.store.get()
     if (!session) return false

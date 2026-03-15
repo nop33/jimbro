@@ -15,6 +15,10 @@ class ExerciseCardList {
     this.programExerciseIds = programExerciseIds
   }
 
+  static setProgramExerciseIds(programExerciseIds: string[]) {
+    this.programExerciseIds = programExerciseIds
+  }
+
   static async render() {
     const scrollY = window.scrollY
     const openExerciseId = document.querySelector<HTMLDetailsElement>('.exercise-details[open]')

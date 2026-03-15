@@ -1,3 +1,5 @@
+import { db } from '../../db'
+import type { Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
@@ -10,9 +12,13 @@ class GymtimePage {
   private static pageContent = document.querySelector('.app-page-content') as HTMLDivElement
   private static deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
   private static workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
+  private static saveToProgramCard = document.querySelector('#save-to-program-card') as HTMLDivElement
+  private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
+  private static program: Program
 
   static async init() {
     const { program, workoutSession } = await parseUrlParams()
+    this.program = program
 
     GymtimeSessionState.initialize(workoutSession)
     setTextContent('.app-header-title', program.name)
@@ -50,8 +56,51 @@ class GymtimePage {
       window.location.href = `/workouts/`
     })
 
+    this.saveToProgramCard.addEventListener('click', async () => {
+      const session = GymtimeSessionState.session
+      if (!session) return
+
+      const sessionExerciseIds = session.exercises.map(e => e.exerciseId)
+
+      this.program.exercises = sessionExerciseIds
+      await db.programs.update(this.program)
+
+      ExerciseCardList.setProgramExerciseIds(sessionExerciseIds)
+
+      Toasts.show({ message: 'Saved to program' })
+      this.updateSaveToProgramBtnVisibility()
+    })
+
+    GymtimeSessionState.subscribe(() => {
+      this.updateSaveToProgramBtnVisibility()
+    })
+
     ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
+    this.updateSaveToProgramBtnVisibility()
+  }
+
+  private static updateSaveToProgramBtnVisibility() {
+    const session = GymtimeSessionState.session
+    if (!session) {
+      this.saveToProgramCard.classList.add('hidden')
+      this.addExerciseCard.classList.replace('mt-2', 'mt-16')
+      return
+    }
+
+    const sessionExerciseIds = session.exercises.map(e => e.exerciseId)
+    const programExerciseIds = this.program.exercises
+
+    const isDifferent = sessionExerciseIds.length !== programExerciseIds.length ||
+      sessionExerciseIds.some((id, index) => id !== programExerciseIds[index])
+
+    if (isDifferent) {
+      this.saveToProgramCard.classList.remove('hidden')
+      this.addExerciseCard.classList.replace('mt-16', 'mt-2')
+    } else {
+      this.saveToProgramCard.classList.add('hidden')
+      this.addExerciseCard.classList.replace('mt-2', 'mt-16')
+    }
   }
 
   private static updateDeleteBtnVisibility() {
