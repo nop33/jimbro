@@ -61,10 +61,14 @@ class GymtimePage {
   private static showError(message: string) {
     this.pageContent.innerHTML = `
       <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
-        <p class="text-lg text-jim-error">${message}</p>
+        <p class="text-lg text-jim-error"></p>
         <a href="/workouts/" class="btn-primary">Back to workouts</a>
       </div>
     `
+    const errorMsg = this.pageContent.querySelector('.text-jim-error') as HTMLParagraphElement
+    if (errorMsg) {
+      errorMsg.textContent = message
+    }
   }
 
   static start() {
