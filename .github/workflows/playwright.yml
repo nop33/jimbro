@@ -10,21 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: voidzero-dev/setup-vp@v1
         with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: pnpm
+          node-version: '22'
+          cache: true
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: vp install
       - name: Run Unit Tests
-        run: pnpm run test:unit
+        run: vp test
       - name: Install Playwright Browsers
-        run: pnpm exec playwright install --with-deps
+        run: vp exec playwright install --with-deps
       - name: Run Playwright tests
-        run: xvfb-run pnpm exec playwright test
+        run: xvfb-run vp exec playwright test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
