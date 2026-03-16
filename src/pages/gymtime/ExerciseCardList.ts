@@ -21,9 +21,9 @@ class ExerciseCardList {
 
   static async render() {
     const scrollY = window.scrollY
-    const openExerciseId = document.querySelector<HTMLDetailsElement>('.exercise-details[open]')
-      ?.closest<HTMLDivElement>('[data-exercise-id]')
-      ?.dataset.exerciseId
+    const openExerciseId = document
+      .querySelector<HTMLDetailsElement>('.exercise-details[open]')
+      ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
 
     this.exercisesList.innerHTML = ''
     this.exerciseDefinitions.clear()

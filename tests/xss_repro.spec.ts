@@ -1,10 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
 test('GymtimePage showError XSS reproduction', async ({ page }) => {
-  await page.goto('/gymtime/?programId=non-existent');
+  await page.goto('/gymtime/?programId=non-existent')
 
   // Wait for the page to load and fail
-  await expect(page.locator('.text-jim-error')).toBeVisible();
+  await expect(page.locator('.text-jim-error')).toBeVisible()
 
   // Try to inject XSS by manually calling the private-ish showError if we can,
   // or just check if we can manipulate the DOM in a way that showError would.
@@ -15,10 +15,10 @@ test('GymtimePage showError XSS reproduction', async ({ page }) => {
 
   const xssTriggered = await page.evaluate(async () => {
     // We try to find the pageContent and simulate what showError does
-    const pageContent = document.querySelector('.app-page-content');
-    if (!pageContent) return false;
+    const pageContent = document.querySelector('.app-page-content')
+    if (!pageContent) return false
 
-    const maliciousMessage = '<img src=x onerror="window.xss_triggered = true">';
+    const maliciousMessage = '<img src=x onerror="window.xss_triggered = true">'
 
     // This is exactly what GymtimePage.showError does:
     pageContent.innerHTML = `
@@ -26,36 +26,36 @@ test('GymtimePage showError XSS reproduction', async ({ page }) => {
         <p class="text-lg text-jim-error">${maliciousMessage}</p>
         <a href="/workouts/" class="btn-primary">Back to workouts</a>
       </div>
-    `;
+    `
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       setTimeout(() => {
-        resolve((window as any).xss_triggered === true);
-      }, 100);
-    });
-  });
+        resolve((window as any).xss_triggered === true)
+      }, 100)
+    })
+  })
 
-  expect(xssTriggered).toBe(true);
-});
+  expect(xssTriggered).toBe(true)
+})
 
 test('ToastMessage XSS reproduction', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/')
 
   const xssTriggered = await page.evaluate(async () => {
     // Simulate what ToastMessage.render does
-    const toastMessagePopup = document.createElement('div');
-    const maliciousMessage = '<img src=x onerror="window.toast_xss_triggered = true">';
+    const toastMessagePopup = document.createElement('div')
+    const maliciousMessage = '<img src=x onerror="window.toast_xss_triggered = true">'
 
     // This is exactly what ToastMessagePopup.render does:
-    toastMessagePopup.innerHTML = maliciousMessage;
-    document.body.appendChild(toastMessagePopup);
+    toastMessagePopup.innerHTML = maliciousMessage
+    document.body.appendChild(toastMessagePopup)
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       setTimeout(() => {
-        resolve((window as any).toast_xss_triggered === true);
-      }, 100);
-    });
-  });
+        resolve((window as any).toast_xss_triggered === true)
+      }, 100)
+    })
+  })
 
-  expect(xssTriggered).toBe(true);
-});
+  expect(xssTriggered).toBe(true)
+})
