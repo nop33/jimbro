@@ -1,11 +1,11 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
-  timeout: 60_000,
+  timeout: 30_000,
   expect: {
-    timeout: 10_000,
+    timeout: 10_000
   },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -14,25 +14,25 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    trace: 'on-first-retry'
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'] }
     },
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { ...devices['Desktop Safari'] }
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
+      use: { ...devices['iPhone 12'] }
+    }
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'vp run dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-  },
-});
+    reuseExistingServer: !process.env.CI
+  }
+})

@@ -50,7 +50,7 @@ class GymtimeSessionState {
     const session = this.store.get()
     if (!session) return false
 
-    const exists = session.exercises.some(e => e.exerciseId === exerciseId)
+    const exists = session.exercises.some((e) => e.exerciseId === exerciseId)
     if (exists && options.showAlert) {
       alert('This exercise is already in your session.')
     }
@@ -85,11 +85,7 @@ class GymtimeSessionState {
     return updated
   }
 
-  static async updateSet(
-    exerciseId: string,
-    setIndex: number,
-    set: ExerciseSetExecution
-  ): Promise<WorkoutSession> {
+  static async updateSet(exerciseId: string, setIndex: number, set: ExerciseSetExecution): Promise<WorkoutSession> {
     const current = this.requireSession()
     const updated = await workoutSessionsStore.updateExerciseExecutionSetInWorkoutSession({
       workoutSession: current,
@@ -128,7 +124,10 @@ class GymtimeSessionState {
 
   static async complete(): Promise<WorkoutSession> {
     const current = this.requireSession()
-    const updated = await workoutSessionsStore.updateWorkoutSession({ ...current, status: 'completed' })
+    const updated = await workoutSessionsStore.updateWorkoutSession({
+      ...current,
+      status: 'completed'
+    })
     this.store.set(updated)
     return updated
   }
