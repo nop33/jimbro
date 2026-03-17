@@ -170,6 +170,51 @@ test.describe('Gymtime Page', () => {
     await firstExercise.click() // Expand again to make sure it's open (sometimes clicking add closes it)
     const swapBtnFirst = firstExercise.locator('..').locator('.swap-workout-session-exercise-btn')
     await expect(swapBtnFirst).toBeVisible()
+
+    // Create a promise to wait for the dialog event
+    const dialogPromise = page.waitForEvent('dialog')
+    await swapBtnFirst.click()
+    const dialogEvent = await dialogPromise
+    expect(dialogMessage).toContain('lost progress')
+    await firstExercise.click() // Close again
+
+    // Get the second exercise (since the first one has progress)
+    const secondExercise = page.locator('details.exercise-details').nth(1)
+    const secondExerciseCard = secondExercise.locator('..') // Get parent card
+    const oldExerciseName = await secondExerciseCard.locator('.exercise-name').textContent()
+
+    // Open details to reveal swap button
+    await secondExercise.click()
+
+    const swapBtn = secondExerciseCard.locator('.swap-workout-session-exercise-btn')
+    await expect(swapBtn).toBeVisible()
+    await swapBtn.click() // This shouldn't show a confirm dialog because no progress
+
+    const swapDialog = page.locator('#add-exercise-dialog')
+    await expect(swapDialog).toBeVisible()
+    await expect(swapDialog.locator('h2')).toContainText('Swap exercise')
+
+    // Select the second exercise in the dialog
+    const dialogSecondExercise = swapDialog.locator('.card.card-hover').nth(1)
+    const swapExerciseName = await dialogSecondExercise.locator('.exercise-name').textContent()
+    await dialogSecondExercise.click()
+
+    // Verify dialog closed
+    await expect(swapDialog).not.toBeVisible()
+
+    // Verify the exercise was swapped in the list
+    await expect(exercisesList).not.toContainText(oldExerciseName?.trim() || '')
+    await expect(exercisesList).toContainText(swapExerciseName?.trim() || '')
+
+    // 8. Delete Session (Clean up)
+    await page.locator('#delete-workout-session-btn').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500) // Allow UI to settle
+
+    // Use a synchronous page.once handler (same pattern as beforeEach).
+    // Async handlers cause timing issues in Mobile Safari where confirm() can
+    // return false before the await resolves.
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.locator('#delete-workout-session-btn').click({ force: true })
   })
 
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {

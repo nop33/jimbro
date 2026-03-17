@@ -98,10 +98,7 @@ class ExerciseCard {
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
 
       if (existingExercise && existingExercise.sets.length > 0) {
-        if (
-          !confirm('This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?')
-        )
-          return
+        if (!confirm('This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?')) return
       } else {
         if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
       }
@@ -120,12 +117,7 @@ class ExerciseCard {
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
 
       if (existingExercise && existingExercise.sets.length > 0) {
-        if (
-          !confirm(
-            'This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?'
-          )
-        )
-          return
+        if (!confirm('This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?')) return
       }
 
       AddExerciseDialog.openDialog({
@@ -241,7 +233,9 @@ class ExerciseCard {
 
     if (!latestSet) {
       const latestSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(this.programId)
-      latestSet = latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)?.sets.at(-1)
+      latestSet = latestSession?.exercises
+        .find(({ exerciseId }) => exerciseId === this.exercise.id)
+        ?.sets.at(-1)
 
       latestSet = latestSet ?? { reps: this.exercise.reps, weight: 0 }
     }
@@ -254,10 +248,8 @@ class ExerciseCard {
     // For fast Playwright tests, disable the form until setup is completely done
     const submitBtn = nextSetForm.querySelector('button[type="submit"]') as HTMLButtonElement
     if (submitBtn) {
-      submitBtn.disabled = true
-      setTimeout(() => {
-        submitBtn.disabled = false
-      }, 50)
+      submitBtn.disabled = true;
+      setTimeout(() => { submitBtn.disabled = false }, 50)
     }
 
     nextSetForm.addEventListener('submit', async (event) => {
@@ -277,7 +269,8 @@ class ExerciseCard {
       await GymtimeSessionState.addSet(this.exercise.id, completedSet)
 
       const updated = GymtimeSessionState.session!
-      const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === this.exercise.id)?.sets.length ?? 1) - 1
+      const setIndex =
+        (updated.exercises.find(({ exerciseId: id }) => id === this.exercise.id)?.sets.length ?? 1) - 1
 
       const pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       pendingSetItem.classList.remove('isPending')
@@ -313,7 +306,7 @@ class ExerciseCard {
 
               if (checkId === this.exercise.id) continue
 
-              const exerciseDef = this.exerciseDefinitions.get(checkId) || (await db.exercises.getById(checkId))
+              const exerciseDef = this.exerciseDefinitions.get(checkId) || await db.exercises.getById(checkId)
               if (!exerciseDef) continue
 
               const sessionExercise = updated.exercises.find(({ exerciseId }) => exerciseId === checkId)
