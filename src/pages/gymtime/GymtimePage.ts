@@ -41,7 +41,7 @@ class GymtimePage {
 
     WorkoutSessionForm.init(program.id, () => {
       const session = GymtimeSessionState.session
-      if (session) window.history.pushState({}, '', `?id=${session.id}`)
+      if (session) window.history.replaceState({}, '', `?id=${session.id}`)
       ExerciseCardList.render()
       this.updateDeleteBtnVisibility()
       this.workoutDetails.removeAttribute('open')
