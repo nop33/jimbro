@@ -70,7 +70,7 @@ test.describe('Workouts Page', () => {
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved.');
 
     // Navigate back to the workouts page
-    await page.goBack(); await page.goBack();
+    await page.goBack();
 
     // Wait for workouts page to be visible again
     await expect(page.locator('.workout-week')).toBeVisible();
