@@ -60,7 +60,7 @@ class GymtimePage {
       const session = GymtimeSessionState.session
       if (!session) return
 
-      const sessionExerciseIds = session.exercises.map((e) => e.exerciseId)
+      const sessionExerciseIds = session.exercises.map(e => e.exerciseId)
 
       this.program.exercises = sessionExerciseIds
       await db.programs.update(this.program)
@@ -88,11 +88,10 @@ class GymtimePage {
       return
     }
 
-    const sessionExerciseIds = session.exercises.map((e) => e.exerciseId)
+    const sessionExerciseIds = session.exercises.map(e => e.exerciseId)
     const programExerciseIds = this.program.exercises
 
-    const isDifferent =
-      sessionExerciseIds.length !== programExerciseIds.length ||
+    const isDifferent = sessionExerciseIds.length !== programExerciseIds.length ||
       sessionExerciseIds.some((id, index) => id !== programExerciseIds[index])
 
     if (isDifferent) {

@@ -92,11 +92,7 @@ export class Storage {
     return promisifyRequest(index.getAll(key))
   }
 
-  async getFirstByIndex<T>(
-    storeName: string,
-    indexName: string,
-    direction: IDBCursorDirection = 'next'
-  ): Promise<T | undefined> {
+  async getFirstByIndex<T>(storeName: string, indexName: string, direction: IDBCursorDirection = 'next'): Promise<T | undefined> {
     const store = await this.getStore(storeName)
     const index = store.index(indexName)
     return new Promise((resolve, reject) => {
