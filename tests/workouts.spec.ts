@@ -46,4 +46,41 @@ test.describe('Workouts Page', () => {
     // It should navigate to /gymtime/ with programId
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/);
   });
+
+  test('Updates status correctly when navigating back from an incomplete workout', async ({ page }) => {
+    // Seed db
+    await page.getByRole('button', { name: 'Seed Database' }).click();
+    await expect(page.locator('.workout-week')).toBeVisible();
+
+    // Check initial status, there should be pending workouts
+    const pendingWorkouts = page.locator('.card-pending');
+    await expect(pendingWorkouts.first()).toBeVisible();
+
+    // Store original number of pending workouts
+    const originalPendingCount = await pendingWorkouts.count();
+
+    // Start a new workout by clicking a pending one
+    await pendingWorkouts.first().click();
+
+    // It should navigate to /gymtime/ with programId
+    await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/);
+
+    // Start workout session
+    await page.getByRole('button', { name: 'Save & start workout' }).click();
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved.');
+
+    // Navigate back to the workouts page
+    await page.goBack(); await page.goBack();
+
+    // Wait for workouts page to be visible again
+    await expect(page.locator('.workout-week')).toBeVisible();
+
+    // The previously pending workout should now be incomplete (card-warning)
+    // So pending workouts should be exactly 1 less
+    const newPendingCount = await pendingWorkouts.count();
+    expect(newPendingCount).toBe(originalPendingCount - 1);
+
+    // There should be an incomplete workout
+    await expect(page.locator('.card-warning').first()).toBeVisible();
+  });
 });

@@ -136,3 +136,16 @@ type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date'> & {
   date?: undefined
   status: 'pending' | 'skipped'
 }
+
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    window.location.reload()
+  }
+})
+
+// Fallback for browsers that don't trigger pageshow event properly
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    window.location.reload()
+  }
+})
