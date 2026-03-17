@@ -1,3 +1,5 @@
+import { playFunnySound } from './sounds'
+
 export const throwConfetti = (text: string) => {
   const confettiCount = 80
   const confettiColors = [
@@ -10,6 +12,8 @@ export const throwConfetti = (text: string) => {
     '#38bdf8',
     '#fcd34d'
   ] as const
+
+  playFunnySound()
 
   const id = `confetti-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
