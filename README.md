@@ -20,14 +20,14 @@ After more than a decade in web dev, I am suffering from framework fatigue. This
 
 ## Pages
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Home page with install prompt and "Start workout" CTA |
-| `/exercises/` | Exercise library — browse, create, edit, delete exercises |
-| `/programs/` | Program management — create programs from exercises |
-| `/workouts/` | Weekly workout calendar — view history, start new workouts |
-| `/gymtime/` | Active workout tracking — log sets, break timer, completion |
-| `/settings/` | Data management — export, import, reset database |
+| Route         | Purpose                                                     |
+| ------------- | ----------------------------------------------------------- |
+| `/`           | Home page with install prompt and "Start workout" CTA       |
+| `/exercises/` | Exercise library — browse, create, edit, delete exercises   |
+| `/programs/`  | Program management — create programs from exercises         |
+| `/workouts/`  | Weekly workout calendar — view history, start new workouts  |
+| `/gymtime/`   | Active workout tracking — log sets, break timer, completion |
+| `/settings/`  | Data management — export, import, reset database            |
 
 ## Data Model
 
@@ -96,11 +96,13 @@ After more than a decade in web dev, I am suffering from framework fatigue. This
 This is the core workout tracking page.
 
 #### URL Parameters
+
 - `?programId=<id>` — start a new workout for that program
 - `?id=<session-id>` — load an existing workout session
 - Missing/invalid params → error message with "Back to workouts" link
 
 #### Workout Session Form (collapsible `<details>`)
+
 - Date input (defaults to today)
 - Location input (auto-filled via geolocation reverse geocoding)
 - Notes textarea
@@ -111,6 +113,7 @@ This is the core workout tracking page.
 - On submit: creates or updates session, pushes `?id=` to URL, collapses form
 
 #### Exercise Cards
+
 - One card per exercise in the program
 - Shows exercise name, muscle group
 - Expandable `<details>` to show sets
@@ -129,6 +132,7 @@ This is the core workout tracking page.
   - Removes exercise from session and re-renders
 
 #### Break Timer Dialog
+
 - Triggers after completing a non-final set of an exercise
 - Full-screen countdown starting at 2:30
 - Shows sets completed (e.g., "2/4 sets done")
@@ -137,6 +141,7 @@ This is the core workout tracking page.
 - On timer end: sends browser notification (if permission granted, requests permission if not yet asked)
 
 #### Exercise Completion
+
 - After completing the last set of an exercise:
   - Confetti animation with "Exercise done!" message
   - Vibration pattern: `[50, 30, 50, 30, 70]`
@@ -144,28 +149,33 @@ This is the core workout tracking page.
   - No break timer triggered
 
 #### Workout Completion
+
 - Triggers when all exercises have all their sets completed
 - Confetti animation with "Workout done!" message
 - Session status set to `completed`
 - Auto-exports database to JSON (backup)
 
 #### Edit Set Dialog
+
 - Opens when clicking a completed set
 - Edit reps and weight
 - Updates session and DOM in-place
 
 #### Add Exercise During Workout
+
 - "Add exercise" card at the bottom of the exercise list
 - Opens dialog with full exercise list (same muscle filter as exercises page)
 - Only works when a session exists
 - Adds exercise to session, re-renders list, closes dialog
 
 #### Delete Session
+
 - Button visible only when a session exists
 - Confirmation dialog
 - Deletes session, shows toast, redirects to `/workouts/`
 
 #### DOM State Preservation
+
 - Scroll position preserved across re-renders
 - Open exercise details preserved across re-renders
 
@@ -177,16 +187,16 @@ This is the core workout tracking page.
 
 ## PWA Features
 
-| Feature | Details |
-|---------|---------|
-| Web Manifest | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display, screenshots |
-| Install Prompt | Intercepts `beforeinstallprompt`, shows install button, hides after `appinstalled` |
-| iOS Install | Shows alert with "Add to Home Screen" instructions |
-| Screen Wake Lock | Keeps screen on during gymtime page, re-requests on tab visibility change |
-| Notifications | Break timer finish notification (requests permission on first use) |
-| Geolocation | Reverse geocodes location for workout session (city/town via Nominatim API) |
-| Haptic Feedback | Short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>`, `.light-haptic` elements |
-| Service Worker | Not yet implemented |
+| Feature          | Details                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| Web Manifest     | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display, screenshots         |
+| Install Prompt   | Intercepts `beforeinstallprompt`, shows install button, hides after `appinstalled`                |
+| iOS Install      | Shows alert with "Add to Home Screen" instructions                                                |
+| Screen Wake Lock | Keeps screen on during gymtime page, re-requests on tab visibility change                         |
+| Notifications    | Break timer finish notification (requests permission on first use)                                |
+| Geolocation      | Reverse geocodes location for workout session (city/town via Nominatim API)                       |
+| Haptic Feedback  | Short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>`, `.light-haptic` elements |
+| Service Worker   | Not yet implemented                                                                               |
 
 ## UI Features
 
@@ -223,10 +233,10 @@ This is the core workout tracking page.
 
 ## IndexedDB Schema (v4)
 
-| Store | Key Path | Indexes |
-|-------|----------|---------|
-| `exercises` | `id` | — |
-| `programs` | `id` | — |
+| Store             | Key Path    | Indexes                                       |
+| ----------------- | ----------- | --------------------------------------------- |
+| `exercises`       | `id`        | —                                             |
+| `programs`        | `id`        | —                                             |
 | `workoutSessions` | `id` (UUID) | `date` (non-unique), `programId` (non-unique) |
 
 ## Architecture
