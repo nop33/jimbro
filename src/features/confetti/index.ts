@@ -1,3 +1,5 @@
+import { playFunnySound } from './sounds'
+
 export const throwConfetti = (text: string) => {
   const confettiCount = 80
   const confettiColors = [
@@ -11,15 +13,7 @@ export const throwConfetti = (text: string) => {
     '#fcd34d'
   ] as const
 
-  const soundFiles = [
-    '/sounds/cartoon_boing.ogg',
-    '/sounds/success.ogg',
-    '/sounds/magic_chime.ogg',
-    '/sounds/metal_twang.ogg'
-  ]
-  const randomSoundFile = soundFiles[Math.floor(Math.random() * soundFiles.length)]
-  const audio = new Audio(randomSoundFile)
-  audio.play().catch((e) => console.warn('Audio playback failed:', e))
+  playFunnySound()
 
   const id = `confetti-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
