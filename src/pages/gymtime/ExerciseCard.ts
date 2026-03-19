@@ -254,7 +254,7 @@ class ExerciseCard {
       latestSet = previousExercise?.sets.at(-1)
 
       if (previousExercise?.sets && previousExercise.sets.length > 0) {
-        maxWeight = Math.max(...previousExercise.sets.map(s => s.weight))
+        maxWeight = Math.max(...previousExercise.sets.map((s) => s.weight))
       }
 
       latestSet = latestSet ?? { reps: this.exercise.reps, weight: 0 }

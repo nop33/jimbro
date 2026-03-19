@@ -1,8 +1,7 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { setTextContent } from '../../utils'
-
-declare const Chart: any
+import Chart from 'chart.js/auto'
 
 class ExerciseHistoryChart {
   private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
@@ -40,8 +39,8 @@ class ExerciseHistoryChart {
     const sessions = await workoutSessionsStore.getAllWorkoutSessions()
 
     // Filter sessions that have this exercise and have completed sets
-    const relevantSessions = sessions.filter(session => {
-      const exerciseExec = session.exercises.find(e => e.exerciseId === exercise.id)
+    const relevantSessions = sessions.filter((session) => {
+      const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)
       return exerciseExec && exerciseExec.sets.length > 0
     })
 
@@ -52,7 +51,7 @@ class ExerciseHistoryChart {
     const dataPoints: number[] = []
 
     for (const session of relevantSessions) {
-      const exerciseExec = session.exercises.find(e => e.exerciseId === exercise.id)!
+      const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)!
 
       let totalWeight = 0
       let validSetsCount = 0
