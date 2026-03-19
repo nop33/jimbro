@@ -8,6 +8,7 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
+import ExerciseHistoryChart from './ExerciseHistoryChart'
 
 export interface ExerciseCardConfig {
   exercise: Exercise
@@ -41,6 +42,7 @@ class ExerciseCard {
     const swapBtn = template.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
     const moveUpBtn = template.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
     const moveDownBtn = template.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
+    const viewHistoryBtn = template.querySelector('.view-history-btn') as HTMLButtonElement
 
     cardDiv.setAttribute('data-exercise-id', this.exercise.id)
 
@@ -180,6 +182,10 @@ class ExerciseCard {
     } else {
       nextSetDiv.remove()
     }
+
+    viewHistoryBtn.addEventListener('click', () => {
+      ExerciseHistoryChart.openDialog(this.exercise)
+    })
 
     return template
   }

@@ -218,6 +218,7 @@
                   <button type="submit" class="btn-primary text-white w-full h-20">Finished set</button>
                 </form>
               </div>
+              <button type="button" class="view-history-btn btn-secondary mt-4 w-full text-sm">View History</button>
             </details>
           </div>
         </template>
@@ -283,6 +284,48 @@
       </form>
     </dialog>
 
+    <dialog id="exercise-history-dialog" class="w-[95vw] h-[95vh] sm:w-[80vw] sm:h-[80vh] max-w-none max-h-none m-auto overflow-hidden rounded-xl">
+      <header class="flex justify-between items-center mb-4 p-4 pb-0 relative z-10 bg-jim-dark">
+        <h2 class="text-xl font-bold exercise-history-title flex items-center gap-2">
+          <span>Exercise History</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-5 text-jim-neutral-secondary sm:hidden"
+            title="Rotate phone for best experience"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5c-1.5 0-3 1.5-3 3" />
+          </svg>
+        </h2>
+        <button
+          type="button"
+          class="close-dialog-btn border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200"
+          aria-label="Close dialog"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+      <div class="p-4 pt-0 h-[calc(100%-4rem)] w-full flex flex-col">
+        <div class="text-sm text-neutral-400 mb-4">Average weight per session</div>
+        <div class="flex-grow w-full relative">
+          <canvas id="exercise-history-chart"></canvas>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="add-exercise-dialog" class="w-full h-full">
       <header class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Add exercise</h2>
@@ -335,6 +378,7 @@
       </footer>
     </dialog>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="../src/pages/gymtime/index.ts"></script>
     <script type="module" src="../src/navigation.ts"></script>
     <script type="module" src="../src/features/hapticFeedback/index.ts"></script>
