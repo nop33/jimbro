@@ -5,6 +5,7 @@ import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import GymtimePage from './GymtimePage'
 import { keepScreenAwake } from './keepScreenAwake'
+import ExerciseHistoryChart from './ExerciseHistoryChart'
 
 keepScreenAwake()
 await ExercisesState.initialize()
@@ -12,4 +13,5 @@ await ExercisesState.initialize()
 EditSetDialog.init()
 BreakTimerDialog.init()
 ExerciseList.init()
+ExerciseHistoryChart.init()
 GymtimePage.start()
