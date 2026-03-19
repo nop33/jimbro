@@ -109,6 +109,32 @@ export class Storage {
     })
   }
 
+  async getFirstByPredicate<T>(
+    storeName: string,
+    indexName: string,
+    direction: IDBCursorDirection = 'next',
+    predicate: (value: T) => boolean
+  ): Promise<T | undefined> {
+    const store = await this.getStore(storeName)
+    const index = store.index(indexName)
+    return new Promise((resolve, reject) => {
+      const request = index.openCursor(null, direction)
+      request.onsuccess = () => {
+        const cursor = request.result
+        if (cursor) {
+          if (predicate(cursor.value as T)) {
+            resolve(cursor.value as T)
+          } else {
+            cursor.continue()
+          }
+        } else {
+          resolve(undefined)
+        }
+      }
+      request.onerror = () => reject(request.error)
+    })
+  }
+
   async getAll<T>(storeName: string): Promise<Array<T>> {
     const store = await this.getStore(storeName)
     return promisifyRequest(store.getAll())
