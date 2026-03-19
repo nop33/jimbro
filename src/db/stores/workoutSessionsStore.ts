@@ -65,7 +65,7 @@ export class WorkoutSessionsStore {
     const { getWeekOfYear } = await import('../../dateUtils')
     const workoutSessions = await this.getAllWorkoutSessions()
 
-    return workoutSessions.reduce(
+    const grouped = workoutSessions.reduce(
       (acc, workoutSession) => {
         const week = getWeekOfYear(new Date(workoutSession.date))
         if (acc[week]) {
@@ -77,6 +77,12 @@ export class WorkoutSessionsStore {
       },
       {} as Record<string, Array<WorkoutSession>>
     )
+
+    for (const week in grouped) {
+      grouped[week].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    }
+
+    return grouped
   }
 
   async updateWorkoutSession(item: WorkoutSession): Promise<WorkoutSession> {
