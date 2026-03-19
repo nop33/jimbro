@@ -52,6 +52,22 @@ export class WorkoutSessionsStore {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
   }
 
+  async getLatestWorkoutSessionWithCompletedExercise(
+    exerciseId: Exercise['id'],
+    requiredSets: number
+  ): Promise<WorkoutSession | undefined> {
+    const allSessions = await storage.getAll<WorkoutSession>(this.storeName)
+
+    // Sort all sessions by date descending (latest first)
+    const sortedSessions = allSessions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    // Find the first session that has the exercise fully completed
+    return sortedSessions.find(session => {
+      const exercise = session.exercises.find(e => e.exerciseId === exerciseId)
+      return exercise && exercise.sets.length >= requiredSets
+    })
+  }
+
   async getDateOfFirstWorkoutSession(): Promise<string | undefined> {
     const earliest = await storage.getFirstByIndex<WorkoutSession>(this.storeName, 'date', 'next')
     return earliest?.date

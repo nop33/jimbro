@@ -238,12 +238,25 @@ class ExerciseCard {
 
     const session = GymtimeSessionState.session
     let latestSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)?.sets.at(-1)
+    let maxWeight = 0
 
     if (!latestSet) {
-      const latestSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(this.programId)
-      latestSet = latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)?.sets.at(-1)
+      const latestSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
+        this.exercise.id,
+        this.exercise.sets
+      )
+      const previousExercise = latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+
+      latestSet = previousExercise?.sets.at(-1)
+
+      if (previousExercise?.sets && previousExercise.sets.length > 0) {
+        maxWeight = Math.max(...previousExercise.sets.map(s => s.weight))
+      }
 
       latestSet = latestSet ?? { reps: this.exercise.reps, weight: 0 }
+      if (maxWeight > 0) {
+        latestSet = { ...latestSet, weight: maxWeight }
+      }
     }
 
     nextSetRepsInput.value = latestSet.reps.toString()
