@@ -19,14 +19,12 @@ export interface ExerciseCardConfig {
 
 class ExerciseCard {
   private exercise: Exercise
-  private programId: string
   private programExerciseIds: string[]
   private exerciseDefinitions: Map<string, Exercise>
   private onExerciseDeleted: () => void
 
   constructor(config: ExerciseCardConfig) {
     this.exercise = config.exercise
-    this.programId = config.programId
     this.programExerciseIds = config.programExerciseIds
     this.exerciseDefinitions = config.exerciseDefinitions
     this.onExerciseDeleted = config.onExerciseDeleted
