@@ -19,7 +19,9 @@ const _isDbEmpty = await isDbEmpty()
 await IntroText.render()
 NewWorkoutDialog.init()
 
-const today = getSimpleDate(new Date())
+const todayDate = new Date()
+const today = getSimpleDate(todayDate)
+const currentWeekKey = getWeekOfYear(todayDate)
 const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
 const weeksKeys = getWeeksKeysFromDateToNow(new Date(dateOfFirstWorkoutSession)).reverse()
 
@@ -112,10 +114,9 @@ if (_isDbEmpty) {
       const missingProgramsIds = Object.keys(programNames).filter(
         (programId) => !recordedWorkoutPrograms.includes(programId)
       )
-      const currentWeek = extractWeekKeyNumbers(getWeekOfYear(new Date())).week
 
       missingProgramsIds.forEach((missingProgramId) => {
-        const status = week === currentWeek ? 'pending' : 'skipped'
+        const status = weekKey === currentWeekKey ? 'pending' : 'skipped'
         const workoutItem = renderWorkoutSession({
           programId: missingProgramId,
           status: status,
