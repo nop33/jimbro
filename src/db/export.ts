@@ -1,4 +1,5 @@
-import { db } from '.'
+import { OBJECT_STORES } from './constants'
+import { storage } from './storage'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
@@ -20,8 +21,8 @@ export const exportIndexedDbToJson = async () => {
     version: CURRENT_EXPORT_VERSION,
     exportDate: new Date().toISOString(),
     stores: {
-      exercises: await db.exercises.getAll(),
-      programs: await db.programs.getAll(),
+      exercises: await storage.getAll<Exercise>(OBJECT_STORES.EXERCISES),
+      programs: await storage.getAll<Program>(OBJECT_STORES.PROGRAMS),
       workoutSessions: await workoutSessionsStore.getAllWorkoutSessions()
     }
   }
