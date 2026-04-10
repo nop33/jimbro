@@ -310,8 +310,7 @@ class ExerciseCard {
         nextSetDiv.remove()
       }
 
-      if (GymtimeSessionState.isWorkoutComplete(this.exerciseDefinitions)) {
-        await GymtimeSessionState.complete()
+      if (updated.status === 'completed') {
         throwConfetti('Workout done!')
         exportIndexedDbToJson()
       } else {
