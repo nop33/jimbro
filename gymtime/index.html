@@ -215,28 +215,40 @@
               <div class="completed-sets flex flex-col gap-2">
                 <!-- Completed sets will be rendered here -->
               </div>
-              <div class="next-set flex flex-col gap-2 mt-4">
-                <h4 class="next-set-number text-md font-bold">Next set</h4>
-                <form class="next-set-form flex flex-col gap-2">
-                  <div class="flex gap-2 items-center mb-2">
-                    <label class="text-jim-neutral-secondary"
-                      >Reps:
-                      <input type="number" name="set-reps" min="1" required placeholder="Reps" class="mt-2" />
+              <div class="next-set mt-3">
+                <form class="next-set-form flex flex-col gap-4">
+                  <div class="grid grid-cols-2 gap-3">
+                    <label
+                      class="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-jim-neutral-secondary"
+                    >
+                      Reps
+                      <input
+                        type="number"
+                        name="set-reps"
+                        min="1"
+                        required
+                        inputmode="numeric"
+                        placeholder="0"
+                        class="text-center text-2xl font-bold text-jim-accent"
+                      />
                     </label>
-                    <label class="text-jim-neutral-secondary"
-                      >Weight:
+                    <label
+                      class="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-jim-neutral-secondary"
+                    >
+                      Weight
                       <input
                         type="number"
                         name="set-weight"
                         min="0"
                         step="0.01"
                         required
-                        placeholder="Weight"
-                        class="mt-2"
+                        inputmode="decimal"
+                        placeholder="0"
+                        class="text-center text-2xl font-bold text-jim-accent"
                       />
                     </label>
                   </div>
-                  <button type="submit" class="btn-primary text-white w-full h-20">Finished set</button>
+                  <button type="submit" class="btn-primary text-white w-full py-5 text-lg">Finished set</button>
                 </form>
               </div>
               <button
