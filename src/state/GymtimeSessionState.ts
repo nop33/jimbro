@@ -8,6 +8,18 @@ import {
 } from '../db/stores/workoutSessionsStore'
 import ExercisesState from './ExercisesState'
 
+export function computeWorkoutSessionStatus(
+  session: Pick<WorkoutSession, 'exercises'>,
+  getExerciseDef: (id: string) => { sets: number } | undefined
+): WorkoutSessionStatus {
+  if (session.exercises.length === 0) return 'incomplete'
+  const allDone = session.exercises.every(({ exerciseId, sets }) => {
+    const def = getExerciseDef(exerciseId)
+    return def !== undefined && sets.length >= def.sets
+  })
+  return allDone ? 'completed' : 'incomplete'
+}
+
 class GymtimeSessionState {
   private static store = new ReactiveStore<WorkoutSession | undefined>(undefined)
 
@@ -134,17 +146,8 @@ class GymtimeSessionState {
     this.store.set(undefined)
   }
 
-  private static computeStatus(session: WorkoutSession): WorkoutSessionStatus {
-    if (session.exercises.length === 0) return 'incomplete'
-    const allDone = session.exercises.every(({ exerciseId, sets }) => {
-      const def = ExercisesState.getById(exerciseId)
-      return def !== undefined && sets.length >= def.sets
-    })
-    return allDone ? 'completed' : 'incomplete'
-  }
-
   private static async reconcileStatus(session: WorkoutSession): Promise<WorkoutSession> {
-    const expected = this.computeStatus(session)
+    const expected = computeWorkoutSessionStatus(session, (id) => ExercisesState.getById(id))
     if (session.status === expected) return session
     return workoutSessionsStore.updateWorkoutSession({ ...session, status: expected })
   }
