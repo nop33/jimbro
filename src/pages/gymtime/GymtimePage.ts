@@ -4,6 +4,7 @@ import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import AddExerciseDialog from './AddExerciseDialog'
+import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import ExerciseCardList from './ExerciseCardList'
 import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
@@ -15,6 +16,7 @@ class GymtimePage {
   private static saveToProgramCard = document.querySelector('#save-to-program-card') as HTMLDivElement
   private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
   private static program: Program
+  private static workoutDetailsAnimation: AnimateDetailsHandle | null = null
 
   static async init() {
     const { program, workoutSession } = await parseUrlParams()
@@ -23,8 +25,11 @@ class GymtimePage {
     GymtimeSessionState.initialize(workoutSession)
     setTextContent('.app-header-title', program.name)
 
+    const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
+    this.workoutDetailsAnimation = animateDetails(this.workoutDetails, workoutForm)
+
     if (GymtimeSessionState.session) {
-      this.workoutDetails.removeAttribute('open')
+      this.workoutDetailsAnimation.close()
     }
 
     ExerciseCardList.init(program.id, program.exercises)
@@ -44,7 +49,7 @@ class GymtimePage {
       if (session) window.history.replaceState({}, '', `?id=${session.id}`)
       ExerciseCardList.render()
       this.updateDeleteBtnVisibility()
-      this.workoutDetails.removeAttribute('open')
+      this.workoutDetailsAnimation?.close()
     })
 
     this.deleteWorkoutSessionBtn.addEventListener('click', async () => {

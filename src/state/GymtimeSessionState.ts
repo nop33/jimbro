@@ -1,11 +1,24 @@
 import ReactiveStore from '../db/reactiveStore'
-import type { Exercise } from '../db/stores/exercisesStore'
 import {
   workoutSessionsStore,
   type ExerciseSetExecution,
   type NewWorkoutSession,
-  type WorkoutSession
+  type WorkoutSession,
+  type WorkoutSessionStatus
 } from '../db/stores/workoutSessionsStore'
+import ExercisesState from './ExercisesState'
+
+export function computeWorkoutSessionStatus(
+  session: Pick<WorkoutSession, 'exercises'>,
+  getExerciseDef: (id: string) => { sets: number } | undefined
+): WorkoutSessionStatus {
+  if (session.exercises.length === 0) return 'incomplete'
+  const allDone = session.exercises.every(({ exerciseId, sets }) => {
+    const def = getExerciseDef(exerciseId)
+    return def !== undefined && sets.length >= def.sets
+  })
+  return allDone ? 'completed' : 'incomplete'
+}
 
 class GymtimeSessionState {
   private static store = new ReactiveStore<WorkoutSession | undefined>(undefined)
@@ -30,9 +43,10 @@ class GymtimeSessionState {
 
   static async update(updates: Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>): Promise<WorkoutSession> {
     const current = this.requireSession()
-    const updated = await workoutSessionsStore.updateWorkoutSession({ ...current, ...updates })
-    this.store.set(updated)
-    return updated
+    const mutated = await workoutSessionsStore.updateWorkoutSession({ ...current, ...updates })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
   }
 
   static async moveExercise(exerciseId: string, direction: 'up' | 'down'): Promise<WorkoutSession> {
@@ -65,24 +79,26 @@ class GymtimeSessionState {
       throw new Error('Exercise already exists in workout session')
     }
 
-    const updated = await workoutSessionsStore.swapExerciseInWorkoutSession({
+    const mutated = await workoutSessionsStore.swapExerciseInWorkoutSession({
       workoutSession: current,
       oldExerciseId,
       newExerciseId
     })
-    this.store.set(updated)
-    return updated
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
   }
 
   static async addSet(exerciseId: string, set: ExerciseSetExecution): Promise<WorkoutSession> {
     const current = this.requireSession()
-    const updated = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
+    const mutated = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
       workoutSession: current,
       exerciseId,
       exerciseExecutionSet: set
     })
-    this.store.set(updated)
-    return updated
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
   }
 
   static async updateSet(exerciseId: string, setIndex: number, set: ExerciseSetExecution): Promise<WorkoutSession> {
@@ -104,32 +120,24 @@ class GymtimeSessionState {
       throw new Error('Exercise already exists in workout session')
     }
 
-    const updated = await workoutSessionsStore.addExerciseToWorkoutSession({
+    const mutated = await workoutSessionsStore.addExerciseToWorkoutSession({
       workoutSession: current,
       exerciseId
     })
-    this.store.set(updated)
-    return updated
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
   }
 
   static async deleteExercise(exerciseId: string): Promise<WorkoutSession> {
     const current = this.requireSession()
-    const updated = await workoutSessionsStore.deleteExerciseFromWorkoutSession({
+    const mutated = await workoutSessionsStore.deleteExerciseFromWorkoutSession({
       workoutSession: current,
       exerciseId
     })
-    this.store.set(updated)
-    return updated
-  }
-
-  static async complete(): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const updated = await workoutSessionsStore.updateWorkoutSession({
-      ...current,
-      status: 'completed'
-    })
-    this.store.set(updated)
-    return updated
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
   }
 
   static async delete(): Promise<void> {
@@ -138,13 +146,10 @@ class GymtimeSessionState {
     this.store.set(undefined)
   }
 
-  static isWorkoutComplete(exerciseDefinitions: Map<string, Exercise>): boolean {
-    const session = this.store.get()
-    if (!session) return false
-    return session.exercises.every(({ exerciseId, sets }) => {
-      const def = exerciseDefinitions.get(exerciseId)
-      return def !== undefined && sets.length >= def.sets
-    })
+  private static async reconcileStatus(session: WorkoutSession): Promise<WorkoutSession> {
+    const expected = computeWorkoutSessionStatus(session, (id) => ExercisesState.getById(id))
+    if (session.status === expected) return session
+    return workoutSessionsStore.updateWorkoutSession({ ...session, status: expected })
   }
 
   private static requireSession(): WorkoutSession {
