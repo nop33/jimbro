@@ -5,6 +5,7 @@ import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores
 import { throwConfetti } from '../../features/confetti'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
@@ -34,6 +35,7 @@ class ExerciseCard {
   async render(): Promise<DocumentFragment> {
     const template = nodeFromTemplate('#workout-exercise-item-template')
     const exerciseDetails = template.querySelector('.exercise-details') as HTMLDetailsElement
+    const detailsContent = exerciseDetails.querySelector('.exercise-details-content') as HTMLDivElement
     const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
     const cardDiv = template.querySelector('div') as HTMLDivElement
     const nextSetDiv = template.querySelector('.next-set') as HTMLDivElement
@@ -45,6 +47,10 @@ class ExerciseCard {
     const viewHistoryBtn = template.querySelector('.view-history-btn') as HTMLButtonElement
 
     cardDiv.setAttribute('data-exercise-id', this.exercise.id)
+
+    const detailsAnimation = animateDetails(exerciseDetails, detailsContent, {
+      accordionSelector: '.exercise-details'
+    })
 
     const isExerciseCompleted = () => {
       const session = GymtimeSessionState.session
@@ -143,14 +149,6 @@ class ExerciseCard {
       })
     })
 
-    exerciseDetails.addEventListener('click', () => {
-      if (!exerciseDetails.open) {
-        document.querySelectorAll<HTMLDetailsElement>('.exercise-details').forEach((details) => {
-          if (details !== exerciseDetails) details.removeAttribute('open')
-        })
-      }
-    })
-
     setTextContent('.exercise-name', this.exercise.name, template)
     setTextContent('.exercise-muscle', this.exercise.muscle, template)
 
@@ -178,7 +176,7 @@ class ExerciseCard {
     }
 
     if (!existingExercise || existingExercise.sets.length < this.exercise.sets) {
-      await this.setupNextSetForm(template, completedSets, exerciseDetails, cardDiv, nextSetDiv)
+      await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
     } else {
       nextSetDiv.remove()
     }
@@ -232,7 +230,7 @@ class ExerciseCard {
   private async setupNextSetForm(
     template: DocumentFragment,
     completedSets: HTMLDivElement,
-    exerciseDetails: HTMLDetailsElement,
+    detailsAnimation: AnimateDetailsHandle,
     cardDiv: HTMLDivElement,
     nextSetDiv: HTMLDivElement
   ) {
@@ -305,7 +303,7 @@ class ExerciseCard {
       pendingSetItem.setAttribute('data-weight', completedSet.weight.toString())
 
       if (setIndex + 1 === this.exercise.sets) {
-        exerciseDetails.removeAttribute('open')
+        detailsAnimation.close()
         cardDiv.classList.add('card-success')
         nextSetDiv.remove()
       }

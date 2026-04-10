@@ -185,7 +185,7 @@ test.describe('Workout session status reconciliation', () => {
     await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
 
     await page.goto('/workouts/')
-    const sessionCard = page.locator('.workout-week li:has-text("Push day")').first()
+    const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()
     await expect(sessionCard).toHaveClass(/card-success/)
   })
 
@@ -218,7 +218,7 @@ test.describe('Workout session status reconciliation', () => {
     await expect.poll(() => readSessionStatus(page, sessionId)).toBe('incomplete')
 
     await page.goto('/workouts/')
-    const sessionCard = page.locator('.workout-week li:has-text("Push day")').first()
+    const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()
     await expect(sessionCard).toHaveClass(/card-warning/)
   })
 
