@@ -347,7 +347,8 @@ class ExerciseCard {
             seconds: 30,
             setsDone: setIndex + 1,
             setsTotal: this.exercise.sets,
-            nextExercise: nextExercise?.name
+            nextExercise: nextExercise?.name,
+            currentExercise: this.exercise
           })
         }
       }

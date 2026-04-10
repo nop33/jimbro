@@ -1,3 +1,5 @@
+import type { Exercise } from '../../db/stores/exercisesStore'
+import ExerciseHistoryChart from './ExerciseHistoryChart'
 import { playDingSound } from './sound'
 
 class BreakTimerDialog {
@@ -5,15 +7,20 @@ class BreakTimerDialog {
   private static countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
   private static countdownInterval: ReturnType<typeof setInterval> | null = null
   private static skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
+  private static viewHistoryButton = this.dialog.querySelector('#view-history-break') as HTMLButtonElement
   private static setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
   private static nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
   private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
   private static targetTime: number | null = null
   private static hasPlayedSound = false
   private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
+  private static currentExercise: Exercise | null = null
 
   static init() {
     this.skipBreakButton.addEventListener('click', () => this.closeDialog())
+    this.viewHistoryButton.addEventListener('click', () => {
+      if (this.currentExercise) ExerciseHistoryChart.openDialog(this.currentExercise)
+    })
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
   }
 
@@ -57,14 +64,17 @@ class BreakTimerDialog {
     seconds,
     setsDone,
     setsTotal,
-    nextExercise
+    nextExercise,
+    currentExercise
   }: {
     minutes: number
     seconds: number
     setsDone: number
     setsTotal: number
     nextExercise?: string
+    currentExercise: Exercise
   }) {
+    this.currentExercise = currentExercise
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.hasPlayedSound = false
 
@@ -103,6 +113,7 @@ class BreakTimerDialog {
     }
     this.targetTime = null
     this.hasPlayedSound = false
+    this.currentExercise = null
     this.dialog.classList.remove('dialog-full-screen')
     this.dialog.close()
   }
