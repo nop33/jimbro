@@ -19,7 +19,8 @@ export default defineConfig({
     singleQuote: true,
     semi: false,
     trailingComma: 'none',
-    printWidth: 120
+    printWidth: 120,
+    useTabs: false
   },
   staged: {
     '*': 'vp check --fix'
