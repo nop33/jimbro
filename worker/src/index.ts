@@ -21,6 +21,7 @@ export default {
 
       if (path === '/api/ping' && request.method === 'GET') return Response.json({ ok: true, userId })
       if (path === '/api/snapshot' && request.method === 'PUT') return handlePutSnapshot(request, env, userId)
+      if (path === '/api/snapshot/latest' && request.method === 'GET') return handleGetLatestSnapshot(env, userId)
 
       return Response.json({ error: 'not found' }, { status: 404 })
     }
@@ -59,4 +60,12 @@ const handlePutSnapshot = async (request: Request, env: Env, userId: string) => 
   }
 
   return Response.json({ ok: true, timestamp, counts: countsFrom(data) }, { status: 200 })
+}
+
+const handleGetLatestSnapshot = async (env: Env, userId: string) => {
+  const object = await env.BACKUP_BUCKET.get(`users/${userId}/latest.json`)
+
+  if (!object) return Response.json({ error: 'not_found' }, { status: 404 })
+
+  return new Response(object.body, { headers: { 'Content-Type': 'application/json' } })
 }
