@@ -363,31 +363,31 @@
 
     <dialog
       id="exercise-history-dialog"
-      class="w-[95vw] h-[95vh] sm:w-[80vw] sm:h-[80vh] max-w-none max-h-none m-auto overflow-hidden rounded-xl force-landscape-in-portrait"
+      class="w-[95dvw] h-[95dvh] sm:w-[80dvw] sm:h-[80dvh] max-w-none max-h-none m-auto overflow-hidden rounded-xl force-landscape-in-portrait"
     >
-      <header class="flex justify-between items-center">
-        <h2 class="text-xl font-bold exercise-history-title flex items-center gap-2">
-          <span>Exercise History</span>
-        </h2>
-        <button
-          type="button"
-          class="close-dialog-btn border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200"
-          aria-label="Close dialog"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="size-6"
+      <div class="h-full w-full flex flex-col">
+        <header class="flex justify-between items-center shrink-0">
+          <h2 class="text-xl font-bold exercise-history-title flex items-center gap-2">
+            <span>Exercise History</span>
+          </h2>
+          <button
+            type="button"
+            class="close-dialog-btn border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200"
+            aria-label="Close dialog"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </header>
-      <div class="h-[calc(100%-4rem)] w-full flex flex-col">
-        <div class="grow w-full relative mt-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="size-6"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="flex-1 min-h-0 w-full relative mt-4">
           <canvas id="exercise-history-chart"></canvas>
         </div>
       </div>

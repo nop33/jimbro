@@ -322,8 +322,8 @@
     transform: rotate(90deg);
     transform-origin: center center;
     /* We effectively swap width and height */
-    width: 95vh !important;
-    height: 95vw !important;
+    width: 95dvh !important;
+    height: 95dvw !important;
     /* Adjust margin/position to center it after rotation */
     margin: 0 !important;
     position: absolute !important;
