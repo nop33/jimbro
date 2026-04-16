@@ -315,3 +315,20 @@
     bottom: -12px;
   }
 }
+
+/* Force landscape via CSS rotation when in portrait orientation */
+@media (orientation: portrait) {
+  .force-landscape-in-portrait {
+    transform: rotate(90deg);
+    transform-origin: center center;
+    /* We effectively swap width and height */
+    width: 95dvh !important;
+    height: 95dvw !important;
+    /* Adjust margin/position to center it after rotation */
+    margin: 0 !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    translate: -50% -50% !important;
+  }
+}

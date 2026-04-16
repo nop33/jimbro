@@ -54,22 +54,30 @@ class ExerciseHistoryChart {
     relevantSessions.sort((a, b) => new Date(a.session.date).getTime() - new Date(b.session.date).getTime())
 
     const labels: string[] = []
-    const dataPoints: number[] = []
+    const avgWeightData: number[] = []
+    const est1rmData: number[] = []
+    const totalVolumeData: number[] = []
 
     for (const { session, exerciseExec } of relevantSessions) {
       let totalWeight = 0
+      let total1rm = 0
+      let totalVolume = 0
       let validSetsCount = 0
 
       for (const set of exerciseExec.sets) {
         if (set.reps > 0) {
           totalWeight += set.weight
+          total1rm += set.weight * (1 + set.reps / 30)
+          totalVolume += set.weight * set.reps
           validSetsCount++
         }
       }
 
       if (validSetsCount > 0) {
         labels.push(new Date(session.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
-        dataPoints.push(totalWeight / validSetsCount)
+        avgWeightData.push(totalWeight / validSetsCount)
+        est1rmData.push(total1rm / validSetsCount)
+        totalVolumeData.push(totalVolume)
       }
     }
 
@@ -83,6 +91,8 @@ class ExerciseHistoryChart {
     const textColor = isDarkMode ? '#e5e5e5' : '#262626'
     const gridColor = isDarkMode ? '#404040' : '#d4d4d4'
     const accentColor = '#3b82f6' // jim-accent roughly
+    const est1rmColor = '#10b981' // emerald-500
+    const volumeColor = '#8b5cf6' // violet-500
 
     this.chartInstance = new Chart(this.canvas, {
       type: 'line',
@@ -91,7 +101,7 @@ class ExerciseHistoryChart {
         datasets: [
           {
             label: 'Average Weight',
-            data: dataPoints,
+            data: avgWeightData,
             borderColor: accentColor,
             backgroundColor: accentColor + '33', // 20% opacity
             borderWidth: 2,
@@ -100,7 +110,36 @@ class ExerciseHistoryChart {
             pointBorderWidth: 2,
             pointRadius: 4,
             fill: true,
-            tension: 0.3
+            tension: 0.3,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Estimated 1RM (Avg)',
+            data: est1rmData,
+            borderColor: est1rmColor,
+            backgroundColor: est1rmColor + '33',
+            borderWidth: 2,
+            pointBackgroundColor: est1rmColor,
+            pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            fill: true,
+            tension: 0.3,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Total Volume',
+            data: totalVolumeData,
+            borderColor: volumeColor,
+            backgroundColor: volumeColor + '33',
+            borderWidth: 2,
+            pointBackgroundColor: volumeColor,
+            pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            fill: true,
+            tension: 0.3,
+            yAxisID: 'y1'
           }
         ]
       },
@@ -109,13 +148,16 @@ class ExerciseHistoryChart {
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            labels: {
+              color: textColor
+            }
           },
           tooltip: {
             callbacks: {
               label: (context) => {
                 const value = context.parsed.y !== null ? context.parsed.y.toFixed(1) : ''
-                return `${value} kg`
+                return `${context.dataset.label}: ${value}`
               }
             }
           }
@@ -133,6 +175,14 @@ class ExerciseHistoryChart {
             }
           },
           y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Weight',
+              color: textColor
+            },
             ticks: {
               color: textColor
             },
@@ -140,6 +190,23 @@ class ExerciseHistoryChart {
               color: gridColor
             },
             beginAtZero: false
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Volume',
+              color: textColor
+            },
+            ticks: {
+              color: textColor
+            },
+            grid: {
+              drawOnChartArea: false // only want the grid lines for one axis to show up
+            },
+            beginAtZero: true
           }
         }
       }
