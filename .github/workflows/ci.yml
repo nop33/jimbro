@@ -18,7 +18,7 @@ jobs:
       - name: Install client dependencies
         run: vp install
       - name: Install worker dependencies
-        run: cd worker && pnpm install
+        run: cd worker && vp install
 
   typecheck:
     needs: install
@@ -29,11 +29,8 @@ jobs:
         with:
           node-version: '22'
           cache: true
-      - run: vp install
       - name: Typecheck client
         run: tsc --noEmit
-      - name: Install worker dependencies
-        run: cd worker && pnpm install
       - name: Typecheck worker
         run: cd worker && npx tsc --noEmit
 
@@ -46,7 +43,6 @@ jobs:
         with:
           node-version: '22'
           cache: true
-      - run: vp install
       - name: Check formatting
         run: |
           vp fmt
@@ -61,7 +57,6 @@ jobs:
         with:
           node-version: '22'
           cache: true
-      - run: vp install
       - name: Lint
         run: vp lint
 
@@ -74,11 +69,8 @@ jobs:
         with:
           node-version: '22'
           cache: true
-      - run: vp install
       - name: Client unit tests
         run: vp test run
-      - name: Install worker dependencies
-        run: cd worker && pnpm install
       - name: Worker tests
         run: cd worker && pnpm test
 
@@ -92,7 +84,6 @@ jobs:
         with:
           node-version: '22'
           cache: true
-      - run: vp install
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(vp exec playwright --version)" >> $GITHUB_OUTPUT
