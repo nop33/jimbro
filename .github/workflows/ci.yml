@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - name: Install client dependencies
+        run: vp install
+      - name: Install worker dependencies
+        run: cd worker && vp install
+
+  typecheck:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      - name: Typecheck client
+        run: tsc --noEmit
+      - run: cd worker && vp install
+      - name: Typecheck worker
+        run: cd worker && vp exec tsc --noEmit
+
+  format:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      - name: Check formatting
+        run: |
+          vp fmt
+          git diff --exit-code || (echo "::error::Files not formatted. Run 'vp fmt' locally." && exit 1)
+
+  lint:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      - name: Lint
+        run: vp lint
+
+  unit-tests:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      - name: Client unit tests
+        run: vp test run
+      - run: cd worker && vp install
+      - name: Worker tests
+        run: cd worker && vp run test
+
+  e2e-tests:
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      - name: Install Playwright browsers
+        run: vp exec playwright install --with-deps
+      - name: Run Playwright tests
+        run: xvfb-run vp exec playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jimbro-backup",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-12",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [
+    {
+      "bucket_name": "jimbro-backups",
+      "binding": "BACKUP_BUCKET"
+    }
+  ]
+}

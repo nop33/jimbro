@@ -56,15 +56,10 @@ export class WorkoutSessionsStore {
     exerciseId: Exercise['id'],
     requiredSets: number
   ): Promise<WorkoutSession | undefined> {
-    return storage.getFirstByPredicate<WorkoutSession>(
-      this.storeName,
-      'date',
-      'prev',
-      (session) => {
-        const exercise = session.exercises.find((e) => e.exerciseId === exerciseId)
-        return !!exercise && exercise.sets.length >= requiredSets
-      }
-    )
+    return storage.getFirstByPredicate<WorkoutSession>(this.storeName, 'date', 'prev', (session) => {
+      const exercise = session.exercises.find((e) => e.exerciseId === exerciseId)
+      return !!exercise && exercise.sets.length >= requiredSets
+    })
   }
 
   async getDateOfFirstWorkoutSession(): Promise<string | undefined> {
