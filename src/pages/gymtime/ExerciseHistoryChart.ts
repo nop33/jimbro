@@ -39,16 +39,15 @@ class ExerciseHistoryChart {
     const sessions = await workoutSessionsStore.getAllWorkoutSessions()
 
     // Filter sessions that have this exercise and have completed sets
-    const relevantSessions = sessions.reduce<{ session: typeof sessions[number]; exerciseExec: typeof sessions[number]['exercises'][number] }[]>(
-      (acc, session) => {
-        const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)
-        if (exerciseExec && exerciseExec.sets.length > 0) {
-          acc.push({ session, exerciseExec })
-        }
-        return acc
-      },
-      []
-    )
+    const relevantSessions = sessions.reduce<
+      { session: (typeof sessions)[number]; exerciseExec: (typeof sessions)[number]['exercises'][number] }[]
+    >((acc, session) => {
+      const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)
+      if (exerciseExec && exerciseExec.sets.length > 0) {
+        acc.push({ session, exerciseExec })
+      }
+      return acc
+    }, [])
 
     // Sort chronologically
     relevantSessions.sort((a, b) => new Date(a.session.date).getTime() - new Date(b.session.date).getTime())

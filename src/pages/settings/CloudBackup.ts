@@ -9,7 +9,6 @@ import {
 import Toasts from '../../features/toasts'
 
 class CloudBackup {
-  private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
   private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
   private static userIdInput = document.querySelector('#cloud-userid') as HTMLInputElement
   private static tokenInput = document.querySelector('#cloud-token') as HTMLInputElement
