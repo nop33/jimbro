@@ -10,6 +10,8 @@ import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
+import { getCloudBackupConfig, uploadToCloud } from '../../db/cloudBackup'
+import Toasts from '../../features/toasts'
 
 export interface ExerciseCardConfig {
   exercise: Exercise
@@ -310,7 +312,14 @@ class ExerciseCard {
 
       if (updated.status === 'completed') {
         throwConfetti('Workout done!')
-        exportIndexedDbToJson()
+
+        if (getCloudBackupConfig()) {
+          uploadToCloud()
+            .then(() => Toasts.show({ message: 'Backup saved ☁️', type: 'success' }))
+            .catch((error) => Toasts.show({ message: `Backup failed: ${error.message}`, type: 'error' }))
+        } else {
+          exportIndexedDbToJson()
+        }
       } else {
         const isExerciseCompleted = this.exercise.sets === setIndex + 1
 
