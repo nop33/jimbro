@@ -1,5 +1,6 @@
 import { AuthEnv, resolveUserId } from './auth'
-import { countsFrom } from './types'
+import { checkShrinkGuard } from './shrinkGuard'
+import { countsFrom, ExportData } from './types'
 import { validateShape } from './validate'
 
 interface Env extends AuthEnv {
@@ -45,6 +46,29 @@ const handlePutSnapshot = async (request: Request, env: Env, userId: string) => 
 
   // Validate shape
   if (!validateShape(data)) return Response.json({ error: 'invalid_shape' }, { status: 400 })
+
+  // Shrink guard: compare against previous snapshot
+  const prevObject = await env.BACKUP_BUCKET.get(`users/${userId}/latest.json`)
+  if (prevObject) {
+    const prevData = await prevObject.json<ExportData>()
+    const prevCounts = countsFrom(prevData)
+    const nextCounts = countsFrom(data)
+    const force = new URL(request.url).searchParams.get('force') === '1'
+    const guard = checkShrinkGuard(prevCounts, nextCounts, force)
+
+    if (!guard.passed) {
+      return Response.json(
+        {
+          error: 'shrink_guard',
+          rule: guard.rule,
+          isHardRule: guard.isHardRule,
+          previous: prevCounts,
+          incoming: nextCounts
+        },
+        { status: 409 }
+      )
+    }
+  }
 
   // Write to R2 storage
   const timestamp = new Date().toISOString()
