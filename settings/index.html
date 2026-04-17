@@ -29,6 +29,26 @@
       <div class="app-page-content">
         <div class="flex flex-col gap-6">
           <div class="card card-hover">
+            <h2 class="text-xl font-bold mb-4">Cloud Backup</h2>
+            <div class="flex flex-col gap-2">
+              <label class="text-jim-neutral-secondary">
+                User ID
+                <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
+              </label>
+              <label class="text-jim-neutral-secondary">
+                Token
+                <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
+              </label>
+              <button id="cloud-save" class="btn-primary">Save credentials</button>
+              <div class="flex gap-2 mt-2">
+                <button id="cloud-backup-now" class="btn-secondary flex-1">Backup now</button>
+                <button id="cloud-restore" class="btn-secondary flex-1">Restore latest</button>
+              </div>
+              <p id="cloud-status" class="text-sm text-jim-neutral-tertiary mt-1"></p>
+            </div>
+          </div>
+
+          <div class="card card-hover">
             <h2 class="text-xl font-bold mb-4">Data Export</h2>
             <div class="flex flex-col gap-2">
               <button id="export-json" class="btn-primary">Export to JSON</button>

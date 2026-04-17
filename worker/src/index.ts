@@ -3,20 +3,17 @@ import { checkShrinkGuard } from './shrinkGuard'
 import { countsFrom, ExportData } from './types'
 import { validateShape } from './validate'
 
-const ALLOWED_ORIGIN = 'https://jimbro.nop33.com'
+const ALLOWED_ORIGINS = new Set(['https://jimbro.nop33.com', 'http://localhost:5173'])
 
-const corsHeaders: HeadersInit = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400'
-}
+const withCors = (request: Request, response: Response) => {
+  const origin = request.headers.get('Origin')
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) return response
 
-const withCors = (response: Response) => {
   const headers = new Headers(response.headers)
-  for (const [key, value] of Object.entries(corsHeaders)) {
-    headers.set(key, value)
-  }
+  headers.set('Access-Control-Allow-Origin', origin)
+  headers.set('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS')
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  headers.set('Access-Control-Max-Age', '86400')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
@@ -28,10 +25,10 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024 // 10MB
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
+    if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }))
 
     const response = await handleRequest(request, env)
-    return withCors(response)
+    return withCors(request, response)
   }
 } satisfies ExportedHandler<Env>
 
