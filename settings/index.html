@@ -29,50 +29,53 @@
       <div class="app-page-content">
         <div class="flex flex-col gap-6">
           <div class="card card-hover">
-            <h2 class="text-xl font-bold mb-4">Cloud Backup</h2>
-            <div class="flex flex-col gap-2">
-              <label class="text-jim-neutral-secondary">
-                User ID
-                <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
-              </label>
-              <label class="text-jim-neutral-secondary">
-                Token
-                <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
-              </label>
-              <button id="cloud-save" class="btn-primary">Save credentials</button>
-              <div class="flex gap-2 mt-2">
-                <button id="cloud-backup-now" class="btn-secondary flex-1">Backup now</button>
-                <button id="cloud-restore" class="btn-secondary flex-1">Restore latest</button>
+            <details id="cloud-backup-details">
+              <summary class="flex items-center justify-between">
+                <span class="text-xl font-bold text-jim-neutral">☁️ Cloud Backup</span>
+                <span id="cloud-summary-status" class="text-sm text-jim-neutral-tertiary"></span>
+              </summary>
+              <div class="flex flex-col gap-2 mt-4">
+                <label class="text-jim-neutral-secondary">
+                  User ID
+                  <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
+                </label>
+                <label class="text-jim-neutral-secondary">
+                  Token
+                  <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
+                </label>
+                <button id="cloud-save" class="btn-primary">Save credentials</button>
+                <div class="flex gap-2 mt-2">
+                  <button id="cloud-backup-now" class="btn-secondary flex-1">Backup now</button>
+                  <button id="cloud-restore" class="btn-secondary flex-1">Restore latest</button>
+                </div>
               </div>
-              <p id="cloud-status" class="text-sm text-jim-neutral-tertiary mt-1"></p>
-            </div>
+            </details>
           </div>
 
           <div class="card card-hover">
-            <h2 class="text-xl font-bold mb-4">Data Export</h2>
-            <div class="flex flex-col gap-2">
-              <button id="export-json" class="btn-primary">Export to JSON</button>
-            </div>
-          </div>
-
-          <div class="card card-hover">
-            <h2 class="text-xl font-bold mb-4">Data Import</h2>
-            <div class="flex flex-col gap-2">
-              <label for="import-input" class="block text-sm font-medium mb-2"> Import from JSON file </label>
-              <input
-                type="file"
-                id="import-input"
-                accept=".json"
-                class="w-full p-2 rounded border border-neutral-600"
-              />
-            </div>
-          </div>
-
-          <div class="card card-hover">
-            <h2 class="text-xl font-bold mb-4">Reset Database</h2>
-            <div class="flex flex-col gap-2">
-              <button id="reset-database" class="btn-primary btn-danger">Reset Database</button>
-            </div>
+            <details>
+              <summary class="text-xl font-bold text-jim-neutral">Manage local data</summary>
+              <div class="flex flex-col gap-6 mt-4">
+                <div>
+                  <h3 class="text-lg font-bold mb-2">Data Export</h3>
+                  <button id="export-json" class="btn-primary w-full">Export to JSON</button>
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold mb-2">Data Import</h3>
+                  <label for="import-input" class="block text-sm font-medium mb-2">Import from JSON file</label>
+                  <input
+                    type="file"
+                    id="import-input"
+                    accept=".json"
+                    class="w-full p-2 rounded border border-neutral-600"
+                  />
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold mb-2">Reset Database</h3>
+                  <button id="reset-database" class="btn-primary btn-danger w-full">Reset Database</button>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </div>

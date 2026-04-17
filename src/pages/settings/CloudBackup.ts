@@ -1,26 +1,56 @@
 import { importIndexedDbFromJson } from '../../db/import'
-import { getCloudBackupConfig, storeCloudBackupConfig, uploadToCloud, restoreFromCloud } from '../../db/cloudBackup'
+import {
+  getCloudBackupConfig,
+  getLastBackupDate,
+  storeCloudBackupConfig,
+  uploadToCloud,
+  restoreFromCloud
+} from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 
 class CloudBackup {
+  private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
+  private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
   private static userIdInput = document.querySelector('#cloud-userid') as HTMLInputElement
   private static tokenInput = document.querySelector('#cloud-token') as HTMLInputElement
   private static saveBtn = document.querySelector('#cloud-save') as HTMLButtonElement
   private static backupNowBtn = document.querySelector('#cloud-backup-now') as HTMLButtonElement
   private static restoreBtn = document.querySelector('#cloud-restore') as HTMLButtonElement
-  private static status = document.querySelector('#cloud-status') as HTMLParagraphElement
 
   static init() {
     const existingConfig = getCloudBackupConfig()
     if (existingConfig) {
       this.userIdInput.value = existingConfig.userId
       this.tokenInput.value = existingConfig.token
-      this.status.textContent = 'Credentials saved.'
     }
+
+    this.updateSummaryStatus()
 
     this.saveBtn.addEventListener('click', () => this.handleSave())
     this.backupNowBtn.addEventListener('click', () => this.handleBackup())
     this.restoreBtn.addEventListener('click', () => this.handleRestore())
+  }
+
+  private static updateSummaryStatus() {
+    const config = getCloudBackupConfig()
+    if (!config) {
+      this.summaryStatus.textContent = 'Not set up yet'
+      return
+    }
+
+    const lastDate = getLastBackupDate()
+    if (lastDate) {
+      const formatted = new Date(lastDate).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      this.summaryStatus.textContent = `${formatted}  ✅`
+    } else {
+      this.summaryStatus.textContent = 'No backup yet'
+    }
   }
 
   private static handleSave() {
@@ -34,7 +64,7 @@ class CloudBackup {
 
     storeCloudBackupConfig({ userId, token })
     Toasts.show({ message: 'Cloud backup credentials saved.' })
-    this.status.textContent = 'Credentials saved.'
+    this.updateSummaryStatus()
   }
 
   private static async handleBackup() {
@@ -44,13 +74,13 @@ class CloudBackup {
     }
 
     try {
-      this.status.textContent = 'Uploading...'
+      this.summaryStatus.textContent = 'Uploading...'
       await uploadToCloud()
       Toasts.show({ message: 'Backup uploaded!' })
-      this.status.textContent = `Last backup: ${new Date().toLocaleString()}`
+      this.updateSummaryStatus()
     } catch (error) {
       Toasts.show({ message: 'Backup failed.', type: 'error' })
-      this.status.textContent = 'Backup failed.'
+      this.updateSummaryStatus()
       console.error('❌ Cloud backup failed', error)
     }
   }
@@ -64,17 +94,17 @@ class CloudBackup {
     if (!confirm('This will merge cloud data into your local database. Continue?')) return
 
     try {
-      this.status.textContent = 'Restoring...'
+      this.summaryStatus.textContent = 'Restoring...'
       const response = await restoreFromCloud()
       const blob = await response.blob()
       const file = new File([blob], 'cloud-restore.json', { type: 'application/json' })
       await importIndexedDbFromJson(file)
       Toasts.show({ message: 'Restored from cloud!' })
-      this.status.textContent = `Restored: ${new Date().toLocaleString()}`
+      this.updateSummaryStatus()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Restore failed.'
       Toasts.show({ message, type: 'error' })
-      this.status.textContent = 'Restore failed.'
+      this.updateSummaryStatus()
       console.error('❌ Cloud restore failed', error)
     }
   }

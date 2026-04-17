@@ -2,12 +2,17 @@ import Toasts from '../features/toasts'
 import { buildExportData, type ExportData } from './export'
 
 const STORAGE_KEY = 'jimbro.cloudBackup'
+const LAST_BACKUP_KEY = 'jimbro.cloudBackup.lastDate'
 const API_BASE = 'https://api.jimbro.nop33.com'
 
 interface CloudBackupConfig {
   userId: string
   token: string
 }
+
+export const getLastBackupDate = (): string | null => localStorage.getItem(LAST_BACKUP_KEY)
+
+const storeLastBackupDate = () => localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString())
 
 export const getCloudBackupConfig = (): CloudBackupConfig | null => {
   const raw = localStorage.getItem(STORAGE_KEY)
@@ -61,6 +66,8 @@ export const uploadToCloud = async (data?: ExportData) => {
     const body = await res.json().catch(() => null)
     throw new Error(body?.error ?? `Upload failed: ${res.status}`)
   }
+
+  storeLastBackupDate()
 }
 
 export const restoreFromCloud = async (): Promise<Response> => {
