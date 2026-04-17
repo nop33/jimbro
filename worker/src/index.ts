@@ -3,6 +3,23 @@ import { checkShrinkGuard } from './shrinkGuard'
 import { countsFrom, ExportData } from './types'
 import { validateShape } from './validate'
 
+const ALLOWED_ORIGIN = 'https://jimbro.nop33.com'
+
+const corsHeaders: HeadersInit = {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400'
+}
+
+const withCors = (response: Response) => {
+  const headers = new Headers(response.headers)
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    headers.set(key, value)
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+}
+
 interface Env extends AuthEnv {
   BACKUP_BUCKET: R2Bucket
 }
@@ -11,25 +28,30 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024 // 10MB
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-    const path = url.pathname
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
 
-    // Auth: Resolve userId from bearer token
-    const userId = resolveUserId(request.headers.get('Authorization'), env)
-
-    if (path.startsWith('/api/')) {
-      if (!userId) return Response.json({ error: 'unauthorized' }, { status: 401 })
-
-      if (path === '/api/ping' && request.method === 'GET') return Response.json({ ok: true, userId })
-      if (path === '/api/snapshot' && request.method === 'PUT') return handlePutSnapshot(request, env, userId)
-      if (path === '/api/snapshot/latest' && request.method === 'GET') return handleGetLatestSnapshot(env, userId)
-
-      return Response.json({ error: 'not found' }, { status: 404 })
-    }
-
-    return Response.json({ error: 'not found' }, { status: 404 })
+    const response = await handleRequest(request, env)
+    return withCors(response)
   }
 } satisfies ExportedHandler<Env>
+
+const handleRequest = async (request: Request, env: Env) => {
+  const url = new URL(request.url)
+  const path = url.pathname
+
+  // Auth: Resolve userId from bearer token
+  const userId = resolveUserId(request.headers.get('Authorization'), env)
+
+  if (path.startsWith('/api/')) {
+    if (!userId) return Response.json({ error: 'unauthorized' }, { status: 401 })
+
+    if (path === '/api/ping' && request.method === 'GET') return Response.json({ ok: true, userId })
+    if (path === '/api/snapshot' && request.method === 'PUT') return handlePutSnapshot(request, env, userId)
+    if (path === '/api/snapshot/latest' && request.method === 'GET') return handleGetLatestSnapshot(env, userId)
+  }
+
+  return Response.json({ error: 'not found' }, { status: 404 })
+}
 
 const handlePutSnapshot = async (request: Request, env: Env, userId: string) => {
   // Check payload size
