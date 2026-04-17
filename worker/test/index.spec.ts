@@ -1,12 +1,6 @@
 import { env, SELF } from 'cloudflare:test'
 import { describe, it, expect } from 'vitest'
 
-const AUTH_HEADER = {
-  Authorization: `Bearer ${
-    JSON.parse(env.AUTH_TOKENS as string).constructor ? Object.keys(JSON.parse(env.AUTH_TOKENS))[0] : ''
-  }`
-}
-
 describe('auth', () => {
   it('returns 401 with no token', async () => {
     const res = await SELF.fetch('https://example.com/api/ping')
