@@ -15,54 +15,65 @@
       </header>
       <div class="app-page-content" id="stats-content">
         <div class="flex flex-col gap-4 p-4 pb-24">
-          <!-- Workouts Card -->
-          <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-            <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Workout Sessions</h2>
-            <div class="flex items-end gap-3">
-              <span id="stat-completed-sessions" class="text-4xl font-bold text-white">0</span>
-              <span id="stat-uncompleted-sessions" class="text-sm text-neutral-500 mb-1 hidden"></span>
-            </div>
-          </div>
-
-          <!-- Volume Card -->
-          <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-            <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Total Volume</h2>
-            <div class="flex items-end gap-3">
-              <span id="stat-total-volume" class="text-4xl font-bold text-white">0</span>
-              <span class="text-sm text-neutral-500 mb-1">lbs/kg</span>
-            </div>
-          </div>
-
-          <!-- Exercises & Sets Grid -->
+          <!-- Row 1: Working Out Since & Days Active -->
           <div class="grid grid-cols-2 gap-4">
-            <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Exercises</h2>
-              <div id="stat-total-exercises" class="text-3xl font-bold text-white">0</div>
+            <div
+              id="stat-since-card"
+              class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm hidden"
+            >
+              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Working Out Since</h2>
+              <div id="stat-since-date" class="text-lg font-bold text-white"></div>
+              <div id="stat-since-duration" class="text-sm text-neutral-400 mt-1"></div>
             </div>
 
-            <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Sets</h2>
-              <div id="stat-total-sets" class="text-3xl font-bold text-white">0</div>
-            </div>
-          </div>
-
-          <!-- Reps Card -->
-          <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-            <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Total Reps</h2>
-            <div id="stat-total-reps" class="text-3xl font-bold text-white">0</div>
-          </div>
-
-          <!-- Consistency Grid -->
-          <div class="grid grid-cols-2 gap-4">
             <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
               <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Days Active</h2>
               <div id="stat-days-active" class="text-3xl font-bold text-white">0</div>
             </div>
+          </div>
+
+          <!-- Row 2: Workout Sessions & Total Exercises -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Workout Sessions</h2>
+              <div class="flex items-end gap-3">
+                <span id="stat-completed-sessions" class="text-3xl font-bold text-white">0</span>
+                <span id="stat-uncompleted-sessions" class="text-sm text-neutral-500 mb-1 hidden"></span>
+              </div>
+            </div>
 
             <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
-              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Avg Workouts/Wk</h2>
-              <div id="stat-avg-workouts" class="text-3xl font-bold text-white">0</div>
+              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Exercises</h2>
+              <div id="stat-total-exercises" class="text-3xl font-bold text-white">0</div>
             </div>
+          </div>
+
+          <!-- Row 3: Total Sets & Total Reps -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Sets</h2>
+              <div id="stat-total-sets" class="text-3xl font-bold text-white">0</div>
+            </div>
+
+            <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+              <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Total Reps</h2>
+              <div id="stat-total-reps" class="text-3xl font-bold text-white">0</div>
+            </div>
+          </div>
+
+          <!-- Row 4: Total Volume -->
+          <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+            <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Total Volume</h2>
+            <div class="flex items-end gap-3">
+              <span id="stat-total-volume" class="text-4xl font-bold text-white">0</span>
+              <span class="text-sm text-neutral-500 mb-1">kg/lbs</span>
+            </div>
+          </div>
+
+          <!-- Row 5: Avg Workouts/Wk -->
+          <div class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
+            <h2 class="text-sm text-neutral-400 font-semibold mb-3 uppercase tracking-wider">Avg Workouts/Wk</h2>
+            <div id="stat-avg-workouts" class="text-3xl font-bold text-white">0</div>
           </div>
         </div>
       </div>
