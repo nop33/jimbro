@@ -11,7 +11,8 @@ export default defineConfig({
         programs: 'programs/index.html',
         settings: 'settings/index.html',
         workouts: 'workouts/index.html',
-        gymtime: 'gymtime/index.html'
+        gymtime: 'gymtime/index.html',
+        stats: 'stats/index.html'
       }
     }
   },
