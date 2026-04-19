@@ -39,8 +39,11 @@
         </button>
       </header>
       <div class="app-page-content">
-        <div id="intro" class="text-center text-lg mb-4 bg-jim-dark-blue p-4 rounded-lg">
-          <!-- Intro text will be rendered here -->
+        <div class="flex items-center gap-3 mb-4">
+          <div id="intro" class="text-center text-lg bg-jim-dark-blue p-4 rounded-lg flex-1">
+            <!-- Intro text will be rendered here -->
+          </div>
+          <button id="workout-mode-badge" class="btn-secondary text-xs px-3 py-2 light-haptic shrink-0"></button>
         </div>
         <div id="workout-weeks" class="flex flex-col gap-6">
           <!-- Workout weeks will be rendered here -->
@@ -55,7 +58,7 @@
                 <!-- -->
               </span>
             </h2>
-            <ul class="workout-week-list grid grid-cols-3 gap-2 items-stretch">
+            <ul class="workout-week-list grid gap-2 items-stretch">
               <!-- Workout items will be rendered here -->
             </ul>
           </div>
@@ -123,6 +126,50 @@
           </a>
         </li>
       </template>
+    </dialog>
+
+    <dialog id="workout-mode-dialog">
+      <header class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Workout Mode</h2>
+        <button
+          type="button"
+          class="close-dialog-btn border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200"
+          aria-label="Close dialog"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+      <div class="flex flex-col gap-4">
+        <fieldset>
+          <legend class="text-jim-neutral-secondary text-sm font-semibold mb-2">Mode</legend>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="workout-mode" value="rotation" class="accent-jim-accent" />
+              <span>Rotation</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="workout-mode" value="freestyle" class="accent-jim-accent" />
+              <span>Freestyle</span>
+            </label>
+          </div>
+        </fieldset>
+        <div id="weekly-goal-container" class="hidden">
+          <label class="text-jim-neutral-secondary">
+            Weekly workout goal
+            <input type="number" id="weekly-goal-input" min="1" max="7" value="3" class="mt-2" />
+          </label>
+        </div>
+        <p id="workout-mode-description" class="text-sm text-jim-neutral-tertiary"></p>
+      </div>
     </dialog>
 
     <script type="module" src="../src/pages/workouts/index.ts"></script>

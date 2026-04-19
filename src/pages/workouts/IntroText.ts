@@ -1,8 +1,8 @@
 import { getWeekOfYear } from '../../dateUtils'
+import { db } from '../../db'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { hasExercises, hasPrograms } from '../../db/utils'
-
-const WORKOUTS_PER_WEEK = 3
+import { getEffectiveWorkoutsPerWeek } from '../../settings'
 
 class IntroText {
   private static introText = document.querySelector('#intro') as HTMLDivElement
@@ -15,12 +15,16 @@ class IntroText {
       (workoutSession) => workoutSession.status === 'completed'
     )
 
-    if (thisWeekCompletedWorkoutSessions.length > 0 && thisWeekCompletedWorkoutSessions.length < WORKOUTS_PER_WEEK) {
-      const remainingWorkouts = WORKOUTS_PER_WEEK - thisWeekCompletedWorkoutSessions.length
+    const programNames = await db.programs.getNameMap()
+    const programCount = Object.keys(programNames).length
+    const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
+
+    if (thisWeekCompletedWorkoutSessions.length > 0 && thisWeekCompletedWorkoutSessions.length < workoutsPerWeek) {
+      const remainingWorkouts = workoutsPerWeek - thisWeekCompletedWorkoutSessions.length
       this.introText.textContent = `You have ${remainingWorkouts} ${
         remainingWorkouts === 1 ? 'workout' : 'workouts'
       } left this week.`
-    } else if (thisWeekCompletedWorkoutSessions.length === WORKOUTS_PER_WEEK) {
+    } else if (thisWeekCompletedWorkoutSessions.length >= workoutsPerWeek) {
       this.introText.textContent = `You have completed all your workouts this week! 💪`
     } else if (await hasPrograms()) {
       this.introText.textContent = `You have not completed any workouts this week. Time to get sweating! 💦`
