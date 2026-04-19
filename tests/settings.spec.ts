@@ -9,12 +9,15 @@ test.describe('Settings Page', () => {
     await expect(page).toHaveTitle(/Jimbro - Settings/)
     await expect(page.locator('h1')).toContainText('Settings')
 
+    await page.getByText('Manage local data').click()
     await expect(page.getByRole('heading', { name: 'Data Export' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Data Import' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Reset Database' })).toBeVisible()
   })
 
   test('reset database shows confirmation and performs reset', async ({ page }) => {
+    await page.getByText('Manage local data').click()
+
     page.on('dialog', async (dialog) => {
       expect(dialog.message()).toContain('Are you sure you want to reset the database?')
       await dialog.accept()
@@ -27,6 +30,7 @@ test.describe('Settings Page', () => {
   })
 
   test('export database triggers download', async ({ page }) => {
+    await page.getByText('Manage local data').click()
     const exportBtn = page.getByRole('button', { name: 'Export to JSON' })
 
     const downloadPromise = page.waitForEvent('download')

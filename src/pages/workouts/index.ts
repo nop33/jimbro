@@ -5,19 +5,23 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
+import WorkoutModeDialog from './WorkoutModeDialog'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
-
-const WORKOUTS_PER_WEEK = 3
+import { getWorkoutModeSettings, getEffectiveWorkoutsPerWeek } from '../../settings'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await db.programs.getNameMap()
 const _isDbEmpty = await isDbEmpty()
+const settings = getWorkoutModeSettings()
+const programCount = Object.keys(programNames).length
+const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
 
 await IntroText.render()
 NewWorkoutDialog.init()
+WorkoutModeDialog.init()
 
 const todayDate = new Date()
 const today = getSimpleDate(todayDate)
@@ -97,8 +101,14 @@ if (_isDbEmpty) {
 } else {
   weeksKeys.forEach((weekKey) => {
     const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
+
+    if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && weekKey !== currentWeekKey) {
+      return
+    }
+
     const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
     const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('.workout-week-list') as HTMLUListElement
+    workoutsOfThisWeekList.style.gridTemplateColumns = `repeat(${workoutsPerWeek}, minmax(0, 1fr))`
 
     const { year, week } = extractWeekKeyNumbers(weekKey)
     setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
@@ -109,7 +119,7 @@ if (_isDbEmpty) {
       workoutsOfThisWeekList.appendChild(workoutItem)
     })
 
-    if (workoutsOfThisWeek.length < WORKOUTS_PER_WEEK) {
+    if (settings.mode === 'rotation' && workoutsOfThisWeek.length < workoutsPerWeek) {
       const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
       const missingProgramsIds = Object.keys(programNames).filter(
         (programId) => !recordedWorkoutPrograms.includes(programId)
