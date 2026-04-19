@@ -33,7 +33,7 @@ export class ExercisesStore extends BaseStore<Exercise> {
 
   async getAll(): Promise<Array<Exercise>> {
     const all = await super.getAll()
-    return all.filter((exercise) => !exercise.isDeleted)
+    return all.filter((exercise) => !exercise.isDeleted).sort((a, b) => a.name.localeCompare(b.name))
   }
 
   async seed(): Promise<void> {
