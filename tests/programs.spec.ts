@@ -4,6 +4,7 @@ test.describe('Programs Page', () => {
   test.beforeEach(async ({ page }) => {
     // Reset database to ensure clean state
     await page.goto('/settings/')
+    await page.getByText('Manage local data').click()
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: 'Reset Database' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Database reset')

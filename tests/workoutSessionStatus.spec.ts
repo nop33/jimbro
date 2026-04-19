@@ -149,6 +149,7 @@ async function buildCompletedExercisesFor(page: Page, programId: string) {
 test.describe('Workout session status reconciliation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/settings/')
+    await page.getByText('Manage local data').click()
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: 'Reset Database' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
