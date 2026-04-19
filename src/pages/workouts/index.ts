@@ -108,7 +108,7 @@ if (_isDbEmpty) {
 
     const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
     const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('.workout-week-list') as HTMLUListElement
-    workoutsOfThisWeekList.style.gridTemplateColumns = `repeat(${workoutsPerWeek}, minmax(0, 1fr))`
+    workoutsOfThisWeekList.style.gridTemplateColumns = `repeat(3, minmax(0, 1fr))`
 
     const { year, week } = extractWeekKeyNumbers(weekKey)
     setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
