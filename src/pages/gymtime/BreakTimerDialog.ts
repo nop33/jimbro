@@ -4,6 +4,7 @@ import { playDingSound } from './sound'
 
 class BreakTimerDialog {
   private static dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+  private static minimizeButton = this.dialog.querySelector('#minimize-break') as HTMLButtonElement
   private static countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
   private static countdownInterval: ReturnType<typeof setInterval> | null = null
   private static skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
@@ -15,13 +16,39 @@ class BreakTimerDialog {
   private static hasPlayedSound = false
   private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
   private static currentExercise: Exercise | null = null
+  private static isMinimized = false
 
   static init() {
     this.skipBreakButton.addEventListener('click', () => this.closeDialog())
+    this.minimizeButton.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.minimizeDialog()
+    })
+    this.dialog.addEventListener('click', () => {
+      if (this.isMinimized) {
+        this.maximizeDialog()
+      }
+    })
     this.viewHistoryButton.addEventListener('click', () => {
       if (this.currentExercise) ExerciseHistoryChart.openDialog(this.currentExercise)
     })
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
+  }
+
+  private static minimizeDialog() {
+    this.isMinimized = true
+    this.dialog.close()
+    this.dialog.classList.remove('dialog-full-screen')
+    this.dialog.classList.add('dialog-minimized')
+    this.dialog.show()
+  }
+
+  private static maximizeDialog() {
+    this.isMinimized = false
+    this.dialog.close()
+    this.dialog.classList.remove('dialog-minimized')
+    this.dialog.classList.add('dialog-full-screen')
+    this.dialog.showModal()
   }
 
   private static handleVisibilityChange() {
@@ -98,7 +125,12 @@ class BreakTimerDialog {
   }
 
   private static openDialog() {
+    this.isMinimized = false
+    this.dialog.classList.remove('dialog-minimized')
     this.dialog.classList.add('dialog-full-screen')
+    if (this.dialog.open) {
+      this.dialog.close()
+    }
     this.dialog.showModal()
   }
 
@@ -114,7 +146,9 @@ class BreakTimerDialog {
     this.targetTime = null
     this.hasPlayedSound = false
     this.currentExercise = null
+    this.isMinimized = false
     this.dialog.classList.remove('dialog-full-screen')
+    this.dialog.classList.remove('dialog-minimized')
     this.dialog.close()
   }
 }
