@@ -4,6 +4,7 @@ import type { Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import BreakTimerDialog from './BreakTimerDialog'
@@ -349,9 +350,11 @@ class ExerciseCard {
             }
           }
 
+          const breakTimeSeconds = getBreakTimeSeconds()
+
           BreakTimerDialog.startTimer({
-            minutes: 2,
-            seconds: 30,
+            minutes: Math.floor(breakTimeSeconds / 60),
+            seconds: breakTimeSeconds % 60,
             setsDone: setIndex + 1,
             setsTotal: this.exercise.sets,
             nextExercise: nextExercise?.name,
