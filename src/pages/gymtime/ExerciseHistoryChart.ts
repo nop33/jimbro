@@ -56,6 +56,7 @@ class ExerciseHistoryChart {
     const avgWeightData: number[] = []
     const est1rmData: number[] = []
     const totalVolumeData: number[] = []
+    const locationsData: string[] = []
 
     for (const { session, exerciseExec } of relevantSessions) {
       let totalWeight = 0
@@ -77,8 +78,35 @@ class ExerciseHistoryChart {
         avgWeightData.push(totalWeight / validSetsCount)
         est1rmData.push(total1rm / validSetsCount)
         totalVolumeData.push(totalVolume)
+        locationsData.push(session.location || '')
       }
     }
+
+    // Map locations to distinct point shapes
+    const AVAILABLE_SHAPES = [
+      'rect',
+      'triangle',
+      'rectRot',
+      'star',
+      'crossRot',
+      'rectRounded',
+      'cross',
+      'dash',
+      'line'
+    ] as const
+
+    const locationToShapeMap = new Map<string, string>()
+    let shapeIndex = 0
+
+    const pointStylesData = locationsData.map((loc) => {
+      if (!loc) return 'circle'
+
+      if (!locationToShapeMap.has(loc)) {
+        locationToShapeMap.set(loc, AVAILABLE_SHAPES[shapeIndex % AVAILABLE_SHAPES.length])
+        shapeIndex++
+      }
+      return locationToShapeMap.get(loc)!
+    })
 
     if (this.chartInstance) {
       this.chartInstance.destroy()
@@ -108,6 +136,8 @@ class ExerciseHistoryChart {
             pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
             pointBorderWidth: 2,
             pointRadius: 4,
+            pointHoverRadius: 6,
+            pointStyle: pointStylesData,
             fill: true,
             tension: 0.3,
             yAxisID: 'y'
@@ -122,6 +152,8 @@ class ExerciseHistoryChart {
             pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
             pointBorderWidth: 2,
             pointRadius: 4,
+            pointHoverRadius: 6,
+            pointStyle: pointStylesData,
             fill: true,
             tension: 0.3,
             yAxisID: 'y'
@@ -136,6 +168,8 @@ class ExerciseHistoryChart {
             pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
             pointBorderWidth: 2,
             pointRadius: 4,
+            pointHoverRadius: 6,
+            pointStyle: pointStylesData,
             fill: true,
             tension: 0.3,
             yAxisID: 'y1'
@@ -157,6 +191,10 @@ class ExerciseHistoryChart {
               label: (context) => {
                 const value = context.parsed.y !== null ? context.parsed.y.toFixed(1) : ''
                 return `${context.dataset.label}: ${value}`
+              },
+              afterLabel: (context) => {
+                const location = locationsData[context.dataIndex]
+                return location ? `Location: ${location}` : ''
               }
             }
           }
