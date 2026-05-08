@@ -29,6 +29,30 @@
       <div class="app-page-content">
         <div class="flex flex-col gap-6">
           <div class="card card-hover">
+            <details id="workout-settings-details">
+              <summary class="flex items-center justify-between">
+                <span class="text-xl font-bold text-jim-neutral">⏱️ Workout Settings</span>
+              </summary>
+              <div class="flex flex-col gap-4 mt-4">
+                <div>
+                  <h3 class="text-lg font-bold mb-2">Break Time</h3>
+                  <div class="flex gap-4 items-center">
+                    <label class="text-jim-neutral-secondary flex flex-col flex-1">
+                      Minutes
+                      <input type="number" id="break-minutes" min="0" max="59" class="mt-2" />
+                    </label>
+                    <label class="text-jim-neutral-secondary flex flex-col flex-1">
+                      Seconds
+                      <input type="number" id="break-seconds" min="0" max="59" class="mt-2" />
+                    </label>
+                  </div>
+                  <button id="save-break-time" class="btn-primary mt-4 w-full">Save Break Time</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="card card-hover">
             <details id="cloud-backup-details">
               <summary class="flex items-center justify-between">
                 <span class="text-xl font-bold text-jim-neutral">☁️ Cloud Backup</span>

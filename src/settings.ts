@@ -32,3 +32,18 @@ export const getEffectiveWorkoutsPerWeek = (programCount: number): number => {
   const settings = getWorkoutModeSettings()
   return settings.mode === 'rotation' ? programCount : settings.weeklyGoal
 }
+
+const BREAK_TIME_STORAGE_KEY = 'jimbro.breakTime'
+const DEFAULT_BREAK_TIME_SECONDS = 150
+
+export const getBreakTimeSeconds = (): number => {
+  const raw = localStorage.getItem(BREAK_TIME_STORAGE_KEY)
+  if (!raw) return DEFAULT_BREAK_TIME_SECONDS
+
+  const parsed = parseInt(raw, 10)
+  return isNaN(parsed) ? DEFAULT_BREAK_TIME_SECONDS : parsed
+}
+
+export const storeBreakTimeSeconds = (seconds: number) => {
+  localStorage.setItem(BREAK_TIME_STORAGE_KEY, seconds.toString())
+}
