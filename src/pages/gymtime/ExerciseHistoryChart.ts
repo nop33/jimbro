@@ -1,5 +1,6 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
 import Chart from 'chart.js/auto'
 
@@ -50,7 +51,9 @@ class ExerciseHistoryChart {
     }, [])
 
     // Sort chronologically
-    relevantSessions.sort((a, b) => new Date(a.session.date).getTime() - new Date(b.session.date).getTime())
+    relevantSessions.sort(
+      (a, b) => parseSimpleDate(a.session.date).getTime() - parseSimpleDate(b.session.date).getTime()
+    )
 
     const labels: string[] = []
     const avgWeightData: number[] = []
@@ -74,7 +77,7 @@ class ExerciseHistoryChart {
       }
 
       if (validSetsCount > 0) {
-        labels.push(new Date(session.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+        labels.push(parseSimpleDate(session.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
         avgWeightData.push(totalWeight / validSetsCount)
         est1rmData.push(total1rm / validSetsCount)
         totalVolumeData.push(totalVolume)
