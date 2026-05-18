@@ -1,4 +1,5 @@
 import { OBJECT_STORES } from './constants'
+import { getSimpleDate } from '../dateUtils'
 import { storage } from './storage'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
@@ -32,7 +33,7 @@ export const downloadExportDataAsFile = (data: ExportData) => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `jimbro-export-${new Date().toISOString().split('T')[0]}.json`
+  a.download = `jimbro-export-${getSimpleDate(new Date())}.json`
   a.click()
   URL.revokeObjectURL(url)
 }

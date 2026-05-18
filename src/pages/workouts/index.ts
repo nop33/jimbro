@@ -2,7 +2,13 @@ import { db } from '../../db'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import { extractWeekKeyNumbers, getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow } from '../../dateUtils'
+import {
+  extractWeekKeyNumbers,
+  getSimpleDate,
+  getWeekOfYear,
+  getWeeksKeysFromDateToNow,
+  parseSimpleDate
+} from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
@@ -27,7 +33,7 @@ const todayDate = new Date()
 const today = getSimpleDate(todayDate)
 const currentWeekKey = getWeekOfYear(todayDate)
 const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
-const weeksKeys = getWeeksKeysFromDateToNow(new Date(dateOfFirstWorkoutSession)).reverse()
+const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession)).reverse()
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
   const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
@@ -47,7 +53,7 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   }
 
   if (workoutSession.date) {
-    const dateObj = new Date(workoutSession.date)
+    const dateObj = parseSimpleDate(workoutSession.date)
     const formattedDate = dateObj.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric'

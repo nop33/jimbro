@@ -46,10 +46,11 @@ export class WorkoutSessionsStore {
   }
 
   async getLatestCompletedWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
+    const { parseSimpleDate } = await import('../../dateUtils')
     const programSessions = await storage.getAllByIndex<WorkoutSession>(this.storeName, 'programId', programId)
     return programSessions
       .filter((session) => session.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+      .sort((a, b) => parseSimpleDate(b.date).getTime() - parseSimpleDate(a.date).getTime())[0]
   }
 
   async getLatestWorkoutSessionWithCompletedExercise(
@@ -72,12 +73,12 @@ export class WorkoutSessionsStore {
   }
 
   async getAllWorkoutSessionsGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
-    const { getWeekOfYear } = await import('../../dateUtils')
+    const { getWeekOfYear, parseSimpleDate } = await import('../../dateUtils')
     const workoutSessions = await this.getAllWorkoutSessions()
 
     const grouped = workoutSessions.reduce(
       (acc, workoutSession) => {
-        const week = getWeekOfYear(new Date(workoutSession.date))
+        const week = getWeekOfYear(parseSimpleDate(workoutSession.date))
         if (acc[week]) {
           acc[week].push(workoutSession)
         } else {
@@ -89,7 +90,7 @@ export class WorkoutSessionsStore {
     )
 
     for (const week in grouped) {
-      grouped[week].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      grouped[week].sort((a, b) => parseSimpleDate(a.date).getTime() - parseSimpleDate(b.date).getTime())
     }
 
     return grouped
