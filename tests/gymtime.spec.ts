@@ -38,7 +38,7 @@ test.describe('Gymtime Page', () => {
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.click() // Expand the details
+    await firstExercise.locator('summary').click() // Expand the details
 
     // Check form is visible
     const setForm = firstExercise.locator('.next-set-form').first()
@@ -48,14 +48,10 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-reps"]').first().fill('10')
     await setForm.locator('input[name="set-weight"]').first().fill('100')
 
-    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
-    // if the form submit isn't fully registered
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
-    await finishBtn.scrollIntoViewIfNeeded()
+    await expect(finishBtn).toBeVisible()
+    await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
-
-    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    await setForm.locator('button:has-text("Finished set")').click({ force: true })
 
     // 4. Wait for event to trigger break timer
     const breakTimer = page.locator('#break-countdown-dialog')
@@ -72,7 +68,7 @@ test.describe('Gymtime Page', () => {
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.click() // Expand the details
+    await firstExercise.locator('summary').click() // Expand the details
 
     const setForm = firstExercise.locator('.next-set-form').first()
     await expect(setForm).toBeVisible()
@@ -81,16 +77,10 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-reps"]').first().fill('10')
     await setForm.locator('input[name="set-weight"]').first().fill('100')
 
-    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
-    // if the form submit isn't fully registered
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
-    await finishBtn.scrollIntoViewIfNeeded()
+    await expect(finishBtn).toBeVisible()
+    await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
-
-    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    // Try both pressing enter and a forced click as fallbacks
-    // Try both pressing enter and a forced click as fallbacks
-    await setForm.locator('button:has-text("Finished set")').click({ force: true })
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')
@@ -182,7 +172,7 @@ test.describe('Gymtime Page', () => {
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.click() // Expand the details
+    await firstExercise.locator('summary').click() // Expand the details
 
     const setForm = firstExercise.locator('.next-set-form').first()
     await expect(setForm).toBeVisible()
@@ -191,16 +181,10 @@ test.describe('Gymtime Page', () => {
     await setForm.locator('input[name="set-reps"]').first().fill('10')
     await setForm.locator('input[name="set-weight"]').first().fill('100')
 
-    // Scroll the button into view and click it. Sometimes force click can be flaky in Mobile Safari
-    // if the form submit isn't fully registered
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
-    await finishBtn.scrollIntoViewIfNeeded()
+    await expect(finishBtn).toBeVisible()
+    await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
-
-    // Using force click or locator because standard click seems to timeout sometimes if it thinks something overlays it
-    // Try both pressing enter and a forced click as fallbacks
-    // Try both pressing enter and a forced click as fallbacks
-    await setForm.locator('button:has-text("Finished set")').click({ force: true })
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')
