@@ -55,8 +55,19 @@ export class WorkoutSessionsStore {
 
   async getLatestWorkoutSessionWithCompletedExercise(
     exerciseId: Exercise['id'],
-    requiredSets: number
+    requiredSets: number,
+    location?: string
   ): Promise<WorkoutSession | undefined> {
+    const session = await storage.getFirstByPredicate<WorkoutSession>(this.storeName, 'date', 'prev', (session) => {
+      if (location && session.location !== location) return false
+      const exercise = session.exercises.find((e) => e.exerciseId === exerciseId)
+      return !!exercise && exercise.sets.length >= requiredSets
+    })
+
+    if (session) return session
+    if (!location) return undefined
+
+    // Fallback to ignoring location
     return storage.getFirstByPredicate<WorkoutSession>(this.storeName, 'date', 'prev', (session) => {
       const exercise = session.exercises.find((e) => e.exerciseId === exerciseId)
       return !!exercise && exercise.sets.length >= requiredSets
