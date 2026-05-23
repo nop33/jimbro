@@ -50,7 +50,6 @@ test.describe('Gymtime Page', () => {
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
     await expect(finishBtn).toBeVisible()
-    await page.waitForTimeout(100) // Wait for the disabled timeout to clear
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
 
@@ -80,7 +79,6 @@ test.describe('Gymtime Page', () => {
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
     await expect(finishBtn).toBeVisible()
-    await page.waitForTimeout(100) // Wait for the disabled timeout to clear
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
 
@@ -185,7 +183,6 @@ test.describe('Gymtime Page', () => {
 
     const finishBtn = setForm.getByRole('button', { name: 'Finished set' }).first()
     await expect(finishBtn).toBeVisible()
-    await page.waitForTimeout(100) // Wait for the disabled timeout to clear
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
 
