@@ -1,8 +1,10 @@
 export const getWeekOfYear = (date: Date): string => {
-  const oneJan = new Date(date.getFullYear(), 0, 1)
-  const numberOfDays = Math.floor((date.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000))
-  const weekNumber = Math.ceil((oneJan.getDay() + numberOfDays) / 7)
   const year = date.getFullYear()
+  const month = date.getMonth()
+  const day = date.getDate()
+  const oneJan = new Date(year, 0, 1)
+  const numberOfDays = Math.floor((Date.UTC(year, month, day) - Date.UTC(year, 0, 1)) / (24 * 60 * 60 * 1000))
+  const weekNumber = Math.ceil((oneJan.getDay() + numberOfDays) / 7)
 
   return constructWeekKey(weekNumber === 53 ? { year: year + 1, week: 1 } : { year, week: weekNumber })
 }
@@ -10,7 +12,7 @@ export const getWeekOfYear = (date: Date): string => {
 export const getWeeksKeysFromDateToNow = (date: Date, now = new Date()): string[] => {
   const weeks: string[] = []
   const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const endDate = parseSimpleDate(getSimpleDate(now))
 
   while (currentDate <= endDate) {
     const week = getWeekOfYear(currentDate)
@@ -19,6 +21,11 @@ export const getWeeksKeysFromDateToNow = (date: Date, now = new Date()): string[
     }
 
     currentDate.setDate(currentDate.getDate() + 1)
+  }
+
+  const currentWeek = getWeekOfYear(now)
+  if (!weeks.includes(currentWeek)) {
+    weeks.push(currentWeek)
   }
 
   return weeks
