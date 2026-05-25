@@ -11,6 +11,7 @@ import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
+import LastSetDialog from './LastSetDialog'
 import { getCloudBackupConfig, uploadToCloud } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 
@@ -48,6 +49,7 @@ class ExerciseCard {
     const moveUpBtn = template.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
     const moveDownBtn = template.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
     const viewHistoryBtn = template.querySelector('.view-history-btn') as HTMLButtonElement
+    const viewLastSetBtn = template.querySelector('.view-last-set-btn') as HTMLButtonElement
 
     cardDiv.setAttribute('data-exercise-id', this.exercise.id)
 
@@ -181,12 +183,29 @@ class ExerciseCard {
     if (!existingExercise || existingExercise.sets.length < this.exercise.sets) {
       await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
     } else {
-      nextSetDiv.remove()
+      nextSetDiv.classList.add('hidden')
     }
 
     viewHistoryBtn.addEventListener('click', () => {
       ExerciseHistoryChart.openDialog(this.exercise)
     })
+
+    const lastSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
+      this.exercise.id,
+      1,
+      session?.location
+    )
+
+    if (lastSession) {
+      viewLastSetBtn.addEventListener('click', () => {
+        const lastExercise = lastSession.exercises.find((e) => e.exerciseId === this.exercise.id)
+        if (lastExercise) {
+          LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
+        }
+      })
+    } else {
+      viewLastSetBtn.classList.add('hidden')
+    }
 
     return template
   }
@@ -308,7 +327,7 @@ class ExerciseCard {
       if (setIndex + 1 === this.exercise.sets) {
         detailsAnimation.close()
         cardDiv.classList.add('card-success')
-        nextSetDiv.remove()
+        nextSetDiv.classList.add('hidden')
       }
 
       if (updated.status === 'completed') {
