@@ -63,6 +63,33 @@ describe('getWeekOfYear', () => {
     const date = new Date(2023, 11, 31)
     expect(getWeekOfYear(date)).toBe('2023-W52')
   })
+
+  it('calculates the correct week across Daylight Saving Time boundaries', () => {
+    withTimezone('Europe/London', () => {
+      // In Europe/London, BST (UTC+1) starts in late March.
+      // So Jan 1 is UTC+0, but May 25 is UTC+1.
+      // The fractional day difference caused by `Math.floor` would cause May 25th 2026 to be incorrectly calculated as Week 21 instead of Week 22.
+      const date = new Date(2026, 4, 25) // May 25, 2026
+      expect(getWeekOfYear(date)).toBe('2026-W22')
+    })
+  })
+
+  it('calculates the correct week across Daylight Saving Time boundaries in another timezone', () => {
+    withTimezone('America/New_York', () => {
+      const date = new Date(2026, 4, 25) // May 25, 2026
+      expect(getWeekOfYear(date)).toBe('2026-W22')
+    })
+  })
+
+  it('calculates the correct week regardless of the time of day', () => {
+    const morningDate = new Date(2026, 4, 24, 8, 0, 0)
+    const afternoonDate = new Date(2026, 4, 24, 15, 0, 0)
+    const eveningDate = new Date(2026, 4, 24, 23, 59, 59)
+
+    expect(getWeekOfYear(morningDate)).toBe('2026-W21')
+    expect(getWeekOfYear(afternoonDate)).toBe('2026-W21')
+    expect(getWeekOfYear(eveningDate)).toBe('2026-W21')
+  })
 })
 
 describe('getWeeksKeysFromDateToNow', () => {
