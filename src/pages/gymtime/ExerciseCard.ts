@@ -200,7 +200,7 @@ class ExerciseCard {
       viewLastSetBtn.addEventListener('click', () => {
         const lastExercise = lastSession.exercises.find((e) => e.exerciseId === this.exercise.id)
         if (lastExercise) {
-          LastSetDialog.openDialog(lastExercise.sets)
+          LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
         }
       })
     } else {

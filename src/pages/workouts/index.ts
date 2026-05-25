@@ -32,12 +32,8 @@ WorkoutModeDialog.init()
 const todayDate = new Date()
 const today = getSimpleDate(todayDate)
 const currentWeekKey = getWeekOfYear(todayDate)
-const workoutSessionCount = await workoutSessionsStore.countWorkoutSessions()
 const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
-const weeksKeys =
-  workoutSessionCount === 0
-    ? [currentWeekKey]
-    : getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession), todayDate).reverse()
+const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession)).reverse()
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
   const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
