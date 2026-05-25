@@ -67,10 +67,12 @@ describe('getWeekOfYear', () => {
 
 describe('getWeeksKeysFromDateToNow', () => {
   it('includes the current week even when the first date is later in the week', () => {
-    const firstWorkoutDate = new Date(2026, 4, 12) // Tuesday, Week 20
-    const today = new Date(2026, 4, 18) // Monday, Week 21
+    withTimezone('Asia/Singapore', () => {
+      const firstWorkoutDate = new Date(2026, 4, 12) // Tuesday, Week 20
+      const today = new Date(2026, 4, 18) // Monday, Week 21
 
-    expect(getWeeksKeysFromDateToNow(firstWorkoutDate, today)).toEqual(['2026-W20', '2026-W21'])
+      expect(getWeeksKeysFromDateToNow(firstWorkoutDate, today)).toEqual(['2026-W20', '2026-W21'])
+    })
   })
 
   it('includes the current week before 8am in UTC+8', () => {
@@ -80,6 +82,24 @@ describe('getWeeksKeysFromDateToNow', () => {
 
       expect(earlyMorning.toISOString().startsWith('2026-05-17')).toBe(true)
       expect(getWeeksKeysFromDateToNow(parseSimpleDate(today), earlyMorning)).toEqual(['2026-W21'])
+    })
+  })
+
+  it('includes the current week on May 25 in UTC+8 when history ends in the previous week', () => {
+    withTimezone('Asia/Singapore', () => {
+      const today = new Date(2026, 4, 25, 10, 0)
+      const firstWorkoutDate = parseSimpleDate('2026-05-12')
+
+      expect(getWeekOfYear(today)).toBe('2026-W22')
+      expect(getWeeksKeysFromDateToNow(firstWorkoutDate, today).at(-1)).toBe('2026-W22')
+    })
+  })
+
+  it('always includes the current week even when day iteration stops early', () => {
+    withTimezone('Asia/Singapore', () => {
+      const today = new Date(2026, 4, 25, 10, 0)
+
+      expect(getWeeksKeysFromDateToNow(parseSimpleDate('2026-05-25'), today)).toEqual(['2026-W22'])
     })
   })
 })

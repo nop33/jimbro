@@ -10,7 +10,7 @@ export const getWeekOfYear = (date: Date): string => {
 export const getWeeksKeysFromDateToNow = (date: Date, now = new Date()): string[] => {
   const weeks: string[] = []
   const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const endDate = parseSimpleDate(getSimpleDate(now))
 
   while (currentDate <= endDate) {
     const week = getWeekOfYear(currentDate)
@@ -19,6 +19,11 @@ export const getWeeksKeysFromDateToNow = (date: Date, now = new Date()): string[
     }
 
     currentDate.setDate(currentDate.getDate() + 1)
+  }
+
+  const currentWeek = getWeekOfYear(now)
+  if (!weeks.includes(currentWeek)) {
+    weeks.push(currentWeek)
   }
 
   return weeks

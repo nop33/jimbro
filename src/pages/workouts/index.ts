@@ -33,7 +33,7 @@ const todayDate = new Date()
 const today = getSimpleDate(todayDate)
 const currentWeekKey = getWeekOfYear(todayDate)
 const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
-const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession)).reverse()
+const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession), todayDate).reverse()
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
   const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
