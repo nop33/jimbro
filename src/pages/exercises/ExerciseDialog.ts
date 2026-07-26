@@ -11,6 +11,7 @@ class ExerciseDialog {
   private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
   private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
   private static exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
+  private static exerciseIsRehabCheckbox = document.querySelector('#exercise-is-rehab') as HTMLInputElement
   private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
   private static exerciseRepsInput = document.querySelector('#exercise-reps') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
@@ -57,14 +58,15 @@ class ExerciseDialog {
       const id = this.exerciseIdInput.value
       const name = formData.get('name') as string
       const muscle = formData.get('muscle') as Exercise['muscle']
+      const isRehab = formData.get('isRehab') === 'on'
       const sets = parseInt(formData.get('sets') as string)
       const reps = parseInt(formData.get('reps') as string)
 
       try {
         if (id) {
-          await ExercisesState.updateExercise({ id, name, muscle, sets, reps })
+          await ExercisesState.updateExercise({ id, name, muscle, sets, reps, isRehab })
         } else {
-          await ExercisesState.createExercise({ name, muscle, sets, reps })
+          await ExercisesState.createExercise({ name, muscle, sets, reps, isRehab })
         }
 
         this.closeDialog()
@@ -83,12 +85,14 @@ class ExerciseDialog {
       this.deleteExerciseBtn.classList.remove('hidden')
       this.exerciseNameInput.value = exercise.name
       this.exerciseMuscleSelect.value = exercise.muscle
+      this.exerciseIsRehabCheckbox.checked = !!exercise.isRehab
       this.exerciseSetsInput.value = exercise.sets.toString()
       this.exerciseRepsInput.value = exercise.reps.toString()
     } else {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
+      this.exerciseIsRehabCheckbox.checked = false
       this.deleteExerciseBtn.classList.add('hidden')
     }
   }

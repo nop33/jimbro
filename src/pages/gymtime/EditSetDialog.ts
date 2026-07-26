@@ -8,6 +8,7 @@ interface EditSetData {
   set: ExerciseSetExecution
   exerciseId: Exercise['id']
   index: number
+  isRehab?: boolean
 }
 
 class EditSetDialog {
@@ -43,7 +44,7 @@ class EditSetDialog {
     const reps = formData.get('set-reps') as string
     const weight = formData.get('set-weight') as string
 
-    if (weight === '0' || reps === '0') {
+    if (reps === '0' || (weight === '0' && !this.editedSetData.isRehab)) {
       if (!confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)) return
     }
 

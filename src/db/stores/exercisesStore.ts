@@ -8,6 +8,7 @@ export interface Exercise {
   sets: number
   reps: number
   isDeleted?: boolean
+  isRehab?: boolean
 }
 
 export type NewExercise = Omit<Exercise, 'id'>
