@@ -157,6 +157,11 @@ class ExerciseCard {
     setTextContent('.exercise-name', this.exercise.name, template)
     setTextContent('.exercise-muscle', this.exercise.muscle, template)
 
+    const rehabBadge = template.querySelector('.exercise-rehab') as HTMLSpanElement
+    if (this.exercise.isRehab && rehabBadge) {
+      rehabBadge.classList.remove('hidden')
+    }
+
     const session = GymtimeSessionState.session
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
 
@@ -242,7 +247,8 @@ class ExerciseCard {
           weight: parseFloat(div.dataset.weight!)
         },
         exerciseId: this.exercise.id,
-        index
+        index,
+        isRehab: this.exercise.isRehab
       })
     })
 
@@ -303,7 +309,7 @@ class ExerciseCard {
       const reps = formData.get('set-reps') as string
       const weight = formData.get('set-weight') as string
 
-      if (weight === '0' || reps === '0') {
+      if (reps === '0' || (weight === '0' && !this.exercise.isRehab)) {
         if (!confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)) return
       }
 
@@ -371,14 +377,16 @@ class ExerciseCard {
 
           const breakTimeSeconds = getBreakTimeSeconds()
 
-          BreakTimerDialog.startTimer({
-            minutes: Math.floor(breakTimeSeconds / 60),
-            seconds: breakTimeSeconds % 60,
-            setsDone: setIndex + 1,
-            setsTotal: this.exercise.sets,
-            nextExercise: nextExercise?.name,
-            currentExercise: this.exercise
-          })
+          if (!this.exercise.isRehab) {
+            BreakTimerDialog.startTimer({
+              minutes: Math.floor(breakTimeSeconds / 60),
+              seconds: breakTimeSeconds % 60,
+              setsDone: setIndex + 1,
+              setsTotal: this.exercise.sets,
+              nextExercise: nextExercise?.name,
+              currentExercise: this.exercise
+            })
+          }
         }
       }
     })

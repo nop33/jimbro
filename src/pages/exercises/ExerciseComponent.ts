@@ -16,6 +16,11 @@ class ExerciseComponent {
     setTextContent('.exercise-sets', this.exercise.sets.toString(), exerciseItem)
     setTextContent('.exercise-reps', this.exercise.reps.toString(), exerciseItem)
 
+    const rehabBadge = exerciseItem.querySelector('.exercise-rehab') as HTMLSpanElement
+    if (this.exercise.isRehab && rehabBadge) {
+      rehabBadge.classList.remove('hidden')
+    }
+
     exerciseItem.querySelector('div')?.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('exercise-clicked', { detail: { exercise: this.exercise } }))
     })
