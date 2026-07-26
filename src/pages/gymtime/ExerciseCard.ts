@@ -28,12 +28,14 @@ class ExerciseCard {
   private programExerciseIds: string[]
   private exerciseDefinitions: Map<string, Exercise>
   private onExerciseDeleted: () => void
+  private targetSets: number
 
   constructor(config: ExerciseCardConfig) {
     this.exercise = config.exercise
     this.programExerciseIds = config.programExerciseIds
     this.exerciseDefinitions = config.exerciseDefinitions
     this.onExerciseDeleted = config.onExerciseDeleted
+    this.targetSets = config.exercise.sets
   }
 
   async render(): Promise<DocumentFragment> {
@@ -57,11 +59,36 @@ class ExerciseCard {
       accordionSelector: '.exercise-details'
     })
 
+    const session = GymtimeSessionState.session
+    const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
+
+    // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
+    let lastSessionSetsCount = this.exercise.sets
+    if (session) {
+      const lastSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
+        this.exercise.id,
+        1,
+        session.location
+      )
+      if (lastSession) {
+        const lastSessionExercise = lastSession.exercises.find((e) => e.exerciseId === this.exercise.id)
+        if (lastSessionExercise) {
+          lastSessionSetsCount = lastSessionExercise.sets.length
+        }
+      }
+    }
+
+    this.targetSets = Math.max(
+      this.exercise.sets,
+      lastSessionSetsCount,
+      existingExercise ? existingExercise.sets.length : 0
+    )
+
     const isExerciseCompleted = () => {
       const session = GymtimeSessionState.session
       if (!session) return false
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
-      return existingExercise && existingExercise.sets.length >= this.exercise.sets
+      return existingExercise && existingExercise.sets.length >= this.targetSets
     }
 
     exerciseDetails.addEventListener('toggle', () => {
@@ -162,11 +189,8 @@ class ExerciseCard {
       rehabBadge.classList.remove('hidden')
     }
 
-    const session = GymtimeSessionState.session
-    const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
-
     if (existingExercise) {
-      if (existingExercise.sets.length === this.exercise.sets) {
+      if (existingExercise.sets.length >= this.targetSets) {
         cardDiv.classList.add('card-success')
       }
 
@@ -174,7 +198,11 @@ class ExerciseCard {
         completedSets.appendChild(this.renderSetItem({ set, index }))
       }
 
-      for (let i = existingExercise.sets.length; i < this.exercise.sets; i++) {
+      for (let i = existingExercise.sets.length; i < this.targetSets; i++) {
+        completedSets.appendChild(this.renderSetItem({ set: { reps: 0, weight: 0 }, index: i, isCompleted: false }))
+      }
+    } else {
+      for (let i = 0; i < this.targetSets; i++) {
         completedSets.appendChild(this.renderSetItem({ set: { reps: 0, weight: 0 }, index: i, isCompleted: false }))
       }
     }
@@ -185,9 +213,9 @@ class ExerciseCard {
       submitButton.classList.remove('hidden')
     }
 
-    if (!existingExercise || existingExercise.sets.length < this.exercise.sets) {
-      await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
-    } else {
+    await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
+
+    if (existingExercise && existingExercise.sets.length >= this.targetSets) {
       nextSetDiv.classList.add('hidden')
     }
 
@@ -265,6 +293,7 @@ class ExerciseCard {
     const nextSetForm = template.querySelector('.next-set-form') as HTMLFormElement
     const nextSetRepsInput = nextSetForm.querySelector('input[name="set-reps"]') as HTMLInputElement
     const nextSetWeightInput = nextSetForm.querySelector('input[name="set-weight"]') as HTMLInputElement
+    const addExtraSetBtn = template.querySelector('.add-extra-set-btn') as HTMLButtonElement
 
     const session = GymtimeSessionState.session
     let latestSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)?.sets.at(-1)
@@ -303,6 +332,17 @@ class ExerciseCard {
       }, 50)
     }
 
+    if (addExtraSetBtn) {
+      addExtraSetBtn.addEventListener('click', () => {
+        this.targetSets += 1
+        cardDiv.classList.remove('card-success')
+        nextSetDiv.classList.remove('hidden')
+        completedSets.appendChild(
+          this.renderSetItem({ set: { reps: 0, weight: 0 }, index: this.targetSets - 1, isCompleted: false })
+        )
+      })
+    }
+
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
       const formData = new FormData(nextSetForm)
@@ -322,7 +362,17 @@ class ExerciseCard {
       const updated = GymtimeSessionState.session!
       const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === this.exercise.id)?.sets.length ?? 1) - 1
 
-      const pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
+      // If user adds an extra set after finishing, the DOM might not have a pending slot for it if they didn't use the Add Set button
+      // But if they clicked "Add set", the pending slot is there. Let's make sure it exists.
+      let pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
+      if (!pendingSetItem) {
+        this.targetSets = Math.max(this.targetSets, setIndex + 1)
+        completedSets.appendChild(
+          this.renderSetItem({ set: { reps: 0, weight: 0 }, index: setIndex, isCompleted: false })
+        )
+        pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
+      }
+
       pendingSetItem.classList.remove('isPending')
       pendingSetItem.classList.add('isCompleted')
       setTextContent('.set-reps', completedSet.reps.toString(), pendingSetItem)
@@ -330,7 +380,7 @@ class ExerciseCard {
       pendingSetItem.setAttribute('data-reps', completedSet.reps.toString())
       pendingSetItem.setAttribute('data-weight', completedSet.weight.toString())
 
-      if (setIndex + 1 === this.exercise.sets) {
+      if (setIndex + 1 >= this.targetSets) {
         detailsAnimation.close()
         cardDiv.classList.add('card-success')
         nextSetDiv.classList.add('hidden')
@@ -347,7 +397,7 @@ class ExerciseCard {
           exportIndexedDbToJson()
         }
       } else {
-        const isExerciseCompleted = this.exercise.sets === setIndex + 1
+        const isExerciseCompleted = this.targetSets === setIndex + 1
 
         if (isExerciseCompleted) {
           navigator.vibrate?.([50, 30, 50, 30, 70])
@@ -382,7 +432,7 @@ class ExerciseCard {
               minutes: Math.floor(breakTimeSeconds / 60),
               seconds: breakTimeSeconds % 60,
               setsDone: setIndex + 1,
-              setsTotal: this.exercise.sets,
+              setsTotal: this.targetSets,
               nextExercise: nextExercise?.name,
               currentExercise: this.exercise
             })
