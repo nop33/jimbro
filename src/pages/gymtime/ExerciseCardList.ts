@@ -5,7 +5,6 @@ import ExerciseCard from './ExerciseCard'
 
 class ExerciseCardList {
   private static exercisesList: HTMLDivElement
-  private static exerciseDefinitions = new Map<string, Exercise>()
   private static programId: string
   private static programExerciseIds: string[]
   private static renderGeneration = 0
@@ -69,7 +68,6 @@ class ExerciseCardList {
 
     if (generation !== this.renderGeneration) return
 
-    this.exerciseDefinitions = definitions
     this.exercisesList.replaceChildren(...cards)
 
     if (openExerciseId) {
