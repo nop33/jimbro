@@ -72,9 +72,11 @@ class ProgramDialog {
 
       try {
         if (id) {
-          await ProgramsState.updateProgram({ id, name, exercises })
+          const existing = ProgramsState.programs.find((program) => program.id === id)
+          if (!existing) throw new Error('Program not found')
+          await ProgramsState.updateProgram({ ...existing, name, exercises })
         } else {
-          await ProgramsState.createProgram({ name, exercises })
+          await ProgramsState.createProgram({ name, exercises, isDeleted: false })
         }
 
         this.closeDialog()

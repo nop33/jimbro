@@ -36,7 +36,22 @@ class ExerciseCardList {
     }
 
     for (const exerciseId of exerciseIds) {
-      const exercise = await db.exercises.getById(exerciseId)
+      const catalog = await db.exercises.getById(exerciseId)
+      const execution = session?.exercises.find((e) => e.exerciseId === exerciseId)
+
+      const exercise: Exercise | undefined = execution
+        ? {
+            id: exerciseId,
+            name: execution.name,
+            muscle: execution.muscle,
+            targetSets: execution.targetSets,
+            targetReps: execution.targetReps,
+            isRehab: execution.isRehab,
+            isDeleted: catalog?.isDeleted ?? true,
+            updatedAt: catalog?.updatedAt ?? ''
+          }
+        : catalog
+
       if (!exercise) continue
 
       this.exerciseDefinitions.set(exerciseId, exercise)

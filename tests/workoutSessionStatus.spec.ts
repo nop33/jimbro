@@ -22,11 +22,21 @@ const EXERCISE_NOT_IN_PUSH_DAY = {
   name: 'Pull down machine'
 }
 
+interface SeedSessionExercise {
+  exerciseId: string
+  name: string
+  muscle: string
+  targetSets: number
+  targetReps: number
+  isRehab: boolean
+  sets: Array<{ reps: number; weight: number }>
+}
+
 interface SeedSessionInput {
   id: string
   programId: string
   status: 'completed' | 'incomplete'
-  exercises: Array<{ exerciseId: string; sets: Array<{ reps: number; weight: number }> }>
+  exercises: Array<SeedSessionExercise>
 }
 
 async function writeSessionToIdb(page: Page, session: SeedSessionInput): Promise<void> {
@@ -47,7 +57,8 @@ async function writeSessionToIdb(page: Page, session: SeedSessionInput): Promise
             exercises: s.exercises,
             location: '',
             status: s.status,
-            notes: ''
+            notes: '',
+            updatedAt: new Date().toISOString()
           })
           tx.oncomplete = () => resolve()
           tx.onerror = () => reject(tx.error)
@@ -86,7 +97,10 @@ async function readProgramExerciseIds(page: Page, programId: string): Promise<st
   )
 }
 
-async function readExerciseDef(page: Page, exerciseId: string): Promise<{ sets: number; reps: number } | undefined> {
+async function readExerciseDef(
+  page: Page,
+  exerciseId: string
+): Promise<{ name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean } | undefined> {
   return await page.evaluate(
     async ({ dbName, id }) => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -95,10 +109,17 @@ async function readExerciseDef(page: Page, exerciseId: string): Promise<{ sets: 
         req.onerror = () => reject(req.error)
       })
       try {
-        return await new Promise<{ sets: number; reps: number } | undefined>((resolve, reject) => {
+        return await new Promise<
+          { name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean } | undefined
+        >((resolve, reject) => {
           const tx = db.transaction('exercises', 'readonly')
           const req = tx.objectStore('exercises').get(id)
-          req.onsuccess = () => resolve(req.result as { sets: number; reps: number } | undefined)
+          req.onsuccess = () =>
+            resolve(
+              req.result as
+                | { name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean }
+                | undefined
+            )
           req.onerror = () => reject(req.error)
         })
       } finally {
@@ -134,13 +155,18 @@ async function readSessionStatus(page: Page, sessionId: string): Promise<string 
 
 async function buildCompletedExercisesFor(page: Page, programId: string) {
   const ids = await readProgramExerciseIds(page, programId)
-  const result: Array<{ exerciseId: string; sets: Array<{ reps: number; weight: number }> }> = []
+  const result: Array<SeedSessionExercise> = []
   for (const exId of ids) {
     const def = await readExerciseDef(page, exId)
     if (!def) throw new Error(`Exercise ${exId} missing from seeded DB`)
     result.push({
       exerciseId: exId,
-      sets: Array.from({ length: def.sets }, () => ({ reps: def.reps, weight: 50 }))
+      name: def.name,
+      muscle: def.muscle,
+      targetSets: def.targetSets,
+      targetReps: def.targetReps,
+      isRehab: def.isRehab,
+      sets: Array.from({ length: def.targetSets }, () => ({ reps: def.targetReps, weight: 50 }))
     })
   }
   return result

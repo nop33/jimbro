@@ -1,4 +1,6 @@
 import { OBJECT_STORES } from './constants'
+import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
+import type { Exercise } from './stores/exercisesStore'
 
 export interface DbMigration {
   version: number
@@ -66,6 +68,52 @@ const migrations: Array<DbMigration> = [
           record.id = crypto.randomUUID()
           newStore.add(record)
         }
+      }
+    }
+  },
+  {
+    version: 5,
+    migrate: (_db, transaction) => {
+      const now = new Date().toISOString()
+      const exerciseStore = transaction.objectStore(OBJECT_STORES.EXERCISES)
+      const programStore = transaction.objectStore(OBJECT_STORES.PROGRAMS)
+      const sessionStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+      const catalog = new Map<string, Exercise>()
+
+      const upgradeSessions = () => {
+        const sessionCursor = sessionStore.openCursor()
+        sessionCursor.onsuccess = () => {
+          const cursor = sessionCursor.result
+          if (!cursor) return
+          cursor.update(upgradeWorkoutSessionRecord(cursor.value as Record<string, unknown>, catalog, now))
+          cursor.continue()
+        }
+      }
+
+      const upgradePrograms = () => {
+        const programCursor = programStore.openCursor()
+        programCursor.onsuccess = () => {
+          const cursor = programCursor.result
+          if (!cursor) {
+            upgradeSessions()
+            return
+          }
+          cursor.update(upgradeProgramRecord(cursor.value as Record<string, unknown>, now))
+          cursor.continue()
+        }
+      }
+
+      const exerciseCursor = exerciseStore.openCursor()
+      exerciseCursor.onsuccess = () => {
+        const cursor = exerciseCursor.result
+        if (!cursor) {
+          upgradePrograms()
+          return
+        }
+        const upgraded = upgradeExerciseRecord(cursor.value as Record<string, unknown>, now)
+        catalog.set(upgraded.id, upgraded)
+        cursor.update(upgraded)
+        cursor.continue()
       }
     }
   }

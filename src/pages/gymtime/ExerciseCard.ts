@@ -1,6 +1,6 @@
 import { db } from '../../db'
 import { exportIndexedDbToJson } from '../../db/export'
-import type { Exercise } from '../../db/stores/exercisesStore'
+import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
 import { workoutSessionsStore, type ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
@@ -35,7 +35,7 @@ class ExerciseCard {
     this.programExerciseIds = config.programExerciseIds
     this.exerciseDefinitions = config.exerciseDefinitions
     this.onExerciseDeleted = config.onExerciseDeleted
-    this.targetSets = config.exercise.sets
+    this.targetSets = config.exercise.targetSets
   }
 
   async render(): Promise<DocumentFragment> {
@@ -63,7 +63,7 @@ class ExerciseCard {
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
 
     // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
-    let lastSessionSetsCount = this.exercise.sets
+    let lastSessionSetsCount = this.exercise.targetSets
     if (session) {
       const lastSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
         this.exercise.id,
@@ -79,7 +79,7 @@ class ExerciseCard {
     }
 
     this.targetSets = Math.max(
-      this.exercise.sets,
+      this.exercise.targetSets,
       lastSessionSetsCount,
       existingExercise ? existingExercise.sets.length : 0
     )
@@ -182,7 +182,7 @@ class ExerciseCard {
     })
 
     setTextContent('.exercise-name', this.exercise.name, template)
-    setTextContent('.exercise-muscle', this.exercise.muscle, template)
+    setTextContent('.exercise-muscle', muscleGroupLabel(this.exercise.muscle), template)
 
     const rehabBadge = template.querySelector('.exercise-rehab') as HTMLSpanElement
     if (this.exercise.isRehab && rehabBadge) {
@@ -302,7 +302,7 @@ class ExerciseCard {
     if (!latestSet) {
       const latestSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
         this.exercise.id,
-        this.exercise.sets
+        this.exercise.targetSets
       )
       const previousExercise = latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exercise.id)
 
@@ -312,7 +312,7 @@ class ExerciseCard {
         maxWeight = Math.max(...previousExercise.sets.map((s) => s.weight))
       }
 
-      latestSet = latestSet ?? { reps: this.exercise.reps, weight: 0 }
+      latestSet = latestSet ?? { reps: this.exercise.targetReps, weight: 0 }
       if (maxWeight > 0) {
         latestSet = { ...latestSet, weight: maxWeight }
       }
@@ -418,7 +418,8 @@ class ExerciseCard {
               const sessionExercise = updated.exercises.find(({ exerciseId }) => exerciseId === checkId)
               const completedSets = sessionExercise?.sets.length || 0
 
-              if (completedSets < exerciseDef.sets) {
+              const sessionTarget = sessionExercise?.targetSets ?? exerciseDef.targetSets
+              if (completedSets < sessionTarget) {
                 nextExercise = exerciseDef
                 break
               }

@@ -59,14 +59,16 @@ class ExerciseDialog {
       const name = formData.get('name') as string
       const muscle = formData.get('muscle') as Exercise['muscle']
       const isRehab = formData.get('isRehab') === 'on'
-      const sets = parseInt(formData.get('sets') as string)
-      const reps = parseInt(formData.get('reps') as string)
+      const targetSets = parseInt(formData.get('sets') as string)
+      const targetReps = parseInt(formData.get('reps') as string)
 
       try {
         if (id) {
-          await ExercisesState.updateExercise({ id, name, muscle, sets, reps, isRehab })
+          const existing = ExercisesState.getById(id)
+          if (!existing) throw new Error('Exercise not found')
+          await ExercisesState.updateExercise({ ...existing, name, muscle, targetSets, targetReps, isRehab })
         } else {
-          await ExercisesState.createExercise({ name, muscle, sets, reps, isRehab })
+          await ExercisesState.createExercise({ name, muscle, targetSets, targetReps, isRehab, isDeleted: false })
         }
 
         this.closeDialog()
@@ -85,9 +87,9 @@ class ExerciseDialog {
       this.deleteExerciseBtn.classList.remove('hidden')
       this.exerciseNameInput.value = exercise.name
       this.exerciseMuscleSelect.value = exercise.muscle
-      this.exerciseIsRehabCheckbox.checked = !!exercise.isRehab
-      this.exerciseSetsInput.value = exercise.sets.toString()
-      this.exerciseRepsInput.value = exercise.reps.toString()
+      this.exerciseIsRehabCheckbox.checked = exercise.isRehab
+      this.exerciseSetsInput.value = exercise.targetSets.toString()
+      this.exerciseRepsInput.value = exercise.targetReps.toString()
     } else {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()

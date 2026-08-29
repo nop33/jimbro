@@ -1,5 +1,6 @@
 import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
+import { placeholderSnapshot, snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { setCityFromGeolocation } from './geolocation'
@@ -62,12 +63,21 @@ class WorkoutSessionForm {
       const program = await db.programs.getById(this.programId)
       if (!program) throw new Error('Program not found')
 
+      const exercises = await Promise.all(
+        program.exercises.map(async (exerciseId) => {
+          const exercise = await db.exercises.getById(exerciseId)
+          return exercise
+            ? { ...snapshotFromExercise(exercise), sets: [] }
+            : { ...placeholderSnapshot(exerciseId), sets: [] }
+        })
+      )
+
       await GymtimeSessionState.create({
         programId: this.programId,
         date,
         location,
         status: 'incomplete',
-        exercises: program.exercises.map((exerciseId) => ({ exerciseId, sets: [] })),
+        exercises,
         notes
       })
     }
