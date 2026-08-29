@@ -41,7 +41,7 @@ class GymtimePage {
       }
 
       await GymtimeSessionState.addExercise(exercise.id)
-      ExerciseCardList.render()
+      await ExerciseCardList.render()
     })
 
     WorkoutSessionForm.init(program.id, async () => {
@@ -80,7 +80,7 @@ class GymtimePage {
       this.updateSaveToProgramBtnVisibility()
     })
 
-    ExerciseCardList.render()
+    await ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
     this.updateSaveToProgramBtnVisibility()
   }

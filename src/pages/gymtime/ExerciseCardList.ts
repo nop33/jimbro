@@ -8,6 +8,7 @@ class ExerciseCardList {
   private static exerciseDefinitions = new Map<string, Exercise>()
   private static programId: string
   private static programExerciseIds: string[]
+  private static renderGeneration = 0
 
   static init(programId: string, programExerciseIds: string[]) {
     this.exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
@@ -20,22 +21,20 @@ class ExerciseCardList {
   }
 
   static async render() {
+    const generation = ++this.renderGeneration
     const scrollY = window.scrollY
     const openExerciseId = document
       .querySelector<HTMLDetailsElement>('.exercise-details[open]')
       ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
 
-    this.exercisesList.innerHTML = ''
-    this.exerciseDefinitions.clear()
-
     const session = GymtimeSessionState.session
-    let exerciseIds: Exercise['id'][] = this.programExerciseIds
-
-    if (session) {
-      exerciseIds = session.exercises.map(({ exerciseId }) => exerciseId)
-    }
+    const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
+    const definitions = new Map<string, Exercise>()
+    const cards: DocumentFragment[] = []
 
     for (const exerciseId of exerciseIds) {
+      if (generation !== this.renderGeneration) return
+
       const catalog = await db.exercises.getById(exerciseId)
       const execution = session?.exercises.find((e) => e.exerciseId === exerciseId)
 
@@ -54,16 +53,24 @@ class ExerciseCardList {
 
       if (!exercise) continue
 
-      this.exerciseDefinitions.set(exerciseId, exercise)
-      const card = await new ExerciseCard({
-        exercise,
-        programId: this.programId,
-        programExerciseIds: this.programExerciseIds,
-        exerciseDefinitions: this.exerciseDefinitions,
-        onExerciseDeleted: () => this.render()
-      }).render()
-      this.exercisesList.appendChild(card)
+      definitions.set(exerciseId, exercise)
+      cards.push(
+        await new ExerciseCard({
+          exercise,
+          programId: this.programId,
+          programExerciseIds: this.programExerciseIds,
+          exerciseDefinitions: definitions,
+          onExerciseDeleted: () => {
+            void this.render()
+          }
+        }).render()
+      )
     }
+
+    if (generation !== this.renderGeneration) return
+
+    this.exerciseDefinitions = definitions
+    this.exercisesList.replaceChildren(...cards)
 
     if (openExerciseId) {
       this.exercisesList

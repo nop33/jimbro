@@ -323,15 +323,6 @@ class ExerciseCard {
 
     const currentIndex = this.programExerciseIds.findIndex((id) => id === this.exercise.id)
 
-    // For fast Playwright tests, disable the form until setup is completely done
-    const submitBtn = nextSetForm.querySelector('button[type="submit"]') as HTMLButtonElement
-    if (submitBtn) {
-      submitBtn.disabled = true
-      setTimeout(() => {
-        submitBtn.disabled = false
-      }, 50)
-    }
-
     if (addExtraSetBtn) {
       addExtraSetBtn.addEventListener('click', () => {
         this.targetSets += 1
