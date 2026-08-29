@@ -1,33 +1,29 @@
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
+import type { MuscleGroup } from '../muscleGroups'
+import { nowIso } from '../nowIso'
+
+export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel, type MuscleGroup } from '../muscleGroups'
 
 export interface Exercise {
   id: string
   name: string
   muscle: MuscleGroup
-  sets: number
-  reps: number
-  isDeleted?: boolean
-  isRehab?: boolean
+  targetSets: number
+  targetReps: number
+  isDeleted: boolean
+  isRehab: boolean
+  updatedAt: string
 }
 
-export type NewExercise = Omit<Exercise, 'id'>
+export type NewExercise = Omit<Exercise, 'id' | 'updatedAt'>
 
-export const MUSCLE_GROUPS = [
-  'Quads',
-  'Calves',
-  'Hamstrings',
-  'Glutes',
-  'Chest',
-  'Biceps',
-  'Triceps',
-  'Shoulders',
-  'Traps',
-  'Back',
-  'Core'
-] as const
-
-export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
+export const normalizeExercise = (item: Exercise): Exercise => ({
+  ...item,
+  isDeleted: Boolean(item.isDeleted),
+  isRehab: Boolean(item.isRehab),
+  updatedAt: item.updatedAt || nowIso()
+})
 
 export class ExercisesStore extends BaseStore<Exercise> {
   protected readonly storeName = OBJECT_STORES.EXERCISES
@@ -35,6 +31,14 @@ export class ExercisesStore extends BaseStore<Exercise> {
   async getAll(): Promise<Array<Exercise>> {
     const all = await super.getAll()
     return all.filter((exercise) => !exercise.isDeleted).sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async create(item: Exercise): Promise<void> {
+    await super.create(normalizeExercise({ ...item, updatedAt: nowIso() }))
+  }
+
+  async update(item: Exercise): Promise<Exercise> {
+    return super.update(normalizeExercise({ ...item, updatedAt: nowIso() }))
   }
 
   async seed(): Promise<void> {

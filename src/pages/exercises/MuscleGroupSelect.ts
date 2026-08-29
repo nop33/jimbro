@@ -1,4 +1,4 @@
-import { MUSCLE_GROUPS } from '../../db/stores/exercisesStore'
+import { MUSCLE_GROUPS, MUSCLE_GROUP_LABELS } from '../../db/stores/exercisesStore'
 
 interface MuscleGroupSelectProps {
   selector: string
@@ -28,7 +28,7 @@ class MuscleGroupSelect {
     if (includeOptionAll) {
       options.push(`<option value="All">All</option>`)
     }
-    options.push(...MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${muscle}</option>`))
+    options.push(...MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${MUSCLE_GROUP_LABELS[muscle]}</option>`))
     this.muscleGroupSelect.innerHTML = options.join('')
   }
 }

@@ -19,7 +19,7 @@ class ProgramsState {
   }
 
   static async createProgram(data: NewProgram): Promise<Program> {
-    const program: Program = { ...data, id: crypto.randomUUID() }
+    const program: Program = { ...data, id: crypto.randomUUID(), isDeleted: data.isDeleted ?? false, updatedAt: '' }
     this.state.update((current) => [...current, program])
 
     try {

@@ -1,5 +1,5 @@
 import EventEmitter from '../../eventEmitter'
-import type { Exercise } from '../../db/stores/exercisesStore'
+import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
 import ExercisesState from '../../state/ExercisesState'
 import type { ExercisesListProps } from './programTypes'
 
@@ -43,7 +43,7 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
             return `<option class="multiselect-option" value="${exercise.id}"${isSelected ? ' selected' : ''}>${exercise.name}</option>`
           })
           .join('')
-        return `<optgroup label="${muscle}">${options}</optgroup>`
+        return `<optgroup label="${muscleGroupLabel(muscle)}">${options}</optgroup>`
       })
       .join('')
   }

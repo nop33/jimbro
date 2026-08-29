@@ -15,7 +15,7 @@ export interface ExportData {
   }
 }
 
-export const CURRENT_EXPORT_VERSION = 2
+export const CURRENT_EXPORT_VERSION = 3
 
 export const buildExportData = async (): Promise<ExportData> => ({
   version: CURRENT_EXPORT_VERSION,

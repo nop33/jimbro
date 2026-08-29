@@ -31,13 +31,13 @@ After more than a decade in web dev, I am suffering from framework fatigue. This
 
 ## Data Model
 
-- **Exercise**: id, name, muscle group, target sets, target reps, soft-delete flag
-- **Program**: id, name, ordered list of exercise IDs, soft-delete flag
-- **WorkoutSession**: id (UUID), date, programId, exercises (with logged sets), location, status, notes
-- **ExerciseExecution**: exerciseId, array of completed sets
+- **Exercise**: id, name, muscle slug, targetSets, targetReps, isDeleted, isRehab, updatedAt
+- **Program**: id, name, ordered list of exercise IDs, isDeleted, updatedAt
+- **WorkoutSession**: id (UUID), date, programId, exercises (snapshotted + logged sets), location, status (`completed` | `incomplete`), notes, updatedAt
+- **ExerciseExecution**: exerciseId, name, muscle, targetSets, targetReps, isRehab, array of completed sets
 - **ExerciseSetExecution**: reps, weight
-- **WorkoutSessionStatus**: `completed` | `skipped` | `incomplete` | `pending`
-- **MuscleGroups**: Quads, Calves, Hamstrings, Glutes, Chest, Biceps, Triceps, Shoulders, Traps, Back, Core
+- **UI-only session status**: `pending` | `skipped` (workouts calendar placeholders, not persisted)
+- **Muscle groups**: slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …)
 
 ## Features
 

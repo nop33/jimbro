@@ -1,4 +1,6 @@
 import { OBJECT_STORES } from './constants'
+import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
+import type { Exercise } from './stores/exercisesStore'
 
 export interface DbMigration {
   version: number
@@ -9,6 +11,20 @@ export const getLatestDbVersion = (): number => migrations.at(-1)?.version ?? 0
 
 export const getMigrationForVersion = (version: DbMigration['version']) =>
   migrations.find((migration) => migration.version === version)?.migrate
+
+export const createCurrentObjectStores = (db: IDBDatabase) => {
+  if (!db.objectStoreNames.contains(OBJECT_STORES.EXERCISES)) {
+    db.createObjectStore(OBJECT_STORES.EXERCISES, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.PROGRAMS)) {
+    db.createObjectStore(OBJECT_STORES.PROGRAMS, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.WORKOUT_SESSIONS)) {
+    const sessions = db.createObjectStore(OBJECT_STORES.WORKOUT_SESSIONS, { keyPath: 'id' })
+    sessions.createIndex('date', 'date', { unique: false })
+    sessions.createIndex('programId', 'programId', { unique: false })
+  }
+}
 
 const migrations: Array<DbMigration> = [
   {
@@ -66,6 +82,54 @@ const migrations: Array<DbMigration> = [
           record.id = crypto.randomUUID()
           newStore.add(record)
         }
+      }
+    }
+  },
+  {
+    version: 5,
+    migrate: (_db, transaction) => {
+      const now = new Date().toISOString()
+      const exerciseStore = transaction.objectStore(OBJECT_STORES.EXERCISES)
+      const programStore = transaction.objectStore(OBJECT_STORES.PROGRAMS)
+      const catalog = new Map<string, Exercise>()
+
+      const upgradeSessions = () => {
+        if (!transaction.objectStoreNames.contains(OBJECT_STORES.WORKOUT_SESSIONS)) return
+        const sessionStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+        if (sessionStore.keyPath !== 'id') return
+        const sessionCursor = sessionStore.openCursor()
+        sessionCursor.onsuccess = () => {
+          const cursor = sessionCursor.result
+          if (!cursor) return
+          cursor.update(upgradeWorkoutSessionRecord(cursor.value as Record<string, unknown>, catalog, now))
+          cursor.continue()
+        }
+      }
+
+      const upgradePrograms = () => {
+        const programCursor = programStore.openCursor()
+        programCursor.onsuccess = () => {
+          const cursor = programCursor.result
+          if (!cursor) {
+            upgradeSessions()
+            return
+          }
+          cursor.update(upgradeProgramRecord(cursor.value as Record<string, unknown>, now))
+          cursor.continue()
+        }
+      }
+
+      const exerciseCursor = exerciseStore.openCursor()
+      exerciseCursor.onsuccess = () => {
+        const cursor = exerciseCursor.result
+        if (!cursor) {
+          upgradePrograms()
+          return
+        }
+        const upgraded = upgradeExerciseRecord(cursor.value as Record<string, unknown>, now)
+        catalog.set(upgraded.id, upgraded)
+        cursor.update(upgraded)
+        cursor.continue()
       }
     }
   }

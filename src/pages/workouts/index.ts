@@ -148,7 +148,7 @@ if (_isDbEmpty) {
   })
 }
 
-type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date'> & {
+type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date' | 'status' | 'updatedAt'> & {
   id?: undefined
   date?: undefined
   status: 'pending' | 'skipped'

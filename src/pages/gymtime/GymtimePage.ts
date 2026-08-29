@@ -41,13 +41,13 @@ class GymtimePage {
       }
 
       await GymtimeSessionState.addExercise(exercise.id)
-      ExerciseCardList.render()
+      await ExerciseCardList.render()
     })
 
-    WorkoutSessionForm.init(program.id, () => {
+    WorkoutSessionForm.init(program.id, async () => {
       const session = GymtimeSessionState.session
       if (session) window.history.replaceState({}, '', `?id=${session.id}`)
-      ExerciseCardList.render()
+      await ExerciseCardList.render()
       this.updateDeleteBtnVisibility()
       this.workoutDetailsAnimation?.close()
     })
@@ -80,7 +80,7 @@ class GymtimePage {
       this.updateSaveToProgramBtnVisibility()
     })
 
-    ExerciseCardList.render()
+    await ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
     this.updateSaveToProgramBtnVisibility()
   }

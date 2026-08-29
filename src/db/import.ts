@@ -1,6 +1,8 @@
 import { OBJECT_STORES } from './constants'
 import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
 import { db } from '.'
+import { nowIso } from './nowIso'
+import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
 import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
@@ -20,9 +22,21 @@ export const importIndexedDbFromJson = async (file: File) => {
   }
 
   try {
-    await importExercises(stores.exercises)
-    await importPrograms(stores.programs)
-    await importWorkoutSessions(stores.workoutSessions, version)
+    const now = nowIso()
+    const exercises = (stores.exercises ?? []).map((raw) =>
+      upgradeExerciseRecord(raw as unknown as Record<string, unknown>, now)
+    )
+    const programs = (stores.programs ?? []).map((raw) =>
+      upgradeProgramRecord(raw as unknown as Record<string, unknown>, now)
+    )
+    const catalog = new Map(exercises.map((exercise) => [exercise.id, exercise]))
+    const workoutSessions = (stores.workoutSessions ?? []).map((raw) =>
+      upgradeWorkoutSessionRecord(raw as unknown as Record<string, unknown>, catalog, now)
+    )
+
+    await importExercises(exercises)
+    await importPrograms(programs)
+    await importWorkoutSessions(workoutSessions, version)
 
     console.log('✅ Imported data successfully')
   } catch (error) {
@@ -31,7 +45,7 @@ export const importIndexedDbFromJson = async (file: File) => {
   }
 }
 
-const importExercises = async (exercises: ExportData['stores']['exercises']) => {
+const importExercises = async (exercises: Array<Exercise>) => {
   const allExisting = await storage.getAll<Exercise>(OBJECT_STORES.EXERCISES)
   const existingIds = new Set(allExisting.map((e) => e.id))
 
@@ -42,7 +56,7 @@ const importExercises = async (exercises: ExportData['stores']['exercises']) => 
   }
 }
 
-const importPrograms = async (programs: ExportData['stores']['programs']) => {
+const importPrograms = async (programs: Array<Program>) => {
   const allExisting = await storage.getAll<Program>(OBJECT_STORES.PROGRAMS)
   const existingIds = new Set(allExisting.map((p) => p.id))
 

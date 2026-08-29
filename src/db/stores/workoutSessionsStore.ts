@@ -1,7 +1,14 @@
 import { OBJECT_STORES } from '../constants'
+import { nowIso } from '../nowIso'
 import { storage } from '../storage'
-import type { Exercise } from './exercisesStore'
+import type { Exercise, MuscleGroup } from './exercisesStore'
 import type { Program } from './programsStore'
+
+export const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
+export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]
+
+export const UI_WORKOUT_SESSION_STATUSES = ['pending', 'skipped'] as const
+export type WorkoutSessionStatus = PersistedWorkoutSessionStatus | (typeof UI_WORKOUT_SESSION_STATUSES)[number]
 
 export interface WorkoutSession {
   id: string
@@ -9,16 +16,21 @@ export interface WorkoutSession {
   programId: Program['id']
   exercises: Array<ExerciseExecution>
   location: string
-  status: WorkoutSessionStatus
+  status: PersistedWorkoutSessionStatus
   notes?: string
+  updatedAt: string
 }
 
-export type NewWorkoutSession = Omit<WorkoutSession, 'id'>
+export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'updatedAt'>
 
 export interface ExerciseExecution {
   exerciseId: Exercise['id']
+  name: string
+  muscle: MuscleGroup
+  targetSets: number
+  targetReps: number
+  isRehab: boolean
   sets: Array<ExerciseSetExecution>
-  notes?: string
 }
 
 export interface ExerciseSetExecution {
@@ -26,19 +38,34 @@ export interface ExerciseSetExecution {
   weight: number
 }
 
-const WORKOUT_SESSION_STATUSES = ['completed', 'skipped', 'incomplete', 'pending'] as const
-export type WorkoutSessionStatus = (typeof WORKOUT_SESSION_STATUSES)[number]
+export const snapshotFromExercise = (exercise: Exercise): Omit<ExerciseExecution, 'sets'> => ({
+  exerciseId: exercise.id,
+  name: exercise.name,
+  muscle: exercise.muscle,
+  targetSets: exercise.targetSets,
+  targetReps: exercise.targetReps,
+  isRehab: exercise.isRehab
+})
+
+export const placeholderSnapshot = (exerciseId: string, loggedSetCount = 0): Omit<ExerciseExecution, 'sets'> => ({
+  exerciseId,
+  name: '(deleted)',
+  muscle: 'core',
+  targetSets: Math.max(loggedSetCount, 1),
+  targetReps: 0,
+  isRehab: false
+})
 
 export class WorkoutSessionsStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
 
   async createWorkoutSession(item: NewWorkoutSession): Promise<WorkoutSession> {
-    const workoutSession: WorkoutSession = { ...item, id: crypto.randomUUID() }
+    const workoutSession: WorkoutSession = { ...item, id: crypto.randomUUID(), updatedAt: nowIso() }
     return storage.create(this.storeName, workoutSession)
   }
 
   async importWorkoutSession(workoutSession: WorkoutSession): Promise<WorkoutSession> {
-    return storage.create(this.storeName, workoutSession)
+    return storage.create(this.storeName, { ...workoutSession, updatedAt: workoutSession.updatedAt || nowIso() })
   }
 
   async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
@@ -67,7 +94,6 @@ export class WorkoutSessionsStore {
     if (session) return session
     if (!location) return undefined
 
-    // Fallback to ignoring location
     return storage.getFirstByPredicate<WorkoutSession>(this.storeName, 'date', 'prev', (session) => {
       const exercise = session.exercises.find((e) => e.exerciseId === exerciseId)
       return !!exercise && exercise.sets.length >= requiredSets
@@ -108,7 +134,7 @@ export class WorkoutSessionsStore {
   }
 
   async updateWorkoutSession(item: WorkoutSession): Promise<WorkoutSession> {
-    return storage.update(this.storeName, item)
+    return storage.update(this.storeName, { ...item, updatedAt: nowIso() })
   }
 
   async addExerciseExecutionSetToWorkoutSession({
@@ -123,10 +149,10 @@ export class WorkoutSessionsStore {
     const workoutSessionExercise = workoutSession.exercises.find(({ exerciseId: id }) => id === exerciseId)
 
     if (!workoutSessionExercise) {
-      workoutSession.exercises.push({ exerciseId, sets: [exerciseExecutionSet] })
-    } else {
-      workoutSessionExercise.sets.push(exerciseExecutionSet)
+      throw new Error('Exercise not found in workout session')
     }
+
+    workoutSessionExercise.sets.push(exerciseExecutionSet)
 
     return this.updateWorkoutSession(workoutSession)
   }
@@ -164,14 +190,14 @@ export class WorkoutSessionsStore {
 
   async addExerciseToWorkoutSession({
     workoutSession,
-    exerciseId
+    exercise
   }: {
     workoutSession: WorkoutSession
-    exerciseId: Exercise['id']
+    exercise: ExerciseExecution
   }): Promise<WorkoutSession> {
     return this.updateWorkoutSession({
       ...workoutSession,
-      exercises: [...workoutSession.exercises, { exerciseId, sets: [] }]
+      exercises: [...workoutSession.exercises, exercise]
     })
   }
 
@@ -191,11 +217,11 @@ export class WorkoutSessionsStore {
   async swapExerciseInWorkoutSession({
     workoutSession,
     oldExerciseId,
-    newExerciseId
+    replacement
   }: {
     workoutSession: WorkoutSession
     oldExerciseId: Exercise['id']
-    newExerciseId: Exercise['id']
+    replacement: ExerciseExecution
   }): Promise<WorkoutSession> {
     const exerciseIndex = workoutSession.exercises.findIndex(({ exerciseId }) => exerciseId === oldExerciseId)
     if (exerciseIndex === -1) {
@@ -203,10 +229,7 @@ export class WorkoutSessionsStore {
     }
 
     const updatedExercises = [...workoutSession.exercises]
-    updatedExercises[exerciseIndex] = {
-      exerciseId: newExerciseId,
-      sets: []
-    }
+    updatedExercises[exerciseIndex] = replacement
 
     return this.updateWorkoutSession({
       ...workoutSession,

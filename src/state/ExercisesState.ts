@@ -23,7 +23,7 @@ class ExercisesState {
   }
 
   static async createExercise(data: NewExercise): Promise<Exercise> {
-    const exercise: Exercise = { ...data, id: crypto.randomUUID() }
+    const exercise: Exercise = { ...data, id: crypto.randomUUID(), isDeleted: data.isDeleted ?? false, updatedAt: '' }
     this.state.update((current) => [...current, exercise])
 
     try {

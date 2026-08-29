@@ -1,23 +1,28 @@
+import { db } from '../db'
 import ReactiveStore from '../db/reactiveStore'
 import {
+  placeholderSnapshot,
+  snapshotFromExercise,
   workoutSessionsStore,
+  type ExerciseExecution,
   type ExerciseSetExecution,
   type NewWorkoutSession,
-  type WorkoutSession,
-  type WorkoutSessionStatus
+  type PersistedWorkoutSessionStatus,
+  type WorkoutSession
 } from '../db/stores/workoutSessionsStore'
-import ExercisesState from './ExercisesState'
 
-export function computeWorkoutSessionStatus(
-  session: Pick<WorkoutSession, 'exercises'>,
-  getExerciseDef: (id: string) => { sets: number } | undefined
-): WorkoutSessionStatus {
+export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): PersistedWorkoutSessionStatus {
   if (session.exercises.length === 0) return 'incomplete'
-  const allDone = session.exercises.every(({ exerciseId, sets }) => {
-    const def = getExerciseDef(exerciseId)
-    return def !== undefined && sets.length >= def.sets
-  })
+  const allDone = session.exercises.every(({ sets, targetSets }) => sets.length >= targetSets)
   return allDone ? 'completed' : 'incomplete'
+}
+
+const executionFromCatalog = async (exerciseId: string): Promise<ExerciseExecution> => {
+  const exercise = await db.exercises.getById(exerciseId)
+  if (!exercise) {
+    return { ...placeholderSnapshot(exerciseId), sets: [] }
+  }
+  return { ...snapshotFromExercise(exercise), sets: [] }
 }
 
 class GymtimeSessionState {
@@ -82,7 +87,7 @@ class GymtimeSessionState {
     const mutated = await workoutSessionsStore.swapExerciseInWorkoutSession({
       workoutSession: current,
       oldExerciseId,
-      newExerciseId
+      replacement: await executionFromCatalog(newExerciseId)
     })
     const reconciled = await this.reconcileStatus(mutated)
     this.store.set(reconciled)
@@ -122,7 +127,7 @@ class GymtimeSessionState {
 
     const mutated = await workoutSessionsStore.addExerciseToWorkoutSession({
       workoutSession: current,
-      exerciseId
+      exercise: await executionFromCatalog(exerciseId)
     })
     const reconciled = await this.reconcileStatus(mutated)
     this.store.set(reconciled)
@@ -147,7 +152,7 @@ class GymtimeSessionState {
   }
 
   private static async reconcileStatus(session: WorkoutSession): Promise<WorkoutSession> {
-    const expected = computeWorkoutSessionStatus(session, (id) => ExercisesState.getById(id))
+    const expected = computeWorkoutSessionStatus(session)
     if (session.status === expected) return session
     return workoutSessionsStore.updateWorkoutSession({ ...session, status: expected })
   }
