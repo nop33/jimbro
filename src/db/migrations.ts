@@ -12,6 +12,20 @@ export const getLatestDbVersion = (): number => migrations.at(-1)?.version ?? 0
 export const getMigrationForVersion = (version: DbMigration['version']) =>
   migrations.find((migration) => migration.version === version)?.migrate
 
+export const createCurrentObjectStores = (db: IDBDatabase) => {
+  if (!db.objectStoreNames.contains(OBJECT_STORES.EXERCISES)) {
+    db.createObjectStore(OBJECT_STORES.EXERCISES, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.PROGRAMS)) {
+    db.createObjectStore(OBJECT_STORES.PROGRAMS, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.WORKOUT_SESSIONS)) {
+    const sessions = db.createObjectStore(OBJECT_STORES.WORKOUT_SESSIONS, { keyPath: 'id' })
+    sessions.createIndex('date', 'date', { unique: false })
+    sessions.createIndex('programId', 'programId', { unique: false })
+  }
+}
+
 const migrations: Array<DbMigration> = [
   {
     version: 1,
@@ -77,10 +91,12 @@ const migrations: Array<DbMigration> = [
       const now = new Date().toISOString()
       const exerciseStore = transaction.objectStore(OBJECT_STORES.EXERCISES)
       const programStore = transaction.objectStore(OBJECT_STORES.PROGRAMS)
-      const sessionStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
       const catalog = new Map<string, Exercise>()
 
       const upgradeSessions = () => {
+        if (!transaction.objectStoreNames.contains(OBJECT_STORES.WORKOUT_SESSIONS)) return
+        const sessionStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+        if (sessionStore.keyPath !== 'id') return
         const sessionCursor = sessionStore.openCursor()
         sessionCursor.onsuccess = () => {
           const cursor = sessionCursor.result

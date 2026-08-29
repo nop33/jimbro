@@ -1,5 +1,5 @@
 import { DB_NAME } from './constants'
-import { getLatestDbVersion, getMigrationForVersion } from './migrations'
+import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
 
 if (navigator.storage && navigator.storage.persist) {
@@ -31,6 +31,12 @@ const openDatabase = async (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result
       const transaction = (event.target as IDBOpenDBRequest).transaction!
       const oldVersion = event.oldVersion
+
+      // Fresh DBs skip v1–v4 (v4 deletes workoutSessions mid-upgrade). Create v5 stores directly.
+      if (oldVersion === 0) {
+        createCurrentObjectStores(db)
+        return
+      }
 
       for (let versionToMigrateTo = oldVersion + 1; versionToMigrateTo <= latestVersion; versionToMigrateTo++) {
         getMigrationForVersion(versionToMigrateTo)?.(db, transaction)

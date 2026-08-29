@@ -2,6 +2,7 @@ import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
+import ExercisesState from '../../state/ExercisesState'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { setCityFromGeolocation } from './geolocation'
 
@@ -14,9 +15,9 @@ class WorkoutSessionForm {
   private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
   private static programId: Program['id']
-  private static onSessionSaved: () => void
+  private static onSessionSaved: () => void | Promise<void>
 
-  static init(programId: Program['id'], onSessionSaved: () => void) {
+  static init(programId: Program['id'], onSessionSaved: () => void | Promise<void>) {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
 
@@ -65,7 +66,7 @@ class WorkoutSessionForm {
 
       const exercises = await Promise.all(
         program.exercises.map(async (exerciseId) => {
-          const exercise = await db.exercises.getById(exerciseId)
+          const exercise = ExercisesState.getById(exerciseId) ?? (await db.exercises.getById(exerciseId))
           return exercise
             ? { ...snapshotFromExercise(exercise), sets: [] }
             : { ...placeholderSnapshot(exerciseId), sets: [] }
@@ -82,7 +83,7 @@ class WorkoutSessionForm {
       })
     }
 
-    this.onSessionSaved()
+    await this.onSessionSaved()
     Toasts.show({ message: 'Workout session saved.' })
   }
 }
