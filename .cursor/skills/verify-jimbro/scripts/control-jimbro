@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+REPO_ROOT=$(cd "$SKILL_DIR/../../.." && pwd)
+RUN_DIR="$SKILL_DIR/.run"
+PID_FILE="$RUN_DIR/pid"
+LISTENER_FILE="$RUN_DIR/listener"
+URL_FILE="$RUN_DIR/url"
+PORT_FILE="$RUN_DIR/port"
+LOG_FILE="$RUN_DIR/dev.log"
+
+PORT="${JIMBRO_VERIFY_PORT:-5174}"
+HOST="127.0.0.1"
+
+usage() {
+  cat <<'EOF'
+Usage: control-jimbro <command>
+
+  launch     Start vp run dev on the verification port (default 5174)
+  doctor     Check that this run's process owns the port and serves Jimbro
+  url        Print the verification origin
+  snapshot <route> --out <dir>
+             Screenshot + ARIA of one route
+  drive home
+             Run the mapped home feature and write artifacts
+  cleanup    Kill only the pid this launch started
+EOF
+}
+
+ensure_run_dir() {
+  mkdir -p "$RUN_DIR"
+}
+
+read_url() {
+  if [[ -f "$URL_FILE" ]]; then
+    cat "$URL_FILE"
+  else
+    echo "http://${HOST}:${PORT}"
+  fi
+}
+
+pid_alive() {
+  local pid=$1
+  kill -0 "$pid" 2>/dev/null
+}
+
+port_pids() {
+  lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $2}' | sort -u
+}
+
+html_title_is_jimbro() {
+  local url=$1
+  local html
+  html=$(curl -fsS --max-time 3 "$url/" 2>/dev/null || true)
+  printf '%s' "$html" | grep -q '<title>Jimbro</title>'
+}
+
+write_listener_pid() {
+  local listeners
+  listeners=$(port_pids || true)
+  if [[ -z "$listeners" ]]; then
+    return 1
+  fi
+  echo "$listeners" | head -n 1 >"$LISTENER_FILE"
+}
+
+cmd_launch() {
+  ensure_run_dir
+  if [[ -f "$LISTENER_FILE" ]]; then
+    local existing
+    existing=$(cat "$LISTENER_FILE")
+    if pid_alive "$existing" && html_title_is_jimbro "http://${HOST}:${PORT}"; then
+      echo "http://${HOST}:${PORT}" >"$URL_FILE"
+      echo "$PORT" >"$PORT_FILE"
+      echo "Reusing verification server pid $existing at http://${HOST}:${PORT}"
+      return 0
+    fi
+  fi
+
+  local listeners
+  listeners=$(port_pids || true)
+  if [[ -n "$listeners" ]]; then
+    echo "Port $PORT is already in use by pid(s): $listeners" >&2
+    echo "Set JIMBRO_VERIFY_PORT to a free port, or cleanup that process if it is yours." >&2
+    exit 1
+  fi
+
+  cd "$REPO_ROOT"
+  : >"$LOG_FILE"
+  python3 - "$REPO_ROOT" "$LOG_FILE" "$PID_FILE" "$HOST" "$PORT" <<'PY'
+import os, subprocess, sys
+
+repo, logfile, pidfile, host, port = sys.argv[1:6]
+if os.fork() > 0:
+    os._exit(0)
+os.setsid()
+if os.fork() > 0:
+    os._exit(0)
+os.chdir(repo)
+devnull = os.open(os.devnull, os.O_RDONLY)
+os.dup2(devnull, 0)
+logfd = os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+os.dup2(logfd, 1)
+os.dup2(logfd, 2)
+os.close(logfd)
+proc = subprocess.Popen(["vp", "run", "dev", "--host", host, "--port", port, "--strictPort"])
+with open(pidfile, "w", encoding="utf-8") as handle:
+    handle.write(str(proc.pid))
+proc.wait()
+PY
+  echo "$PORT" >"$PORT_FILE"
+  echo "http://${HOST}:${PORT}" >"$URL_FILE"
+
+  local i
+  local pid=""
+  for i in $(seq 1 20); do
+    if [[ -s "$PID_FILE" ]]; then
+      pid=$(cat "$PID_FILE")
+      break
+    fi
+    sleep 0.1
+  done
+  if [[ -z "$pid" ]]; then
+    echo "Failed to record launcher pid" >&2
+    exit 1
+  fi
+
+  local i
+  for i in $(seq 1 60); do
+    if html_title_is_jimbro "http://${HOST}:${PORT}" && write_listener_pid; then
+      echo "Jimbro ready at http://${HOST}:${PORT} (launcher $pid, listener $(cat "$LISTENER_FILE"))"
+      return 0
+    fi
+    if ! pid_alive "$pid" && [[ $i -gt 4 ]]; then
+      echo "Dev server exited during startup. Last log lines:" >&2
+      tail -n 40 "$LOG_FILE" >&2
+      rm -f "$PID_FILE" "$LISTENER_FILE"
+      exit 1
+    fi
+    sleep 0.5
+  done
+
+  echo "Timed out waiting for http://${HOST}:${PORT}/ to serve <title>Jimbro</title>" >&2
+  tail -n 40 "$LOG_FILE" >&2
+  exit 1
+}
+
+cmd_doctor() {
+  if [[ ! -f "$LISTENER_FILE" || ! -f "$URL_FILE" || ! -f "$PORT_FILE" ]]; then
+    echo "doctor fail: no .run metadata. Launch first." >&2
+    exit 1
+  fi
+  local listener port url
+  listener=$(cat "$LISTENER_FILE")
+  port=$(cat "$PORT_FILE")
+  url=$(cat "$URL_FILE")
+  PORT="$port"
+
+  if ! pid_alive "$listener"; then
+    echo "doctor fail: listener pid $listener is not running" >&2
+    exit 1
+  fi
+
+  local listeners
+  listeners=$(port_pids || true)
+  if ! printf '%s\n' "$listeners" | grep -qx "$listener"; then
+    echo "doctor fail: pid $listener does not own TCP $port (listeners: ${listeners:-none})" >&2
+    exit 1
+  fi
+
+  if ! html_title_is_jimbro "$url"; then
+    echo "doctor fail: $url/ did not return <title>Jimbro</title>" >&2
+    exit 1
+  fi
+
+  echo "doctor ok: listener=$listener port=$port url=$url"
+}
+
+cmd_url() {
+  if [[ ! -f "$URL_FILE" ]]; then
+    echo "No verification URL. Run launch first." >&2
+    exit 1
+  fi
+  cat "$URL_FILE"
+  echo
+}
+
+stop_pid() {
+  local pid=$1
+  [[ -n "$pid" ]] || return 0
+  pid_alive "$pid" || return 0
+  kill "$pid" 2>/dev/null || true
+  local i
+  for i in $(seq 1 20); do
+    pid_alive "$pid" || return 0
+    sleep 0.1
+  done
+  if pid_alive "$pid"; then
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+}
+
+cmd_cleanup() {
+  local listener="" parent=""
+  if [[ -f "$LISTENER_FILE" ]]; then
+    listener=$(cat "$LISTENER_FILE")
+  fi
+  if [[ -f "$PID_FILE" ]]; then
+    parent=$(cat "$PID_FILE")
+  fi
+  if [[ -z "$listener" && -z "$parent" ]]; then
+    echo "Nothing to clean up (no pid files)."
+    return 0
+  fi
+  stop_pid "$listener"
+  if [[ -n "$parent" && "$parent" != "$listener" ]]; then
+    local child
+    for child in $(pgrep -P "$parent" 2>/dev/null || true); do
+      stop_pid "$child"
+    done
+    stop_pid "$parent"
+  fi
+  echo "Stopped verification server (listener=${listener:-none} launcher=${parent:-none})"
+  rm -f "$PID_FILE" "$LISTENER_FILE" "$URL_FILE" "$PORT_FILE"
+}
+
+run_drive() {
+  if [[ ! -f "$URL_FILE" ]]; then
+    echo "Launch first so JIMBRO_VERIFY_URL is known." >&2
+    exit 1
+  fi
+  cmd_doctor
+  cd "$REPO_ROOT"
+  JIMBRO_VERIFY_URL=$(cat "$URL_FILE") \
+  JIMBRO_ARTIFACTS_DIR="$SKILL_DIR/artifacts" \
+    node "$SCRIPT_DIR/drive.mjs" "$@"
+}
+
+cmd=$1
+shift || true
+
+case "${cmd:-}" in
+  launch) cmd_launch ;;
+  doctor) cmd_doctor ;;
+  url) cmd_url ;;
+  cleanup) cmd_cleanup ;;
+  snapshot)
+    route=${1:-/}
+    shift || true
+    if [[ "${1:-}" != "--out" || -z "${2:-}" ]]; then
+      echo "Usage: control-jimbro snapshot <route> --out <dir>" >&2
+      exit 1
+    fi
+    out=$2
+    run_drive snapshot "$route" "$out"
+    ;;
+  drive)
+    feature=${1:-}
+    if [[ "$feature" != "home" ]]; then
+      echo "Usage: control-jimbro drive home" >&2
+      exit 1
+    fi
+    run_drive drive home
+    ;;
+  -h|--help|help|"") usage ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
