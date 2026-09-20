@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 test.describe('Gymtime Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -96,6 +96,7 @@ test.describe('Gymtime Page', () => {
     await expect(completedSetItem).toBeVisible()
     await expect(completedSetItem).toContainText('10')
     await expect(completedSetItem).toContainText('100')
+    await expect(completedSetItem).toContainText('kg')
 
     // 5. Edit the completed set
     await completedSetItem.scrollIntoViewIfNeeded()
@@ -207,5 +208,95 @@ test.describe('Gymtime Page', () => {
 
     // 8. Verify the timer automatically closed
     await expect(breakTimer).toBeHidden()
+  })
+})
+
+test.describe('Gymtime Page: non-lifting presets', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/settings/')
+    await page.getByText('Manage local data').click()
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: 'Reset Database' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
+
+    await page.goto('/workouts/')
+    await page.getByRole('button', { name: 'Seed Database' }).click()
+    await expect(page.locator('.workout-week')).toBeVisible()
+  })
+
+  async function startSessionWith(page: Page, exerciseName: string) {
+    await page.goto('/workouts/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+
+    await page.locator('#add-exercise-card').click()
+    const addExerciseDialog = page.locator('#add-exercise-dialog')
+    await expect(addExerciseDialog).toBeVisible()
+    await addExerciseDialog.locator('.card', { hasText: exerciseName }).first().click()
+    await expect(addExerciseDialog).not.toBeVisible()
+
+    const card = page.locator('#exercises-list .card', { hasText: exerciseName }).first()
+    await expect(card).toBeVisible()
+    await card.locator('.exercise-details summary').click()
+    return card
+  }
+
+  test('logs a treadmill set in minutes, speed and incline', async ({ page }) => {
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Treadmill walk')
+    await page.getByLabel('Kind').selectOption('cardio')
+    await page.getByLabel('Default sets').fill('1')
+    await expect(page.getByLabel('Default time (min)')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
+
+    const card = await startSessionWith(page, 'Treadmill walk')
+    const setForm = card.locator('.next-set-form')
+
+    await expect(setForm.locator('input[name="set-durationSec"]')).toHaveValue('')
+    await expect(setForm.locator('input[name="set-speed"]')).toHaveValue('')
+    await expect(setForm.locator('input[name="set-incline"]')).toHaveValue('0')
+    await expect(setForm.locator('input[name="set-reps"]')).toHaveCount(0)
+
+    await setForm.locator('input[name="set-durationSec"]').fill('20')
+    await setForm.locator('input[name="set-speed"]').fill('5.5')
+    await setForm.getByRole('button', { name: 'Finished set' }).click()
+
+    const completedSet = card.locator('.completed-sets .set.isCompleted').first()
+    await expect(completedSet).toBeVisible()
+    await expect(completedSet.locator('.set-durationSec')).toHaveText('20')
+    await expect(completedSet.locator('.set-speed')).toHaveText('5.5')
+    await expect(completedSet.locator('.set-incline')).toHaveText('0')
+    await expect(completedSet).toContainText('min')
+    await expect(completedSet).toContainText('km/h')
+    await expect(completedSet).toContainText('%')
+
+    await expect(card.getByRole('button', { name: 'View History' })).toBeHidden()
+  })
+
+  test('logs a rehab hold set and skips the break timer', async ({ page }) => {
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Side plank')
+    await page.getByLabel('Kind').selectOption('rehab')
+    await page.getByLabel('Log as').selectOption({ label: 'Hold' })
+    await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Core' })
+    await page.getByLabel('Default sets').fill('3')
+    await page.getByLabel('Default hold (sec)').fill('30')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
+
+    const card = await startSessionWith(page, 'Side plank')
+    const setForm = card.locator('.next-set-form')
+
+    await expect(setForm.locator('input[name="set-durationSec"]')).toHaveValue('30')
+    await setForm.getByRole('button', { name: 'Finished set' }).click()
+
+    const completedSet = card.locator('.completed-sets .set.isCompleted').first()
+    await expect(completedSet.locator('.set-durationSec')).toHaveText('30')
+
+    await expect(page.locator('#break-countdown-dialog')).toBeHidden()
   })
 })

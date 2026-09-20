@@ -1,8 +1,11 @@
 import { OBJECT_STORES } from '../constants'
+import type { ExerciseDefaults, ExerciseKind, ExerciseSetExecution, LogPreset } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { storage } from '../storage'
 import type { Exercise, MuscleGroup } from './exercisesStore'
 import type { Program } from './programsStore'
+
+export type { ExerciseSetExecution } from '../exerciseLogging'
 
 export const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
 export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]
@@ -26,34 +29,34 @@ export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'updatedAt'>
 export interface ExerciseExecution {
   exerciseId: Exercise['id']
   name: string
-  muscle: MuscleGroup
+  kind: ExerciseKind
+  preset: LogPreset
+  muscle?: MuscleGroup
   targetSets: number
-  targetReps: number
-  isRehab: boolean
+  defaults: ExerciseDefaults
   sets: Array<ExerciseSetExecution>
 }
 
-export interface ExerciseSetExecution {
-  reps: number
-  weight: number
-}
+export type ExerciseSnapshot = Omit<ExerciseExecution, 'sets'>
 
-export const snapshotFromExercise = (exercise: Exercise): Omit<ExerciseExecution, 'sets'> => ({
+export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
   exerciseId: exercise.id,
   name: exercise.name,
+  kind: exercise.kind,
+  preset: exercise.preset,
   muscle: exercise.muscle,
   targetSets: exercise.targetSets,
-  targetReps: exercise.targetReps,
-  isRehab: exercise.isRehab
+  defaults: { ...exercise.defaults }
 })
 
-export const placeholderSnapshot = (exerciseId: string, loggedSetCount = 0): Omit<ExerciseExecution, 'sets'> => ({
+export const placeholderSnapshot = (exerciseId: string, loggedSetCount = 0): ExerciseSnapshot => ({
   exerciseId,
   name: '(deleted)',
+  kind: 'lifting',
+  preset: 'lifting',
   muscle: 'core',
   targetSets: Math.max(loggedSetCount, 1),
-  targetReps: 0,
-  isRehab: false
+  defaults: {}
 })
 
 export class WorkoutSessionsStore {

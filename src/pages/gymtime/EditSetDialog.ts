@@ -1,22 +1,20 @@
+import { setValues, type ExerciseSetExecution } from '../../db/exerciseLogging'
 import type { Exercise } from '../../db/stores/exercisesStore'
-import type { ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
-import { setTextContent } from '../../utils'
+import { readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 interface EditSetData {
   set: ExerciseSetExecution
   exerciseId: Exercise['id']
   index: number
-  isRehab?: boolean
 }
 
 class EditSetDialog {
   private static dialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private static form = document.querySelector('#edit-set-form') as HTMLFormElement
-  private static repsInput = document.querySelector('#set-reps') as HTMLInputElement
-  private static weightInput = document.querySelector('#set-weight') as HTMLInputElement
+  private static fields = document.querySelector('#edit-set-fields') as HTMLDivElement
   private static editedSetData: EditSetData | null = null
 
   static init() {
@@ -27,8 +25,7 @@ class EditSetDialog {
 
   static openDialog(data: EditSetData) {
     this.editedSetData = data
-    this.repsInput.value = data.set.reps.toString()
-    this.weightInput.value = data.set.weight.toString()
+    renderSetInputs(this.fields, data.set.preset, setValues(data.set))
     this.dialog.showModal()
   }
 
@@ -40,23 +37,16 @@ class EditSetDialog {
     event.preventDefault()
     if (!this.editedSetData) throw new Error('No edited set data found')
 
-    const formData = new FormData(this.form)
-    const reps = formData.get('set-reps') as string
-    const weight = formData.get('set-weight') as string
+    const updatedSet = readSetFromForm(this.form, this.editedSetData.set.preset)
+    const values = setValues(updatedSet)
 
-    if (reps === '0' || (weight === '0' && !this.editedSetData.isRehab)) {
-      if (!confirm(`Are you sure you want to submit a set with 0 ${weight === '0' ? 'weight' : 'reps'}?`)) return
+    if (values.reps === 0 || (updatedSet.preset === 'lifting' && updatedSet.weight === 0)) {
+      if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
     }
-
-    const updatedSet = { reps: parseFloat(reps), weight: parseFloat(weight) }
 
     await GymtimeSessionState.updateSet(this.editedSetData.exerciseId, this.editedSetData.index, updatedSet)
 
-    updateSetItem({
-      set: updatedSet,
-      exerciseId: this.editedSetData.exerciseId,
-      index: this.editedSetData.index
-    })
+    updateSetItem({ ...this.editedSetData, set: updatedSet })
 
     this.closeDialog()
     Toasts.show({ message: 'Set updated.' })
@@ -69,8 +59,6 @@ const updateSetItem = ({ set, exerciseId, index }: EditSetData) => {
   const setItem = document.querySelector(
     `[data-exercise-id="${exerciseId}"] [data-set-number="${index + 1}"]`
   ) as HTMLDivElement
-  setTextContent('.set-reps', (set.reps || '-').toString(), setItem)
-  setTextContent('.set-weight', (set.weight || '-').toString(), setItem)
-  setItem.setAttribute('data-reps', set.reps.toString())
-  setItem.setAttribute('data-weight', set.weight.toString())
+  renderSetFields(setItem.querySelector('.set-fields') as HTMLDivElement, set)
+  setItem.dataset.set = JSON.stringify(set)
 }

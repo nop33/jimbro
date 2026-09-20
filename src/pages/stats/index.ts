@@ -1,3 +1,4 @@
+import { isRepsSet } from '../../db/exerciseLogging'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { setTextContent } from '../../utils'
 
@@ -24,8 +25,10 @@ async function calculateAndRenderStats() {
 
         for (const set of exercise.sets) {
           totalSetsCompleted++
-          totalRepsCompleted += set.reps
-          totalWeightLifted += set.weight * set.reps
+          if (isRepsSet(set)) {
+            totalRepsCompleted += set.reps
+            totalWeightLifted += (set.weight ?? 0) * set.reps
+          }
         }
       }
     } else {

@@ -31,11 +31,12 @@ After more than a decade in web dev, I am suffering from framework fatigue. This
 
 ## Data Model
 
-- **Exercise**: id, name, muscle slug, targetSets, targetReps, isDeleted, isRehab, updatedAt
+- **Exercise**: id, name, kind, preset, muscle slug (omitted for cardio), targetSets, defaults, isDeleted, updatedAt
 - **Program**: id, name, ordered list of exercise IDs, isDeleted, updatedAt
 - **WorkoutSession**: id (UUID), date, programId, exercises (snapshotted + logged sets), location, status (`completed` | `incomplete`), notes, updatedAt
-- **ExerciseExecution**: exerciseId, name, muscle, targetSets, targetReps, isRehab, array of completed sets
-- **ExerciseSetExecution**: reps, weight
+- **ExerciseExecution**: exerciseId, name, kind, preset, muscle, targetSets, defaults, array of completed sets
+- **ExerciseSetExecution**: a union discriminated by `preset` — `lifting` (reps, weight), `rehabReps` (reps, optional weight), `rehabHold` (durationSec, optional weight), `cardioTreadmill` (durationSec, speed, incline)
+- **Exercise kinds**: `lifting`, `rehab`, `cardio`. Each kind owns one or more log presets; rehab is the only kind that offers a choice. `src/db/exerciseLogging.ts` is the registry that maps a preset to its slots, labels, break-timer behaviour and prescription text.
 - **UI-only session status**: `pending` | `skipped` (workouts calendar placeholders, not persisted)
 - **Muscle groups**: slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …)
 

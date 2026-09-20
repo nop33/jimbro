@@ -1,8 +1,14 @@
-import type { Exercise } from '../../db/stores/exercisesStore'
+import { historyChartEnabled, isRepsSet, type ExerciseKind } from '../../db/exerciseLogging'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
 import Chart from 'chart.js/auto'
+
+export interface ExerciseHistoryTarget {
+  id: string
+  name: string
+  kind: ExerciseKind
+}
 
 class ExerciseHistoryChart {
   private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
@@ -23,8 +29,9 @@ class ExerciseHistoryChart {
     })
   }
 
-  static async openDialog(exercise: Exercise) {
+  static async openDialog(exercise: ExerciseHistoryTarget) {
     if (!this.dialog || !this.canvas) return
+    if (!historyChartEnabled(exercise.kind)) return
 
     setTextContent('.exercise-history-title span', exercise.name, this.dialog)
     this.dialog.showModal()
@@ -36,7 +43,7 @@ class ExerciseHistoryChart {
     this.dialog.close()
   }
 
-  private static async renderChart(exercise: Exercise) {
+  private static async renderChart(exercise: ExerciseHistoryTarget) {
     const sessions = await workoutSessionsStore.getAllWorkoutSessions()
 
     // Filter sessions that have this exercise and have completed sets
@@ -68,10 +75,11 @@ class ExerciseHistoryChart {
       let validSetsCount = 0
 
       for (const set of exerciseExec.sets) {
-        if (set.reps > 0) {
-          totalWeight += set.weight
-          total1rm += set.weight * (1 + set.reps / 30)
-          totalVolume += set.weight * set.reps
+        if (isRepsSet(set) && set.reps > 0) {
+          const weight = set.weight ?? 0
+          totalWeight += weight
+          total1rm += weight * (1 + set.reps / 30)
+          totalVolume += weight * set.reps
           validSetsCount++
         }
       }

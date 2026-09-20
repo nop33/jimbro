@@ -1,5 +1,6 @@
-import type { ExerciseSetExecution } from '../../db/stores/workoutSessionsStore'
+import { setFields, type ExerciseSetExecution } from '../../db/exerciseLogging'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import { renderSetFields } from './setSlots'
 
 class LastSetDialog {
   private static dialog = document.getElementById('last-set-dialog') as HTMLDialogElement
@@ -42,14 +43,12 @@ class LastSetDialog {
     }
 
     sets.forEach((set, index) => {
-      if (set.reps === 0) return
+      if (setFields(set).every(({ text }) => text === '-')) return
 
       const template = nodeFromTemplate('#completed-set-item-template')
-      const setNumber = (index + 1).toString()
 
-      setTextContent('.set-reps', set.reps.toString(), template)
-      setTextContent('.set-weight', set.weight.toString(), template)
-      setTextContent('.set-number', setNumber, template)
+      setTextContent('.set-number', (index + 1).toString(), template)
+      renderSetFields(template.querySelector('.set-fields') as HTMLDivElement, set)
 
       const div = template.querySelector('.set') as HTMLDivElement
       div.classList.add('isCompleted')

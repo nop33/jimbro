@@ -1,3 +1,4 @@
+import { EXERCISE_KIND_LABELS, formatPrescription } from '../../db/exerciseLogging'
 import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 
@@ -12,13 +13,16 @@ class ExerciseComponent {
     const exerciseItem = nodeFromTemplate('#exercise-item-template')
 
     setTextContent('.exercise-name', this.exercise.name, exerciseItem)
-    setTextContent('.exercise-muscle', muscleGroupLabel(this.exercise.muscle), exerciseItem)
-    setTextContent('.exercise-sets', this.exercise.targetSets.toString(), exerciseItem)
-    setTextContent('.exercise-reps', this.exercise.targetReps.toString(), exerciseItem)
+    const { kind, muscle } = this.exercise
+    const kindLabel = EXERCISE_KIND_LABELS[kind]
 
-    const rehabBadge = exerciseItem.querySelector('.exercise-rehab') as HTMLSpanElement
-    if (this.exercise.isRehab && rehabBadge) {
-      rehabBadge.classList.remove('hidden')
+    setTextContent('.exercise-muscle', muscle ? muscleGroupLabel(muscle) : kindLabel, exerciseItem)
+    setTextContent('.exercise-prescription', formatPrescription(this.exercise), exerciseItem)
+
+    const kindBadge = exerciseItem.querySelector('.exercise-kind') as HTMLSpanElement | null
+    if (kindBadge && muscle && kind !== 'lifting') {
+      kindBadge.textContent = kindLabel
+      kindBadge.classList.remove('hidden')
     }
 
     exerciseItem.querySelector('div')?.addEventListener('click', () => {

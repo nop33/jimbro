@@ -49,6 +49,7 @@ class WorkoutSessionForm {
     }
 
     this.form.addEventListener('submit', (e) => this.onSubmit(e))
+    this.submitButton.disabled = false
   }
 
   private static async onSubmit(event: Event) {

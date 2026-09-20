@@ -116,7 +116,11 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
 
         const exerciseItem = nodeFromTemplate('#selected-exercise-item-template')
         setTextContent('.selected-exercise-name', exercise.name, exerciseItem)
-        setTextContent('.selected-exercise-muscle', muscleGroupLabel(exercise.muscle), exerciseItem)
+        setTextContent(
+          '.selected-exercise-muscle',
+          exercise.muscle ? muscleGroupLabel(exercise.muscle) : 'Cardio',
+          exerciseItem
+        )
         exerciseItem.firstElementChild?.setAttribute('data-exercise-id', exerciseId)
 
         return exerciseItem

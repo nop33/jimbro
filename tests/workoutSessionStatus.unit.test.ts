@@ -1,17 +1,19 @@
 import { describe, it, expect } from 'vite-plus/test'
 import { computeWorkoutSessionStatus } from '../src/state/GymtimeSessionState'
 import type { ExerciseExecution } from '../src/db/stores/workoutSessionsStore'
+import type { ExerciseSetExecution } from '../src/db/exerciseLogging'
 
 describe('computeWorkoutSessionStatus', () => {
-  const setExecution = { reps: 10, weight: 100 }
+  const setExecution: ExerciseSetExecution = { preset: 'lifting', reps: 10, weight: 100 }
   const fullSets = (n: number) => Array.from({ length: n }, () => setExecution)
   const execution = (exerciseId: string, targetSets: number, logged: number): ExerciseExecution => ({
     exerciseId,
     name: exerciseId,
+    kind: 'lifting',
+    preset: 'lifting',
     muscle: 'chest',
     targetSets,
-    targetReps: 8,
-    isRehab: false,
+    defaults: { reps: 8 },
     sets: fullSets(logged)
   })
 

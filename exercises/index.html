@@ -55,13 +55,14 @@
               <h3 class="exercise-name card-title">
                 <!-- -->
               </h3>
-              <span class="exercise-muscle badge">
-                <!-- -->
-              </span>
+              <div class="flex flex-col gap-1 items-end">
+                <span class="exercise-muscle badge">
+                  <!-- -->
+                </span>
+                <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
+              </div>
             </header>
-            <p class="text-sm text-neutral-400 font-medium">
-              <span class="exercise-sets"></span> sets × <span class="exercise-reps"></span> reps
-            </p>
+            <p class="exercise-prescription text-sm text-neutral-400 font-medium"></p>
           </div>
         </template>
       </div>
@@ -112,23 +113,24 @@
           <input autofocus type="text" id="exercise-name" name="name" required />
         </div>
         <div>
+          <label for="exercise-kind">Kind</label>
+          <select id="exercise-kind" name="kind" required></select>
+        </div>
+        <div id="exercise-preset-field" class="hidden">
+          <label for="exercise-preset">Log as</label>
+          <select id="exercise-preset" name="preset"></select>
+        </div>
+        <div id="exercise-muscle-field">
           <label for="exercise-muscle">Muscle group</label>
           <select id="exercise-muscle" name="muscle" required>
             <!-- Muscle groups will be rendered here -->
           </select>
         </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="exercise-is-rehab" name="isRehab" class="size-4" />
-          <label for="exercise-is-rehab" class="cursor-pointer select-none">Is Rehab Exercise</label>
-        </div>
         <div>
           <label for="exercise-sets">Default sets</label>
           <input type="number" id="exercise-sets" name="sets" min="1" required />
         </div>
-        <div>
-          <label for="exercise-reps">Default reps</label>
-          <input type="number" id="exercise-reps" name="reps" min="1" required />
-        </div>
+        <div id="exercise-defaults" class="flex flex-col gap-5"></div>
         <div class="flex gap-3 justify-end mt-6">
           <button type="button" id="dialog-cancel" class="btn-secondary">Cancel</button>
           <button type="submit" class="btn-primary">Save</button>

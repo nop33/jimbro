@@ -1,5 +1,5 @@
-import type { Exercise } from '../../db/stores/exercisesStore'
-import ExerciseHistoryChart from './ExerciseHistoryChart'
+import { historyChartEnabled } from '../../db/exerciseLogging'
+import ExerciseHistoryChart, { type ExerciseHistoryTarget } from './ExerciseHistoryChart'
 import { playDingSound } from './sound'
 
 class BreakTimerDialog {
@@ -15,7 +15,7 @@ class BreakTimerDialog {
   private static targetTime: number | null = null
   private static hasPlayedSound = false
   private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
-  private static currentExercise: Exercise | null = null
+  private static currentExercise: ExerciseHistoryTarget | null = null
   private static isMinimized = false
 
   static init() {
@@ -99,9 +99,10 @@ class BreakTimerDialog {
     setsDone: number
     setsTotal: number
     nextExercise?: string
-    currentExercise: Exercise
+    currentExercise: ExerciseHistoryTarget
   }) {
     this.currentExercise = currentExercise
+    this.viewHistoryButton.classList.toggle('hidden', !historyChartEnabled(currentExercise.kind))
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.hasPlayedSound = false
 
