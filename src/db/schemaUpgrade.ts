@@ -1,7 +1,19 @@
+import {
+  coerceDefaults,
+  defaultPresetForKind,
+  hasSlot,
+  kindOfPreset,
+  parseExerciseKind,
+  parseLogPreset,
+  parseSet,
+  type ExerciseDefaults,
+  type ExerciseKind,
+  type LogPreset
+} from './exerciseLogging'
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, type MuscleGroup } from './muscleGroups'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
-import type { ExerciseExecution, ExerciseSetExecution, WorkoutSession } from './stores/workoutSessionsStore'
+import type { ExerciseExecution, WorkoutSession } from './stores/workoutSessionsStore'
 
 const LABEL_TO_SLUG = Object.fromEntries(
   (Object.entries(MUSCLE_GROUP_LABELS) as Array<[MuscleGroup, string]>).map(([slug, label]) => [label, slug])
@@ -13,18 +25,45 @@ export const normalizeMuscle = (value: string): MuscleGroup => {
   return 'core'
 }
 
+interface Logging {
+  kind: ExerciseKind
+  preset: LogPreset
+}
+
+const upgradeLogging = (raw: Record<string, unknown>): Logging => {
+  const preset = parseLogPreset(raw.preset)
+  if (preset) return { kind: parseExerciseKind(raw.kind) ?? kindOfPreset(preset), preset }
+
+  const kind = parseExerciseKind(raw.kind) ?? (raw.isRehab ? 'rehab' : 'lifting')
+  return { kind, preset: defaultPresetForKind(kind) }
+}
+
+const upgradeDefaults = (raw: Record<string, unknown>, preset: LogPreset, legacyReps: number): ExerciseDefaults => {
+  const defaults = coerceDefaults(preset, raw.defaults)
+  if (defaults.reps === undefined && hasSlot(preset, 'reps')) defaults.reps = legacyReps
+  return defaults
+}
+
+const upgradeMuscle = (raw: Record<string, unknown>, kind: ExerciseKind): MuscleGroup | undefined => {
+  if (kind !== 'cardio') return normalizeMuscle(String(raw.muscle ?? ''))
+  return typeof raw.muscle === 'string' && raw.muscle !== '' ? normalizeMuscle(raw.muscle) : undefined
+}
+
+const legacyRepsOf = (raw: Record<string, unknown>): number =>
+  typeof raw.targetReps === 'number' ? raw.targetReps : Number(raw.reps) || 0
+
 export const upgradeExerciseRecord = (raw: Record<string, unknown>, now: string): Exercise => {
-  const targetSets = typeof raw.targetSets === 'number' ? raw.targetSets : Number(raw.sets) || 0
-  const targetReps = typeof raw.targetReps === 'number' ? raw.targetReps : Number(raw.reps) || 0
+  const { kind, preset } = upgradeLogging(raw)
 
   return {
     id: String(raw.id),
     name: String(raw.name ?? ''),
-    muscle: normalizeMuscle(String(raw.muscle ?? '')),
-    targetSets,
-    targetReps,
+    kind,
+    preset,
+    muscle: upgradeMuscle(raw, kind),
+    targetSets: typeof raw.targetSets === 'number' ? raw.targetSets : Number(raw.sets) || 0,
+    defaults: upgradeDefaults(raw, preset, legacyRepsOf(raw)),
     isDeleted: Boolean(raw.isDeleted),
-    isRehab: Boolean(raw.isRehab),
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : now
   }
 }
@@ -43,46 +82,50 @@ const upgradeSessionExercise = (
   sessionWasCompleted: boolean
 ): ExerciseExecution => {
   const exerciseId = String(raw.exerciseId ?? '')
-  const sets = (Array.isArray(raw.sets) ? raw.sets : []) as Array<ExerciseSetExecution>
+  const rawSets = Array.isArray(raw.sets) ? raw.sets : []
   const hasSnapshot = typeof raw.name === 'string' && typeof raw.targetSets === 'number'
 
   if (hasSnapshot) {
+    const { kind, preset } = upgradeLogging(raw)
     return {
       exerciseId,
       name: raw.name as string,
-      muscle: normalizeMuscle(String(raw.muscle ?? '')),
+      kind,
+      preset,
+      muscle: upgradeMuscle(raw, kind),
       targetSets: raw.targetSets as number,
-      targetReps: typeof raw.targetReps === 'number' ? raw.targetReps : 0,
-      isRehab: Boolean(raw.isRehab),
-      sets
+      defaults: upgradeDefaults(raw, preset, legacyRepsOf(raw)),
+      sets: rawSets.map((set) => parseSet(set, preset))
     }
   }
 
   const catalogEx = catalog.get(exerciseId)
   if (catalogEx) {
     let targetSets = catalogEx.targetSets
-    if (sessionWasCompleted && sets.length < targetSets) {
-      targetSets = Math.max(sets.length, 1)
+    if (sessionWasCompleted && rawSets.length < targetSets) {
+      targetSets = Math.max(rawSets.length, 1)
     }
     return {
       exerciseId,
       name: catalogEx.name,
+      kind: catalogEx.kind,
+      preset: catalogEx.preset,
       muscle: catalogEx.muscle,
       targetSets,
-      targetReps: catalogEx.targetReps,
-      isRehab: catalogEx.isRehab,
-      sets
+      defaults: { ...catalogEx.defaults },
+      sets: rawSets.map((set) => parseSet(set, catalogEx.preset))
     }
   }
 
   return {
     exerciseId,
     name: '(deleted)',
+    kind: 'lifting',
+    preset: 'lifting',
     muscle: 'core',
-    targetSets: Math.max(sets.length, 1),
-    targetReps: 0,
-    isRehab: false,
-    sets
+    targetSets: Math.max(rawSets.length, 1),
+    defaults: {},
+    sets: rawSets.map((set) => parseSet(set, 'lifting'))
   }
 }
 

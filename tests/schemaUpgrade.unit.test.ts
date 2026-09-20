@@ -31,11 +31,12 @@ describe('schemaUpgrade', () => {
     expect(upgraded).toEqual({
       id: 'ex-1',
       name: 'Bench press',
+      kind: 'lifting',
+      preset: 'lifting',
       muscle: 'chest',
       targetSets: 4,
-      targetReps: 8,
+      defaults: { reps: 8 },
       isDeleted: false,
-      isRehab: false,
       updatedAt: now
     })
   })
@@ -62,11 +63,12 @@ describe('schemaUpgrade', () => {
         {
           id: 'ex-1',
           name: 'Bench press',
+          kind: 'lifting',
+          preset: 'lifting',
           muscle: 'chest',
           targetSets: 5,
-          targetReps: 8,
+          defaults: { reps: 8 },
           isDeleted: false,
-          isRehab: false,
           updatedAt: now
         }
       ]
@@ -95,16 +97,66 @@ describe('schemaUpgrade', () => {
       now
     )
 
-    expect(upgraded.exercises[0]).toMatchObject({
+    expect(upgraded.exercises[0]).toEqual({
       exerciseId: 'ex-1',
       name: 'Bench press',
+      kind: 'lifting',
+      preset: 'lifting',
       muscle: 'chest',
       targetSets: 4,
-      targetReps: 8,
-      isRehab: false
+      defaults: { reps: 8 },
+      sets: [
+        { preset: 'lifting', reps: 8, weight: 40 },
+        { preset: 'lifting', reps: 8, weight: 40 },
+        { preset: 'lifting', reps: 8, weight: 40 },
+        { preset: 'lifting', reps: 8, weight: 40 }
+      ]
     })
     expect(upgraded.status).toBe('completed')
     expect(upgraded.updatedAt).toBe(now)
+  })
+
+  it('carries the catalog preset onto the sets of an unsnapshotted rehab exercise', () => {
+    const catalog = new Map<string, Exercise>([
+      [
+        'ex-hold',
+        {
+          id: 'ex-hold',
+          name: 'Side plank',
+          kind: 'rehab',
+          preset: 'rehabHold',
+          muscle: 'core',
+          targetSets: 3,
+          defaults: { durationSec: 30 },
+          isDeleted: false,
+          updatedAt: now
+        }
+      ]
+    ])
+
+    const upgraded = upgradeWorkoutSessionRecord(
+      {
+        id: 's-3',
+        date: '2026-01-02',
+        programId: 'p-1',
+        location: '',
+        status: 'incomplete',
+        exercises: [{ exerciseId: 'ex-hold', sets: [{ durationSec: 45 }] }]
+      },
+      catalog,
+      now
+    )
+
+    expect(upgraded.exercises[0]).toEqual({
+      exerciseId: 'ex-hold',
+      name: 'Side plank',
+      kind: 'rehab',
+      preset: 'rehabHold',
+      muscle: 'core',
+      targetSets: 3,
+      defaults: { durationSec: 30 },
+      sets: [{ preset: 'rehabHold', durationSec: 45, weight: undefined }]
+    })
   })
 
   it('uses a placeholder snapshot when the catalog exercise is gone', () => {
@@ -121,11 +173,15 @@ describe('schemaUpgrade', () => {
       now
     )
 
-    expect(upgraded.exercises[0]).toMatchObject({
+    expect(upgraded.exercises[0]).toEqual({
       exerciseId: 'missing',
       name: '(deleted)',
+      kind: 'lifting',
+      preset: 'lifting',
       muscle: 'core',
-      targetSets: 1
+      targetSets: 1,
+      defaults: {},
+      sets: [{ preset: 'lifting', reps: 8, weight: 10 }]
     })
   })
 })

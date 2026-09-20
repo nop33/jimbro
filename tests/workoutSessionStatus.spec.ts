@@ -25,11 +25,12 @@ const EXERCISE_NOT_IN_PUSH_DAY = {
 interface SeedSessionExercise {
   exerciseId: string
   name: string
+  kind: string
+  preset: string
   muscle: string
   targetSets: number
-  targetReps: number
-  isRehab: boolean
-  sets: Array<{ reps: number; weight: number }>
+  defaults: { reps?: number }
+  sets: Array<{ preset: string; reps: number; weight: number }>
 }
 
 interface SeedSessionInput {
@@ -97,10 +98,16 @@ async function readProgramExerciseIds(page: Page, programId: string): Promise<st
   )
 }
 
-async function readExerciseDef(
-  page: Page,
-  exerciseId: string
-): Promise<{ name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean } | undefined> {
+interface SeedExerciseDef {
+  name: string
+  kind: string
+  preset: string
+  muscle: string
+  targetSets: number
+  defaults: { reps?: number }
+}
+
+async function readExerciseDef(page: Page, exerciseId: string): Promise<SeedExerciseDef | undefined> {
   return await page.evaluate(
     async ({ dbName, id }) => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -109,17 +116,10 @@ async function readExerciseDef(
         req.onerror = () => reject(req.error)
       })
       try {
-        return await new Promise<
-          { name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean } | undefined
-        >((resolve, reject) => {
+        return await new Promise<SeedExerciseDef | undefined>((resolve, reject) => {
           const tx = db.transaction('exercises', 'readonly')
           const req = tx.objectStore('exercises').get(id)
-          req.onsuccess = () =>
-            resolve(
-              req.result as
-                | { name: string; muscle: string; targetSets: number; targetReps: number; isRehab: boolean }
-                | undefined
-            )
+          req.onsuccess = () => resolve(req.result as SeedExerciseDef | undefined)
           req.onerror = () => reject(req.error)
         })
       } finally {
@@ -162,11 +162,16 @@ async function buildCompletedExercisesFor(page: Page, programId: string) {
     result.push({
       exerciseId: exId,
       name: def.name,
+      kind: def.kind,
+      preset: def.preset,
       muscle: def.muscle,
       targetSets: def.targetSets,
-      targetReps: def.targetReps,
-      isRehab: def.isRehab,
-      sets: Array.from({ length: def.targetSets }, () => ({ reps: def.targetReps, weight: 50 }))
+      defaults: def.defaults,
+      sets: Array.from({ length: def.targetSets }, () => ({
+        preset: def.preset,
+        reps: def.defaults.reps ?? 8,
+        weight: 50
+      }))
     })
   }
   return result

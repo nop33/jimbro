@@ -29,21 +29,22 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
   render({ selectedExercises }: ExercisesListProps) {
     const groupMap = new Map<string, Exercise[]>()
     for (const exercise of ExercisesState.exercises) {
-      if (!groupMap.has(exercise.muscle)) {
-        groupMap.set(exercise.muscle, [])
+      const group = exercise.muscle ? muscleGroupLabel(exercise.muscle) : 'Cardio'
+      if (!groupMap.has(group)) {
+        groupMap.set(group, [])
       }
-      groupMap.get(exercise.muscle)!.push(exercise)
+      groupMap.get(group)!.push(exercise)
     }
 
     this.exercisesSelection.innerHTML = Array.from(groupMap.entries())
-      .map(([muscle, exercises]) => {
+      .map(([group, exercises]) => {
         const options = exercises
           .map((exercise) => {
             const isSelected = selectedExercises.has(exercise.id)
             return `<option class="multiselect-option" value="${exercise.id}"${isSelected ? ' selected' : ''}>${exercise.name}</option>`
           })
           .join('')
-        return `<optgroup label="${muscleGroupLabel(muscle)}">${options}</optgroup>`
+        return `<optgroup label="${group}">${options}</optgroup>`
       })
       .join('')
   }

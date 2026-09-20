@@ -1,5 +1,5 @@
 import { db } from '../../db'
-import type { Exercise } from '../../db/stores/exercisesStore'
+import { snapshotFromExercise, type ExerciseSnapshot } from '../../db/stores/workoutSessionsStore'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import ExerciseCard from './ExerciseCard'
 
@@ -28,37 +28,26 @@ class ExerciseCardList {
 
     const session = GymtimeSessionState.session
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
-    const definitions = new Map<string, Exercise>()
     const cards: DocumentFragment[] = []
 
     for (const exerciseId of exerciseIds) {
       if (generation !== this.renderGeneration) return
 
-      const catalog = await db.exercises.getById(exerciseId)
       const execution = session?.exercises.find((e) => e.exerciseId === exerciseId)
+      let snapshot: ExerciseSnapshot | undefined = execution
 
-      const exercise: Exercise | undefined = execution
-        ? {
-            id: exerciseId,
-            name: execution.name,
-            muscle: execution.muscle,
-            targetSets: execution.targetSets,
-            targetReps: execution.targetReps,
-            isRehab: execution.isRehab,
-            isDeleted: catalog?.isDeleted ?? true,
-            updatedAt: catalog?.updatedAt ?? ''
-          }
-        : catalog
+      if (!snapshot) {
+        const catalog = await db.exercises.getById(exerciseId)
+        snapshot = catalog && snapshotFromExercise(catalog)
+      }
 
-      if (!exercise) continue
+      if (!snapshot) continue
 
-      definitions.set(exerciseId, exercise)
       cards.push(
         await new ExerciseCard({
-          exercise,
+          snapshot,
           programId: this.programId,
           programExerciseIds: this.programExerciseIds,
-          exerciseDefinitions: definitions,
           onExerciseDeleted: () => {
             void this.render()
           }

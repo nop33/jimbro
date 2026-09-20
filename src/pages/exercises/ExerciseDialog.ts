@@ -1,3 +1,20 @@
+import {
+  defaultFieldName,
+  defaultLabel,
+  defaultPresetForKind,
+  defaultSlotsForPreset,
+  EXERCISE_KIND_LABELS,
+  EXERCISE_KINDS,
+  fromDisplayValues,
+  LOG_PRESET_SPECS,
+  muscleRequired,
+  parseExerciseKind,
+  parseLogPreset,
+  presetsForKind,
+  toDisplayValues,
+  type ExerciseKind,
+  type LogPreset
+} from '../../db/exerciseLogging'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import ExercisesState from '../../state/ExercisesState'
@@ -10,10 +27,13 @@ class ExerciseDialog {
   private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
   private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
   private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
+  private static exerciseKindSelect = document.querySelector('#exercise-kind') as HTMLSelectElement
+  private static exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLDivElement
+  private static exercisePresetSelect = document.querySelector('#exercise-preset') as HTMLSelectElement
+  private static exerciseMuscleField = document.querySelector('#exercise-muscle-field') as HTMLDivElement
   private static exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
-  private static exerciseIsRehabCheckbox = document.querySelector('#exercise-is-rehab') as HTMLInputElement
   private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
-  private static exerciseRepsInput = document.querySelector('#exercise-reps') as HTMLInputElement
+  private static exerciseDefaults = document.querySelector('#exercise-defaults') as HTMLDivElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
   private static deleteExerciseBtn = document.querySelector('#delete-exercise-btn') as HTMLButtonElement
 
@@ -26,8 +46,12 @@ class ExerciseDialog {
   }
 
   static init() {
+    this.renderKindPicker()
     this.renderMusclePicker()
     this.populateForm()
+
+    this.exerciseKindSelect.addEventListener('change', () => this.onKindChanged())
+    this.exercisePresetSelect.addEventListener('change', () => this.renderPresetFields())
 
     window.addEventListener('exercise-clicked', (e) => {
       const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
@@ -56,19 +80,21 @@ class ExerciseDialog {
       e.preventDefault()
       const formData = new FormData(this.exerciseForm)
       const id = this.exerciseIdInput.value
+      const preset = this.selectedPreset()
       const name = formData.get('name') as string
-      const muscle = formData.get('muscle') as Exercise['muscle']
-      const isRehab = formData.get('isRehab') === 'on'
       const targetSets = parseInt(formData.get('sets') as string)
-      const targetReps = parseInt(formData.get('reps') as string)
+      const muscle = muscleRequired(preset) ? (formData.get('muscle') as Exercise['muscle']) : undefined
+      const defaults = fromDisplayValues(preset, this.enteredDefaults(preset))
+
+      const fields = { name, kind: LOG_PRESET_SPECS[preset].kind, preset, muscle, targetSets, defaults }
 
       try {
         if (id) {
           const existing = ExercisesState.getById(id)
           if (!existing) throw new Error('Exercise not found')
-          await ExercisesState.updateExercise({ ...existing, name, muscle, targetSets, targetReps, isRehab })
+          await ExercisesState.updateExercise({ ...existing, ...fields })
         } else {
-          await ExercisesState.createExercise({ name, muscle, targetSets, targetReps, isRehab, isDeleted: false })
+          await ExercisesState.createExercise({ ...fields, isDeleted: false })
         }
 
         this.closeDialog()
@@ -86,17 +112,96 @@ class ExerciseDialog {
       this.exerciseIdInput.value = exercise.id
       this.deleteExerciseBtn.classList.remove('hidden')
       this.exerciseNameInput.value = exercise.name
-      this.exerciseMuscleSelect.value = exercise.muscle
-      this.exerciseIsRehabCheckbox.checked = exercise.isRehab
+      this.exerciseKindSelect.value = exercise.kind
+      this.exerciseMuscleSelect.value = exercise.muscle ?? ''
       this.exerciseSetsInput.value = exercise.targetSets.toString()
-      this.exerciseRepsInput.value = exercise.targetReps.toString()
+      this.renderPresetPicker(exercise.kind, exercise.preset)
+      this.renderPresetFields(exercise.defaults)
     } else {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
-      this.exerciseIsRehabCheckbox.checked = false
+      this.exerciseKindSelect.value = 'lifting'
       this.deleteExerciseBtn.classList.add('hidden')
+      this.onKindChanged()
     }
+  }
+
+  private static selectedKind(): ExerciseKind {
+    return parseExerciseKind(this.exerciseKindSelect.value) ?? 'lifting'
+  }
+
+  private static selectedPreset(): LogPreset {
+    const kind = this.selectedKind()
+    const preset = parseLogPreset(this.exercisePresetSelect.value)
+    return preset && LOG_PRESET_SPECS[preset].kind === kind ? preset : defaultPresetForKind(kind)
+  }
+
+  private static onKindChanged() {
+    const kind = this.selectedKind()
+    this.renderPresetPicker(kind, defaultPresetForKind(kind))
+    this.renderPresetFields()
+  }
+
+  private static renderKindPicker() {
+    this.exerciseKindSelect.replaceChildren(
+      ...EXERCISE_KINDS.map((kind) => new Option(EXERCISE_KIND_LABELS[kind], kind))
+    )
+  }
+
+  private static renderPresetPicker(kind: ExerciseKind, preset: LogPreset) {
+    const presets = presetsForKind(kind)
+
+    this.exercisePresetSelect.replaceChildren(
+      ...presets.map((option) => new Option(LOG_PRESET_SPECS[option].label, option))
+    )
+    this.exercisePresetSelect.value = presets.includes(preset) ? preset : presets[0]
+    this.exercisePresetField.classList.toggle('hidden', presets.length < 2)
+  }
+
+  private static renderPresetFields(defaults: Exercise['defaults'] = {}) {
+    const preset = this.selectedPreset()
+    const needsMuscle = muscleRequired(preset)
+    const display = toDisplayValues(preset, defaults)
+
+    this.exerciseMuscleField.classList.toggle('hidden', !needsMuscle)
+    this.exerciseMuscleSelect.required = needsMuscle
+
+    this.exerciseDefaults.replaceChildren(
+      ...defaultSlotsForPreset(preset).map((spec) => {
+        const wrapper = document.createElement('div')
+        const inputId = defaultFieldName(spec.slot)
+
+        const label = document.createElement('label')
+        label.htmlFor = inputId
+        label.textContent = defaultLabel(spec)
+
+        const input = document.createElement('input')
+        input.type = 'number'
+        input.id = inputId
+        input.name = inputId
+        input.min = String(spec.min)
+        input.step = String(spec.step)
+        input.required = true
+
+        const value = display[spec.slot]
+        if (value !== undefined) input.value = String(value)
+
+        wrapper.append(label, input)
+        return wrapper
+      })
+    )
+  }
+
+  private static enteredDefaults(preset: LogPreset): Record<string, FormDataEntryValue | null> {
+    const formData = new FormData(this.exerciseForm)
+    const entered: Record<string, FormDataEntryValue | null> = {}
+
+    for (const { slot } of defaultSlotsForPreset(preset)) {
+      entered[slot] = formData.get(defaultFieldName(slot))
+    }
+
+    return entered
   }
 
   private static renderMusclePicker() {
