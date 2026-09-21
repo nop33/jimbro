@@ -1,6 +1,6 @@
 import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
-import { placeholderSnapshot, snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
+import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
 import ExercisesState from '../../state/ExercisesState'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
@@ -17,7 +17,7 @@ class WorkoutSessionForm {
   private static programId: Program['id']
   private static onSessionSaved: () => void | Promise<void>
 
-  static init(programId: Program['id'], onSessionSaved: () => void | Promise<void>) {
+  static async init(programId: Program['id'], onSessionSaved: () => void | Promise<void>) {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
 
@@ -36,6 +36,11 @@ class WorkoutSessionForm {
 
     if (session) {
       this.locationInput.value = session.location
+    } else {
+      const latestSaved = await workoutSessionsStore.getLatestSavedWorkoutSession()
+      if (latestSaved?.location) {
+        this.locationInput.value = latestSaved.location
+      }
     }
 
     this.getLocationBtn.addEventListener('click', () => {

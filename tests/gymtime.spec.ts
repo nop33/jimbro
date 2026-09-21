@@ -209,6 +209,22 @@ test.describe('Gymtime Page', () => {
     // 8. Verify the timer automatically closed
     await expect(breakTimer).toBeHidden()
   })
+
+  test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
+    await page.locator('input[name="location"]').fill('Memorial Gym')
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+    await page.locator('#back-button').click()
+    await expect(page).toHaveURL(/\/workouts\//)
+
+    await page.getByRole('button', { name: 'New' }).click()
+    const dialog = page.locator('dialog#new-workout-dialog')
+    await dialog.locator('a.program-link').nth(1).click()
+    await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+    await expect(page.locator('input[name="location"]')).toHaveValue('Memorial Gym')
+  })
 })
 
 test.describe('Gymtime Page: non-lifting presets', () => {
