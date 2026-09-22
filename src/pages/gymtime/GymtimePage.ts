@@ -44,7 +44,7 @@ class GymtimePage {
       await ExerciseCardList.render()
     })
 
-    WorkoutSessionForm.init(program.id, async () => {
+    await WorkoutSessionForm.init(program.id, async () => {
       const session = GymtimeSessionState.session
       if (session) window.history.replaceState({}, '', `?id=${session.id}`)
       await ExerciseCardList.render()

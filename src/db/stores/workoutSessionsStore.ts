@@ -83,6 +83,12 @@ export class WorkoutSessionsStore {
       .sort((a, b) => parseSimpleDate(b.date).getTime() - parseSimpleDate(a.date).getTime())[0]
   }
 
+  async getLatestSavedWorkoutSession(): Promise<WorkoutSession | undefined> {
+    return storage.getFirstByPredicate<WorkoutSession>(this.storeName, 'date', 'prev', (session) =>
+      PERSISTED_WORKOUT_SESSION_STATUSES.includes(session.status)
+    )
+  }
+
   async getLatestWorkoutSessionWithCompletedExercise(
     exerciseId: Exercise['id'],
     requiredSets: number,
