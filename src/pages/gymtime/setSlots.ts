@@ -63,11 +63,15 @@ export const readSetFromForm = (form: HTMLFormElement, preset: LogPreset): Exerc
   return buildSet(preset, fromDisplayValues(preset, entered))
 }
 
+export const configureSetRowGrid = (container: HTMLElement, preset: LogPreset) => {
+  container.style.setProperty('--set-field-count', String(slotsForPreset(preset).length))
+}
+
 export const renderSetFields = (container: HTMLElement, set: ExerciseSetExecution) => {
   container.replaceChildren(
     ...setFields(set).map(({ slot, label, text, unit }) => {
       const field = document.createElement('div')
-      field.className = 'text-jim-neutral-secondary whitespace-nowrap'
+      field.className = 'set-field text-jim-neutral-secondary whitespace-nowrap'
       field.append(`${label} `)
 
       const value = document.createElement('span')
