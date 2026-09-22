@@ -35,9 +35,12 @@ test.describe('Workouts Page', () => {
 
     const dialog = page.locator('dialog#new-workout-dialog')
     await expect(dialog).toBeVisible()
+    await dialog.locator('.close-dialog-btn').click()
+    await expect(dialog).not.toBeVisible()
 
-    // Verify dialog has program options
-    // The seed data created some programs
+    await page.getByRole('button', { name: 'New' }).click()
+    await expect(dialog).toBeVisible()
+
     const firstProgramLink = dialog.locator('a.program-link').first()
     await expect(firstProgramLink).toBeVisible()
 
