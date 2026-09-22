@@ -21,7 +21,7 @@ import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
-import { readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
+import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 import { getCloudBackupConfig, uploadToCloud } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 
@@ -205,6 +205,8 @@ class ExerciseCard {
     }
 
     const placeholder = () => emptySet(this.snapshot.preset)
+
+    configureSetRowGrid(completedSets, this.snapshot.preset)
 
     if (existingExercise) {
       if (existingExercise.sets.length >= this.targetSets) {

@@ -1,6 +1,6 @@
 import { setFields, type ExerciseSetExecution } from '../../db/exerciseLogging'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import { renderSetFields } from './setSlots'
+import { configureSetRowGrid, renderSetFields } from './setSlots'
 
 class LastSetDialog {
   private static dialog = document.getElementById('last-set-dialog') as HTMLDialogElement
@@ -26,6 +26,10 @@ class LastSetDialog {
     if (!this.dialog || !this.listContainer) return
 
     this.listContainer.innerHTML = ''
+
+    if (sets.length > 0) {
+      configureSetRowGrid(this.listContainer, sets[0].preset)
+    }
 
     const { parseSimpleDate } = await import('../../dateUtils')
     const formattedDate = parseSimpleDate(date).toLocaleDateString(undefined, {

@@ -20,12 +20,7 @@ describe('getLatestSavedWorkoutSession', () => {
     vi.mocked(storage.getFirstByPredicate).mockResolvedValue(session)
 
     await expect(store.getLatestSavedWorkoutSession()).resolves.toBe(session)
-    expect(storage.getFirstByPredicate).toHaveBeenCalledWith(
-      'workoutSessions',
-      'date',
-      'prev',
-      expect.any(Function)
-    )
+    expect(storage.getFirstByPredicate).toHaveBeenCalledWith('workoutSessions', 'date', 'prev', expect.any(Function))
   })
 
   it('predicate accepts completed and incomplete sessions only', async () => {

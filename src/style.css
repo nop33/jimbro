@@ -270,6 +270,28 @@
     @apply mb-0;
   }
 
+  .set {
+    display: grid;
+    align-items: center;
+    column-gap: 1.25rem;
+    grid-template-columns: minmax(3.5rem, auto) repeat(var(--set-field-count, 2), minmax(0, 1fr));
+  }
+
+  .set-label {
+    padding-inline-end: 1.25rem;
+  }
+
+  .set-fields {
+    display: grid;
+    grid-column: 2 / -1;
+    grid-template-columns: subgrid;
+    column-gap: 1.25rem;
+  }
+
+  .set-field {
+    @apply min-w-0 tabular-nums;
+  }
+
   .set.isCompleted {
     @apply border-jim-success/50;
   }
