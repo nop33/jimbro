@@ -10,7 +10,7 @@ jobs:
   install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -24,7 +24,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -40,7 +40,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -55,7 +55,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -68,7 +68,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -99,7 +99,7 @@ jobs:
             browser: webkit
             artifact: mobile-safari
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -109,7 +109,7 @@ jobs:
         run: vp exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
         run: xvfb-run vp exec playwright test --project="${{ matrix.project }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report-${{ matrix.artifact }}
