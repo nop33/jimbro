@@ -22,7 +22,7 @@ export const getCloudBackupConfig = (): CloudBackupConfig | null => {
     const config = JSON.parse(raw)
     if (config.userId && config.token) return config
     return null
-  } catch (error) {
+  } catch {
     return null
   }
 }

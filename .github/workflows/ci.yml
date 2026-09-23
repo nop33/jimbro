@@ -10,7 +10,7 @@ jobs:
   install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -24,7 +24,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -40,7 +40,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -55,7 +55,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -68,7 +68,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
@@ -80,24 +80,46 @@ jobs:
       - name: Worker tests
         run: cd worker && vp run test
 
-  e2e-tests:
+  e2e:
+    name: e2e (${{ matrix.artifact }})
     needs: install
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium
+            browser: chromium
+            artifact: chromium
+          - project: webkit
+            browser: webkit
+            artifact: webkit
+          - project: Mobile Safari
+            browser: webkit
+            artifact: mobile-safari
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: '22'
           cache: true
       - run: vp install
       - name: Install Playwright browsers
-        run: vp exec playwright install --with-deps
+        run: vp exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
-        run: xvfb-run vp exec playwright test
-      - uses: actions/upload-artifact@v4
+        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}"
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.artifact }}
           path: playwright-report/
           retention-days: 30
+
+  e2e-tests:
+    needs: e2e
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every browser project passed
+        run: test "${{ needs.e2e.result }}" = "success"

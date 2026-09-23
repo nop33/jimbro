@@ -18,11 +18,8 @@ test.describe('Programs Page', () => {
     await page.getByLabel('Default reps').fill('8')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.locator('.card', { hasText: 'Squat' })).toBeVisible()
-
-    // Give it a moment to ensure database write is done completely
     await page.waitForTimeout(500)
 
-    // Go to programs
     await page.goto('/programs/')
   })
 

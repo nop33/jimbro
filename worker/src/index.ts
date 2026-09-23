@@ -59,7 +59,7 @@ const handlePutSnapshot = async (request: Request, env: Env, userId: string) => 
   let data: unknown
   try {
     data = await request.json()
-  } catch (error) {
+  } catch {
     return Response.json({ error: 'invalid_json' }, { status: 400 })
   }
 
@@ -98,7 +98,7 @@ const handlePutSnapshot = async (request: Request, env: Env, userId: string) => 
       env.BACKUP_BUCKET.put(`users/${userId}/latest.json`, body),
       env.BACKUP_BUCKET.put(`users/${userId}/history/${timestamp}.json`, body)
     ])
-  } catch (error) {
+  } catch {
     return Response.json({ error: 'storage_error' }, { status: 500 })
   }
 
