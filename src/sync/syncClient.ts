@@ -68,7 +68,7 @@ const revisionOf = (body: unknown) => {
   return typeof body.revision === 'number' ? body.revision : null
 }
 
-const pushChunk = async (entries: OutboxEntry[]) => {
+const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
   const loaded = await storage.readOutboxRows(entries)
   if (loaded.rows.length === 0) {
     await storage.deleteOutboxIfUnchanged(loaded.missing)
@@ -86,16 +86,21 @@ const pushChunk = async (entries: OutboxEntry[]) => {
   })
   await assertOk(response)
   const revision = revisionOf(await response.json())
-  await storage.deleteOutboxIfUnchanged(loaded.sent)
+  const advance = ackCursor
+    ? revision !== null && revision > 0
+      ? { cursor: revision }
+      : { bootstrapped: 1 }
+    : undefined
+  await storage.deleteOutboxIfUnchanged(loaded.sent, advance)
   return { progressed: true, revision }
 }
 
-const pushOutbox = async () => {
+const pushOutbox = async (ackCursor = false) => {
   let revision: number | null = null
   for (;;) {
     const entries = await storage.readOutbox(PUSH_CHUNK)
     if (entries.length === 0) return revision
-    const pushed = await pushChunk(entries)
+    const pushed = await pushChunk(entries, ackCursor)
     if (pushed.revision !== null) revision = pushed.revision
     if (!pushed.progressed) return revision
   }
@@ -127,12 +132,9 @@ const firstSync = async () => {
     pulledByKey
   })
   notifyOpenSession(pulled)
-  const pushedRevision = await pushOutbox()
+  const pushedRevision = await pushOutbox(cursor === 0)
   if (cursor !== 0) return
-  if (pushedRevision !== null && pushedRevision > 0) {
-    await storage.setMeta('cursor', pushedRevision)
-    return
-  }
+  if (pushedRevision !== null && pushedRevision > 0) return
   await storage.setMeta('bootstrapped', 1)
 }
 

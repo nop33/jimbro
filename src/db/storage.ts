@@ -375,14 +375,24 @@ export class Storage {
     return { rows, sent, missing }
   }
 
-  async deleteOutboxIfUnchanged(entries: Array<{ key: string; seq: number }>): Promise<void> {
+  async deleteOutboxIfUnchanged(
+    entries: Array<{ key: string; seq: number }>,
+    advance?: { cursor?: number; bootstrapped?: number }
+  ): Promise<void> {
     if (entries.length === 0) return
     const db = await this.init()
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readwrite')
+      const names = advance ? [OBJECT_STORES.OUTBOX, OBJECT_STORES.META] : [OBJECT_STORES.OUTBOX]
+      const tx = db.transaction(names, 'readwrite')
       const store = tx.objectStore(OBJECT_STORES.OUTBOX)
       tx.oncomplete = () => resolve()
       tx.onerror = () => reject(tx.error ?? new Error('deleteOutboxIfUnchanged failed'))
+      if (advance?.cursor !== undefined) {
+        tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: advance.cursor })
+      }
+      if (advance?.bootstrapped !== undefined) {
+        tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: advance.bootstrapped })
+      }
       for (const entry of entries) {
         const request = store.get(entry.key)
         request.onsuccess = () => {
