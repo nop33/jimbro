@@ -882,6 +882,99 @@ test('a second page does not post after another page acks past the inflight mark
   await other.close()
 })
 
+test('a push already on the wire is not the last write after another page edits', async ({ page }) => {
+  const set: SetBody = {
+    id: `wire-set-${Date.now()}`,
+    sessionId: 'wire-session',
+    exerciseId: 'wire-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 40 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  const other = await page.context().newPage()
+  await other.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+  })
+  await signIn(page, USERS.tabs)
+  await signIn(other, USERS.tabs)
+  await page.evaluate(async (row) => {
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    await db.storage.writeRows([{ table: 'sets', row }])
+    await client.sync()
+  }, set)
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let sawPush: (() => void) | undefined
+  const pushed = new Promise<void>((resolve) => {
+    sawPush = resolve
+  })
+  let held = false
+  await page.route('**/api/push', async (route) => {
+    if (route.request().method() !== 'POST' || held) {
+      await route.continue()
+      return
+    }
+    held = true
+    sawPush?.()
+    await gate
+    await route.continue()
+  })
+  const syncing = page.evaluate(async (row) => {
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    await db.storage.writeRows([{ table: 'sets', row }])
+    await client.sync()
+  }, set)
+  await pushed
+  const otherSync = other.evaluate(async (row) => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+    const locks = navigator.locks
+    const original = locks.request.bind(locks) as (
+      name: string,
+      options?: unknown,
+      callback?: unknown
+    ) => Promise<unknown>
+    locks.request = ((name: string, options?: unknown, callback?: unknown) => {
+      if (name === 'jimbro:sync-push') Reflect.set(window, '__wireWaiting', true)
+      if (typeof options === 'function') return original(name, options)
+      return original(name, options, callback)
+    }) as typeof locks.request
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    await db.storage.writeRows([
+      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+    ])
+    await client.sync()
+    Reflect.set(window, '__wireDone', true)
+  }, set)
+  await other.waitForFunction(() => Reflect.get(window, '__wireWaiting') === true)
+  expect(await other.evaluate(() => Reflect.get(window, '__wireDone') === true)).toBe(false)
+  const during = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const duringSet = during?.row.set
+  if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
+    throw new Error('missing in-flight weight')
+  }
+  expect(duringSet.weight).toBe(40)
+  release?.()
+  await syncing
+  await otherSync
+  const local = await readLocalSet(page, set.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(99)
+  expect(await outbox(page)).toHaveLength(0)
+  const stored = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  if (!stored) throw new Error('missing uploaded set')
+  const uploaded = stored.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+  await page.unroute('**/api/push')
+  await other.close()
+})
+
 test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
   const snapshot = {
     exerciseId: 'exercise-a',

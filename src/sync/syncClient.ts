@@ -74,6 +74,12 @@ const outboxHeadMoved = async (entries: OutboxEntry[]) => {
   return Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq))
 }
 
+const withPushLock = <T>(task: () => Promise<T>): Promise<T> => {
+  const locks = navigator.locks
+  if (!locks) return task()
+  return locks.request('jimbro:sync-push', task)
+}
+
 const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
   const loaded = await storage.readOutboxRows(entries)
   if (loaded.rows.length === 0) {
@@ -109,20 +115,33 @@ const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
     liveSent.push(entry)
   })
   if (liveRows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
-  const response = await fetchJimbroApi('/api/push', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows: liveRows })
+  return withPushLock(async () => {
+    const stillThere = await storage.outboxKeysPresent(liveSent.map((entry) => entry.key))
+    const lockedRows: Row[] = []
+    const lockedSent: Array<{ key: string; seq: number }> = []
+    liveSent.forEach((entry, index) => {
+      if (!stillThere.has(entry.key)) return
+      const row = liveRows[index]
+      if (!row) return
+      lockedRows.push(row)
+      lockedSent.push(entry)
+    })
+    if (lockedRows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
+    const response = await fetchJimbroApi('/api/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: lockedRows })
+    })
+    await assertOk(response)
+    const revision = revisionOf(await response.json())
+    const advance = ackCursor
+      ? revision !== null && revision > 0
+        ? { cursor: revision }
+        : { bootstrapped: 1 }
+      : undefined
+    await storage.deleteOutboxIfUnchanged(lockedSent, advance)
+    return { progressed: true, revision }
   })
-  await assertOk(response)
-  const revision = revisionOf(await response.json())
-  const advance = ackCursor
-    ? revision !== null && revision > 0
-      ? { cursor: revision }
-      : { bootstrapped: 1 }
-    : undefined
-  await storage.deleteOutboxIfUnchanged(liveSent, advance)
-  return { progressed: true, revision }
 }
 
 const pushOutbox = async (ackCursor = false) => {
