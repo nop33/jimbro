@@ -60,8 +60,11 @@ const renderedMs = async (page: Page, path: string, waitForContent: () => Promis
 
 const readDatabase = (page: Page) =>
   page.evaluate(async () => {
+    const empty = { sets: 0, sessions: 0, latestId: undefined as string | undefined }
+    const found = (await indexedDB.databases()).find((database) => database.name === 'gymbro-database')
+    if (!found?.version) return empty
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('gymbro-database')
+      const request = indexedDB.open('gymbro-database', found.version)
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -98,6 +101,18 @@ const readDatabase = (page: Page) =>
 
 const seedFourCopies = async (page: Page, files: Array<string>) => {
   await page.goto('/settings/')
+  await page.waitForFunction(async () => {
+    const found = (await indexedDB.databases()).find((database) => database.name === 'gymbro-database')
+    if (!found?.version || found.version < 6) return false
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gymbro-database', found.version)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const ready = db.objectStoreNames.contains('workoutSessions')
+    db.close()
+    return ready
+  })
   const existing = await readDatabase(page)
   if (existing.sessions >= 400) return existing
   for (const file of files) {
