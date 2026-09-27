@@ -42,6 +42,24 @@ interface MetaRecord {
   value: number
 }
 
+const syncSetGroups = (tx: IDBTransaction, kept: Array<SetRow>, droppedBySession: Map<string, string[]>) => {
+  const sessions = new Set<string>([...droppedBySession.keys(), ...kept.map((set) => set.sessionId)])
+  if (sessions.size === 0) return
+  const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
+  for (const sessionId of sessions) {
+    const request = groupStore.get(sessionId)
+    request.onsuccess = () => {
+      const drop = new Set(droppedBySession.get(sessionId) ?? [])
+      const current = ((request.result?.sets ?? []) as Array<SetRow>).filter((set) => !drop.has(set.id))
+      const merged = new Map(current.map((set) => [set.id, set]))
+      for (const row of kept) {
+        if (row.sessionId === sessionId) merged.set(row.id, cloneForIdb(row))
+      }
+      groupStore.put({ sessionId, sets: [...merged.values()] })
+    }
+  }
+}
+
 const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
   if (sets.length === 0) return
   const bySession = new Map<string, Array<SetRow>>()
@@ -299,37 +317,61 @@ export class Storage {
       const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
       const pendingRequest = outbox.getAll()
       pendingRequest.onsuccess = () => {
-        const pending = new Map((pendingRequest.result as OutboxEntry[]).map((entry) => [entry.key, entry]))
-        const seqRequest = tx.objectStore(OBJECT_STORES.META).get('seq')
-        seqRequest.onsuccess = () => {
-          let seq = (seqRequest.result as MetaRecord | undefined)?.value ?? 0
-          const keptSets: SetRow[] = []
-          for (const [key, action] of input.actions) {
-            const entry = pending.get(key)
-            const during = Boolean(entry && entry.seq > input.seqAtStart)
-            if (action === 'keepServer') {
-              if (during) continue
-              const pulled = input.pulledByKey.get(key)
-              if (!pulled) continue
-              if (serverStillHasPushedBody(entry, pulled)) continue
-              putRow(tx, pulled)
-              if (pulled.table === 'sets') keptSets.push(pulled.row)
-              if (entry) outbox.delete(key)
-              continue
+        const setsRequest = tx.objectStore(OBJECT_STORES.SETS).getAll()
+        setsRequest.onsuccess = () => {
+          const pending = new Map((pendingRequest.result as OutboxEntry[]).map((entry) => [entry.key, entry]))
+          const seqRequest = tx.objectStore(OBJECT_STORES.META).get('seq')
+          seqRequest.onsuccess = () => {
+            let seq = (seqRequest.result as MetaRecord | undefined)?.value ?? 0
+            const keptSets: SetRow[] = []
+            const keptSessionExercises = new Map<string, Set<string>>()
+            for (const [key, action] of input.actions) {
+              const entry = pending.get(key)
+              const during = Boolean(entry && entry.seq > input.seqAtStart)
+              if (action === 'keepServer') {
+                if (during) continue
+                const pulled = input.pulledByKey.get(key)
+                if (!pulled) continue
+                if (serverStillHasPushedBody(entry, pulled)) continue
+                putRow(tx, pulled)
+                if (pulled.table === 'sets') keptSets.push(pulled.row)
+                if (pulled.table === 'sessions') {
+                  keptSessionExercises.set(
+                    pulled.row.id,
+                    new Set(pulled.row.exercises.map((exercise) => exercise.exerciseId))
+                  )
+                }
+                if (entry) outbox.delete(key)
+                continue
+              }
+              if (action === 'pushLocal') {
+                if (entry) continue
+                const parts = splitRowKey(key)
+                if (!parts) continue
+                seq += 1
+                outbox.put({ key, table: parts.table, id: parts.id, seq })
+                continue
+              }
+              if (entry && !during) outbox.delete(key)
             }
-            if (action === 'pushLocal') {
-              if (entry) continue
-              const parts = splitRowKey(key)
-              if (!parts) continue
-              seq += 1
-              outbox.put({ key, table: parts.table, id: parts.id, seq })
-              continue
+            const droppedBySession = new Map<string, string[]>()
+            for (const set of setsRequest.result as SetRow[]) {
+              const exercises = keptSessionExercises.get(set.sessionId)
+              if (!exercises || exercises.has(set.exerciseId)) continue
+              const key = `sets:${set.id}`
+              const entry = pending.get(key)
+              if (entry && entry.seq > input.seqAtStart) continue
+              if (input.pulledByKey.has(key)) continue
+              tx.objectStore(OBJECT_STORES.SETS).delete(set.id)
+              outbox.delete(key)
+              const dropped = droppedBySession.get(set.sessionId) ?? []
+              dropped.push(set.id)
+              droppedBySession.set(set.sessionId, dropped)
             }
-            if (entry && !during) outbox.delete(key)
+            syncSetGroups(tx, keptSets, droppedBySession)
+            tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
+            tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: input.cursor })
           }
-          mergeSetGroups(tx, keptSets)
-          tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
-          tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: input.cursor })
         }
       }
     })
@@ -415,8 +457,8 @@ export class Storage {
         const request = store.get(mark.key)
         request.onsuccess = () => {
           const current = request.result as OutboxEntry | undefined
-          if (!current || current.seq !== mark.seq) return
-          store.put({ ...current, inflightSeq: current.seq, inflightCanonical: mark.body })
+          if (!current || current.seq < mark.seq) return
+          store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
         }
       }
     })

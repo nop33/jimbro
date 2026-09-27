@@ -25,7 +25,9 @@ const USERS = {
   steady: { token: 'steady', userId: 'user-steady' },
   restore: { token: 'restore', userId: 'user-restore' },
   count: { token: 'count', userId: 'user-count' },
-  gap: { token: 'gap', userId: 'user-gap' }
+  gap: { token: 'gap', userId: 'user-gap' },
+  race: { token: 'race', userId: 'user-race' },
+  orphan: { token: 'orphan', userId: 'user-orphan' }
 } as const
 
 type UserName = keyof typeof USERS
@@ -175,6 +177,15 @@ const liftingSet = async (token: string): Promise<SetBody> => {
   )
   if (!found) throw new Error('fixture has no lifting set')
   return found.row as unknown as SetBody
+}
+
+const pushRows = async (token: string, rows: unknown[]) => {
+  const response = await fetch(`${API}/api/push`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows })
+  })
+  if (!response.ok) throw new Error(`push ${response.status} ${await response.text()}`)
 }
 
 const writeSet = (page: Page, set: SetBody) =>
@@ -648,6 +659,135 @@ test('a later edit survives when the empty-server push landed but the ack did no
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
   expect(uploaded.weight).toBe(99)
+})
+
+test('a later edit between the read and the inflight mark survives an unacked push', async ({ page }) => {
+  const set: SetBody = {
+    id: 'race-set',
+    sessionId: 'race-session',
+    exerciseId: 'race-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 10 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  await signIn(page, USERS.race)
+  const cursorAfterStop = await page.evaluate(async (row) => {
+    const client = await import('/src/sync/syncClient.ts')
+    const db = await import('/src/db/storage.ts')
+    const originalRead = db.storage.readOutboxRows.bind(db.storage)
+    const originalAck = db.storage.deleteOutboxIfUnchanged.bind(db.storage)
+    let edited = false
+    let stopped = false
+    db.storage.readOutboxRows = async (entries) => {
+      const loaded = await originalRead(entries)
+      if (!edited) {
+        edited = true
+        await db.storage.writeRows([
+          { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+        ])
+      }
+      return loaded
+    }
+    db.storage.deleteOutboxIfUnchanged = async (entries, advance) => {
+      if (!stopped) {
+        stopped = true
+        Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+        throw new Error('stop before outbox ack')
+      }
+      await originalAck(entries, advance)
+    }
+    await db.storage.writeRows([{ table: 'sets', row }])
+    await client.sync()
+    return db.storage.getMeta('cursor')
+  }, set)
+  expect(cursorAfterStop).toBe(0)
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+  })
+  await runSync(page)
+  const local = await readLocalSet(page, set.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(99)
+  const stored = (await pullAll(USERS.race.token)).find((row) => row.row.id === set.id)
+  if (!stored) throw new Error('missing uploaded set')
+  const uploaded = stored.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+})
+
+test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
+  const snapshot = {
+    exerciseId: 'exercise-a',
+    name: 'A',
+    kind: 'lifting',
+    preset: 'lifting',
+    targetSets: 1,
+    defaults: {}
+  }
+  const header = {
+    id: 'orphan-session',
+    date: '2026-09-27',
+    programId: 'orphan-program',
+    location: 'Gym',
+    status: 'incomplete' as const,
+    exercises: [snapshot],
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  const kept = {
+    id: 'orphan-session:exercise-a:0',
+    sessionId: header.id,
+    exerciseId: 'exercise-a',
+    position: 0,
+    set: { preset: 'lifting' as const, reps: 5, weight: 10 },
+    isDeleted: false,
+    updatedAt: header.updatedAt
+  }
+  const hidden = {
+    ...kept,
+    id: 'orphan-session:exercise-b:0',
+    exerciseId: 'exercise-b',
+    set: { preset: 'lifting' as const, reps: 5, weight: 42 }
+  }
+  await pushRows(USERS.orphan.token, [
+    { table: 'sessions', row: header },
+    { table: 'sets', row: kept }
+  ])
+  await signIn(page, USERS.orphan)
+  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2020-01-01T00:00:00.000Z')
+  await page.evaluate(
+    async ({ serverHeader, extra }) => {
+      const db = await import('/src/db/storage.ts')
+      await db.storage.writeRows([
+        {
+          table: 'sessions',
+          row: {
+            ...serverHeader,
+            exercises: [
+              ...serverHeader.exercises,
+              { ...serverHeader.exercises[0], exerciseId: 'exercise-b', name: 'B' }
+            ],
+            updatedAt: '2026-09-27T12:00:01.000Z'
+          }
+        },
+        { table: 'sets', row: extra }
+      ])
+    },
+    { serverHeader: header, extra: hidden }
+  )
+  await runSync(page)
+  const localHeader = await page.evaluate(async () => {
+    const db = await import('/src/db/storage.ts')
+    return db.storage.get('workoutSessions', 'orphan-session') as Promise<{
+      exercises: Array<{ exerciseId: string }>
+    } | null>
+  })
+  expect(localHeader?.exercises.map((exercise) => exercise.exerciseId)).toEqual(['exercise-a'])
+  expect(await readLocalSet(page, hidden.id)).toBeUndefined()
+  const rows = await pullAll(USERS.orphan.token)
+  expect(rows.some((row) => row.row.id === hidden.id)).toBe(false)
+  expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
 })
 
 test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
