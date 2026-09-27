@@ -1,1 +1,3 @@
+# oxfmt import()s vite.config.ts, which Node before 22.18 loads only behind this flag.
+node -e 'process.exit(process.features.typescript ? 0 : 1)' || export NODE_OPTIONS="--experimental-strip-types ${NODE_OPTIONS:-}"
 vp staged
