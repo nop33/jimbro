@@ -1,6 +1,6 @@
 import { rowsFromSession, type SetRow } from '../sync/rows'
 
-let version7WritesSetGroups = false
+const version7WritesSetGroups = new WeakSet<IDBDatabase>()
 
 const ensureSetGroups = (db: IDBDatabase) => {
   if (!db.objectStoreNames.contains(OBJECT_STORES.SET_GROUPS)) {
@@ -157,7 +157,7 @@ const migrations: Array<DbMigration> = [
   {
     version: 7,
     migrate: (db, transaction) => {
-      version7WritesSetGroups = true
+      version7WritesSetGroups.add(db)
       ensureSetGroups(db)
       if (!db.objectStoreNames.contains(OBJECT_STORES.SETS)) {
         const sets = db.createObjectStore(OBJECT_STORES.SETS, { keyPath: 'id' })
@@ -209,7 +209,9 @@ const migrations: Array<DbMigration> = [
     version: 8,
     migrate: (db, transaction) => {
       ensureSetGroups(db)
-      if (version7WritesSetGroups) return
+      // Same upgradeneeded passes one IDBDatabase to versions 7 and 8. Version 7's set
+      // puts are still in callbacks, so this connection must not read sets yet.
+      if (version7WritesSetGroups.has(db)) return
       const setsRequest = transaction.objectStore(OBJECT_STORES.SETS).getAll()
       const groupStore = transaction.objectStore(OBJECT_STORES.SET_GROUPS)
       setsRequest.onsuccess = () => {
