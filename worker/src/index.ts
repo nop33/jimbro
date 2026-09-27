@@ -1,4 +1,5 @@
 import { AuthEnv, resolveUserId } from './auth'
+import { handleMcp } from './mcp'
 import {
   countStatements,
   countsOf,
@@ -99,6 +100,14 @@ const handleRequest = async (request: Request, env: Env) => {
 
   // Auth: Resolve userId from bearer token
   const userId = resolveUserId(request.headers.get('Authorization'), env)
+
+  if (path === '/mcp') {
+    if (request.method !== 'POST') {
+      return finish(request, Response.json({ error: 'method not allowed' }, { status: 405 }))
+    }
+    if (!userId) return finish(request, Response.json({ error: 'unauthorized' }, { status: 401 }))
+    return finish(request, await handleMcp(request, env.jimbro, userId))
+  }
 
   if (path.startsWith('/api/')) {
     if (!userId) return finish(request, Response.json({ error: 'unauthorized' }, { status: 401 }))
