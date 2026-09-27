@@ -105,6 +105,8 @@ jobs:
           node-version: '22'
           cache: true
       - run: vp install
+      - name: Install worker dependencies
+        run: cd worker && vp install
       - name: Install Playwright browsers
         run: vp exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests

@@ -187,7 +187,8 @@ const readLocalSet = (page: Page, id: string) =>
 
 test.describe.configure({ mode: 'serial', timeout: 180_000 })
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browserName }) => {
+  test.skip(browserName !== 'chromium', 'The sync spec drives Chromium against a local worker.')
   const tokens = Object.fromEntries(Object.values(USERS).map((user) => [user.token, user.userId]))
   writeFileSync(path.join(workerDir, '.dev.vars'), `AUTH_TOKENS=${JSON.stringify(tokens)}\n`)
   const probe = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(

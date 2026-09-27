@@ -35,7 +35,7 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     env: {
-      VITE_API_BASE: process.env.VITE_API_BASE ?? 'https://api.jimbro.nop33.com'
+      VITE_API_BASE: process.env.VITE_API_BASE ?? 'http://127.0.0.1:8787'
     }
   }
 })
