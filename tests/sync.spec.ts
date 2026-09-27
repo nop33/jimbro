@@ -663,7 +663,7 @@ test('a later edit survives when the empty-server push landed but the ack did no
 
 test('a later edit between the read and the inflight mark survives an unacked push', async ({ page }) => {
   const set: SetBody = {
-    id: 'race-set',
+    id: `race-set-${Date.now()}`,
     sessionId: 'race-session',
     exerciseId: 'race-exercise',
     position: 0,
@@ -671,6 +671,24 @@ test('a later edit between the read and the inflight mark survives an unacked pu
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
+  let pulls = 0
+  await page.route('**/api/pull**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    pulls += 1
+    if (pulls > 1) {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': 'http://localhost:5173' },
+      body: JSON.stringify({ rows: [], cursor: 0, more: false, importedExportDate: null })
+    })
+  })
   await signIn(page, USERS.race)
   const cursorAfterStop = await page.evaluate(async (row) => {
     const client = await import('/src/sync/syncClient.ts')
@@ -702,6 +720,7 @@ test('a later edit between the read and the inflight mark survives an unacked pu
     return db.storage.getMeta('cursor')
   }, set)
   expect(cursorAfterStop).toBe(0)
+  await page.unroute('**/api/pull**')
   await page.evaluate(() => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
   })
