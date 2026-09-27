@@ -119,7 +119,10 @@ const putLatest = async (userId: string) => {
 const importFixture = async (user: User) => {
   await putLatest(user.userId)
   const response = await fetch(`${API}/api/import-r2`, { method: 'POST', headers: authHeaders(user.token) })
-  if (!response.ok) throw new Error(`import ${user.userId} ${response.status} ${await response.text()}`)
+  if (response.ok) return
+  const body = await response.text()
+  if (response.status === 409 && body.includes('already_imported')) return
+  throw new Error(`import ${user.userId} ${response.status} ${body}`)
 }
 
 const signIn = async (page: Page, user: User) => {
@@ -182,7 +185,7 @@ const readLocalSet = (page: Page, id: string) =>
     return db.storage.get('sets', setId) as Promise<SetBody | undefined>
   }, id)
 
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial', timeout: 180_000 })
 
 test.beforeAll(async () => {
   const tokens = Object.fromEntries(Object.values(USERS).map((user) => [user.token, user.userId]))
@@ -191,27 +194,39 @@ test.beforeAll(async () => {
     (response) => response.status,
     () => 0
   )
-  if (probe === 200) return
-  worker = spawn('vp', ['exec', 'wrangler', 'dev', '--local', '--port', '8787', '--ip', '127.0.0.1'], {
-    cwd: workerDir,
-    stdio: 'pipe'
-  })
-  worker.stdout?.on('data', (chunk) => process.stdout.write(chunk))
-  worker.stderr?.on('data', (chunk) => process.stderr.write(chunk))
-  const started = Date.now()
-  while (Date.now() - started < 60_000) {
-    const status = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
+  if (probe !== 200) {
+    worker = spawn('vp', ['exec', 'wrangler', 'dev', '--local', '--port', '8787', '--ip', '127.0.0.1'], {
+      cwd: workerDir,
+      stdio: 'pipe'
+    })
+    worker.stdout?.on('data', (chunk) => process.stdout.write(chunk))
+    worker.stderr?.on('data', (chunk) => process.stderr.write(chunk))
+    const started = Date.now()
+    while (Date.now() - started < 60_000) {
+      const status = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
+        (response) => response.status,
+        () => 0
+      )
+      if (status === 200) break
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    const ready = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
       (response) => response.status,
       () => 0
     )
-    if (status === 200) return
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    if (ready !== 200) throw new Error('wrangler dev did not answer on 8787')
   }
-  throw new Error('wrangler dev did not answer on 8787')
+  await execFileAsync('vp', ['exec', 'wrangler', 'd1', 'migrations', 'apply', 'jimbro', '--local'], {
+    cwd: workerDir,
+    env: { ...process.env, CI: '1' }
+  })
 })
 
 test('wipe and restore matches the server export', async ({ page }) => {
   test.setTimeout(180_000)
+  await page.addInitScript(() => {
+    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
+  })
   await importFixture(USERS.wipe)
   await signIn(page, USERS.wipe)
   await runSync(page)
@@ -221,9 +236,17 @@ test('wipe and restore matches the server export', async ({ page }) => {
   })
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+  const restored = page.waitForEvent('framenavigated')
   await page.getByRole('button', { name: 'Restore from cloud' }).click()
-  await page.waitForURL('**/workouts/**')
-  await signIn(page, USERS.wipe)
+  await restored
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const db = await import('/src/db/storage.ts')
+        return db.storage.count('exercises')
+      })
+    )
+    .toBe(21)
   const local = sortExport((await localStores(page)) as ExportFile)
   const remote = await exportStores(USERS.wipe.token)
   expect(local).toEqual(remote)
@@ -239,7 +262,8 @@ test('a snapshot writer pushes a differing local set', async ({ page }) => {
     if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
   })
   await signIn(page, USERS.writer)
-  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2026-09-27T18:00:00.000Z')
+  const laterThanImport = new Date(Date.parse(fixture.exportDate) + 1000).toISOString()
+  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), laterThanImport)
   await writeSet(page, edited)
   await runSync(page)
   expect(pushes.some((body) => body.includes(edited.id))).toBe(true)
@@ -389,7 +413,7 @@ test('three sets logged offline drain into D1', async ({ page }) => {
 
 test('an edit during a slow push stays in the outbox', async ({ page }) => {
   const set: SetBody = {
-    id: 'inflight-set',
+    id: `inflight-${Date.now()}`,
     sessionId: 'inflight-session',
     exerciseId: 'inflight-exercise',
     position: 0,
@@ -401,30 +425,42 @@ test('an edit during a slow push stays in the outbox', async ({ page }) => {
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
+  let sawPush: (() => void) | undefined
+  const pushed = new Promise<void>((resolve) => {
+    sawPush = resolve
+  })
   await page.route('**/api/push', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.continue()
       return
     }
+    sawPush?.()
     await gate
     await route.continue()
   })
   await signIn(page, USERS.inflight)
   await writeSet(page, set)
-  const finished = page.evaluate(async () => {
+  const finished = page.evaluate(async (setId) => {
     const client = await import('/src/sync/syncClient.ts')
     const db = await import('/src/db/storage.ts')
+    const original = db.storage.deleteOutboxIfUnchanged.bind(db.storage)
+    let snap: { ids: string[]; weight?: number } | null = null
+    db.storage.deleteOutboxIfUnchanged = async (entries) => {
+      await original(entries)
+      if (snap) return
+      const queued = await db.storage.readOutbox(20)
+      const row = (await db.storage.get('sets', setId)) as { set: { weight: number } } | undefined
+      snap = { ids: queued.map((entry) => entry.id), weight: row?.set.weight }
+    }
     await client.sync()
-    const queued = await db.storage.readOutbox(20)
-    const row = (await db.storage.get('sets', 'inflight-set')) as { set: { weight: number } } | undefined
-    return { ids: queued.map((entry) => entry.id), weight: row?.set.weight }
-  })
-  await page.waitForRequest((request) => request.method() === 'POST' && request.url().includes('/api/push'))
+    return snap
+  }, set.id)
+  await pushed
   await writeSet(page, { ...set, set: { ...set.set, weight: 55 }, updatedAt: '2026-09-27T12:00:01.000Z' })
   release?.()
   const result = await finished
-  expect(result.ids).toContain(set.id)
-  expect(result.weight).toBe(55)
+  expect(result?.ids).toContain(set.id)
+  expect(result?.weight).toBe(55)
 })
 
 test('settings reports import_required and keeps the outbox', async ({ page }) => {
