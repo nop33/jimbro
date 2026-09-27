@@ -8,17 +8,12 @@ export default defineConfig({
   workers: 1,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:5173'
+    baseURL: process.env.PERF_BASE ?? 'http://127.0.0.1:4173'
   },
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] }
     }
-  ],
-  webServer: {
-    command: 'vp run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true
-  }
+  ]
 })

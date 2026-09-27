@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 
 const COPIES = 4
@@ -46,58 +48,111 @@ const installOriginMark = async (page: Page) => {
   })
 }
 
-const renderedMs = async (page: Page, path: string, ready: string): Promise<number> => {
+const renderedMs = async (page: Page, path: string, waitForContent: () => Promise<void>): Promise<number> => {
   await installOriginMark(page)
   await page.goto(path)
-  await page.locator(ready).first().waitFor()
+  await waitForContent()
   return page.evaluate(() => {
     const origin = performance.getEntriesByName('rows-origin')[0]
     return performance.now() - origin.startTime
   })
 }
 
-const seedFourCopies = async (page: Page, copies: Array<Fixture>) => {
-  await page.goto('/workouts/')
-  const alreadySeeded = await page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    return (await workoutSessionsStore.countWorkoutSessions()) >= 400
+const readDatabase = (page: Page) =>
+  page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('gymbro-database')
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const names = [...db.objectStoreNames]
+    const all = (storeName: string) =>
+      new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+        const request = db.transaction(storeName).objectStore(storeName).getAll()
+        request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>)
+        request.onerror = () => reject(request.error)
+      })
+    const sessions = names.includes('workoutSessions') ? await all('workoutSessions') : []
+    let sets = 0
+    if (names.includes('sets')) {
+      sets = (await all('sets')).length
+    } else {
+      for (const session of sessions) {
+        const exercises = session.exercises
+        if (!Array.isArray(exercises)) continue
+        for (const exercise of exercises) {
+          if (exercise && typeof exercise === 'object' && Array.isArray((exercise as { sets?: unknown }).sets)) {
+            sets += (exercise as { sets: Array<unknown> }).sets.length
+          }
+        }
+      }
+    }
+    const latest = sessions
+      .filter(
+        (session) => session.isDeleted !== true && typeof session.date === 'string' && typeof session.id === 'string'
+      )
+      .sort((left, right) => String(right.date).localeCompare(String(left.date)))[0]
+    db.close()
+    return { sets, sessions: sessions.length, latestId: typeof latest?.id === 'string' ? latest.id : undefined }
   })
-  if (alreadySeeded) return
 
-  for (const copy of copies) {
-    await page.evaluate(async (payload) => {
-      const { importIndexedDbFromJson } = await import('/src/db/import.ts')
-      const file = new File([JSON.stringify(payload)], 'copy.json', { type: 'application/json' })
-      await importIndexedDbFromJson(file)
-    }, copy)
+const seedFourCopies = async (page: Page, files: Array<string>) => {
+  await page.goto('/settings/')
+  const existing = await readDatabase(page)
+  if (existing.sessions >= 400) return existing
+  for (const file of files) {
+    const before = await readDatabase(page)
+    await page.getByText('Manage local data').click()
+    await page.locator('#import-input').setInputFiles(file)
+    await expect
+      .poll(async () => (await readDatabase(page)).sessions, { timeout: 120_000 })
+      .toBeGreaterThan(before.sessions)
   }
+  return readDatabase(page)
 }
 
 test('measures workouts, stats, gymtime, and set-done on four fixture copies', async ({ page }) => {
   const fixture = JSON.parse(readFileSync('data-backup/gymbro-export-2026-01-02.json', 'utf8')) as Fixture
-  await seedFourCopies(page, copiesOf(fixture))
-
-  const workoutsMs = await renderedMs(page, '/workouts/', '.workout-week')
-  const statsMs = await renderedMs(page, '/stats/', '#stat-completed-sessions')
-  const latestId = await page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    const sessions = await workoutSessionsStore.getAllWorkoutSessions()
-    sessions.sort((left, right) => right.date.localeCompare(left.date))
-    return sessions[0]?.id
+  const dir = mkdtempSync(join(tmpdir(), 'rows-perf-'))
+  const files = copiesOf(fixture).map((copy, index) => {
+    const path = join(dir, `copy-${index}.json`)
+    writeFileSync(path, JSON.stringify(copy))
+    return path
   })
-  expect(latestId).toBeTruthy()
+  const seeded = await seedFourCopies(page, files)
 
-  const gymtimeMs = await renderedMs(page, `/gymtime/?id=${latestId}`, '[data-exercise-id]')
+  const workoutsMs = await renderedMs(page, '/workouts/', () => page.locator('.workout-week-list li').first().waitFor())
+  const statsMs = await renderedMs(page, '/stats/', () =>
+    page.waitForFunction(() => {
+      const since = document.querySelector('#stat-since-date')?.textContent?.trim()
+      const totalSets = document.querySelector('#stat-total-sets')?.textContent?.trim()
+      return Boolean(since && totalSets && totalSets !== '0')
+    })
+  )
+  expect(seeded.latestId).toBeTruthy()
+  const gymtimeMs = await renderedMs(page, `/gymtime/?id=${seeded.latestId}`, () =>
+    page.locator('[data-exercise-id] [data-set-number]').first().waitFor({ state: 'attached' })
+  )
   const card = page.locator('[data-exercise-id]').first()
+  await card.locator('summary').click()
   const finished = card.getByRole('button', { name: 'Finished set' })
-  if (!(await finished.isVisible())) {
-    await card.getByRole('button', { name: 'Add set' }).click()
-  }
-  const completedBefore = await page.locator('.isCompleted').count()
-  const started = await page.evaluate(() => performance.now())
+  if (!(await finished.isVisible())) await card.getByRole('button', { name: 'Add set' }).click()
+  await page.evaluate(() => {
+    const before = document.querySelectorAll('.isCompleted').length
+    const start = performance.now()
+    const measured = new Promise<number>((resolve) => {
+      const finish = () => {
+        if (document.querySelectorAll('.isCompleted').length <= before) return
+        observer.disconnect()
+        resolve(performance.now() - start)
+      }
+      const observer = new MutationObserver(finish)
+      observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true })
+    })
+    ;(window as Window & { __setDoneMs?: Promise<number> }).__setDoneMs = measured
+  })
   await finished.click()
-  await expect(page.locator('.isCompleted')).toHaveCount(completedBefore + 1)
-  const setDoneMs = await page.evaluate((start) => performance.now() - start, started)
+  const setDoneMs = await page.evaluate(() => (window as Window & { __setDoneMs: Promise<number> }).__setDoneMs)
 
   console.log(
     JSON.stringify({
@@ -105,7 +160,7 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
       statsMs,
       gymtimeMs,
       setDoneMs,
-      sets: 2581 * COPIES
+      sets: seeded.sets
     })
   )
 })
