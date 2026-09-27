@@ -1,4 +1,5 @@
 import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
+import { announce } from '../sync/pageChannel'
 import type { ExerciseRow, ProgramRow, Row, RowTable, SessionHeader, SetRow } from '../sync/rows'
 import { DB_NAME, OBJECT_STORES } from './constants'
 import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
@@ -182,6 +183,7 @@ export class Storage {
       }
     })
     window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
+    announce('rows-written')
   }
 
   async getMeta(name: MetaRecord['name']): Promise<number> {

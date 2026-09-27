@@ -3,6 +3,7 @@ import { OBJECT_STORES } from '../../db/constants'
 import { storage } from '../../db/storage'
 import Toasts from '../../features/toasts'
 import { sync } from '../../sync/syncClient'
+import { onPageNotice } from '../../sync/pageChannel'
 import { getLastSyncAt, isImportRequired } from '../../sync/status'
 
 class CloudBackup {
@@ -24,6 +25,9 @@ class CloudBackup {
       void this.updateSummaryStatus()
     })
     window.addEventListener('jimbro:rows-written', () => {
+      void this.updateSummaryStatus()
+    })
+    onPageNotice(() => {
       void this.updateSummaryStatus()
     })
 

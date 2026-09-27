@@ -568,3 +568,28 @@ test('an open settings page shows the outbox count after an offline write', asyn
   await writeSet(page, set)
   await expect(page.locator('#cloud-summary-status')).toHaveText('1 pending')
 })
+
+test('a write on another page moves the open settings count while offline', async ({ page }) => {
+  const set: SetBody = {
+    id: 'tabs-set',
+    sessionId: 'tabs-session',
+    exerciseId: 'tabs-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 20 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  await signIn(page, USERS.count)
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
+  })
+  await expect(page.locator('#cloud-summary-status')).toHaveText('0 pending')
+  const workout = await page.context().newPage()
+  await workout.goto('/workouts/')
+  await workout.evaluate(async () => {
+    await import('/src/db/storage.ts')
+  })
+  await page.context().setOffline(true)
+  await writeSet(workout, set)
+  await expect(page.locator('#cloud-summary-status')).not.toHaveText('0 pending')
+})

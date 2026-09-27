@@ -1,6 +1,7 @@
 import { fetchJimbroApi, getCloudBackupConfig, getLastBackupDate } from '../db/cloudBackup'
 import { storage, type OutboxEntry } from '../db/storage'
 import { planBootstrap, rowKey } from './bootstrap'
+import { announce } from './pageChannel'
 import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
 import type { Row } from './rows'
 
@@ -168,6 +169,7 @@ window.addEventListener('pagehide', () => {
 
 const settle = () => {
   window.dispatchEvent(new CustomEvent('jimbro:sync-settled'))
+  announce('sync-settled')
 }
 
 export const sync = (options?: { again?: boolean }): Promise<void> => {
