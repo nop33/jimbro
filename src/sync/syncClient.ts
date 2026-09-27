@@ -68,28 +68,40 @@ const revisionOf = (body: unknown) => {
   return typeof body.revision === 'number' ? body.revision : null
 }
 
+const outboxHeadMoved = async (entries: OutboxEntry[]) => {
+  const again = await storage.readOutbox(1)
+  const head = entries[0]
+  return Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq))
+}
+
 const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
   const loaded = await storage.readOutboxRows(entries)
   if (loaded.rows.length === 0) {
     await storage.deleteOutboxIfUnchanged(loaded.missing)
-    const again = await storage.readOutbox(1)
-    const head = entries[0]
-    return {
-      progressed: Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq)),
-      revision: null
-    }
+    return { progressed: await outboxHeadMoved(entries), revision: null }
   }
-  await storage.markOutboxInflight(
+  const marked = await storage.markOutboxInflight(
     loaded.sent.map((entry, index) => ({
       key: entry.key,
       seq: entry.seq,
       body: canonical(loaded.rows[index].row)
     }))
   )
+  const stillQueued = new Set(marked.map((entry) => entry.key))
+  const rows: Row[] = []
+  const sent: Array<{ key: string; seq: number }> = []
+  loaded.sent.forEach((entry, index) => {
+    if (!stillQueued.has(entry.key)) return
+    const row = loaded.rows[index]
+    if (!row) return
+    rows.push(row)
+    sent.push(entry)
+  })
+  if (rows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
   const response = await fetchJimbroApi('/api/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows: loaded.rows })
+    body: JSON.stringify({ rows })
   })
   await assertOk(response)
   const revision = revisionOf(await response.json())
@@ -98,7 +110,7 @@ const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
       ? { cursor: revision }
       : { bootstrapped: 1 }
     : undefined
-  await storage.deleteOutboxIfUnchanged(loaded.sent, advance)
+  await storage.deleteOutboxIfUnchanged(sent, advance)
   return { progressed: true, revision }
 }
 

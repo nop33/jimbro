@@ -445,9 +445,12 @@ export class Storage {
     return { rows, sent, missing }
   }
 
-  async markOutboxInflight(marks: Array<{ key: string; seq: number; body: string }>): Promise<void> {
-    if (marks.length === 0) return
+  async markOutboxInflight(
+    marks: Array<{ key: string; seq: number; body: string }>
+  ): Promise<Array<{ key: string; seq: number }>> {
+    if (marks.length === 0) return []
     const db = await this.init()
+    const kept: Array<{ key: string; seq: number }> = []
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readwrite')
       const store = tx.objectStore(OBJECT_STORES.OUTBOX)
@@ -459,9 +462,11 @@ export class Storage {
           const current = request.result as OutboxEntry | undefined
           if (!current || current.seq < mark.seq) return
           store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
+          kept.push({ key: mark.key, seq: mark.seq })
         }
       }
     })
+    return kept
   }
 
   async deleteOutboxIfUnchanged(
