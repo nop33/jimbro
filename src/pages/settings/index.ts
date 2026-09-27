@@ -51,8 +51,12 @@ importInput.addEventListener('change', async (event) => {
 
 const resetDatabaseBtn = document.querySelector('#reset-database') as HTMLButtonElement
 resetDatabaseBtn.addEventListener('click', async () => {
-  if (confirm('Are you sure you want to reset the database?')) {
+  if (!confirm('Are you sure you want to reset the database?')) return
+  try {
     await storage.deleteDatabase()
     Toasts.show({ message: 'Database reset.' })
+  } catch (error) {
+    console.error('reset failed', error)
+    Toasts.show({ message: 'Close other tabs and try again.', type: 'error' })
   }
 })

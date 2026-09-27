@@ -3,7 +3,7 @@ import { sync } from './sync/syncClient'
 let rowsWrittenTimer = 0
 
 const startSync = () => {
-  void sync()
+  void sync().catch(() => undefined)
 }
 
 export function initNavigation() {

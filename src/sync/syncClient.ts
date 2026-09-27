@@ -245,15 +245,17 @@ export const sync = (options?: { again?: boolean }): Promise<void> => {
       }
       if (leaving) return
       console.error('sync failed', error)
+      throw error
     } finally {
       running = false
       settle()
     }
   })()
-  void tail.then(() => {
+  const follow = () => {
     if (!rerun) return
     rerun = false
-    void sync()
-  })
+    void sync().catch(() => undefined)
+  }
+  void tail.then(follow, follow)
   return tail
 }

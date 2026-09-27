@@ -365,7 +365,7 @@ test('a crash after the first pull page converges with an uninterrupted sync', a
     await route.continue()
   })
   await signIn(page, USERS.crash)
-  await runSync(page)
+  await runSync(page).catch(() => undefined)
   expect(await cursorOf(page)).toBe(0)
   await page.unroute('**/api/pull**')
   await runSync(page)
@@ -573,7 +573,11 @@ test('a stop after an empty-server push ack keeps the cursor and the next edit',
       throw new Error('stop after outbox ack')
     }
     await db.storage.writeRows([{ table: 'sets', row }])
-    await client.sync()
+    try {
+      await client.sync()
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'stop after outbox ack') throw error
+    }
     return db.storage.getMeta('cursor')
   }, set)
   expect(cursorAfterAck).not.toBe(0)
@@ -639,7 +643,11 @@ test('a later edit survives when the empty-server push landed but the ack did no
       await original(entries, advance)
     }
     await db.storage.writeRows([{ table: 'sets', row }])
-    await client.sync()
+    try {
+      await client.sync()
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'stop before outbox ack') throw error
+    }
     return db.storage.getMeta('cursor')
   }, set)
   expect(cursorAfterStop).toBe(0)
@@ -717,7 +725,11 @@ test('a later edit between the read and the inflight mark survives an unacked pu
       await originalAck(entries, advance)
     }
     await db.storage.writeRows([{ table: 'sets', row }])
-    await client.sync()
+    try {
+      await client.sync()
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'stop before outbox ack') throw error
+    }
     return db.storage.getMeta('cursor')
   }, set)
   expect(cursorAfterStop).toBe(0)
@@ -1047,6 +1059,33 @@ test('a non-writer does not keep a set whose exercise left with the server heade
   const rows = await pullAll(USERS.orphan.token)
   expect(rows.some((row) => row.row.id === hidden.id)).toBe(false)
   expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
+})
+
+test('a failed restore stays on the page', async ({ page }) => {
+  await page.route('**/api/pull**', (route) => route.fulfill({ status: 500, body: 'no' }))
+  await signIn(page, USERS.restore)
+  await page.goto('/workouts/')
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+  await page.getByRole('button', { name: 'Restore from cloud' }).click()
+  await expect(page.locator('.toast-message-popup')).toHaveText('Failed to restore from cloud.')
+  await expect(page).toHaveURL(/\/workouts/)
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+})
+
+test('reset tells you when another tab holds the database', async ({ page }) => {
+  const other = await page.context().newPage()
+  await other.goto('/workouts/')
+  await other.waitForFunction(async () => {
+    const db = await import('/src/db/storage.ts')
+    await db.storage.count('exercises')
+    return true
+  })
+  await page.goto('/settings/')
+  await page.locator('summary').filter({ hasText: 'Manage local data' }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.locator('#reset-database').click()
+  await expect(page.locator('.toast-message-popup')).toHaveText('Close other tabs and try again.')
+  await other.close()
 })
 
 test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
