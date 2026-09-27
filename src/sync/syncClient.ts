@@ -98,10 +98,21 @@ const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
     sent.push(entry)
   })
   if (rows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
+  const present = await storage.outboxKeysPresent(sent.map((entry) => entry.key))
+  const liveRows: Row[] = []
+  const liveSent: Array<{ key: string; seq: number }> = []
+  sent.forEach((entry, index) => {
+    if (!present.has(entry.key)) return
+    const row = rows[index]
+    if (!row) return
+    liveRows.push(row)
+    liveSent.push(entry)
+  })
+  if (liveRows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
   const response = await fetchJimbroApi('/api/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows })
+    body: JSON.stringify({ rows: liveRows })
   })
   await assertOk(response)
   const revision = revisionOf(await response.json())
@@ -110,7 +121,7 @@ const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
       ? { cursor: revision }
       : { bootstrapped: 1 }
     : undefined
-  await storage.deleteOutboxIfUnchanged(sent, advance)
+  await storage.deleteOutboxIfUnchanged(liveSent, advance)
   return { progressed: true, revision }
 }
 

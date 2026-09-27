@@ -469,6 +469,25 @@ export class Storage {
     return kept
   }
 
+  async outboxKeysPresent(keys: string[]): Promise<Set<string>> {
+    if (keys.length === 0) return new Set()
+    const db = await this.init()
+    const present = new Set<string>()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readonly')
+      const store = tx.objectStore(OBJECT_STORES.OUTBOX)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('outboxKeysPresent failed'))
+      for (const key of keys) {
+        const request = store.get(key)
+        request.onsuccess = () => {
+          if (request.result) present.add(key)
+        }
+      }
+    })
+    return present
+  }
+
   async deleteOutboxIfUnchanged(
     entries: Array<{ key: string; seq: number }>,
     advance?: { cursor?: number; bootstrapped?: number }

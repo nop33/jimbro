@@ -809,6 +809,79 @@ test('a second page does not post a body another page already acknowledged', asy
   await other.close()
 })
 
+test('a second page does not post after another page acks past the inflight mark', async ({ page }) => {
+  const set: SetBody = {
+    id: `marked-set-${Date.now()}`,
+    sessionId: 'marked-session',
+    exerciseId: 'marked-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 40 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  const other = await page.context().newPage()
+  await other.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+  })
+  await signIn(page, USERS.tabs)
+  await signIn(other, USERS.tabs)
+  const syncing = page.evaluate(async (row) => {
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    await db.storage.writeRows([{ table: 'sets', row }])
+    await client.sync()
+    await db.storage.writeRows([{ table: 'sets', row }])
+    const originalMark = db.storage.markOutboxInflight.bind(db.storage)
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let parked = false
+    db.storage.markOutboxInflight = async (marks) => {
+      const kept = await originalMark(marks)
+      if (!parked) {
+        parked = true
+        Reflect.set(window, '__markPaused', true)
+        await gate
+      }
+      return kept
+    }
+    Reflect.set(window, '__releaseMark', release)
+    return client.sync()
+  }, set)
+  await page.waitForFunction(() => Reflect.get(window, '__markPaused') === true)
+  await other.evaluate(async (row) => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    await db.storage.writeRows([
+      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+    ])
+    await client.sync()
+  }, set)
+  const during = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const duringSet = during?.row.set
+  if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
+    throw new Error('missing in-flight weight')
+  }
+  expect(duringSet.weight).toBe(99)
+  await page.evaluate(() => {
+    const release = Reflect.get(window, '__releaseMark')
+    if (typeof release === 'function') release()
+  })
+  await syncing
+  const local = await readLocalSet(page, set.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(99)
+  expect(await outbox(page)).toHaveLength(0)
+  const stored = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  if (!stored) throw new Error('missing uploaded set')
+  const uploaded = stored.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+  await other.close()
+})
+
 test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
   const snapshot = {
     exerciseId: 'exercise-a',
