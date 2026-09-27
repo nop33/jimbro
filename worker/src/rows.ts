@@ -54,30 +54,33 @@ ON CONFLICT(user_id, id) DO UPDATE SET ${update}`
 
 const revExpr = '(SELECT rev FROM base) + CAST(j.key AS INTEGER) + 1'
 
+const keepRev = (table: RowTable) =>
+  `rev = CASE WHEN ${table}.data = excluded.data THEN ${table}.rev ELSE excluded.rev END`
+
 const INSERT_SQL: Record<RowTable, string> = {
   exercises: insertSql(
     'exercises',
     'user_id, id, rev, data',
     `?1, json_extract(j.value, '$.id'), ${revExpr}, json(j.value)`,
-    'rev = excluded.rev, data = excluded.data'
+    `${keepRev('exercises')}, data = excluded.data`
   ),
   programs: insertSql(
     'programs',
     'user_id, id, rev, data',
     `?1, json_extract(j.value, '$.id'), ${revExpr}, json(j.value)`,
-    'rev = excluded.rev, data = excluded.data'
+    `${keepRev('programs')}, data = excluded.data`
   ),
   sessions: insertSql(
     'sessions',
     'user_id, id, rev, date, data',
     `?1, json_extract(j.value, '$.id'), ${revExpr}, json_extract(j.value, '$.date'), json(j.value)`,
-    'rev = excluded.rev, date = excluded.date, data = excluded.data'
+    `${keepRev('sessions')}, date = excluded.date, data = excluded.data`
   ),
   sets: insertSql(
     'sets',
     'user_id, id, rev, session_id, exercise_id, data',
     `?1, json_extract(j.value, '$.id'), ${revExpr}, json_extract(j.value, '$.sessionId'), json_extract(j.value, '$.exerciseId'), json(j.value)`,
-    'rev = excluded.rev, session_id = excluded.session_id, exercise_id = excluded.exercise_id, data = excluded.data'
+    `${keepRev('sets')}, session_id = excluded.session_id, exercise_id = excluded.exercise_id, data = excluded.data`
   )
 }
 
@@ -204,13 +207,25 @@ export const parsePushBody = (body: unknown): PushBody => {
   return { ok: true, rows }
 }
 
+const canStoreSession = (session: unknown) => {
+  if (!isRecord(session) || !isString(session.id) || session.id === '' || !isString(session.date)) return false
+  if (!Array.isArray(session.exercises)) return false
+  return session.exercises.every((exercise) => {
+    if (!isRecord(exercise)) return false
+    const sets = exercise.sets
+    if (sets != null && !Array.isArray(sets)) return false
+    if (!Array.isArray(sets) || sets.length === 0) return true
+    return isString(exercise.exerciseId) && exercise.exerciseId !== ''
+  })
+}
+
 const isExportFile = (value: unknown): value is ExportShape => {
   if (!isRecord(value) || value.version !== 4 || !isString(value.exportDate) || !isRecord(value.stores)) return false
   const exercises = value.stores.exercises
   const programs = value.stores.programs
   const workoutSessions = value.stores.workoutSessions
   if (!Array.isArray(exercises) || !Array.isArray(programs) || !Array.isArray(workoutSessions)) return false
-  return workoutSessions.every((session) => isRecord(session) && isString(session.id) && session.id !== '')
+  return workoutSessions.every((session) => canStoreSession(session))
 }
 
 export const parseExportFile = (value: unknown): ExportShape | null => (isExportFile(value) ? value : null)

@@ -40,6 +40,24 @@ const countRows = async (table: 'exercises' | 'programs' | 'sessions' | 'sets') 
   return row?.n ?? -1
 }
 
+const dumpRevData = async () => {
+  const tables = ['exercises', 'programs', 'sessions', 'sets'] as const
+  const dumped: Record<(typeof tables)[number], Array<{ id: string; rev: number; data: string }>> = {
+    exercises: [],
+    programs: [],
+    sessions: [],
+    sets: []
+  }
+  for (const table of tables) {
+    const result = await env.jimbro
+      .prepare(`SELECT id, rev, data FROM ${table} WHERE user_id = ?1 ORDER BY id`)
+      .bind('nikos')
+      .all<{ id: string; rev: number; data: string }>()
+    dumped[table] = result.results
+  }
+  return dumped
+}
+
 const dumpData = async () => {
   const tables = ['exercises', 'programs', 'sessions', 'sets'] as const
   const dumped: Record<(typeof tables)[number], string[]> = {
@@ -199,6 +217,52 @@ describe('import gate', () => {
     expect(await countRows('sets')).toBe(0)
   })
 
+  const expectInvalidExport = async (body: unknown) => {
+    const stored = await api('/api/snapshot', { method: 'PUT', body: JSON.stringify(body) })
+    expect(stored.status).toBe(200)
+    const imported = await api('/api/import-r2', { method: 'POST' })
+    expect(imported.status).toBe(400)
+    expect(await imported.json()).toEqual({ error: 'invalid_export' })
+    expect(await env.BACKUP_BUCKET.head('users/nikos/import.json')).toBeNull()
+    expect(await countRows('exercises')).toBe(0)
+    expect(await countRows('programs')).toBe(0)
+    expect(await countRows('sessions')).toBe(0)
+    expect(await countRows('sets')).toBe(0)
+    const pushed = await push([{ table: 'exercises', row: exercise('squat', 'Squat') }])
+    expect(pushed.status).toBe(409)
+    expect(await pushed.json()).toEqual({ error: 'import_required' })
+  }
+
+  const snapshotShell = (workoutSessions: unknown[]) => ({
+    version: 4,
+    exportDate: '2026-04-12T00:00:00.000Z',
+    stores: {
+      exercises: [{ id: 'e1' }],
+      programs: [{ id: 'p1' }],
+      workoutSessions
+    }
+  })
+
+  it('rejects a version 4 snapshot whose session is only an id', async () => {
+    await expectInvalidExport(snapshotShell([{ id: 's1' }]))
+  })
+
+  it('rejects a version 4 snapshot whose session has exercises but no date', async () => {
+    await expectInvalidExport(snapshotShell([{ id: 's1', exercises: [] }]))
+  })
+
+  it('rejects a version 4 snapshot whose set has no exerciseId', async () => {
+    await expectInvalidExport(
+      snapshotShell([
+        {
+          id: 's1',
+          date: '2026-04-12',
+          exercises: [{ sets: [{ preset: 'lifting', reps: 5, weight: 20 }] }]
+        }
+      ])
+    )
+  })
+
   it('rejects the January version 1 export', async () => {
     await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(january))
     const response = await api('/api/import-r2', { method: 'POST' })
@@ -236,6 +300,46 @@ describe('import and export', () => {
     expect(body.rows).toHaveLength(1000)
     expect(body.more).toBe(true)
     expect(body.importedExportDate).toBe(file.exportDate)
+  })
+
+  it('keeps every revision when import.json is deleted and the same file is imported again', async () => {
+    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(file))
+    const imported = await api('/api/import-r2', { method: 'POST' })
+    expect(imported.status).toBe(200)
+    expect(await imported.json()).toEqual({
+      counts: { exercises: 21, programs: 3, sessions: 106, sets: 2581 },
+      revision: 2711
+    })
+    const before = await dumpRevData()
+    const revs = (['exercises', 'programs', 'sessions', 'sets'] as const)
+      .flatMap((table) => before[table].map((row) => row.rev))
+      .sort((left, right) => left - right)
+    expect(revs).toEqual(Array.from({ length: 2711 }, (_, index) => index + 1))
+
+    await env.BACKUP_BUCKET.delete('users/nikos/import.json')
+    const again = await api('/api/import-r2', { method: 'POST' })
+    expect(again.status).toBe(200)
+    expect(await again.json()).toEqual({
+      counts: { exercises: 21, programs: 3, sessions: 106, sets: 2581 },
+      revision: 2711
+    })
+    expect(await dumpRevData()).toEqual(before)
+
+    const stale = (await pull('2711', '1000').then((response) => response.json())) as { rows: unknown[]; more: boolean }
+    expect(stale.rows).toEqual([])
+    expect(stale.more).toBe(false)
+
+    const original = rowsFromExport(file).sets[0]
+    if (original.set.preset !== 'lifting') throw new Error('expected a lifting set')
+    const changed = { ...original, set: { ...original.set, weight: original.set.weight + 5 } }
+    const pushed = await push([{ table: 'sets', row: changed }])
+    expect(await pushed.json()).toEqual({ revision: 2712 })
+    const stored = await env.jimbro
+      .prepare('SELECT rev FROM sets WHERE user_id = ?1 AND id = ?2')
+      .bind('nikos', original.id)
+      .first<{ rev: number }>()
+    expect(stored).toEqual({ rev: 2712 })
+    expect(await countRows('sets')).toBe(2581)
   })
 
   it('leaves the same row contents when the marker write is skipped and import runs again', async () => {
