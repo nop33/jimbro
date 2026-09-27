@@ -99,6 +99,74 @@ const readDatabase = (page: Page) =>
     return { sets, sessions: sessions.length, latestId: typeof latest?.id === 'string' ? latest.id : undefined }
   })
 
+const hasSyncClient = (page: Page) =>
+  page.evaluate(async () => {
+    try {
+      await import('/src/sync/syncClient.ts')
+      return true
+    } catch {
+      return false
+    }
+  })
+
+const ensureCredentials = (page: Page) =>
+  page.evaluate(
+    ({ userId, token }) => {
+      const key = 'jimbro.cloudBackup'
+      if (localStorage.getItem(key)) return
+      localStorage.setItem(key, JSON.stringify({ userId, token }))
+    },
+    { userId: process.env.PERF_CLOUD_USER ?? 'perf', token: process.env.PERF_CLOUD_TOKEN ?? 'perf' }
+  )
+
+const timedSync = (page: Page) =>
+  page.evaluate(async () => {
+    const { sync } = await import('/src/sync/syncClient.ts')
+    const start = performance.now()
+    await sync()
+    return performance.now() - start
+  })
+
+const trackUploadBytes = (page: Page) => {
+  let bytes = 0
+  const onRequest = (request: {
+    url: () => string
+    method: () => string
+    postData: () => string | null
+    postDataBuffer: () => Buffer | null
+  }) => {
+    const url = request.url()
+    const method = request.method()
+    const isSnapshot = method === 'PUT' && url.includes('/api/snapshot')
+    const isPush = method === 'POST' && url.includes('/api/push')
+    if (!isSnapshot && !isPush) return
+    const body = request.postDataBuffer()
+    bytes += body ? body.length : Buffer.byteLength(request.postData() ?? '')
+  }
+  page.on('request', onRequest)
+  return {
+    read: () => bytes,
+    stop: () => page.off('request', onRequest)
+  }
+}
+
+const waitForUploadBytes = async (page: Page, read: () => number) => {
+  const deadline = Date.now() + 20_000
+  let last = read()
+  let stableAt = Date.now()
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(200)
+    const next = read()
+    if (next !== last) {
+      last = next
+      stableAt = Date.now()
+      continue
+    }
+    if (next > 0 && Date.now() - stableAt >= 800) return next
+  }
+  return read()
+}
+
 const seedFourCopies = async (page: Page, files: Array<string>) => {
   await page.goto('/settings/')
   await page.waitForFunction(async () => {
@@ -145,6 +213,10 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
     })
   )
   expect(seeded.latestId).toBeTruthy()
+  await ensureCredentials(page)
+  const syncing = await hasSyncClient(page)
+  const firstSyncMs = syncing ? await timedSync(page) : null
+
   const gymtimeMs = await renderedMs(page, `/gymtime/?id=${seeded.latestId}`, () =>
     page.locator('[data-exercise-id] [data-set-number]').first().waitFor({ state: 'attached' })
   )
@@ -152,6 +224,7 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
   await card.locator('summary').click()
   const finished = card.getByRole('button', { name: 'Finished set' })
   if (!(await finished.isVisible())) await card.getByRole('button', { name: 'Add set' }).click()
+  const uploads = trackUploadBytes(page)
   await page.evaluate(() => {
     const before = document.querySelectorAll('.isCompleted').length
     const start = performance.now()
@@ -168,6 +241,19 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
   })
   await finished.click()
   const setDoneMs = await page.evaluate(() => (window as Window & { __setDoneMs: Promise<number> }).__setDoneMs)
+  const uploadBytes = await waitForUploadBytes(page, uploads.read)
+  uploads.stop()
+
+  const restoreMs = syncing
+    ? await page.evaluate(async () => {
+        const { storage } = await import('/src/db/storage.ts')
+        await storage.deleteDatabase()
+        const { sync } = await import('/src/sync/syncClient.ts')
+        const start = performance.now()
+        await sync()
+        return performance.now() - start
+      })
+    : null
 
   console.log(
     JSON.stringify({
@@ -175,6 +261,9 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
       statsMs,
       gymtimeMs,
       setDoneMs,
+      uploadBytes,
+      firstSyncMs,
+      restoreMs,
       sets: seeded.sets
     })
   )
