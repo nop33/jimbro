@@ -1,4 +1,7 @@
 import { db } from '../../db'
+import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { storage } from '../../db/storage'
+import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
@@ -90,20 +93,38 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
 }
 
 if (_isDbEmpty) {
-  const seedDbButton = document.createElement('button')
-  seedDbButton.classList.add('btn-primary', 'mx-auto')
-  seedDbButton.textContent = 'Seed Database'
-  seedDbButton.addEventListener('click', async () => {
-    try {
-      await db.exercises.seed()
-      await db.programs.seed()
-      window.location.reload()
-    } catch (error) {
-      console.error('Error seeding database:', error)
-      Toasts.show({ message: 'Failed to seed database.', type: 'error' })
-    }
-  })
-  workoutWeeksContainer.appendChild(seedDbButton)
+  const credentials = getCloudBackupConfig()
+  const cursor = await storage.getMeta('cursor')
+  if (credentials && cursor === 0) {
+    const restoreButton = document.createElement('button')
+    restoreButton.classList.add('btn-primary', 'mx-auto')
+    restoreButton.textContent = 'Restore from cloud'
+    restoreButton.addEventListener('click', async () => {
+      try {
+        await sync()
+        window.location.reload()
+      } catch (error) {
+        console.error('Error restoring from cloud:', error)
+        Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
+      }
+    })
+    workoutWeeksContainer.appendChild(restoreButton)
+  } else {
+    const seedDbButton = document.createElement('button')
+    seedDbButton.classList.add('btn-primary', 'mx-auto')
+    seedDbButton.textContent = 'Seed Database'
+    seedDbButton.addEventListener('click', async () => {
+      try {
+        await db.exercises.seed()
+        await db.programs.seed()
+        window.location.reload()
+      } catch (error) {
+        console.error('Error seeding database:', error)
+        Toasts.show({ message: 'Failed to seed database.', type: 'error' })
+      }
+    })
+    workoutWeeksContainer.appendChild(seedDbButton)
+  }
 } else {
   weeksKeys.forEach((weekKey) => {
     const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []

@@ -22,8 +22,7 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
-import { getCloudBackupConfig, uploadToCloud } from '../../db/cloudBackup'
-import Toasts from '../../features/toasts'
+import { getCloudBackupConfig } from '../../db/cloudBackup'
 
 export interface ExerciseCardConfig {
   snapshot: ExerciseSnapshot
@@ -398,13 +397,7 @@ class ExerciseCard {
       if (updated.status === 'completed') {
         throwConfetti('Workout done!')
 
-        if (getCloudBackupConfig()) {
-          uploadToCloud()
-            .then(() => Toasts.show({ message: 'Backup saved ☁️', type: 'success' }))
-            .catch((error) => Toasts.show({ message: `Backup failed: ${error.message}`, type: 'error' }))
-        } else {
-          exportIndexedDbToJson()
-        }
+        if (!getCloudBackupConfig()) exportIndexedDbToJson()
       } else {
         const isExerciseCompleted = this.targetSets === setIndex + 1
 
