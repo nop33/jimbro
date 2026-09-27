@@ -3,7 +3,7 @@ import { storage, type OutboxEntry } from '../db/storage'
 import { planBootstrap, rowKey } from './bootstrap'
 import { announce } from './pageChannel'
 import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
-import type { Row } from './rows'
+import { canonical, type Row } from './rows'
 
 const PUSH_CHUNK = 500
 
@@ -79,6 +79,13 @@ const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
       revision: null
     }
   }
+  await storage.markOutboxInflight(
+    loaded.sent.map((entry, index) => ({
+      key: entry.key,
+      seq: entry.seq,
+      body: canonical(loaded.rows[index].row)
+    }))
+  )
   const response = await fetchJimbroApi('/api/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -584,6 +584,72 @@ test('a stop after an empty-server push ack keeps the cursor and the next edit',
   expect(uploaded.weight).toBe(99)
 })
 
+test('a later edit survives when the empty-server push landed but the ack did not', async ({ page }) => {
+  const set: SetBody = {
+    id: 'unacked-set',
+    sessionId: 'unacked-session',
+    exerciseId: 'unacked-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 10 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  let pulls = 0
+  await page.route('**/api/pull**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    pulls += 1
+    if (pulls > 1) {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': 'http://localhost:5173' },
+      body: JSON.stringify({ rows: [], cursor: 0, more: false, importedExportDate: null })
+    })
+  })
+  await signIn(page, USERS.gap)
+  const cursorAfterStop = await page.evaluate(async (row) => {
+    const client = await import('/src/sync/syncClient.ts')
+    const db = await import('/src/db/storage.ts')
+    const original = db.storage.deleteOutboxIfUnchanged.bind(db.storage)
+    let stopped = false
+    db.storage.deleteOutboxIfUnchanged = async (entries, advance) => {
+      if (!stopped) {
+        stopped = true
+        Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+        throw new Error('stop before outbox ack')
+      }
+      await original(entries, advance)
+    }
+    await db.storage.writeRows([{ table: 'sets', row }])
+    await client.sync()
+    return db.storage.getMeta('cursor')
+  }, set)
+  expect(cursorAfterStop).toBe(0)
+  await page.unroute('**/api/pull**')
+  await page.evaluate(async (row) => {
+    const db = await import('/src/db/storage.ts')
+    await db.storage.writeRows([
+      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+    ])
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+  }, set)
+  await runSync(page)
+  const local = await readLocalSet(page, set.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(99)
+  const stored = (await pullAll(USERS.gap.token)).find((row) => row.row.id === set.id)
+  if (!stored) throw new Error('missing uploaded set')
+  const uploaded = stored.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+})
+
 test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
   await page.addInitScript(() => {
     window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)

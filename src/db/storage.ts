@@ -1,6 +1,14 @@
 import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
 import { announce } from '../sync/pageChannel'
-import type { ExerciseRow, ProgramRow, Row, RowTable, SessionHeader, SetRow } from '../sync/rows'
+import {
+  canonical,
+  type ExerciseRow,
+  type ProgramRow,
+  type Row,
+  type RowTable,
+  type SessionHeader,
+  type SetRow
+} from '../sync/rows'
 import { DB_NAME, OBJECT_STORES } from './constants'
 import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
@@ -19,7 +27,15 @@ export interface OutboxEntry {
   table: RowTable
   id: string
   seq: number
+  inflightSeq?: number
+  inflightCanonical?: string
 }
+
+const serverStillHasPushedBody = (entry: OutboxEntry | undefined, pulled: Row) =>
+  entry?.inflightSeq !== undefined &&
+  entry.inflightCanonical !== undefined &&
+  entry.seq > entry.inflightSeq &&
+  canonical(pulled.row) === entry.inflightCanonical
 
 interface MetaRecord {
   name: 'cursor' | 'seq' | 'bootstrapped'
@@ -167,16 +183,27 @@ export class Storage {
           if (settled) return
           let seq = (seqRequest.result as MetaRecord | undefined)?.value ?? 0
           const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
-          for (const write of writes) {
+          const queued = writes.map((write) => {
             seq += 1
-            outbox.put({
-              key: rowKey(write),
-              table: write.table,
-              id: write.row.id,
-              seq
-            })
-          }
+            return { write, seq, prior: outbox.get(rowKey(write)) }
+          })
           tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
+          for (const item of queued) {
+            item.prior.onsuccess = () => {
+              const current = item.prior.result as OutboxEntry | undefined
+              const next: OutboxEntry = {
+                key: rowKey(item.write),
+                table: item.write.table,
+                id: item.write.row.id,
+                seq: item.seq
+              }
+              if (current?.inflightSeq !== undefined && current.inflightCanonical !== undefined) {
+                next.inflightSeq = current.inflightSeq
+                next.inflightCanonical = current.inflightCanonical
+              }
+              outbox.put(next)
+            }
+          }
         }
       } catch (error) {
         fail(error)
@@ -284,6 +311,7 @@ export class Storage {
               if (during) continue
               const pulled = input.pulledByKey.get(key)
               if (!pulled) continue
+              if (serverStillHasPushedBody(entry, pulled)) continue
               putRow(tx, pulled)
               if (pulled.table === 'sets') keptSets.push(pulled.row)
               if (entry) outbox.delete(key)
@@ -373,6 +401,25 @@ export class Storage {
       }
     })
     return { rows, sent, missing }
+  }
+
+  async markOutboxInflight(marks: Array<{ key: string; seq: number; body: string }>): Promise<void> {
+    if (marks.length === 0) return
+    const db = await this.init()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readwrite')
+      const store = tx.objectStore(OBJECT_STORES.OUTBOX)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('markOutboxInflight failed'))
+      for (const mark of marks) {
+        const request = store.get(mark.key)
+        request.onsuccess = () => {
+          const current = request.result as OutboxEntry | undefined
+          if (!current || current.seq !== mark.seq) return
+          store.put({ ...current, inflightSeq: current.seq, inflightCanonical: mark.body })
+        }
+      }
+    })
   }
 
   async deleteOutboxIfUnchanged(
