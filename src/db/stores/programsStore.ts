@@ -1,15 +1,9 @@
+import type { ProgramRow } from '../../sync/rows'
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
 import { nowIso } from '../nowIso'
-import type { Exercise } from './exercisesStore'
 
-export interface Program {
-  id: string
-  name: string
-  exercises: Array<Exercise['id']>
-  isDeleted: boolean
-  updatedAt: string
-}
+export type Program = ProgramRow
 
 export type NewProgram = Omit<Program, 'id' | 'updatedAt'>
 

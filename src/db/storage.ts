@@ -1,6 +1,16 @@
-import { DB_NAME } from './constants'
+import type { Row, RowTable, SetRow } from '../sync/rows'
+import { DB_NAME, OBJECT_STORES } from './constants'
 import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
+
+const STORE_FOR_TABLE: Record<RowTable, string> = {
+  exercises: OBJECT_STORES.EXERCISES,
+  programs: OBJECT_STORES.PROGRAMS,
+  sessions: OBJECT_STORES.WORKOUT_SESSIONS,
+  sets: OBJECT_STORES.SETS
+}
+
+const cloneForIdb = <T>(row: T): T => JSON.parse(JSON.stringify(row)) as T
 
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().then((persistent) => {
@@ -39,6 +49,9 @@ const openDatabase = async (): Promise<IDBDatabase> => {
       }
 
       for (let versionToMigrateTo = oldVersion + 1; versionToMigrateTo <= latestVersion; versionToMigrateTo++) {
+        // v5 and v6 rewrite these records on cursors. v7 splits them in this same
+        // transaction, so those cursors would put the nested sessions back.
+        if (latestVersion >= 7 && versionToMigrateTo >= 5 && versionToMigrateTo < 7) continue
         getMigrationForVersion(versionToMigrateTo)?.(db, transaction)
       }
     }
@@ -47,13 +60,74 @@ const openDatabase = async (): Promise<IDBDatabase> => {
 
 export class Storage {
   private db: IDBDatabase | null = null
+  private opening: Promise<IDBDatabase> | null = null
 
   private async init(): Promise<IDBDatabase> {
-    if (!this.db) {
-      this.db = await openDatabase()
+    if (this.db) return this.db
+    if (!this.opening) {
+      this.opening = openDatabase().then((db) => {
+        this.db = db
+        return db
+      })
     }
+    return this.opening
+  }
 
-    return this.db
+  async connection(): Promise<IDBDatabase> {
+    return this.init()
+  }
+
+  async writeRows(writes: Array<Row>): Promise<void> {
+    if (writes.length === 0) return
+    const db = await this.init()
+    const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
+    const setWrites = writes.filter((write): write is { table: 'sets'; row: SetRow } => write.table === 'sets')
+    if (setWrites.length > 0) storeNames.push(OBJECT_STORES.SET_GROUPS)
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(storeNames, 'readwrite')
+      let settled = false
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        try {
+          tx.abort()
+        } catch {
+          // The transaction already finished.
+        }
+        reject(error)
+      }
+      tx.oncomplete = () => {
+        if (settled) return
+        settled = true
+        resolve()
+      }
+      tx.onerror = () => fail(tx.error ?? new Error('writeRows failed'))
+      tx.onabort = () => fail(tx.error ?? new Error('writeRows aborted'))
+      try {
+        for (const write of writes) {
+          tx.objectStore(STORE_FOR_TABLE[write.table]).put(cloneForIdb(write.row))
+        }
+        if (setWrites.length === 0) return
+        const bySession = new Map<string, Array<SetRow>>()
+        for (const write of setWrites) {
+          const list = bySession.get(write.row.sessionId) ?? []
+          list.push(cloneForIdb(write.row))
+          bySession.set(write.row.sessionId, list)
+        }
+        const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
+        for (const [sessionId, rows] of bySession) {
+          const request = groupStore.get(sessionId)
+          request.onsuccess = () => {
+            const current = (request.result?.sets ?? []) as Array<SetRow>
+            const merged = new Map(current.map((set) => [set.id, set]))
+            for (const row of rows) merged.set(row.id, row)
+            groupStore.put({ sessionId, sets: [...merged.values()] })
+          }
+        }
+      } catch (error) {
+        fail(error)
+      }
+    })
   }
 
   async getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {

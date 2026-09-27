@@ -1,15 +1,14 @@
 import { getWeekOfYear } from '../../dateUtils'
 import { db } from '../../db'
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import type { WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import { hasExercises, hasPrograms } from '../../db/utils'
 import { getEffectiveWorkoutsPerWeek } from '../../settings'
 
 class IntroText {
   private static introText = document.querySelector('#intro') as HTMLDivElement
 
-  static async render() {
+  static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
     const currentWeek = getWeekOfYear(new Date())
-    const workoutSessionsByWeek = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
     const thisWeekWorkoutSessions = workoutSessionsByWeek[currentWeek] ?? []
     const thisWeekCompletedWorkoutSessions = thisWeekWorkoutSessions?.filter(
       (workoutSession) => workoutSession.status === 'completed'

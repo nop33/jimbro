@@ -1,9 +1,10 @@
+import { exportFromRows, type ExerciseRow, type ProgramRow, type SessionHeader, type SetRow } from '../sync/rows'
 import { OBJECT_STORES } from './constants'
 import { getSimpleDate } from '../dateUtils'
 import { storage } from './storage'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
-import { workoutSessionsStore, type WorkoutSession } from './stores/workoutSessionsStore'
+import type { WorkoutSession } from './stores/workoutSessionsStore'
 
 export interface ExportData {
   version: number
@@ -17,15 +18,22 @@ export interface ExportData {
 
 export const CURRENT_EXPORT_VERSION = 4
 
-export const buildExportData = async (): Promise<ExportData> => ({
-  version: CURRENT_EXPORT_VERSION,
-  exportDate: new Date().toISOString(),
-  stores: {
-    exercises: await storage.getAll<Exercise>(OBJECT_STORES.EXERCISES),
-    programs: await storage.getAll<Program>(OBJECT_STORES.PROGRAMS),
-    workoutSessions: await workoutSessionsStore.getAllWorkoutSessions()
-  }
-})
+export const buildExportData = async (): Promise<ExportData> => {
+  const [exercises, programs, sessions, sets] = await Promise.all([
+    storage.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES),
+    storage.getAll<ProgramRow>(OBJECT_STORES.PROGRAMS),
+    storage.getAll<SessionHeader>(OBJECT_STORES.WORKOUT_SESSIONS),
+    storage.getAll<SetRow>(OBJECT_STORES.SETS)
+  ])
+  return exportFromRows({
+    version: CURRENT_EXPORT_VERSION,
+    exportDate: new Date().toISOString(),
+    exercises,
+    programs,
+    sessions,
+    sets
+  })
+}
 
 export const downloadExportDataAsFile = (data: ExportData) => {
   const json = JSON.stringify(data, null, 2)

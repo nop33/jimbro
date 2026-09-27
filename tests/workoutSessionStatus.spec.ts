@@ -50,17 +50,36 @@ async function writeSessionToIdb(page: Page, session: SeedSessionInput): Promise
       })
       try {
         await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction('workoutSessions', 'readwrite')
+          const updatedAt = new Date().toISOString()
+          const tx = db.transaction(['workoutSessions', 'sets'], 'readwrite')
           tx.objectStore('workoutSessions').put({
             id: s.id,
             date: new Date().toISOString().slice(0, 10),
             programId: s.programId,
-            exercises: s.exercises,
+            exercises: s.exercises.map((exercise) => {
+              const snapshot = { ...exercise }
+              delete snapshot.sets
+              return snapshot
+            }),
             location: '',
             status: s.status,
             notes: '',
-            updatedAt: new Date().toISOString()
+            isDeleted: false,
+            updatedAt
           })
+          for (const exercise of s.exercises) {
+            exercise.sets.forEach((set, position) => {
+              tx.objectStore('sets').put({
+                id: `${s.id}:${exercise.exerciseId}:${position}`,
+                sessionId: s.id,
+                exerciseId: exercise.exerciseId,
+                position,
+                set,
+                isDeleted: false,
+                updatedAt
+              })
+            })
+          }
           tx.oncomplete = () => resolve()
           tx.onerror = () => reject(tx.error)
         })

@@ -25,8 +25,8 @@ const settings = getWorkoutModeSettings()
 const programCount = Object.keys(programNames).length
 const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
 
-await IntroText.render()
-NewWorkoutDialog.init()
+await IntroText.render(workoutWeeks)
+NewWorkoutDialog.init(workoutWeeks)
 WorkoutModeDialog.init()
 
 const todayDate = new Date()
