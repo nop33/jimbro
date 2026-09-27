@@ -269,7 +269,8 @@ test('a snapshot writer pushes a differing local set', async ({ page }) => {
   await runSync(page)
   expect(pushes.some((body) => body.includes(edited.id))).toBe(true)
   const stored = (await pullAll(USERS.writer.token)).find((row) => row.row.id === edited.id)
-  expect((stored?.row.set as SetExecution).weight).toBe(edited.set.weight)
+  if (!stored || stored.table !== 'sets') throw new Error('missing writer set')
+  expect((stored.row.set as SetExecution).weight).toBe(edited.set.weight)
 })
 
 test('another browser keeps the server set and pushes nothing for it', async ({ page }) => {
@@ -287,7 +288,8 @@ test('another browser keeps the server set and pushes nothing for it', async ({ 
   await runSync(page)
   expect(pushes.some((body) => body.includes(edited.id))).toBe(false)
   const local = await readLocalSet(page, edited.id)
-  expect(local?.set.weight).toBe(original.set.weight)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(original.set.weight)
 })
 
 test('a local-only set reaches D1', async ({ page }) => {
@@ -306,7 +308,8 @@ test('a local-only set reaches D1', async ({ page }) => {
   await writeSet(page, set)
   await runSync(page)
   const stored = (await pullAll(USERS.local.token)).find((row) => row.row.id === set.id)
-  expect((stored?.row.set as SetExecution).weight).toBe(42)
+  if (!stored || stored.table !== 'sets') throw new Error('missing local-only set')
+  expect((stored.row.set as SetExecution).weight).toBe(42)
 })
 
 test('every local row reaches D1 when the user has no cloud snapshot', async ({ page }) => {
@@ -323,7 +326,8 @@ test('every local row reaches D1 when the user has no cloud snapshot', async ({ 
   await writeSet(page, set)
   await runSync(page)
   const stored = (await pullAll(USERS.nocloud.token)).find((row) => row.row.id === set.id)
-  expect((stored?.row.set as SetExecution).weight).toBe(15)
+  if (!stored || stored.table !== 'sets') throw new Error('missing no-cloud set')
+  expect((stored.row.set as SetExecution).weight).toBe(15)
   await expect(page.locator('#cloud-summary-status')).not.toHaveText('Cloud import has not been run yet')
 })
 
