@@ -13,5 +13,13 @@
       "bucket_name": "jimbro-backups",
       "binding": "BACKUP_BUCKET"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "jimbro",
+      "database_name": "jimbro",
+      "database_id": "f94cbc4b-8004-4583-80c8-401e55730b40",
+      "migrations_dir": "migrations"
+    }
   ]
 }
