@@ -1,4 +1,12 @@
-import { rowsFromSession } from '../sync/rows'
+import { rowsFromSession, type SetRow } from '../sync/rows'
+
+let version7WritesSetGroups = false
+
+const ensureSetGroups = (db: IDBDatabase) => {
+  if (!db.objectStoreNames.contains(OBJECT_STORES.SET_GROUPS)) {
+    db.createObjectStore(OBJECT_STORES.SET_GROUPS, { keyPath: 'sessionId' })
+  }
+}
 import { OBJECT_STORES } from './constants'
 import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
 import type { Exercise } from './stores/exercisesStore'
@@ -30,6 +38,7 @@ export const createCurrentObjectStores = (db: IDBDatabase) => {
     sets.createIndex('sessionId', 'sessionId', { unique: false })
     sets.createIndex('exerciseId', 'exerciseId', { unique: false })
   }
+  ensureSetGroups(db)
 }
 
 const reparseAllRecords = (transaction: IDBTransaction) => {
@@ -148,6 +157,8 @@ const migrations: Array<DbMigration> = [
   {
     version: 7,
     migrate: (db, transaction) => {
+      version7WritesSetGroups = true
+      ensureSetGroups(db)
       if (!db.objectStoreNames.contains(OBJECT_STORES.SETS)) {
         const sets = db.createObjectStore(OBJECT_STORES.SETS, { keyPath: 'id' })
         sets.createIndex('sessionId', 'sessionId', { unique: false })
@@ -173,14 +184,42 @@ const migrations: Array<DbMigration> = [
           }
           const sessionsRequest = sessionStore.getAll()
           sessionsRequest.onsuccess = () => {
+            const grouped = new Map<string, Array<SetRow>>()
+            const groupStore = transaction.objectStore(OBJECT_STORES.SET_GROUPS)
             for (const raw of sessionsRequest.result as Array<Record<string, unknown>>) {
               const upgraded = upgradeWorkoutSessionRecord(raw, catalog, now)
               const { header, sets } = rowsFromSession(upgraded)
-              for (const set of sets) setsStore.put(JSON.parse(JSON.stringify(set)))
+              const storedSets: Array<SetRow> = []
+              for (const set of sets) {
+                const stored = JSON.parse(JSON.stringify(set)) as SetRow
+                setsStore.put(stored)
+                storedSets.push(stored)
+              }
+              if (storedSets.length > 0) grouped.set(header.id, storedSets)
               sessionStore.put(JSON.parse(JSON.stringify(header)))
             }
+            // A later migration in this upgrade runs before these callbacks, so groups are written here.
+            for (const [sessionId, sets] of grouped) groupStore.put({ sessionId, sets })
           }
         }
+      }
+    }
+  },
+  {
+    version: 8,
+    migrate: (db, transaction) => {
+      ensureSetGroups(db)
+      if (version7WritesSetGroups) return
+      const setsRequest = transaction.objectStore(OBJECT_STORES.SETS).getAll()
+      const groupStore = transaction.objectStore(OBJECT_STORES.SET_GROUPS)
+      setsRequest.onsuccess = () => {
+        const bySession = new Map<string, Array<SetRow>>()
+        for (const set of setsRequest.result as Array<SetRow>) {
+          const list = bySession.get(set.sessionId) ?? []
+          list.push(set)
+          bySession.set(set.sessionId, list)
+        }
+        for (const [sessionId, sets] of bySession) groupStore.put({ sessionId, sets })
       }
     }
   }

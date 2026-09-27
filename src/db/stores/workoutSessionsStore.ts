@@ -144,7 +144,7 @@ export class WorkoutSessionsStore {
     for (const exercise of workoutSession.exercises) {
       exercise.sets.forEach((set, position) => {
         sets.push({
-          id: crypto.randomUUID(),
+          id: legacySetId(workoutSession.id, exercise.exerciseId, position),
           sessionId: workoutSession.id,
           exerciseId: exercise.exerciseId,
           position,
@@ -232,14 +232,22 @@ export class WorkoutSessionsStore {
   }
 
   async getAllWorkoutSessions(): Promise<Array<WorkoutSession>> {
-    const headers = await storage.getAll<SessionHeader>(this.storeName)
-    const sets = await setsStore.getAll()
-    const bySession = new Map<string, Array<SetRow>>()
-    for (const set of sets) {
-      const list = bySession.get(set.sessionId)
-      if (list) list.push(set)
-      else bySession.set(set.sessionId, [set])
-    }
+    const db = await storage.connection()
+    const { headers, groups } = await new Promise<{
+      headers: Array<SessionHeader>
+      groups: Array<{ sessionId: string; sets: Array<SetRow> }>
+    }>((resolve, reject) => {
+      const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
+      const headersRequest = tx.objectStore(this.storeName).getAll()
+      const groupsRequest = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll()
+      tx.oncomplete = () =>
+        resolve({
+          headers: headersRequest.result as Array<SessionHeader>,
+          groups: groupsRequest.result as Array<{ sessionId: string; sets: Array<SetRow> }>
+        })
+      tx.onerror = () => reject(tx.error)
+    })
+    const bySession = new Map(groups.map((group) => [group.sessionId, group.sets]))
     return headers
       .filter((header) => !header.isDeleted)
       .map((header) => sessionFromRows(header, bySession.get(header.id) ?? []))
@@ -247,7 +255,8 @@ export class WorkoutSessionsStore {
 
   async getAllWorkoutSessionsGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
     const { getWeekOfYear, parseSimpleDate } = await import('../../dateUtils')
-    const workoutSessions = await this.getAllWorkoutSessions()
+    const headers = await storage.getAll<SessionHeader>(this.storeName)
+    const workoutSessions = headers.filter((header) => !header.isDeleted).map((header) => sessionFromRows(header, []))
 
     const grouped = workoutSessions.reduce(
       (acc, workoutSession) => {
@@ -291,11 +300,12 @@ export class WorkoutSessionsStore {
     }
 
     const updatedAt = nowIso()
+    const position = workoutSessionExercise.sets.length
     const setRow: SetRow = {
-      id: crypto.randomUUID(),
+      id: legacySetId(workoutSession.id, exerciseId, position),
       sessionId: workoutSession.id,
       exerciseId,
-      position: workoutSessionExercise.sets.length,
+      position,
       set: exerciseExecutionSet,
       isDeleted: false,
       updatedAt
@@ -364,7 +374,7 @@ export class WorkoutSessionsStore {
       updatedAt
     }
     const sets: Array<SetRow> = exercise.sets.map((set, position) => ({
-      id: crypto.randomUUID(),
+      id: legacySetId(workoutSession.id, exercise.exerciseId, position),
       sessionId: workoutSession.id,
       exerciseId: exercise.exerciseId,
       position,
@@ -422,7 +432,7 @@ export class WorkoutSessionsStore {
       updatedAt
     }))
     const added = replacement.sets.map((set, position) => ({
-      id: crypto.randomUUID(),
+      id: legacySetId(workoutSession.id, replacement.exerciseId, position),
       sessionId: workoutSession.id,
       exerciseId: replacement.exerciseId,
       position,

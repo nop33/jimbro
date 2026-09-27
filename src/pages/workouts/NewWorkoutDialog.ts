@@ -1,6 +1,6 @@
 import { daysAgo, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
 import { db } from '../../db'
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 
 class NewWorkoutDialog {
@@ -9,7 +9,7 @@ class NewWorkoutDialog {
   private static newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
 
-  static init() {
+  static init(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
     this.newWorkoutButton.addEventListener('click', () => {
       this.openDialog()
     })
@@ -22,12 +22,11 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
-    this.render()
+    this.render(workoutSessionsByWeek)
   }
 
-  private static async render() {
+  private static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
     const programs = await db.programs.getAll()
-    const workoutSessionsByWeek = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
     const thisWeekWorkoutSessions = workoutSessionsByWeek[getWeekOfYear(new Date())] ?? []
 
     for (const program of programs) {

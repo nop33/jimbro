@@ -1,4 +1,4 @@
-import type { Row, RowTable } from '../sync/rows'
+import type { Row, RowTable, SetRow } from '../sync/rows'
 import { DB_NAME, OBJECT_STORES } from './constants'
 import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
@@ -81,13 +81,51 @@ export class Storage {
     if (writes.length === 0) return
     const db = await this.init()
     const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
+    const setWrites = writes.filter((write): write is { table: 'sets'; row: SetRow } => write.table === 'sets')
+    if (setWrites.length > 0) storeNames.push(OBJECT_STORES.SET_GROUPS)
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(storeNames, 'readwrite')
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-      tx.onabort = () => reject(tx.error ?? new Error('writeRows aborted'))
-      for (const write of writes) {
-        tx.objectStore(STORE_FOR_TABLE[write.table]).put(cloneForIdb(write.row))
+      let settled = false
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        try {
+          tx.abort()
+        } catch {
+          // The transaction already finished.
+        }
+        reject(error)
+      }
+      tx.oncomplete = () => {
+        if (settled) return
+        settled = true
+        resolve()
+      }
+      tx.onerror = () => fail(tx.error ?? new Error('writeRows failed'))
+      tx.onabort = () => fail(tx.error ?? new Error('writeRows aborted'))
+      try {
+        for (const write of writes) {
+          tx.objectStore(STORE_FOR_TABLE[write.table]).put(cloneForIdb(write.row))
+        }
+        if (setWrites.length === 0) return
+        const bySession = new Map<string, Array<SetRow>>()
+        for (const write of setWrites) {
+          const list = bySession.get(write.row.sessionId) ?? []
+          list.push(cloneForIdb(write.row))
+          bySession.set(write.row.sessionId, list)
+        }
+        const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
+        for (const [sessionId, rows] of bySession) {
+          const request = groupStore.get(sessionId)
+          request.onsuccess = () => {
+            const current = (request.result?.sets ?? []) as Array<SetRow>
+            const merged = new Map(current.map((set) => [set.id, set]))
+            for (const row of rows) merged.set(row.id, row)
+            groupStore.put({ sessionId, sets: [...merged.values()] })
+          }
+        }
+      } catch (error) {
+        fail(error)
       }
     })
   }

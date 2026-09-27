@@ -4,5 +4,6 @@ export const OBJECT_STORES = {
   EXERCISES: 'exercises',
   PROGRAMS: 'programs',
   WORKOUT_SESSIONS: 'workoutSessions',
-  SETS: 'sets'
+  SETS: 'sets',
+  SET_GROUPS: 'setGroups'
 }
