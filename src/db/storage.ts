@@ -21,7 +21,7 @@ export interface OutboxEntry {
 }
 
 interface MetaRecord {
-  name: 'cursor' | 'seq'
+  name: 'cursor' | 'seq' | 'bootstrapped'
   value: number
 }
 
@@ -187,6 +187,16 @@ export class Storage {
   async getMeta(name: MetaRecord['name']): Promise<number> {
     const record = await this.get<MetaRecord>(OBJECT_STORES.META, name)
     return record?.value ?? 0
+  }
+
+  async setMeta(name: MetaRecord['name'], value: number): Promise<void> {
+    const db = await this.init()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([OBJECT_STORES.META], 'readwrite')
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('setMeta failed'))
+      tx.objectStore(OBJECT_STORES.META).put({ name, value })
+    })
   }
 
   async readOutbox(limit: number): Promise<OutboxEntry[]> {

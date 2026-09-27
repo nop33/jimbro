@@ -23,6 +23,9 @@ class CloudBackup {
     window.addEventListener('jimbro:sync-settled', () => {
       void this.updateSummaryStatus()
     })
+    window.addEventListener('jimbro:rows-written', () => {
+      void this.updateSummaryStatus()
+    })
 
     this.saveBtn.addEventListener('click', () => this.handleSave())
     this.syncNowBtn.addEventListener('click', () => void this.handleSync())

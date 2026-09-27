@@ -41,6 +41,14 @@ export default {
   }
 } satisfies ExportedHandler<Env>
 
+const finish = (request: Request, response: Response) => {
+  if (request.headers.get('x-d1-count') !== '1' || response.headers.has('x-d1-statements')) return response
+  const headers = new Headers(response.headers)
+  headers.set('x-d1-statements', '0')
+  headers.set('x-d1-batches', '0')
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+}
+
 const json = (request: Request, body: unknown, status: number, counted?: { statements: number; batches: number }) => {
   const response = Response.json(body, { status })
   if (!counted || request.headers.get('x-d1-count') !== '1') return response
@@ -93,7 +101,7 @@ const handleRequest = async (request: Request, env: Env) => {
   const userId = resolveUserId(request.headers.get('Authorization'), env)
 
   if (path.startsWith('/api/')) {
-    if (!userId) return Response.json({ error: 'unauthorized' }, { status: 401 })
+    if (!userId) return finish(request, Response.json({ error: 'unauthorized' }, { status: 401 }))
 
     if (path === '/api/ping' && request.method === 'GET') return Response.json({ ok: true, userId })
     if (path === '/api/import-r2' && request.method === 'POST') return handleImport(request, env, userId)

@@ -101,7 +101,7 @@ if (_isDbEmpty) {
     restoreButton.textContent = 'Restore from cloud'
     restoreButton.addEventListener('click', async () => {
       try {
-        await sync()
+        await sync({ again: false })
         window.location.reload()
       } catch (error) {
         console.error('Error restoring from cloud:', error)

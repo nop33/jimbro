@@ -62,13 +62,21 @@ const notifyOpenSession = (rows: readonly Row[]) => {
   window.dispatchEvent(new CustomEvent('jimbro:open-session-pulled', { detail: { sessionId } }))
 }
 
+const revisionOf = (body: unknown) => {
+  if (!body || typeof body !== 'object' || !('revision' in body)) return null
+  return typeof body.revision === 'number' ? body.revision : null
+}
+
 const pushChunk = async (entries: OutboxEntry[]) => {
   const loaded = await storage.readOutboxRows(entries)
   if (loaded.rows.length === 0) {
     await storage.deleteOutboxIfUnchanged(loaded.missing)
     const again = await storage.readOutbox(1)
     const head = entries[0]
-    return Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq))
+    return {
+      progressed: Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq)),
+      revision: null
+    }
   }
   const response = await fetchJimbroApi('/api/push', {
     method: 'POST',
@@ -76,16 +84,19 @@ const pushChunk = async (entries: OutboxEntry[]) => {
     body: JSON.stringify({ rows: loaded.rows })
   })
   await assertOk(response)
+  const revision = revisionOf(await response.json())
   await storage.deleteOutboxIfUnchanged(loaded.sent)
-  return true
+  return { progressed: true, revision }
 }
 
 const pushOutbox = async () => {
+  let revision: number | null = null
   for (;;) {
     const entries = await storage.readOutbox(PUSH_CHUNK)
-    if (entries.length === 0) return
-    const progressed = await pushChunk(entries)
-    if (!progressed) return
+    if (entries.length === 0) return revision
+    const pushed = await pushChunk(entries)
+    if (pushed.revision !== null) revision = pushed.revision
+    if (!pushed.progressed) return revision
   }
 }
 
@@ -115,7 +126,13 @@ const firstSync = async () => {
     pulledByKey
   })
   notifyOpenSession(pulled)
-  await pushOutbox()
+  const pushedRevision = await pushOutbox()
+  if (cursor !== 0) return
+  if (pushedRevision !== null && pushedRevision > 0) {
+    await storage.setMeta('cursor', pushedRevision)
+    return
+  }
+  await storage.setMeta('bootstrapped', 1)
 }
 
 const steadySync = async (start: number) => {
@@ -135,18 +152,31 @@ const steadySync = async (start: number) => {
 
 const runSync = async () => {
   const cursor = await storage.getMeta('cursor')
-  if (cursor === 0) await firstSync()
+  const bootstrapped = await storage.getMeta('bootstrapped')
+  if (cursor === 0 && bootstrapped === 0) await firstSync()
   else await steadySync(cursor)
 }
 
 let running = false
 let rerun = false
+let leaving = false
 let tail: Promise<void> = Promise.resolve()
 
-export const sync = (): Promise<void> => {
-  if (!getCloudBackupConfig() || !navigator.onLine) return Promise.resolve()
+window.addEventListener('pagehide', () => {
+  leaving = true
+})
+
+const settle = () => {
+  window.dispatchEvent(new CustomEvent('jimbro:sync-settled'))
+}
+
+export const sync = (options?: { again?: boolean }): Promise<void> => {
+  if (!getCloudBackupConfig() || !navigator.onLine) {
+    settle()
+    return Promise.resolve()
+  }
   if (running) {
-    rerun = true
+    if (options?.again !== false) rerun = true
     return tail
   }
   running = true
@@ -160,10 +190,11 @@ export const sync = (): Promise<void> => {
         markImportRequired()
         return
       }
+      if (leaving) return
       console.error('sync failed', error)
     } finally {
       running = false
-      window.dispatchEvent(new CustomEvent('jimbro:sync-settled'))
+      settle()
     }
   })()
   void tail.then(() => {

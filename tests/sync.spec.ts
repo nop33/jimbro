@@ -21,7 +21,10 @@ const USERS = {
   clean: { token: 'clean', userId: 'user-clean' },
   offline: { token: 'offline', userId: 'user-offline' },
   inflight: { token: 'inflight', userId: 'user-inflight' },
-  gate: { token: 'gate', userId: 'user-gate' }
+  gate: { token: 'gate', userId: 'user-gate' },
+  steady: { token: 'steady', userId: 'user-steady' },
+  restore: { token: 'restore', userId: 'user-restore' },
+  count: { token: 'count', userId: 'user-count' }
 } as const
 
 type UserName = keyof typeof USERS
@@ -487,4 +490,81 @@ test('settings reports import_required and keeps the outbox', async ({ page }) =
   })
   const queued = await outbox(page)
   expect(queued.some((entry) => entry.id === set.id)).toBe(true)
+})
+
+test('a later edit survives the second sync after an empty server accepted the first push', async ({ page }) => {
+  const set: SetBody = {
+    id: 'steady-set',
+    sessionId: 'steady-session',
+    exerciseId: 'steady-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 10 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  await signIn(page, USERS.steady)
+  await writeSet(page, set)
+  await runSync(page)
+  expect(await cursorOf(page)).not.toBe(0)
+  await writeSet(page, { ...set, set: { ...set.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' })
+  await runSync(page)
+  const local = await readLocalSet(page, set.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(99)
+  const stored = (await pullAll(USERS.steady.token)).find((row) => row.row.id === set.id)
+  if (!stored) throw new Error('missing uploaded set')
+  const uploaded = stored.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+})
+
+test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
+  })
+  const failures: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && message.text().includes('sync failed')) failures.push(message.text())
+  })
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let pulls = 0
+  await page.route('**/api/pull**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    pulls += 1
+    if (pulls === 1) await gate
+    await route.continue()
+  })
+  await signIn(page, USERS.restore)
+  await page.goto('/workouts/')
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+  const clicked = page.getByRole('button', { name: 'Restore from cloud' }).click()
+  await expect.poll(() => pulls).toBe(1)
+  release?.()
+  await clicked
+  expect(failures).toEqual([])
+})
+
+test('an open settings page shows the outbox count after an offline write', async ({ page }) => {
+  const set: SetBody = {
+    id: 'count-set',
+    sessionId: 'count-session',
+    exerciseId: 'count-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 15 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  await signIn(page, USERS.count)
+  await page.evaluate(async () => {
+    await import('/src/db/storage.ts')
+  })
+  await page.context().setOffline(true)
+  await writeSet(page, set)
+  await expect(page.locator('#cloud-summary-status')).toHaveText('1 pending')
 })
