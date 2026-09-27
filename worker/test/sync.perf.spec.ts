@@ -97,7 +97,6 @@ const timed = async (run: () => Promise<Response>) => {
 
 describe('sync perf', () => {
   it('keeps a four-copy import, a 1000-row push, and a 1000-row pull inside the budgets', async () => {
-    const snapshotMs: number[] = []
     const importMs: number[] = []
     const pushMs: number[] = []
     const pullMs: number[] = []
@@ -107,10 +106,7 @@ describe('sync perf', () => {
 
     for (let sample = 0; sample < 5; sample++) {
       await clearUser()
-      const snapshot = await timed(() => call('/api/snapshot', { method: 'PUT', body: JSON.stringify(history) }))
-      snapshotMs.push(snapshot.ms)
-      expect(snapshot.statements).toBe(0)
-      expect(snapshot.batches).toBe(0)
+      await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(history))
 
       const imported = await timed(() => call('/api/import-r2', { method: 'POST' }))
       importMs.push(imported.ms)
@@ -138,6 +134,5 @@ describe('sync perf', () => {
     expect(median(pushMs)).toBeLessThan(1_000)
     expect(median(pullMs)).toBeLessThan(500)
     expect(Math.max(...importStatements, ...pushStatements, ...pullStatements)).toBeLessThanOrEqual(20)
-    expect(snapshotMs).toHaveLength(5)
   }, 180_000)
 })

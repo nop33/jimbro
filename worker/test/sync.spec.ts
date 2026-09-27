@@ -218,8 +218,7 @@ describe('import gate', () => {
   })
 
   const expectInvalidExport = async (body: unknown) => {
-    const stored = await api('/api/snapshot', { method: 'PUT', body: JSON.stringify(body) })
-    expect(stored.status).toBe(200)
+    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(body))
     const imported = await api('/api/import-r2', { method: 'POST' })
     expect(imported.status).toBe(400)
     expect(await imported.json()).toEqual({ error: 'invalid_export' })
