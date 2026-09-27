@@ -1,23 +1,12 @@
+import type { ExerciseRow } from '../../sync/rows'
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
-import type { ExerciseDefaults, ExerciseKind, LogPreset } from '../exerciseLogging'
-import type { MuscleGroup } from '../muscleGroups'
 import { nowIso } from '../nowIso'
 import { upgradeExerciseRecord } from '../schemaUpgrade'
 
 export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel, type MuscleGroup } from '../muscleGroups'
 
-export interface Exercise {
-  id: string
-  name: string
-  kind: ExerciseKind
-  preset: LogPreset
-  muscle?: MuscleGroup
-  targetSets: number
-  defaults: ExerciseDefaults
-  isDeleted: boolean
-  updatedAt: string
-}
+export type Exercise = ExerciseRow
 
 export type NewExercise = Omit<Exercise, 'id' | 'updatedAt'>
 

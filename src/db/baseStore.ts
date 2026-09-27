@@ -1,3 +1,4 @@
+import type { Row } from '../sync/rows'
 import { storage } from './storage'
 
 export interface Entity {
@@ -16,11 +17,11 @@ export abstract class BaseStore<T extends Entity> {
   }
 
   async create(item: T): Promise<void> {
-    await storage.create(this.storeName, item)
+    await storage.writeRows([{ table: this.storeName, row: item } as unknown as Row])
   }
 
   async update(item: T): Promise<T> {
-    await storage.update(this.storeName, item)
+    await storage.writeRows([{ table: this.storeName, row: item } as unknown as Row])
     return item
   }
 

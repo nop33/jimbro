@@ -1,3 +1,4 @@
+import { rowsFromSession } from '../sync/rows'
 import { OBJECT_STORES } from './constants'
 import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
 import type { Exercise } from './stores/exercisesStore'
@@ -23,6 +24,11 @@ export const createCurrentObjectStores = (db: IDBDatabase) => {
     const sessions = db.createObjectStore(OBJECT_STORES.WORKOUT_SESSIONS, { keyPath: 'id' })
     sessions.createIndex('date', 'date', { unique: false })
     sessions.createIndex('programId', 'programId', { unique: false })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.SETS)) {
+    const sets = db.createObjectStore(OBJECT_STORES.SETS, { keyPath: 'id' })
+    sets.createIndex('sessionId', 'sessionId', { unique: false })
+    sets.createIndex('exerciseId', 'exerciseId', { unique: false })
   }
 }
 
@@ -138,5 +144,44 @@ const migrations: Array<DbMigration> = [
   {
     version: 6,
     migrate: (_db, transaction) => reparseAllRecords(transaction)
+  },
+  {
+    version: 7,
+    migrate: (db, transaction) => {
+      if (!db.objectStoreNames.contains(OBJECT_STORES.SETS)) {
+        const sets = db.createObjectStore(OBJECT_STORES.SETS, { keyPath: 'id' })
+        sets.createIndex('sessionId', 'sessionId', { unique: false })
+        sets.createIndex('exerciseId', 'exerciseId', { unique: false })
+      }
+      const now = new Date().toISOString()
+      const exerciseStore = transaction.objectStore(OBJECT_STORES.EXERCISES)
+      const programStore = transaction.objectStore(OBJECT_STORES.PROGRAMS)
+      const sessionStore = transaction.objectStore(OBJECT_STORES.WORKOUT_SESSIONS)
+      const setsStore = transaction.objectStore(OBJECT_STORES.SETS)
+      const exercisesRequest = exerciseStore.getAll()
+      exercisesRequest.onsuccess = () => {
+        const catalog = new Map<string, Exercise>()
+        for (const raw of exercisesRequest.result as Array<Record<string, unknown>>) {
+          const upgraded = upgradeExerciseRecord(raw, now)
+          catalog.set(upgraded.id, upgraded)
+          exerciseStore.put(upgraded)
+        }
+        const programsRequest = programStore.getAll()
+        programsRequest.onsuccess = () => {
+          for (const raw of programsRequest.result as Array<Record<string, unknown>>) {
+            programStore.put(upgradeProgramRecord(raw, now))
+          }
+          const sessionsRequest = sessionStore.getAll()
+          sessionsRequest.onsuccess = () => {
+            for (const raw of sessionsRequest.result as Array<Record<string, unknown>>) {
+              const upgraded = upgradeWorkoutSessionRecord(raw, catalog, now)
+              const { header, sets } = rowsFromSession(upgraded)
+              for (const set of sets) setsStore.put(JSON.parse(JSON.stringify(set)))
+              sessionStore.put(JSON.parse(JSON.stringify(header)))
+            }
+          }
+        }
+      }
+    }
   }
 ]

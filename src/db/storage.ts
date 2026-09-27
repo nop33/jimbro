@@ -1,6 +1,16 @@
-import { DB_NAME } from './constants'
+import type { Row, RowTable } from '../sync/rows'
+import { DB_NAME, OBJECT_STORES } from './constants'
 import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
+
+const STORE_FOR_TABLE: Record<RowTable, string> = {
+  exercises: OBJECT_STORES.EXERCISES,
+  programs: OBJECT_STORES.PROGRAMS,
+  sessions: OBJECT_STORES.WORKOUT_SESSIONS,
+  sets: OBJECT_STORES.SETS
+}
+
+const cloneForIdb = <T>(row: T): T => JSON.parse(JSON.stringify(row)) as T
 
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().then((persistent) => {
@@ -39,6 +49,9 @@ const openDatabase = async (): Promise<IDBDatabase> => {
       }
 
       for (let versionToMigrateTo = oldVersion + 1; versionToMigrateTo <= latestVersion; versionToMigrateTo++) {
+        // v5 and v6 rewrite these records on cursors. v7 splits them in this same
+        // transaction, so those cursors would put the nested sessions back.
+        if (latestVersion >= 7 && versionToMigrateTo >= 5 && versionToMigrateTo < 7) continue
         getMigrationForVersion(versionToMigrateTo)?.(db, transaction)
       }
     }
@@ -47,13 +60,36 @@ const openDatabase = async (): Promise<IDBDatabase> => {
 
 export class Storage {
   private db: IDBDatabase | null = null
+  private opening: Promise<IDBDatabase> | null = null
 
   private async init(): Promise<IDBDatabase> {
-    if (!this.db) {
-      this.db = await openDatabase()
+    if (this.db) return this.db
+    if (!this.opening) {
+      this.opening = openDatabase().then((db) => {
+        this.db = db
+        return db
+      })
     }
+    return this.opening
+  }
 
-    return this.db
+  async connection(): Promise<IDBDatabase> {
+    return this.init()
+  }
+
+  async writeRows(writes: Array<Row>): Promise<void> {
+    if (writes.length === 0) return
+    const db = await this.init()
+    const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(storeNames, 'readwrite')
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error ?? new Error('writeRows aborted'))
+      for (const write of writes) {
+        tx.objectStore(STORE_FOR_TABLE[write.table]).put(cloneForIdb(write.row))
+      }
+    })
   }
 
   async getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
