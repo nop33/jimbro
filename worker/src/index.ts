@@ -1,19 +1,6 @@
 import { AuthEnv, resolveUserId } from './auth'
 import { handleMcp } from './mcp'
-import {
-  countStatements,
-  countsOf,
-  exportFromRows,
-  flattenRowSet,
-  loadRowSet,
-  parseExportFile,
-  parsePushBody,
-  pullRows,
-  rowsFromExport,
-  upsertRows,
-  ROW_LIMIT,
-  type ImportMarker
-} from './rows'
+import { countStatements, exportFromRows, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_LIMIT } from './rows'
 const ALLOWED_ORIGINS = new Set(['https://jimbro.nop33.com', 'http://localhost:5173'])
 
 const withCors = (request: Request, response: Response, env: Env) => {
@@ -29,7 +16,6 @@ const withCors = (request: Request, response: Response, env: Env) => {
 }
 
 interface Env extends AuthEnv {
-  BACKUP_BUCKET: R2Bucket
   jimbro: D1Database
   // One more origin to allow in a local run, such as a dev server on another port.
   DEV_ORIGIN?: string
@@ -66,22 +52,6 @@ const countedHeaders = (counted: { statements: () => number; batches: () => numb
   batches: counted.batches()
 })
 
-const latestKey = (userId: string) => `users/${userId}/latest.json`
-
-const markerKey = (userId: string) => `users/${userId}/import.json`
-
-const importRequired = async (bucket: R2Bucket, userId: string) => {
-  const [latest, marker] = await Promise.all([bucket.head(latestKey(userId)), bucket.head(markerKey(userId))])
-  return latest !== null && marker === null
-}
-
-const readImportedExportDate = async (bucket: R2Bucket, userId: string) => {
-  const object = await bucket.get(markerKey(userId))
-  if (!object) return null
-  const marker = await object.json<Partial<ImportMarker>>()
-  return typeof marker.exportDate === 'string' ? marker.exportDate : null
-}
-
 const parseCursor = (value: string | null) => {
   if (value === null || value === '') return 0
   if (!/^\d+$/.test(value)) return null
@@ -115,42 +85,12 @@ const handleRequest = async (request: Request, env: Env) => {
     if (!userId) return finish(request, Response.json({ error: 'unauthorized' }, { status: 401 }))
 
     if (path === '/api/ping' && request.method === 'GET') return Response.json({ ok: true, userId })
-    if (path === '/api/import-r2' && request.method === 'POST') return handleImport(request, env, userId)
     if (path === '/api/push' && request.method === 'POST') return handlePush(request, env, userId)
     if (path === '/api/pull' && request.method === 'GET') return handlePull(request, env, userId, url)
     if (path === '/api/export' && request.method === 'GET') return handleExport(request, env, userId)
   }
 
   return Response.json({ error: 'not found' }, { status: 404 })
-}
-
-const handleImport = async (request: Request, env: Env, userId: string) => {
-  if (await env.BACKUP_BUCKET.head(markerKey(userId))) return json(request, { error: 'already_imported' }, 409)
-
-  const latest = await env.BACKUP_BUCKET.get(latestKey(userId))
-  if (!latest) return json(request, { error: 'not_found' }, 404)
-
-  let data: unknown
-  try {
-    data = await latest.json()
-  } catch {
-    return json(request, { error: 'invalid_export' }, 400)
-  }
-
-  const parsed = parseExportFile(data)
-  if (!parsed) return json(request, { error: 'invalid_export' }, 400)
-
-  const rowSet = rowsFromExport(parsed)
-  const counted = countStatements(env.jimbro)
-  const revision = await upsertRows(counted.db, userId, flattenRowSet(rowSet))
-  const counts = countsOf(rowSet)
-  const marker: ImportMarker = {
-    exportDate: parsed.exportDate,
-    importedAt: new Date().toISOString(),
-    counts
-  }
-  await env.BACKUP_BUCKET.put(markerKey(userId), JSON.stringify(marker))
-  return json(request, { counts, revision }, 200, countedHeaders(counted))
 }
 
 const handlePush = async (request: Request, env: Env, userId: string) => {
@@ -167,8 +107,6 @@ const handlePush = async (request: Request, env: Env, userId: string) => {
     return json(request, { error: 'invalid_row', index: parsed.index }, 400)
   }
 
-  if (await importRequired(env.BACKUP_BUCKET, userId)) return json(request, { error: 'import_required' }, 409)
-
   const counted = countStatements(env.jimbro)
   const revision = await upsertRows(counted.db, userId, parsed.rows)
   return json(request, { revision }, 200, countedHeaders(counted))
@@ -179,24 +117,15 @@ const handlePull = async (request: Request, env: Env, userId: string, url: URL) 
   const limit = parseLimit(url.searchParams.get('limit'))
   if (cursor === null) return json(request, { error: 'invalid_cursor' }, 400)
   if (limit === null) return json(request, { error: 'invalid_limit' }, 400)
-  if (await importRequired(env.BACKUP_BUCKET, userId)) return json(request, { error: 'import_required' }, 409)
 
   const counted = countStatements(env.jimbro)
   const page = await pullRows(counted.db, userId, cursor, limit)
-  const body: {
-    rows: typeof page.rows
-    cursor: number
-    more: boolean
-    importedExportDate?: string | null
-  } = { rows: page.rows, cursor: page.cursor, more: page.more }
-  if (cursor === 0) body.importedExportDate = await readImportedExportDate(env.BACKUP_BUCKET, userId)
-  return json(request, body, 200, countedHeaders(counted))
+  return json(request, page, 200, countedHeaders(counted))
 }
 
 const handleExport = async (request: Request, env: Env, userId: string) => {
-  const importedExportDate = await readImportedExportDate(env.BACKUP_BUCKET, userId)
   const counted = countStatements(env.jimbro)
-  const rowSet = await loadRowSet(counted.db, userId, 4, importedExportDate ?? new Date().toISOString())
+  const rowSet = await loadRowSet(counted.db, userId, 4, new Date().toISOString())
   const headers = new Headers({
     'Content-Type': 'application/json',
     'Content-Disposition': 'attachment; filename="jimbro-export.json"'
