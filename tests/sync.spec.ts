@@ -987,6 +987,88 @@ test('a push already on the wire is not the last write after another page edits'
   await other.close()
 })
 
+test('a crashed second mark keeps the newer weight', async ({ page }) => {
+  const set: SetBody = {
+    id: `clobber-set-${Date.now()}`,
+    sessionId: 'clobber-session',
+    exerciseId: 'clobber-exercise',
+    position: 0,
+    set: { preset: 'lifting', reps: 5, weight: 10 },
+    isDeleted: false,
+    updatedAt: '2026-09-27T12:00:00.000Z'
+  }
+  const other = await page.context().newPage()
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+  })
+  await other.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+  })
+  await signIn(page, USERS.restore)
+  await signIn(other, USERS.restore)
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let sawPush: (() => void) | undefined
+  const pushed = new Promise<void>((resolve) => {
+    sawPush = resolve
+  })
+  let held = false
+  await page.route('**/api/push', async (route) => {
+    if (route.request().method() !== 'POST' || held) {
+      await route.continue()
+      return
+    }
+    held = true
+    sawPush?.()
+    await gate
+    await route.fetch()
+    await route.fulfill({ status: 500, body: 'crash' })
+  })
+  const syncing = page.evaluate(async (body) => {
+    const db = await import('/src/db/storage.ts')
+    const client = await import('/src/sync/syncClient.ts')
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+    await db.storage.writeRows([{ table: 'sets', row: body }])
+    try {
+      await client.sync()
+      return 'resolved'
+    } catch (error) {
+      return error instanceof Error ? error.message : 'error'
+    }
+  }, set)
+  await pushed
+  const stamped = await other.evaluate(async (body) => {
+    const db = await import('/src/db/storage.ts')
+    const rows = await import('/src/sync/rows.ts')
+    const next = { ...body, set: { ...body.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' }
+    await db.storage.writeRows([{ table: 'sets', row: next }])
+    const queued = await db.storage.readOutbox(10)
+    const entry = queued.find((item) => item.id === body.id)
+    if (!entry?.inflightCanonical) throw new Error('missing inflight stamp')
+    const sent = entry.inflightCanonical
+    await db.storage.markOutboxInflight([{ key: entry.key, seq: entry.seq, body: rows.canonical(next) }])
+    const after = (await db.storage.readOutbox(10)).find((item) => item.id === body.id)
+    return { sent, kept: after?.inflightCanonical }
+  }, set)
+  expect(stamped.kept).toBe(stamped.sent)
+  release?.()
+  expect(await syncing).toContain('500')
+  await page.unroute('**/api/push')
+  await page.evaluate(async () => {
+    const client = await import('/src/sync/syncClient.ts')
+    await client.sync()
+  })
+  const local = await readLocalSet(page, set.id)
+  expect(local?.set.weight).toBe(99)
+  const stored = (await pullAll(USERS.restore.token)).find((row) => row.row.id === set.id)
+  const uploaded = stored?.row.set
+  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
+  expect(uploaded.weight).toBe(99)
+  await other.close()
+})
+
 test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
   const snapshot = {
     exerciseId: 'exercise-a',

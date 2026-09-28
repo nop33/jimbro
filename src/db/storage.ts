@@ -461,7 +461,9 @@ export class Storage {
         request.onsuccess = () => {
           const current = request.result as OutboxEntry | undefined
           if (!current || current.seq < mark.seq) return
-          store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
+          if (current.inflightSeq === undefined || current.inflightCanonical === undefined) {
+            store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
+          }
           kept.push({ key: mark.key, seq: mark.seq })
         }
       }
