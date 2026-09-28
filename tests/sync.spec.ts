@@ -1061,6 +1061,23 @@ test('a non-writer does not keep a set whose exercise left with the server heade
   expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
 })
 
+test('a restore before import stays on the page', async ({ page }) => {
+  await page.route('**/api/pull**', (route) =>
+    route.fulfill({
+      status: 409,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'import_required' })
+    })
+  )
+  await signIn(page, USERS.restore)
+  await page.goto('/workouts/')
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+  await page.getByRole('button', { name: 'Restore from cloud' }).click()
+  await expect(page.locator('.toast-message-popup')).toHaveText('Cloud import has not been run yet.')
+  await expect(page).toHaveURL(/\/workouts/)
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+})
+
 test('a failed restore stays on the page', async ({ page }) => {
   await page.route('**/api/pull**', (route) => route.fulfill({ status: 500, body: 'no' }))
   await signIn(page, USERS.restore)
