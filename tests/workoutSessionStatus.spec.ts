@@ -56,11 +56,7 @@ async function writeSessionToIdb(page: Page, session: SeedSessionInput): Promise
             id: s.id,
             date: new Date().toISOString().slice(0, 10),
             programId: s.programId,
-            exercises: s.exercises.map((exercise) => {
-              const snapshot = { ...exercise }
-              delete snapshot.sets
-              return snapshot
-            }),
+            exercises: s.exercises.map(({ sets: _sets, ...snapshot }) => snapshot),
             location: '',
             status: s.status,
             notes: '',
