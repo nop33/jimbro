@@ -68,28 +68,14 @@ const readDatabase = (page: Page) =>
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
-    const names = [...db.objectStoreNames]
     const all = (storeName: string) =>
       new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
         const request = db.transaction(storeName).objectStore(storeName).getAll()
         request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>)
         request.onerror = () => reject(request.error)
       })
-    const sessions = names.includes('workoutSessions') ? await all('workoutSessions') : []
-    let sets = 0
-    if (names.includes('sets')) {
-      sets = (await all('sets')).length
-    } else {
-      for (const session of sessions) {
-        const exercises = session.exercises
-        if (!Array.isArray(exercises)) continue
-        for (const exercise of exercises) {
-          if (exercise && typeof exercise === 'object' && Array.isArray((exercise as { sets?: unknown }).sets)) {
-            sets += (exercise as { sets: Array<unknown> }).sets.length
-          }
-        }
-      }
-    }
+    const sessions = await all('workoutSessions')
+    const sets = (await all('sets')).length
     const latest = sessions
       .filter(
         (session) => session.isDeleted !== true && typeof session.date === 'string' && typeof session.id === 'string'
@@ -135,11 +121,7 @@ const trackUploadBytes = (page: Page) => {
     postData: () => string | null
     postDataBuffer: () => Buffer | null
   }) => {
-    const url = request.url()
-    const method = request.method()
-    const isSnapshot = method === 'PUT' && url.includes('/api/snapshot')
-    const isPush = method === 'POST' && url.includes('/api/push')
-    if (!isSnapshot && !isPush) return
+    if (request.method() !== 'POST' || !request.url().includes('/api/push')) return
     const body = request.postDataBuffer()
     bytes += body ? body.length : Buffer.byteLength(request.postData() ?? '')
   }
@@ -169,18 +151,6 @@ const waitForUploadBytes = async (page: Page, read: () => number) => {
 
 const seedFourCopies = async (page: Page, files: Array<string>) => {
   await page.goto('/settings/')
-  await page.waitForFunction(async () => {
-    const found = (await indexedDB.databases()).find((database) => database.name === 'gymbro-database')
-    if (!found?.version || found.version < 6) return false
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('gymbro-database', found.version)
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const ready = db.objectStoreNames.contains('workoutSessions')
-    db.close()
-    return ready
-  })
   const existing = await readDatabase(page)
   if (existing.sessions >= 400) return existing
   for (const file of files) {
