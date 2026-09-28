@@ -77,7 +77,9 @@ const outboxHeadMoved = async (entries: OutboxEntry[]) => {
 const withPushLock = <T>(task: () => Promise<T>): Promise<T> => {
   const locks = navigator.locks
   if (!locks) return task()
-  return locks.request('jimbro:sync-push', task)
+  // LockGrantedCallback types its return as T, so a promise callback is
+  // Promise<Promise<T>>. The lock manager settles to the callback's value.
+  return locks.request('jimbro:sync-push', task).then((settled) => settled)
 }
 
 const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
