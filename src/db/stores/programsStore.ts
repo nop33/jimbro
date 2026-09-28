@@ -7,7 +7,7 @@ export type Program = ProgramRow
 
 export type NewProgram = Omit<Program, 'id' | 'updatedAt'>
 
-export const normalizeProgram = (item: Program): Program => ({
+const normalizeProgram = (item: Program): Program => ({
   ...item,
   isDeleted: Boolean(item.isDeleted),
   updatedAt: item.updatedAt || nowIso()

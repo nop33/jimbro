@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'jimbro.workoutMode'
 
-export const WORKOUT_MODES = ['rotation', 'freestyle'] as const
+const WORKOUT_MODES = ['rotation', 'freestyle'] as const
 export type WorkoutMode = (typeof WORKOUT_MODES)[number]
 
 export interface WorkoutModeSettings {
