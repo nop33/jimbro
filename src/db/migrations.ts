@@ -39,6 +39,12 @@ export const createCurrentObjectStores = (db: IDBDatabase) => {
     sets.createIndex('exerciseId', 'exerciseId', { unique: false })
   }
   ensureSetGroups(db)
+  if (!db.objectStoreNames.contains(OBJECT_STORES.OUTBOX)) {
+    db.createObjectStore(OBJECT_STORES.OUTBOX, { keyPath: 'key' })
+  }
+  if (!db.objectStoreNames.contains(OBJECT_STORES.META)) {
+    db.createObjectStore(OBJECT_STORES.META, { keyPath: 'name' })
+  }
 }
 
 const reparseAllRecords = (transaction: IDBTransaction) => {
@@ -223,6 +229,18 @@ const migrations: Array<DbMigration> = [
         }
         for (const [sessionId, sets] of bySession) groupStore.put({ sessionId, sets })
       }
+    }
+  },
+  {
+    version: 9,
+    migrate: (db, transaction) => {
+      if (!db.objectStoreNames.contains(OBJECT_STORES.OUTBOX)) {
+        db.createObjectStore(OBJECT_STORES.OUTBOX, { keyPath: 'key' })
+      }
+      if (!db.objectStoreNames.contains(OBJECT_STORES.META)) {
+        db.createObjectStore(OBJECT_STORES.META, { keyPath: 'name' })
+      }
+      transaction.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: 0 })
     }
   }
 ]

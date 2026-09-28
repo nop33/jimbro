@@ -88,7 +88,7 @@ test('version 8 backfills set groups after version 7 ran on another database', a
   await runVersion7OnOtherDatabase(page)
   const stored = await upgradeThroughStorage(page)
   expect(stored).toEqual({
-    version: 8,
+    version: 9,
     hasSetGroups: true,
     setIds: SET_IDS,
     groupIds: SET_IDS
@@ -100,7 +100,7 @@ test('version 8 backfills set groups from a version 7 database on a fresh page',
   await seedVersion7(page)
   const stored = await upgradeThroughStorage(page)
   expect(stored).toEqual({
-    version: 8,
+    version: 9,
     hasSetGroups: true,
     setIds: SET_IDS,
     groupIds: SET_IDS

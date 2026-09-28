@@ -5,5 +5,7 @@ export const OBJECT_STORES = {
   PROGRAMS: 'programs',
   WORKOUT_SESSIONS: 'workoutSessions',
   SETS: 'sets',
-  SET_GROUPS: 'setGroups'
+  SET_GROUPS: 'setGroups',
+  OUTBOX: 'outbox',
+  META: 'meta'
 }

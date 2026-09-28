@@ -1,4 +1,5 @@
 import { db } from '../../db'
+import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
@@ -23,6 +24,10 @@ class GymtimePage {
     this.program = program
 
     GymtimeSessionState.initialize(workoutSession)
+    window.addEventListener('jimbro:open-session-pulled', (event) => {
+      const sessionId = (event as CustomEvent<{ sessionId: string }>).detail.sessionId
+      void this.applyPulledSession(sessionId)
+    })
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
@@ -80,6 +85,15 @@ class GymtimePage {
       this.updateSaveToProgramBtnVisibility()
     })
 
+    await ExerciseCardList.render()
+    this.updateDeleteBtnVisibility()
+    this.updateSaveToProgramBtnVisibility()
+  }
+
+  private static async applyPulledSession(sessionId: string) {
+    if (new URLSearchParams(window.location.search).get('id') !== sessionId) return
+    const session = await workoutSessionsStore.getWorkoutSession(sessionId)
+    GymtimeSessionState.initialize(session)
     await ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
     this.updateSaveToProgramBtnVisibility()

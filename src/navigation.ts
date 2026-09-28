@@ -1,3 +1,11 @@
+import { sync } from './sync/syncClient'
+
+let rowsWrittenTimer = 0
+
+const startSync = () => {
+  void sync().catch(() => undefined)
+}
+
 export function initNavigation() {
   const body = document.body
   const appPage = body.querySelector('.app-page')
@@ -53,6 +61,16 @@ export function initNavigation() {
 
   document.querySelector('#back-button')?.addEventListener('click', () => {
     window.history.back()
+  })
+
+  startSync()
+  window.addEventListener('online', startSync)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') startSync()
+  })
+  window.addEventListener('jimbro:rows-written', () => {
+    window.clearTimeout(rowsWrittenTimer)
+    rowsWrittenTimer = window.setTimeout(startSync, 2000)
   })
 }
 
