@@ -1123,10 +1123,9 @@ test('a failed restore stays on the page', async ({ page }) => {
 test('reset tells you when another tab holds the database', async ({ page }) => {
   const other = await page.context().newPage()
   await other.goto('/workouts/')
-  await other.waitForFunction(async () => {
+  await other.evaluate(async () => {
     const db = await import('/src/db/storage.ts')
     await db.storage.count('exercises')
-    return true
   })
   await page.goto('/settings/')
   await page.locator('summary').filter({ hasText: 'Manage local data' }).click()
