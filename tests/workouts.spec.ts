@@ -20,6 +20,20 @@ test.describe('Workouts Page', () => {
     )
   })
 
+  test('Offers the cloud backup to a signed-in user with an empty database', async ({ page }) => {
+    await page.route('**/api/**', (route) => route.abort())
+    await page.addInitScript(() => {
+      localStorage.setItem('jimbro.cloudBackup', JSON.stringify({ userId: 'someone', token: 'secret' }))
+    })
+
+    await page.goto('/workouts/')
+    await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+    await expect(page.locator('#intro')).toHaveText(
+      'Your workouts are backed up in the cloud. Restore them to pick up where you left off.'
+    )
+  })
+
   test('Asks a user with exercises but no program to create one', async ({ page }) => {
     await page.goto('/exercises/')
     await page.getByRole('button', { name: 'New' }).click()
@@ -51,6 +65,26 @@ test.describe('Workouts Page', () => {
 
     await page.goto('/workouts/')
     await expect(page.locator('#intro')).toHaveText('Create a program from your exercises to start a workout.')
+  })
+
+  test('Asks a user who deleted everything to start over', async ({ page }) => {
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Bench Press')
+    await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
+    await page.getByLabel('Default sets').fill('3')
+    await page.getByLabel('Default reps').fill('10')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved!')
+
+    await page.locator('.card', { hasText: 'Bench Press' }).click()
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.locator('#delete-exercise-btn').click()
+    await expect(page.locator('#exercise-dialog')).toBeHidden()
+
+    await page.goto('/workouts/')
+    await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+    await expect(page.locator('#intro')).toHaveText("Let's start by defining your exercises and programs!")
   })
 
   test('Seed Database functionality works', async ({ page }) => {

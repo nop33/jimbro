@@ -25,11 +25,12 @@ const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDi
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await db.programs.getNameMap()
 const _isDbEmpty = await isDbEmpty()
+const canRestore = _isDbEmpty && getCloudBackupConfig() !== null && (await storage.getMeta('cursor')) === 0
 const settings = getWorkoutModeSettings()
 const programCount = Object.keys(programNames).length
 const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
 
-await IntroText.render(workoutWeeks)
+await IntroText.render(workoutWeeks, canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none')
 NewWorkoutDialog.init(workoutWeeks)
 WorkoutModeDialog.init()
 
@@ -94,9 +95,7 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
 }
 
 if (_isDbEmpty) {
-  const credentials = getCloudBackupConfig()
-  const cursor = await storage.getMeta('cursor')
-  if (credentials && cursor === 0) {
+  if (canRestore) {
     const restoreButton = document.createElement('button')
     restoreButton.classList.add('btn-primary', 'mx-auto')
     restoreButton.textContent = 'Restore from cloud'
