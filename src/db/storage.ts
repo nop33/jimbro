@@ -460,6 +460,8 @@ export class Storage {
         const request = store.get(mark.key)
         request.onsuccess = () => {
           const current = request.result as OutboxEntry | undefined
+          // deleteDatabase restarts seq at 0, so a push that read the old outbox
+          // can meet a newer entry for the same row with a smaller seq.
           if (!current || current.seq < mark.seq) return
           if (current.inflightSeq === undefined || current.inflightCanonical === undefined) {
             store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
