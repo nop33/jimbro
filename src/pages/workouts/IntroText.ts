@@ -23,7 +23,7 @@ class IntroText {
       this.introText.textContent = `You have ${remainingWorkouts} ${
         remainingWorkouts === 1 ? 'workout' : 'workouts'
       } left this week.`
-    } else if (thisWeekCompletedWorkoutSessions.length >= workoutsPerWeek) {
+    } else if (thisWeekCompletedWorkoutSessions.length > 0) {
       this.introText.textContent = `You have completed all your workouts this week! 💪`
     } else if (await hasPrograms()) {
       this.introText.textContent = `You have not completed any workouts this week. Time to get sweating! 💦`

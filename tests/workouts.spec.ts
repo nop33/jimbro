@@ -13,6 +13,13 @@ test.describe('Workouts Page', () => {
     await page.goto('/workouts/')
   })
 
+  test('Greets a new user with the onboarding intro', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+    await expect(page.locator('#intro')).toHaveText(
+      "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"
+    )
+  })
+
   test('Seed Database functionality works', async ({ page }) => {
     // We should see the seed database button when the DB is empty
     const seedBtn = page.getByRole('button', { name: 'Seed Database' })
