@@ -20,6 +20,39 @@ test.describe('Workouts Page', () => {
     )
   })
 
+  test('Asks a user with exercises but no program to create one', async ({ page }) => {
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Bench Press')
+    await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
+    await page.getByLabel('Default sets').fill('3')
+    await page.getByLabel('Default reps').fill('10')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved!')
+
+    await page.goto('/workouts/')
+    await expect(page.locator('#intro')).toHaveText('Create a program from your exercises to start a workout.')
+  })
+
+  test('Asks for a program again once every program is deleted', async ({ page }) => {
+    await page.getByRole('button', { name: 'Seed Database' }).click()
+    await expect(page.locator('.workout-week')).toBeVisible()
+
+    await page.goto('/programs/')
+    const programCards = page.locator('#programs-grid > .card')
+    await expect(programCards.first()).toBeVisible()
+    page.on('dialog', (dialog) => dialog.accept())
+    for (let remaining = await programCards.count(); remaining > 0; remaining--) {
+      await programCards.first().locator('.edit-program-btn').click()
+      await page.locator('#delete-program-btn').click()
+      await expect(page.locator('#program-dialog')).toBeHidden()
+      await expect(programCards).toHaveCount(remaining - 1)
+    }
+
+    await page.goto('/workouts/')
+    await expect(page.locator('#intro')).toHaveText('Create a program from your exercises to start a workout.')
+  })
+
   test('Seed Database functionality works', async ({ page }) => {
     // We should see the seed database button when the DB is empty
     const seedBtn = page.getByRole('button', { name: 'Seed Database' })
