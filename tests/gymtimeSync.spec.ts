@@ -286,4 +286,43 @@ test.describe('gymtime with cloud sync', () => {
 
     await expect(loggedWeight).toHaveText('105')
   })
+
+  test('a set logged in another tab shows up in this one', async ({ page, context }) => {
+    await fakeWorker(context)
+    await startSyncedWorkout(page)
+    const other = await context.newPage()
+    await other.goto(page.url())
+    await syncSettledOnLoad(other)
+
+    await logSet(other, firstCard(other), { reps: '11', weight: '50' })
+
+    const logged = firstCard(page).locator('.completed-sets .set.isCompleted')
+    await expect(logged).toHaveCount(1)
+    await expect(logged.locator('.set-reps')).toHaveText('11')
+  })
+
+  test('another tab syncing leaves this tab mid-set alone', async ({ page, context }) => {
+    await fakeWorker(context)
+    await startSyncedWorkout(page)
+    const card = firstCard(page)
+    await logSet(page, card, { reps: '10', weight: '100' })
+    await card.getByRole('button', { name: 'Add set' }).click()
+    const slots = card.locator('.completed-sets .set')
+    const slotCount = await slots.count()
+    const nextReps = card.locator('.next-set-form input[name="set-reps"]')
+    await nextReps.fill('7')
+    const before = await cardNodes(page)
+
+    const settings = await context.newPage()
+    await settings.goto('/settings/')
+    await settings.getByText('Cloud Backup').click()
+    await settings.getByRole('button', { name: 'Sync now' }).click()
+    await expect(settings.locator('#cloud-summary-status')).toContainText('0 pending ·')
+    await syncSettledAfterWrite(page)
+    await page.waitForTimeout(REBUILD_GRACE_MS)
+
+    await expect(slots).toHaveCount(slotCount)
+    await expect(nextReps).toHaveValue('7')
+    expect(await sameCardNodes(page, before)).toBe(true)
+  })
 })

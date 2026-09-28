@@ -146,6 +146,74 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
   })
 
+  test('a set logged while the page rereads its session stays on screen', async ({ page }) => {
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('.exercise-details > summary').click()
+    const form = card.locator('.next-set-form')
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+
+    // Hold the reread once its read is done, and park the set's write behind a busy transaction, so the tap
+    // changes the session in memory after the read and before the write lands.
+    await page.evaluate(async () => {
+      const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+      const { storage } = await import('/src/db/storage.ts')
+      const read = workoutSessionsStore.getWorkoutSession.bind(workoutSessionsStore)
+      let releaseRead = () => {}
+      const readHeld = new Promise<void>((resolve) => {
+        releaseRead = resolve
+      })
+      workoutSessionsStore.getWorkoutSession = async (id) => {
+        const session = await read(id)
+        Reflect.set(window, '__readDone', true)
+        await readHeld
+        return session
+      }
+      Reflect.set(window, '__releaseRead', async () => {
+        releaseRead()
+        // Resolves once the reread has compared what it read.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      const db = await storage.connection()
+      Reflect.set(window, '__holdWrites', () => {
+        const tx = db.transaction(['workoutSessions', 'sets', 'setGroups', 'outbox', 'meta'], 'readwrite')
+        const meta = tx.objectStore('meta')
+        let held = true
+        const spin = () => {
+          if (held) meta.get('cursor').onsuccess = spin
+        }
+        spin()
+        Reflect.set(window, '__releaseWrites', () => {
+          held = false
+        })
+      })
+    })
+
+    // Another tab's notice makes the page reread its session.
+    await page.evaluate(() => new BroadcastChannel('jimbro').postMessage('sync-settled'))
+    await page.waitForFunction(() => Reflect.get(window, '__readDone') === true)
+    const before = await page.locator('#exercises-list > .card').elementHandles()
+    await page.evaluate(() => (Reflect.get(window, '__holdWrites') as () => void)())
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    await page.evaluate(() => (Reflect.get(window, '__releaseRead') as () => Promise<void>)())
+    await page.evaluate(() => (Reflect.get(window, '__releaseWrites') as () => void)())
+
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Skip' }).click()
+    // A rebuild from the stale read lands after the write, so give it time to show up.
+    await page.waitForTimeout(1000)
+
+    await expect(card.locator('.completed-sets .set.isCompleted')).toHaveCount(1)
+    const sameCards = await page.evaluate((nodes) => {
+      const now = [...document.querySelectorAll('#exercises-list > .card')]
+      return now.length === nodes.length && now.every((node, index) => node === nodes[index])
+    }, before)
+    expect(sameCards).toBe(true)
+  })
+
   test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
     await page.locator('input[name="location"]').fill('Memorial Gym')
     await page.getByRole('button', { name: 'Save & start workout' }).click()
