@@ -54,13 +54,13 @@ export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
   defaults: { ...exercise.defaults }
 })
 
-export const placeholderSnapshot = (exerciseId: string, loggedSetCount = 0): ExerciseSnapshot => ({
+export const placeholderSnapshot = (exerciseId: string): ExerciseSnapshot => ({
   exerciseId,
   name: '(deleted)',
   kind: 'lifting',
   preset: 'lifting',
   muscle: 'core',
-  targetSets: Math.max(loggedSetCount, 1),
+  targetSets: 1,
   defaults: {}
 })
 

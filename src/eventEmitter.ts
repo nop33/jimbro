@@ -10,10 +10,6 @@ class EventEmitter<T extends EventMap = EventMap> extends EventTarget {
   on<K extends keyof T>(event: K, callback: (event: CustomEvent<T[K]>) => void) {
     this.addEventListener(event as string, callback as EventListener)
   }
-
-  off<K extends keyof T>(event: K, callback: (event: CustomEvent<T[K]>) => void) {
-    this.removeEventListener(event as string, callback as EventListener)
-  }
 }
 
 export default EventEmitter
