@@ -26,7 +26,6 @@ import { getCloudBackupConfig } from '../../db/cloudBackup'
 
 export interface ExerciseCardConfig {
   snapshot: ExerciseSnapshot
-  programId: string
   programExerciseIds: string[]
   onExerciseDeleted: () => void
 }

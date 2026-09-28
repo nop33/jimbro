@@ -8,7 +8,6 @@ import { setCityFromGeolocation } from './geolocation'
 
 class WorkoutSessionForm {
   private static form = document.querySelector('#gymtime-form') as HTMLFormElement
-  private static programIdInput = this.form.querySelector('input[name="programId"]') as HTMLInputElement
   private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
   private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
   private static getLocationBtn = this.form.querySelector('#get-location-btn') as HTMLButtonElement
@@ -29,7 +28,6 @@ class WorkoutSessionForm {
     const day = String(now.getDate()).padStart(2, '0')
     const today = `${year}-${month}-${day}`
 
-    this.programIdInput.value = this.programId
     this.dateInput.value = session?.date || today
     this.dateInput.max = today
     this.notesInput.value = session?.notes || ''

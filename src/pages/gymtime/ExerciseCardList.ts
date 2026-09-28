@@ -5,13 +5,11 @@ import ExerciseCard from './ExerciseCard'
 
 class ExerciseCardList {
   private static exercisesList: HTMLDivElement
-  private static programId: string
   private static programExerciseIds: string[]
   private static renderGeneration = 0
 
-  static init(programId: string, programExerciseIds: string[]) {
+  static init(programExerciseIds: string[]) {
     this.exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
-    this.programId = programId
     this.programExerciseIds = programExerciseIds
   }
 
@@ -46,7 +44,6 @@ class ExerciseCardList {
       cards.push(
         await new ExerciseCard({
           snapshot,
-          programId: this.programId,
           programExerciseIds: this.programExerciseIds,
           onExerciseDeleted: () => {
             void this.render()
