@@ -146,6 +146,35 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
   })
 
+  test('a card opened while the cards re-render stays open', async ({ page }) => {
+    const firstExercise = page.locator('details.exercise-details').first()
+    await expect(firstExercise).toBeVisible()
+    // Hold the re-render that starting the workout triggers at its first lookup, after it has begun.
+    await page.evaluate(async () => {
+      const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+      const lookup = workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise.bind(workoutSessionsStore)
+      let release = () => {}
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      Reflect.set(window, '__releaseRender', release)
+      workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise = async (...args) => {
+        Reflect.set(window, '__renderHeld', true)
+        await gate
+        return lookup(...args)
+      }
+    })
+
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await page.waitForFunction(() => Reflect.get(window, '__renderHeld') === true)
+    await firstExercise.locator('summary').click()
+    await page.evaluate(() => (Reflect.get(window, '__releaseRender') as () => void)())
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+    await expect(firstExercise).toHaveJSProperty('open', true)
+    await expect(firstExercise.locator('.next-set-form')).toBeVisible()
+  })
+
   test('a set logged while the page rereads its session stays on screen', async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
