@@ -170,9 +170,6 @@ const readLocalSet = (page: Page, id: string) =>
 
 test('wipe and restore matches the server export', async ({ page }) => {
   const user = claimUser()
-  await page.addInitScript(() => {
-    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
-  })
   await seedFixture(user)
   await signIn(page, user)
   await runSync(page)
@@ -1141,9 +1138,6 @@ test('reset tells you when another tab holds the database', async ({ page }) => 
 
 test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
   const user = claimUser()
-  await page.addInitScript(() => {
-    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
-  })
   const failures: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error' && message.text().includes('sync failed')) failures.push(message.text())
