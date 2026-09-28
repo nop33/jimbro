@@ -20,9 +20,6 @@ export type { ExerciseSnapshot } from '../../sync/rows'
 export const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
 export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]
 
-export const UI_WORKOUT_SESSION_STATUSES = ['pending', 'skipped'] as const
-export type WorkoutSessionStatus = PersistedWorkoutSessionStatus | (typeof UI_WORKOUT_SESSION_STATUSES)[number]
-
 export interface WorkoutSession {
   id: string
   date: string
@@ -156,26 +153,6 @@ export class WorkoutSessionsStore {
     }
     await this.putRows(workoutSession, sets)
     return workoutSession
-  }
-
-  async importWorkoutSession(workoutSession: WorkoutSession): Promise<WorkoutSession> {
-    const session = { ...workoutSession, updatedAt: workoutSession.updatedAt || nowIso() }
-    const sets: Array<SetRow> = []
-    for (const exercise of session.exercises) {
-      exercise.sets.forEach((set, position) => {
-        sets.push({
-          id: legacySetId(session.id, exercise.exerciseId, position),
-          sessionId: session.id,
-          exerciseId: exercise.exerciseId,
-          position,
-          set,
-          isDeleted: false,
-          updatedAt: session.updatedAt
-        })
-      })
-    }
-    await this.putRows(session, sets)
-    return session
   }
 
   async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
@@ -314,11 +291,6 @@ export class WorkoutSessionsStore {
     workoutSession.updatedAt = updatedAt
     await this.putRows(workoutSession, [setRow])
     return workoutSession
-  }
-
-  async countWorkoutSessions(): Promise<number> {
-    const headers = await storage.getAll<SessionHeader>(this.storeName)
-    return headers.filter((header) => !header.isDeleted).length
   }
 
   async deleteWorkoutSession(id: string): Promise<void> {

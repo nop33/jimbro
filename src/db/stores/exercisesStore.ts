@@ -36,16 +36,6 @@ export class ExercisesStore extends BaseStore<Exercise> {
       await this.create(upgradeExerciseRecord(exercise as Record<string, unknown>, now))
     }
   }
-
-  async softDelete(id: string): Promise<void> {
-    const exercise = await this.getById(id)
-
-    if (exercise) {
-      await this.update({ ...exercise, isDeleted: true })
-    } else {
-      throw new Error(`Exercise with id ${id} not found.`)
-    }
-  }
 }
 
 export const exercisesStore = new ExercisesStore()

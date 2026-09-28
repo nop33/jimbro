@@ -24,12 +24,4 @@ export abstract class BaseStore<T extends Entity> {
     await storage.writeRows([{ table: this.storeName, row: item } as unknown as Row])
     return item
   }
-
-  async delete(id: string): Promise<void> {
-    await storage.delete(this.storeName, id)
-  }
-
-  async count(): Promise<number> {
-    return storage.count(this.storeName)
-  }
 }

@@ -46,16 +46,6 @@ export class ProgramsStore extends BaseStore<Program> {
       await this.create(program as Program)
     }
   }
-
-  async softDelete(id: string): Promise<void> {
-    const program = await this.getById(id)
-
-    if (program) {
-      await this.update({ ...program, isDeleted: true })
-    } else {
-      throw new Error(`Program with id ${id} not found.`)
-    }
-  }
 }
 
 export const programsStore = new ProgramsStore()
