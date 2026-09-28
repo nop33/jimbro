@@ -25,7 +25,11 @@ const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDi
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
 const programNames = await db.programs.getNameMap()
 const _isDbEmpty = await isDbEmpty()
-const canRestore = _isDbEmpty && getCloudBackupConfig() !== null && (await storage.getMeta('cursor')) === 0
+const canRestore =
+  _isDbEmpty &&
+  getCloudBackupConfig() !== null &&
+  (await storage.getMeta('cursor')) === 0 &&
+  (await storage.getMeta('bootstrapped')) === 0
 const settings = getWorkoutModeSettings()
 const programCount = Object.keys(programNames).length
 const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)

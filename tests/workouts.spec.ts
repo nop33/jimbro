@@ -34,6 +34,35 @@ test.describe('Workouts Page', () => {
     )
   })
 
+  test('Offers the seed once a restore finds nothing in the cloud', async ({ page }) => {
+    let releasePull = () => {}
+    const pullHeld = new Promise<void>((resolve) => {
+      releasePull = resolve
+    })
+    await page.route('**/api/**', async (route) => {
+      if (new URL(route.request().url()).pathname !== '/api/pull') return route.abort()
+      await pullHeld
+      await route.fulfill({ json: { rows: [], cursor: 0, more: false } })
+    })
+    await page.addInitScript(() => {
+      localStorage.setItem('jimbro.cloudBackup', JSON.stringify({ userId: 'someone', token: 'secret' }))
+    })
+
+    await page.goto('/workouts/')
+    const restoreButton = page.getByRole('button', { name: 'Restore from cloud' })
+    await expect(restoreButton).toBeVisible()
+    const reloaded = page.waitForEvent('framenavigated')
+    await restoreButton.click()
+    releasePull()
+    await reloaded
+
+    await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+    await expect(restoreButton).toHaveCount(0)
+    await expect(page.locator('#intro')).toHaveText(
+      "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"
+    )
+  })
+
   test('Asks a user with exercises but no program to create one', async ({ page }) => {
     await page.goto('/exercises/')
     await page.getByRole('button', { name: 'New' }).click()
