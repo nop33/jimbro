@@ -10,7 +10,7 @@ import {
   type SetRow
 } from '../sync/rows'
 import { DB_NAME, OBJECT_STORES } from './constants'
-import { createCurrentObjectStores, getLatestDbVersion, getMigrationForVersion } from './migrations'
+import { DB_VERSION, upgradeDatabase } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
 
 const STORE_FOR_TABLE: Record<RowTable, string> = {
@@ -109,8 +109,7 @@ if (navigator.storage && navigator.storage.persist) {
 
 const openDatabase = async (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const latestVersion = getLatestDbVersion()
-    const request = window.indexedDB.open(DB_NAME, latestVersion)
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onsuccess = (event) => {
       console.log('✅ Opened DB connection', event)
@@ -122,25 +121,7 @@ const openDatabase = async (): Promise<IDBDatabase> => {
       reject(request.error)
     }
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result
-      const transaction = (event.target as IDBOpenDBRequest).transaction!
-      const oldVersion = event.oldVersion
-
-      // Fresh DBs skip v1–v4 (v4 deletes workoutSessions mid-upgrade). Create v5 stores directly.
-      if (oldVersion === 0) {
-        createCurrentObjectStores(db)
-        transaction.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: 0 })
-        return
-      }
-
-      for (let versionToMigrateTo = oldVersion + 1; versionToMigrateTo <= latestVersion; versionToMigrateTo++) {
-        // v5 and v6 rewrite these records on cursors. v7 splits them in this same
-        // transaction, so those cursors would put the nested sessions back.
-        if (latestVersion >= 7 && versionToMigrateTo >= 5 && versionToMigrateTo < 7) continue
-        getMigrationForVersion(versionToMigrateTo)?.(db, transaction)
-      }
-    }
+    request.onupgradeneeded = (event) => upgradeDatabase(request.result, event.oldVersion)
   })
 }
 
