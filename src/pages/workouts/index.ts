@@ -2,7 +2,6 @@ import { db } from '../../db'
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { storage } from '../../db/storage'
 import { sync } from '../../sync/syncClient'
-import { isImportRequired } from '../../sync/status'
 import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
 import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
@@ -103,10 +102,6 @@ if (_isDbEmpty) {
     restoreButton.addEventListener('click', async () => {
       try {
         await sync({ again: false })
-        if (isImportRequired()) {
-          Toasts.show({ message: 'Cloud import has not been run yet.', type: 'error' })
-          return
-        }
         window.location.reload()
       } catch (error) {
         console.error('Error restoring from cloud:', error)

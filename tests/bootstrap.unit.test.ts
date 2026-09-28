@@ -17,24 +17,11 @@ const exercise = (id: string, name: string): ExerciseRow => ({
 const localRow = (id: string, name: string): Row => ({ table: 'exercises', row: exercise(id, name) })
 const pulledRow = (id: string, name: string): Row => ({ table: 'exercises', row: exercise(id, name) })
 
-const actionsOf = (local: Row[], pulled: Row[], isSnapshotWriter: boolean) =>
-  Object.fromEntries(planBootstrap(local, pulled, isSnapshotWriter))
-
 describe('planBootstrap', () => {
-  const local = [localRow('only-local', 'Local only'), localRow('equal', 'Same'), localRow('diff', 'Phone')]
-  const pulled = [pulledRow('equal', 'Same'), pulledRow('diff', 'Server'), pulledRow('only-server', 'Server only')]
-
-  it('follows every Appendix E row for a snapshot writer', () => {
-    expect(actionsOf(local, pulled, true)).toEqual({
-      'exercises:only-local': 'pushLocal',
-      'exercises:equal': 'same',
-      'exercises:diff': 'pushLocal',
-      'exercises:only-server': 'keepServer'
-    })
-  })
-
-  it('follows every Appendix E row for any other browser', () => {
-    expect(actionsOf(local, pulled, false)).toEqual({
+  it('pushes rows only the browser has and keeps the server row everywhere else', () => {
+    const local = [localRow('only-local', 'Local only'), localRow('equal', 'Same'), localRow('diff', 'Phone')]
+    const pulled = [pulledRow('equal', 'Same'), pulledRow('diff', 'Server'), pulledRow('only-server', 'Server only')]
+    expect(Object.fromEntries(planBootstrap(local, pulled))).toEqual({
       'exercises:only-local': 'pushLocal',
       'exercises:equal': 'same',
       'exercises:diff': 'keepServer',

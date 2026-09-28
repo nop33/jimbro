@@ -1,13 +1,10 @@
 const STORAGE_KEY = 'jimbro.cloudBackup'
-const LAST_BACKUP_KEY = 'jimbro.cloudBackup.lastDate'
 export const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.jimbro.nop33.com'
 
 interface CloudBackupConfig {
   userId: string
   token: string
 }
-
-export const getLastBackupDate = (): string | null => localStorage.getItem(LAST_BACKUP_KEY)
 
 export const getCloudBackupConfig = (): CloudBackupConfig | null => {
   const raw = localStorage.getItem(STORAGE_KEY)
