@@ -16,9 +16,9 @@ import {
 } from './rows'
 const ALLOWED_ORIGINS = new Set(['https://jimbro.nop33.com', 'http://localhost:5173'])
 
-const withCors = (request: Request, response: Response) => {
+const withCors = (request: Request, response: Response, env: Env) => {
   const origin = request.headers.get('Origin')
-  if (!origin || !ALLOWED_ORIGINS.has(origin)) return response
+  if (!origin || !(ALLOWED_ORIGINS.has(origin) || origin === env.DEV_ORIGIN)) return response
 
   const headers = new Headers(response.headers)
   headers.set('Access-Control-Allow-Origin', origin)
@@ -31,14 +31,16 @@ const withCors = (request: Request, response: Response) => {
 interface Env extends AuthEnv {
   BACKUP_BUCKET: R2Bucket
   jimbro: D1Database
+  // One more origin to allow in a local run, such as a dev server on another port.
+  DEV_ORIGIN?: string
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }))
+    if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env)
 
     const response = await handleRequest(request, env)
-    return withCors(request, response)
+    return withCors(request, response, env)
   }
 } satisfies ExportedHandler<Env>
 
