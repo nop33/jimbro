@@ -287,7 +287,7 @@ test('every local row reaches D1 when the user has no cloud snapshot', async ({ 
   await expect(page.locator('#cloud-summary-status')).not.toHaveText('Cloud import has not been run yet')
 })
 
-test('a crash after the first pull page converges with an uninterrupted sync', async ({ page }) => {
+test('a crash after the first pull page converges with an uninterrupted sync', async ({ page, browser }) => {
   const crash = claimUser()
   const clean = claimUser()
   await seedFixture(crash)
@@ -313,14 +313,16 @@ test('a crash after the first pull page converges with an uninterrupted sync', a
   const crashLocal = sortExport((await localStores(page)) as ExportFile)
   const crashRemote = await exportStores(crash.token)
 
-  const cleanPage = await page.context().newPage()
+  // Another browser, with storage of its own, runs the same first sync without the crash.
+  const cleanContext = await browser.newContext()
+  const cleanPage = await cleanContext.newPage()
   await signIn(cleanPage, clean)
   await runSync(cleanPage)
   const cleanLocal = sortExport((await localStores(cleanPage)) as ExportFile)
   const cleanRemote = await exportStores(clean.token)
+  await cleanContext.close()
   expect(crashLocal).toEqual(cleanLocal)
   expect(crashRemote).toEqual(cleanRemote)
-  await cleanPage.close()
 })
 
 test('three sets logged offline drain into D1', async ({ page }) => {
