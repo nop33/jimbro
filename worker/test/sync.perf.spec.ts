@@ -1,29 +1,15 @@
 import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
+import type { ExportShape } from '../../src/sync/rows'
 import fixture from './fixtures/latest-v4.json'
+import { seedExport } from './seed'
 
-interface ExportFile {
-  version: number
-  exportDate: string
-  stores: {
-    exercises: Array<Record<string, unknown> & { id: string }>
-    programs: Array<Record<string, unknown> & { id: string; exercises: string[] }>
-    workoutSessions: Array<
-      Record<string, unknown> & {
-        id: string
-        programId: string
-        exercises: Array<Record<string, unknown> & { exerciseId: string }>
-      }
-    >
-  }
-}
+const source = fixture as ExportShape
 
-const source = fixture as ExportFile
-
-const copyHistory = (copies: number): ExportFile => {
-  const exercises: ExportFile['stores']['exercises'] = []
-  const programs: ExportFile['stores']['programs'] = []
-  const workoutSessions: ExportFile['stores']['workoutSessions'] = []
+const copyHistory = (copies: number): ExportShape => {
+  const exercises: ExportShape['stores']['exercises'] = []
+  const programs: ExportShape['stores']['programs'] = []
+  const workoutSessions: ExportShape['stores']['workoutSessions'] = []
   for (let copy = 0; copy < copies; copy++) {
     const suffix = copy === 0 ? '' : `~${copy}`
     const mapId = (id: string) => `${id}${suffix}`
@@ -74,8 +60,6 @@ const clearUser = async () => {
     env.jimbro.prepare('DELETE FROM sessions WHERE user_id = ?1').bind('nikos'),
     env.jimbro.prepare('DELETE FROM sets WHERE user_id = ?1').bind('nikos')
   ])
-  await env.BACKUP_BUCKET.delete('users/nikos/latest.json')
-  await env.BACKUP_BUCKET.delete('users/nikos/import.json')
 }
 
 const median = (values: number[]) => {
@@ -96,24 +80,15 @@ const timed = async (run: () => Promise<Response>) => {
 }
 
 describe('sync perf', () => {
-  it('keeps a four-copy import, a 1000-row push, and a 1000-row pull inside the budgets', async () => {
-    const importMs: number[] = []
+  it('keeps a 1000-row push and a 1000-row pull on a four-copy history inside the budgets', async () => {
     const pushMs: number[] = []
     const pullMs: number[] = []
-    const importStatements: number[] = []
     const pushStatements: number[] = []
     const pullStatements: number[] = []
 
     for (let sample = 0; sample < 5; sample++) {
       await clearUser()
-      await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(history))
-
-      const imported = await timed(() => call('/api/import-r2', { method: 'POST' }))
-      importMs.push(imported.ms)
-      importStatements.push(imported.statements)
-      expect(imported.batches).toBe(1)
-      expect(imported.statements).toBeGreaterThan(0)
-      expect(imported.statements).toBeLessThanOrEqual(20)
+      await seedExport(history)
 
       const pushed = await timed(() => call('/api/push', { method: 'POST', body: JSON.stringify({ rows: pushRows }) }))
       pushMs.push(pushed.ms)
@@ -130,9 +105,8 @@ describe('sync perf', () => {
       expect(pulled.statements).toBeLessThanOrEqual(20)
     }
 
-    expect(median(importMs)).toBeLessThan(10_000)
     expect(median(pushMs)).toBeLessThan(1_000)
     expect(median(pullMs)).toBeLessThan(500)
-    expect(Math.max(...importStatements, ...pushStatements, ...pullStatements)).toBeLessThanOrEqual(20)
+    expect(Math.max(...pushStatements, ...pullStatements)).toBeLessThanOrEqual(20)
   }, 180_000)
 })

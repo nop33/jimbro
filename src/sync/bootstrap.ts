@@ -14,11 +14,7 @@ export const splitRowKey = (key: string): { table: RowTable; id: string } | unde
   return { table, id: key.slice(index + 1) }
 }
 
-export const planBootstrap = (
-  local: readonly Row[],
-  pulled: readonly Row[],
-  isSnapshotWriter: boolean
-): Map<string, BootstrapAction> => {
+export const planBootstrap = (local: readonly Row[], pulled: readonly Row[]): Map<string, BootstrapAction> => {
   const pulledByKey = new Map<string, Row>()
   for (const row of pulled) pulledByKey.set(rowKey(row), row)
 
@@ -33,11 +29,7 @@ export const planBootstrap = (
       actions.set(key, 'pushLocal')
       continue
     }
-    if (rowsEqual(row.row, remote.row)) {
-      actions.set(key, 'same')
-      continue
-    }
-    actions.set(key, isSnapshotWriter ? 'pushLocal' : 'keepServer')
+    actions.set(key, rowsEqual(row.row, remote.row) ? 'same' : 'keepServer')
   }
 
   for (const row of pulled) {
