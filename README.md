@@ -2,262 +2,306 @@
 
 <img src="./public/icons/logo-192.png" width="100" alt="Jimbro logo" />
 
-Personal workout tracking PWA for tracking gym workouts with a 3-day split program, logging sets/reps/weight, and visualizing progressive overload over time.
+Personal workout tracking PWA for following your own programs, logging every set, and visualizing progressive overload over time.
 
 After more than a decade in web dev, I am suffering from framework fatigue. This project is an experiment and challenge for myself to build an app using only what the browser, HTML, and CSS can provide me (with the exception of TypeScript. I still want TypeScript. Oh, and Tailwind because I haven't tried that out yet).
 
 - No routing, simple index.html files
 - No frameworks. Just JavaScript (well, TypeScript).
-- No dependencies (except Tailwind)
+- No dependencies (except Tailwind, and Chart.js for the progress chart)
 
-## Tech Stack
+The data lives in the browser's IndexedDB. An optional cloud backup syncs it to a small Cloudflare Worker and brings it back on an empty install.
 
-- **TypeScript** (strict mode, ES2022 target)
-- **Tailwind CSS v4** via `@tailwindcss/vite`
-- **Vite** (rolldown-vite) as build tool
-- **IndexedDB** for client-side persistence
-- No frontend framework — vanilla DOM APIs, Custom Events, static singleton classes
+## Tech stack
+
+- TypeScript in strict mode, targeting ES2022
+- Tailwind CSS v4 through `@tailwindcss/vite`
+- Vite+ (`vp`), one CLI over Vite, Rolldown, Vitest, Oxlint and Oxfmt
+- IndexedDB for storage on the device
+- Chart.js for the exercise history chart
+- A Cloudflare Worker with a D1 database for sync, in `worker/`
+- Playwright for end-to-end tests
+- No frontend framework. Pages use DOM APIs, custom events and static singleton classes.
 
 ## Pages
 
-| Route         | Purpose                                                     |
-| ------------- | ----------------------------------------------------------- |
-| `/`           | Home page with install prompt and "Start workout" CTA       |
-| `/exercises/` | Exercise library — browse, create, edit, delete exercises   |
-| `/programs/`  | Program management — create programs from exercises         |
-| `/workouts/`  | Weekly workout calendar — view history, start new workouts  |
-| `/gymtime/`   | Active workout tracking — log sets, break timer, completion |
-| `/settings/`  | Data management — export, import, reset database            |
+| Route         | Purpose                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `/`           | Home page with an install button and a "Start workout" link      |
+| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode     |
+| `/gymtime/`   | The active workout: log sets, break timer, completion            |
+| `/exercises/` | Exercise library: create, edit, delete                           |
+| `/programs/`  | Programs built from exercises                                    |
+| `/stats/`     | Totals across completed workouts                                 |
+| `/settings/`  | Break time, cloud backup, JSON export and import, database reset |
 
-## Data Model
+## Data model
 
-- **Exercise**: id, name, kind, preset, muscle slug (omitted for cardio), targetSets, defaults, isDeleted, updatedAt
-- **Program**: id, name, ordered list of exercise IDs, isDeleted, updatedAt
-- **WorkoutSession**: id (UUID), date, programId, exercises (snapshotted + logged sets), location, status (`completed` | `incomplete`), notes, updatedAt
-- **ExerciseExecution**: exerciseId, name, kind, preset, muscle, targetSets, defaults, array of completed sets
-- **ExerciseSetExecution**: a union discriminated by `preset` — `lifting` (reps, weight), `rehabReps` (reps, optional weight), `rehabHold` (durationSec, optional weight), `cardioTreadmill` (durationSec, speed, incline)
-- **Exercise kinds**: `lifting`, `rehab`, `cardio`. Each kind owns one or more log presets; rehab is the only kind that offers a choice. `src/db/exerciseLogging.ts` is the registry that maps a preset to its slots, labels, break-timer behaviour and prescription text.
-- **UI-only session status**: `pending` | `skipped` (workouts calendar placeholders, not persisted)
-- **Muscle groups**: slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …)
+The app stores four kinds of rows, and the worker syncs the same rows.
+
+| Row            | Fields                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| Exercise       | `id`, `name`, `kind`, `preset`, `muscle`, `targetSets`, `defaults`, `isDeleted`, `updatedAt`             |
+| Program        | `id`, `name`, `exercises` as an ordered list of exercise IDs, `isDeleted`, `updatedAt`                   |
+| Session header | `id` (a UUID), `date`, `programId`, `location`, `status`, `notes`, `exercises`, `isDeleted`, `updatedAt` |
+| Set            | `id`, `sessionId`, `exerciseId`, `position`, `set`, `isDeleted`, `updatedAt`                             |
+
+- A session header's `exercises` holds a snapshot of each exercise in the workout: name, kind, preset, muscle, target sets and defaults. Renaming or deleting an exercise later leaves old workouts alone.
+- A set row's `id` is `sessionId:exerciseId:position`. The app builds a `WorkoutSession` from a header and its live set rows.
+- `set` is a union discriminated by `preset`: `lifting` (reps, weight), `rehabReps` (reps, optional weight), `rehabHold` (durationSec, optional weight), `cardioTreadmill` (durationSec, speed, incline).
+- Exercise kinds are `lifting`, `rehab` and `cardio`. Each kind owns one or more log presets, and rehab is the only kind that offers a choice. `src/db/exerciseLogging.ts` is the registry that maps a preset to its slots, labels, break-timer behaviour and prescription text.
+- Muscle groups are slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …). Cardio exercises have no muscle group.
+- A session is `completed` once every exercise has its target number of sets, and `incomplete` until then. `pending` and `skipped` exist only in the workouts calendar, for workouts nobody started.
+- Deletes are soft. A deleted row stays with `isDeleted: true`, so the deletion syncs like any other change.
+- Device settings live in localStorage and are neither synced nor exported: workout mode and weekly goal, break time, cloud credentials and the last sync time.
 
 ## Features
 
-### Home Page (`/`)
+### Home (`/`)
 
-- "Hey, gymbro." header with settings link
-- "Start workout" button navigates to `/workouts/`
-- PWA install button (shows native install prompt or iOS "Add to Home Screen" instructions)
-- Install button hidden after app is installed or in standalone mode
+- "Hey, gymbro." header with a Settings link, and a "Start workout" button that opens `/workouts/`.
+- "Install app" opens the browser's install prompt when the browser has offered one, and otherwise shows the iOS "Add to Home Screen" instructions. The page removes the button after an install, and CSS hides it when the app runs standalone.
 
-### Exercises Page (`/exercises/`)
+### Workouts (`/workouts/`)
 
-- Grid of exercise cards showing name, muscle group, sets × reps
-- Muscle group filter dropdown (All + each muscle group)
-- "New" button opens exercise dialog for creation
-- Clicking an exercise card opens exercise dialog for editing
-- Exercise dialog: name input, muscle group select, sets input, reps input
-- Soft-delete with confirmation dialog
-- List re-renders reactively when exercises are created/edited/deleted
+- A weekly calendar, newest week first ("Week N of YYYY"), with one card per workout. A card opens its workout in gymtime.
+- The badge next to the intro opens the workout mode dialog.
+  - Rotation mode expects every program once a week. A program with no workout yet shows as pending this week and as skipped in past weeks. Tapping a pending card starts that program.
+  - Freestyle mode sets a weekly goal of 1 to 7 workouts and shows only the current week and weeks with workouts.
+- Completed cards are green with a check mark, incomplete ones amber, pending ones gray and skipped ones red. Incomplete and pending cards have a dashed border.
+- "New" lists the programs with this week's status and the date each was last completed. Picking one starts a workout.
+- The intro line counts the workouts left this week, or tells a new user what to do next, matching the button when there is one.
+- With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 
-### Programs Page (`/programs/`)
+### Gymtime (`/gymtime/`)
 
-- Grid of program cards with expandable exercise lists
-- "New" button opens program dialog for creation
-- Edit button (pencil icon) on each program opens program dialog for editing
-- Program dialog:
-  - Name input
-  - Multi-select exercises grouped by muscle group
-  - Drag-and-drop sortable list to reorder selected exercises
-- Soft-delete with confirmation dialog
-- List re-renders reactively when programs are created/edited/deleted
+The page you keep open during a workout.
 
-### Workouts Page (`/workouts/`)
+- `?programId=<id>` starts a workout for a program and `?id=<session-id>` opens a saved one. An unknown program or session shows an error with a link back to the workouts page.
+- The workout details form has date, location and notes. The date defaults to today and can't be in the future. A new workout takes the location of the last saved one, and the location button fills in the place name from geolocation through OpenStreetMap's Nominatim. The first save creates the workout and puts its `?id=` in the URL.
+- There is one card per exercise, with its muscle group and a badge for rehab exercises. Opening a card closes the others.
+- The "Finished set" form shows the inputs of the exercise's preset. Its values come from the previous set in this workout, else from the last workout that completed the exercise, using that workout's heaviest weight for lifting, else from the exercise's defaults. Zero reps or zero weight asks for confirmation.
+- A card has as many set slots as the exercise's target, or more if the last workout with the exercise had more sets. "Add set" adds another slot. Tapping a logged set opens a dialog to edit it.
+- An open card that isn't finished has buttons to move the exercise up or down, swap it for another exercise, or delete it from the workout.
+- "Previous sets" lists the sets of the last workout with the exercise, preferring one at the same location. "View History" charts average weight, estimated 1RM and total volume per workout, with one point shape per location. Cardio exercises have no chart.
+- "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
+- For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
+- Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export.
+- "Delete" in the header deletes the workout after a confirmation.
+- A re-render keeps the scroll position and the open card, and changes to this workout from a sync or another tab show up without a reload.
 
-- Weekly calendar view, newest week first
-- Each week shows up to 3 workout slots (one per program, `WORKOUTS_PER_WEEK = 3`)
-- Week format: "Week N of YYYY"
-- Workout card statuses with visual indicators:
-  - **Completed** (green): all exercises with all sets done
-  - **Incomplete** (yellow, dashed border): some sets logged but not all
-  - **Pending** (gray): workout not yet started
-  - **Skipped** (red): past week slot that was never started
-- Click behavior:
-  - Completed/incomplete → `/gymtime/?id=<session-id>` (resume/view)
-  - Pending → `/gymtime/?programId=<program-id>` (start new)
-  - Skipped → no action
-- "New" button opens new workout dialog:
-  - Lists available programs
-  - Shows status for each program (e.g., "completed this week") and last completed date
-  - Clicking a program navigates to `/gymtime/?programId=<id>`
-- Dynamic intro text (contextual message based on workout status)
-- "Seed Database" button shown when database is empty (seeds default exercises and programs)
+### Exercises (`/exercises/`)
 
-### Gymtime Page (`/gymtime/`)
+- Each card shows the name, the muscle group and the prescription, such as "3 sets × 10 reps" or "3 sets × 30s hold". Cardio cards show the kind in place of a muscle group, and rehab cards get a badge.
+- A muscle group filter.
+- "New", or tapping a card, opens the exercise dialog. It has the name, kind, log preset, muscle group, target sets, and a default reps count or hold time when the preset has one. Only rehab offers a preset choice, reps or hold, and cardio has no muscle group. The same dialog deletes an exercise.
 
-This is the core workout tracking page.
+### Programs (`/programs/`)
 
-#### URL Parameters
+- Program cards with a collapsible list of their exercises and an edit button.
+- The program dialog has a name, a multi-select of exercises grouped by muscle group, with cardio in a group of its own, and a drag-and-drop list to order the chosen exercises by mouse or touch. The same dialog deletes a program.
 
-- `?programId=<id>` — start a new workout for that program
-- `?id=<session-id>` — load an existing workout session
-- Missing/invalid params → error message with "Back to workouts" link
+### Stats (`/stats/`)
 
-#### Workout Session Form (collapsible `<details>`)
+Totals over completed workouts: the first workout's date and how long ago it was, days active, workouts with a count of incomplete ones, exercises, sets, reps, volume as weight × reps, and average workouts per week.
 
-- Date input (defaults to today)
-- Location input (auto-filled via geolocation reverse geocoding)
-- Notes textarea
-- Submit button text varies:
-  - New session: "Save & start workout"
-  - Incomplete session: "Save & continue workout"
-  - Completed session: "Save"
-- On submit: creates or updates session, pushes `?id=` to URL, collapses form
+### Settings (`/settings/`)
 
-#### Exercise Cards
+- Workout settings hold the break timer's length.
+- Cloud backup takes a user ID and a token, with "Save credentials" and "Sync now" buttons. Its status line shows how many changes wait to sync and when the last sync ran.
+- Manage local data:
+  - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
+  - "Import from JSON file" merges an export into the database. See [Import and export](#import-and-export).
+  - "Reset Database" deletes the IndexedDB database after a confirmation. Saved credentials stay, so the next sync restores the data.
 
-- One card per exercise in the program
-- Shows exercise name, muscle group
-- Expandable `<details>` to show sets
-- Accordion behavior: opening one exercise closes others
-- Completed sets displayed with set number, reps, weight
-  - `-` shown for 0 values
-  - Clicking a completed set opens edit-set dialog
-- Pending sets shown with dimmed styling
-- Completed exercises: green card styling, no more set input
-- "Finished set" form:
-  - Reps and weight inputs
-  - **Prefilled** from the last set in the current session, or from the last completed session of the same program, or from exercise defaults (target reps, 0 weight)
-  - Confirmation dialog if submitting 0 reps or 0 weight
-- Delete exercise button (visible when details are open):
-  - Confirmation dialog
-  - Removes exercise from session and re-renders
+## Cloud sync
 
-#### Break Timer Dialog
+Sync is optional. Without credentials the app sends nothing to the worker.
 
-- Triggers after completing a non-final set of an exercise
-- Full-screen countdown starting at 2:30
-- Shows sets completed (e.g., "2/4 sets done")
-- Shows next exercise name (if available)
-- "Skip" button closes dialog immediately
-- On timer end: sends browser notification (if permission granted, requests permission if not yet asked)
+- Every write lands in IndexedDB first, in one transaction with an outbox entry for each changed row. Nothing waits for the network.
+- A sync runs on every page load, when the browser comes back online, when the tab becomes visible, 2 seconds after the last write, and on "Sync now". Offline, it does nothing.
+- A sync pushes the outbox to the worker in chunks of 500 rows. Then it pulls pages of up to 1000 rows above the device's cursor, which is the highest server revision the device has seen. A pulled row never replaces a row that still has changes waiting in the outbox.
+- The worker gives each changed row the next revision number of that user, so a pull returns only what changed.
+- A database that has never synced, after a fresh install or a reset, runs a first sync instead. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs.
+- Tabs share one database. They tell each other about writes and finished syncs over a BroadcastChannel, and a Web Lock lets one tab push at a time.
 
-#### Exercise Completion
+## Worker API
 
-- After completing the last set of an exercise:
-  - Confetti animation with "Exercise done!" message
-  - Vibration pattern: `[50, 30, 50, 30, 70]`
-  - Exercise card collapses and turns green
-  - No break timer triggered
+`worker/` is a Cloudflare Worker with a D1 database, which has one table per row type keyed by user and row ID (`worker/migrations/0001_rows.sql`).
 
-#### Workout Completion
+Every route needs an `Authorization: Bearer <token>` header. The worker's `AUTH_TOKENS` variable is a JSON object that maps each token to a user ID, and every query is scoped to that user.
 
-- Triggers when all exercises have all their sets completed
-- Confetti animation with "Workout done!" message
-- Session status set to `completed`
-- Auto-exports database to JSON (backup)
+| Route                                  | What it does                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/ping`                        | Returns `{ ok: true, userId }`                                                                                          |
+| `POST /api/push`                       | Takes `{ rows: [{ table, row }] }` with up to 1000 rows, validates and stores them, and returns `{ revision }`          |
+| `GET /api/pull?cursor=<rev>&limit=<n>` | Returns `{ rows, cursor, more }` with the rows above `cursor`, up to 1000 per page                                      |
+| `GET /api/export`                      | Downloads every row as a version 4 export file                                                                          |
+| `POST /mcp`                            | A read-only MCP server over JSON-RPC, with the tools `recent_sessions`, `get_session`, `exercise_history` and `catalog` |
 
-#### Edit Set Dialog
+CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_ORIGIN` when a local run sets it.
 
-- Opens when clicking a completed set
-- Edit reps and weight
-- Updates session and DOM in-place
+## PWA features
 
-#### Add Exercise During Workout
+| Feature            | Details                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web manifest       | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display and WebP screenshots                                                                   |
+| Install prompt     | Keeps the `beforeinstallprompt` event so the install button can open the prompt, and removes the button after `appinstalled`                                        |
+| iOS install        | Without that event, the install button shows an alert with "Add to Home Screen" instructions                                                                        |
+| Screen wake lock   | Requests a screen wake lock when gymtime opens, and again when the tab becomes visible if the first request succeeded                                               |
+| Geolocation        | Fills in the workout location on request with the place name from Nominatim reverse geocoding                                                                       |
+| Haptic feedback    | A short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>` and `.light-haptic` elements, in browsers that have the Vibration API, which Safari lacks |
+| Persistent storage | Asks for persistent storage with `navigator.storage.persist()`. The browser decides, and the app only logs the answer                                               |
+| Service worker     | Not yet implemented                                                                                                                                                 |
 
-- "Add exercise" card at the bottom of the exercise list
-- Opens dialog with full exercise list (same muscle filter as exercises page)
-- Only works when a session exists
-- Adds exercise to session, re-renders list, closes dialog
+## UI features
 
-#### Delete Session
-
-- Button visible only when a session exists
-- Confirmation dialog
-- Deletes session, shows toast, redirects to `/workouts/`
-
-#### DOM State Preservation
-
-- Scroll position preserved across re-renders
-- Open exercise details preserved across re-renders
-
-### Settings Page (`/settings/`)
-
-- **Export to JSON**: downloads full database as `jimbro-export-YYYY-MM-DD.json`
-- **Import from JSON**: file input, merges data (skips existing items by ID), handles v1 and v2 export formats, success/error toast
-- **Reset Database**: confirmation dialog, deletes entire database, success toast
-
-## PWA Features
-
-| Feature          | Details                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------- |
-| Web Manifest     | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display, screenshots         |
-| Install Prompt   | Intercepts `beforeinstallprompt`, shows install button, hides after `appinstalled`                |
-| iOS Install      | Shows alert with "Add to Home Screen" instructions                                                |
-| Screen Wake Lock | Keeps screen on during gymtime page, re-requests on tab visibility change                         |
-| Notifications    | Break timer finish notification (requests permission on first use)                                |
-| Geolocation      | Reverse geocodes location for workout session (city/town via Nominatim API)                       |
-| Haptic Feedback  | Short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>`, `.light-haptic` elements |
-| Service Worker   | Not yet implemented                                                                               |
-
-## UI Features
-
-- **Toasts**: success/error/warning/info notifications, short (3s) or long (5s) duration, sequential queue, click to dismiss
-- **Confetti**: canvas-based animation with text overlay for exercise/workout completion
-- **Dark Theme**: custom color palette (jim-dark, jim-primary, jim-accent, etc.)
-- **Mobile-First**: touch targets ≥ 44×44px, fluid typography, responsive design
-- **Accessible**: semantic HTML, `prefers-reduced-motion` respected, native `<dialog>` for modals, native `<details>` for collapsible sections
+- Toasts for success, error, warning and info. They last 3 or 5 seconds, queue up, and close on a tap.
+- Confetti drawn with CSS animations, with a text overlay and a random sound effect made with the Web Audio API.
+- A dark theme with a custom palette (`jim-dark`, `jim-primary`, `jim-accent`, …) in `src/style.css`.
+- Mobile first, with touch targets of at least 44×44 px.
+- Native `<dialog>` for modals and `<details>` for collapsible sections, which animate unless `prefers-reduced-motion` is set.
 
 ## Navigation
 
-- Bottom navigation bar on all pages except home: Home, Workouts, Exercises, Programs
-- Active state based on current URL path
-- Back button on all sub-pages using `window.history.back()`
-- No SPA router — full page loads between routes
+- Every page has a bottom bar with Home, Workouts, Exercises, Programs and Stats, and highlights the current page.
+- Workouts, gymtime, exercises, programs and settings have a back button that calls `window.history.back()`.
+- There is no SPA router. Every link is a full page load.
 
-## Import/Export
+## Import and export
 
-- **Export format** (v2):
-  ```json
-  {
-    "version": 2,
-    "exportDate": "ISO string",
-    "stores": {
-      "exercises": [...],
-      "programs": [...],
-      "workoutSessions": [...]
-    }
+The export format, version 4:
+
+```json
+{
+  "version": 4,
+  "exportDate": "ISO string",
+  "stores": {
+    "exercises": [...],
+    "programs": [...],
+    "workoutSessions": [...]
   }
-  ```
-- **Auto-export**: triggers on workout completion as data backup
-- **Import**: merges data, skips duplicates (by ID), backward compatible with v1 (no session IDs)
-- **Deduplication**: uses unfiltered storage reads to avoid conflicts with soft-deleted records
+}
+```
 
-## IndexedDB Schema (v4)
+- Each exported session carries its exercises with their sets nested inside. Deleted sessions are left out, while deleted exercises and programs stay in with `isDeleted: true`.
+- The import reads versions 1 to 4 and rejects newer files. `src/db/schemaUpgrade.ts` upgrades older records on the way in.
+- The import only adds rows. It skips any row whose ID is already stored. Version 1 sessions have no ID, so it skips one when a session with the same date and program exists.
+- Imported rows go through the outbox like any other write, so they sync.
+- The worker's `GET /api/export` returns the same format, built from D1.
 
-| Store             | Key Path    | Indexes                                       |
-| ----------------- | ----------- | --------------------------------------------- |
-| `exercises`       | `id`        | —                                             |
-| `programs`        | `id`        | —                                             |
-| `workoutSessions` | `id` (UUID) | `date` (non-unique), `programId` (non-unique) |
+## IndexedDB schema (v9)
+
+The database is `gymbro-database`, version 9.
+
+| Store             | Key path    | Indexes                   | Holds                                                               |
+| ----------------- | ----------- | ------------------------- | ------------------------------------------------------------------- |
+| `exercises`       | `id`        |                           | Exercise rows                                                       |
+| `programs`        | `id`        |                           | Program rows                                                        |
+| `workoutSessions` | `id`        | `date`, `programId`       | Session headers                                                     |
+| `sets`            | `id`        | `sessionId`, `exerciseId` | Set rows                                                            |
+| `setGroups`       | `sessionId` |                           | Each session's sets in one record, for reading all sessions at once |
+| `outbox`          | `key`       |                           | One entry per row waiting to be pushed, keyed `table:id`            |
+| `meta`            | `name`      |                           | Sync state: `cursor`, `seq` and `bootstrapped`                      |
+
+- `cursor` is the highest server revision this device has pulled.
+- `seq` numbers the outbox entries, so a push can tell whether a row changed again while the push was running.
+- `bootstrapped` marks a first sync that finished with `cursor` still at 0, because neither side had any rows.
+
+`src/db/migrations.ts` creates these stores on a fresh install. A database from before version 9 is rebuilt empty, and the next sync pulls everything back from the server.
 
 ## Architecture
 
 ```
 src/
-  db/                — Persistence layer (IndexedDB)
-    baseStore.ts     — Abstract BaseStore<T> with generic CRUD
-    storage.ts       — Shared Storage singleton
-    stores/          — ExercisesStore, ProgramsStore, WorkoutSessionsStore
-    index.ts         — db.exercises, db.programs namespace
-    reactiveStore.ts — Generic ReactiveStore<T>
-    migrations.ts    — IndexedDB migrations (v1–v4)
-    export.ts        — JSON export (v2)
-    import.ts        — JSON import (v1 + v2)
-  state/             — Reactive state + actions layer
-    ExercisesState   — Exercises state with optimistic updates + rollback
-    ProgramsState    — Programs state with optimistic updates + rollback
-    GymtimeSessionState — Session state with persist-first writes
-  pages/             — UI layer (static singletons, per-item classes, procedural entry points)
-  features/          — Cross-cutting: toasts, confetti, haptic feedback
-  eventEmitter.ts    — EventTarget-based typed event emitter
+  db/                  Persistence (IndexedDB)
+    storage.ts         Shared connection, and writeRows, which stores rows and outbox entries together
+    baseStore.ts       BaseStore<T> with getAll, getById, create and update
+    stores/            Exercises, programs, workout sessions, sets, seed data
+    migrations.ts      DB_VERSION and the version 9 stores
+    exerciseLogging.ts Exercise kinds, log presets and set slots
+    schemaUpgrade.ts   Upgrades records from older exports
+    export.ts          JSON export, version 4
+    import.ts          JSON import, versions 1 to 4
+    cloudBackup.ts     Credentials and authenticated requests to the worker
+    reactiveStore.ts   ReactiveStore<T>, the observable value behind the state classes
+  sync/                Cloud sync
+    syncClient.ts      sync(), which pushes the outbox and pulls by cursor
+    bootstrap.ts       The first sync's plan for each row
+    rows.ts            Row types and export conversion, shared with the worker
+    pageChannel.ts     Notices between tabs over a BroadcastChannel
+    status.ts          Last sync time
+  state/               ExercisesState, ProgramsState, GymtimeSessionState
+  pages/               One folder per route
+  features/            Toasts, confetti, haptic feedback
+  navigation.ts        Bottom bar, back button and sync triggers
+  settings.ts          Device settings in localStorage
+  eventEmitter.ts      Typed EventTarget subclass
+worker/
+  src/                 Routes and auth, row storage, MCP tools
+  migrations/          D1 schema
+  test/                Worker tests
+tests/                 Playwright specs and unit tests
 ```
+
+## Development
+
+Install [Vite+](https://viteplus.dev), which provides the `vp` command and manages Node and pnpm. Then install both packages:
+
+```sh
+vp install
+cd worker && vp install
+```
+
+| Task                                     | Command                                                |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Dev server on http://localhost:5173      | `vp dev`                                               |
+| Format and lint                          | `vp check`, or `vp check --fix` to fix                 |
+| Typecheck                                | `vp run typecheck` and `cd worker && vp run typecheck` |
+| Unit tests                               | `vp test run`                                          |
+| Worker tests                             | `cd worker && vp run test`                             |
+| End-to-end tests                         | `vp run test`                                          |
+| Production build in `dist/`              | `vp run build`                                         |
+| Serve the build on http://localhost:4173 | `vp preview`                                           |
+
+`vp check` doesn't typecheck, and the build typechecks `src/` only, so run both typecheck commands too. CI runs the checks and all three test suites.
+
+The app syncs with the production worker at `https://api.jimbro.nop33.com` unless `VITE_API_BASE` points it elsewhere.
+
+### Run the worker locally
+
+Run these in `worker/`. Create the local D1 database:
+
+```sh
+vp exec wrangler d1 migrations apply jimbro --local
+```
+
+Give yourself a token in `worker/.dev.vars`:
+
+```
+AUTH_TOKENS='{"dev-token":"dev"}'
+```
+
+Start the worker, which listens on http://localhost:8787:
+
+```sh
+vp run dev
+```
+
+In another terminal at the repo root, start the app against it:
+
+```sh
+VITE_API_BASE=http://localhost:8787 vp dev
+```
+
+Then save user ID `dev` and token `dev-token` under Cloud Backup in Settings, and tap "Sync now".
+
+If something else already listens on port 8787, start the worker with `vp run dev --port 8791` and put that port in `VITE_API_BASE`.
+
+### Tests
+
+- Unit tests are `tests/*.unit.test.ts`, run by Vitest.
+- Worker tests in `worker/test/` run inside the Workers runtime with a local D1 database.
+- End-to-end tests are `tests/*.spec.ts`, run by Playwright on Chromium, WebKit and Mobile Safari (iPhone 12). Playwright starts the dev server on port 5173. For each run it also starts a fresh local worker on `WORKER_PORT`, 8790 by default, which `tests/sync.spec.ts` syncs with. If that port is busy, those tests fail with a message instead of using whatever listens there.
+- Outside CI, Playwright reuses a dev server already running on port 5173, so stop your own `vp dev` before a run.
+- Options after the script name go to Playwright, for example `vp run test tests/gymtime.spec.ts --project=chromium`.
