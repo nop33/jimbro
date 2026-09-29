@@ -1,38 +1,13 @@
-import { execFile } from 'node:child_process'
-import { spawn, type ChildProcess } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { expect, test, type Page } from '@playwright/test'
+import { rowsFromExport, type ExportShape, type Row } from '../src/sync/rows'
+import { API_BASE, claimUser, putR2Object, type WorkerUser } from './localWorker'
 
-const execFileAsync = promisify(execFile)
-const workerDir = path.resolve('worker')
-const fixturePath = path.join(workerDir, 'test/fixtures/latest-v4.json')
-const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as { exportDate: string }
-const API = 'http://127.0.0.1:8787'
-
-const USERS = {
-  wipe: { token: 'wipe', userId: 'user-wipe' },
-  writer: { token: 'writer', userId: 'user-writer' },
-  other: { token: 'other', userId: 'user-other' },
-  local: { token: 'local', userId: 'user-local' },
-  nocloud: { token: 'nocloud', userId: 'user-nocloud' },
-  crash: { token: 'crash', userId: 'user-crash' },
-  clean: { token: 'clean', userId: 'user-clean' },
-  offline: { token: 'offline', userId: 'user-offline' },
-  inflight: { token: 'inflight', userId: 'user-inflight' },
-  gate: { token: 'gate', userId: 'user-gate' },
-  steady: { token: 'steady', userId: 'user-steady' },
-  restore: { token: 'restore', userId: 'user-restore' },
-  count: { token: 'count', userId: 'user-count' },
-  gap: { token: 'gap', userId: 'user-gap' },
-  race: { token: 'race', userId: 'user-race' },
-  orphan: { token: 'orphan', userId: 'user-orphan' },
-  tabs: { token: 'tabs', userId: 'user-tabs' }
-} as const
-
-type UserName = keyof typeof USERS
-type User = (typeof USERS)[UserName]
+const fixturePath = path.join(import.meta.dirname, '..', 'worker', 'test', 'fixtures', 'latest-v4.json')
+const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as ExportShape
+// The most rows the worker accepts in one push (ROW_LIMIT in worker/src/rows.ts).
+const ROW_LIMIT = 1000
 
 interface SetExecution {
   preset: 'lifting'
@@ -66,12 +41,10 @@ interface ExportFile {
   }
 }
 
-let worker: ChildProcess | undefined
-
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` })
 
 const pull = async (token: string, cursor: number) => {
-  const response = await fetch(`${API}/api/pull?cursor=${cursor}&limit=1000`, { headers: authHeaders(token) })
+  const response = await fetch(`${API_BASE}/api/pull?cursor=${cursor}&limit=1000`, { headers: authHeaders(token) })
   if (!response.ok) throw new Error(`pull ${response.status} ${await response.text()}`)
   return (await response.json()) as { rows: WireRow[]; cursor: number; more: boolean }
 }
@@ -88,7 +61,7 @@ const pullAll = async (token: string) => {
 }
 
 const exportStores = async (token: string) => {
-  const response = await fetch(`${API}/api/export`, { headers: authHeaders(token) })
+  const response = await fetch(`${API_BASE}/api/export`, { headers: authHeaders(token) })
   if (!response.ok) throw new Error(`export ${response.status} ${await response.text()}`)
   return sortExport((await response.json()) as ExportFile)
 }
@@ -105,45 +78,48 @@ const sortExport = (data: ExportFile) => ({
   }
 })
 
-const putLatest = async (userId: string) => {
-  await execFileAsync(
-    'vp',
-    [
-      'exec',
-      'wrangler',
-      'r2',
-      'object',
-      'put',
-      `jimbro-backups/users/${userId}/latest.json`,
-      '--file',
-      fixturePath,
-      '--local'
-    ],
-    { cwd: workerDir }
-  )
+const pushRows = async (token: string, rows: unknown[]) => {
+  const response = await fetch(`${API_BASE}/api/push`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows })
+  })
+  if (!response.ok) throw new Error(`push ${response.status} ${await response.text()}`)
 }
 
-const importFixture = async (user: User) => {
+// Puts the fixture on the server the way clients do, in pushes of at most ROW_LIMIT rows.
+const seedFixture = async (user: WorkerUser) => {
+  const rowSet = rowsFromExport(fixture)
+  const rows: Row[] = [
+    ...rowSet.exercises.map((row) => ({ table: 'exercises' as const, row })),
+    ...rowSet.programs.map((row) => ({ table: 'programs' as const, row })),
+    ...rowSet.sessions.map((row) => ({ table: 'sessions' as const, row })),
+    ...rowSet.sets.map((row) => ({ table: 'sets' as const, row }))
+  ]
+  for (let start = 0; start < rows.length; start += ROW_LIMIT) {
+    await pushRows(user.token, rows.slice(start, start + ROW_LIMIT))
+  }
+}
+
+const putLatest = (userId: string) => putR2Object(`jimbro-backups/users/${userId}/latest.json`, fixturePath)
+
+const importFixture = async (user: WorkerUser) => {
   await putLatest(user.userId)
-  const response = await fetch(`${API}/api/import-r2`, { method: 'POST', headers: authHeaders(user.token) })
-  if (response.ok) return
-  const body = await response.text()
-  if (response.status === 409 && body.includes('already_imported')) return
-  throw new Error(`import ${user.userId} ${response.status} ${body}`)
+  const response = await fetch(`${API_BASE}/api/import-r2`, { method: 'POST', headers: authHeaders(user.token) })
+  if (!response.ok) throw new Error(`import ${user.userId} ${response.status} ${await response.text()}`)
 }
 
-const signIn = async (page: Page, user: User) => {
+const signIn = async (page: Page, user: WorkerUser) => {
   await page.goto('/settings/')
   const base = await page.evaluate(async () => {
     const backup = await import('/src/db/cloudBackup.ts')
     return backup.API_BASE as string
   })
-  expect(base).toBe(API)
+  expect(base, 'The app must talk to the local worker. Stop any dev server of your own so Playwright starts one.').toBe(
+    API_BASE
+  )
   await page.evaluate((credentials) => {
     localStorage.setItem('jimbro.cloudBackup', JSON.stringify(credentials))
-    localStorage.removeItem('jimbro.sync.importRequired')
-    localStorage.removeItem('jimbro.sync.lastAt')
-    localStorage.removeItem('jimbro.cloudBackup.lastDate')
   }, user)
 }
 
@@ -180,15 +156,6 @@ const liftingSet = async (token: string): Promise<SetBody> => {
   return found.row as unknown as SetBody
 }
 
-const pushRows = async (token: string, rows: unknown[]) => {
-  const response = await fetch(`${API}/api/push`, {
-    method: 'POST',
-    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rows })
-  })
-  if (!response.ok) throw new Error(`push ${response.status} ${await response.text()}`)
-}
-
 const writeSet = (page: Page, set: SetBody) =>
   page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
@@ -201,55 +168,24 @@ const readLocalSet = (page: Page, id: string) =>
     return db.storage.get('sets', setId) as Promise<SetBody | undefined>
   }, id)
 
-test.describe.configure({ mode: 'serial', timeout: 180_000 })
-
-test.beforeAll(async ({ browserName }) => {
-  test.skip(browserName !== 'chromium', 'The sync spec drives Chromium against a local worker.')
-  const tokens = Object.fromEntries(Object.values(USERS).map((user) => [user.token, user.userId]))
-  writeFileSync(path.join(workerDir, '.dev.vars'), `AUTH_TOKENS=${JSON.stringify(tokens)}\n`)
-  const probe = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
-    (response) => response.status,
-    () => 0
-  )
-  if (probe !== 200) {
-    worker = spawn('vp', ['exec', 'wrangler', 'dev', '--local', '--port', '8787', '--ip', '127.0.0.1'], {
-      cwd: workerDir,
-      stdio: 'pipe'
-    })
-    worker.stdout?.on('data', (chunk) => process.stdout.write(chunk))
-    worker.stderr?.on('data', (chunk) => process.stderr.write(chunk))
-    const started = Date.now()
-    while (Date.now() - started < 60_000) {
-      const status = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
-        (response) => response.status,
-        () => 0
-      )
-      if (status === 200) break
-      await new Promise((resolve) => setTimeout(resolve, 500))
-    }
-    const ready = await fetch(`${API}/api/ping`, { headers: authHeaders('wipe') }).then(
-      (response) => response.status,
-      () => 0
-    )
-    if (ready !== 200) throw new Error('wrangler dev did not answer on 8787')
-  }
-  await execFileAsync('vp', ['exec', 'wrangler', 'd1', 'migrations', 'apply', 'jimbro', '--local'], {
-    cwd: workerDir,
-    env: { ...process.env, CI: '1' }
-  })
-})
-
 test('wipe and restore matches the server export', async ({ page }) => {
-  test.setTimeout(180_000)
-  await page.addInitScript(() => {
-    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
-  })
-  await importFixture(USERS.wipe)
-  await signIn(page, USERS.wipe)
+  const user = claimUser()
+  await seedFixture(user)
+  await signIn(page, user)
   await runSync(page)
+  // Not storage.deleteDatabase(): it rejects on blocked, and a read the page is still
+  // finishing after the sync keeps the closing connection open for a moment. The delete
+  // is only blocked until that read ends.
   await page.evaluate(async () => {
     const db = await import('/src/db/storage.ts')
-    await db.storage.deleteDatabase()
+    const { DB_NAME } = await import('/src/db/constants.ts')
+    const connection = await db.storage.connection()
+    connection.close()
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME)
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
   })
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
@@ -265,40 +201,40 @@ test('wipe and restore matches the server export', async ({ page }) => {
     )
     .toBe(21)
   const local = sortExport((await localStores(page)) as ExportFile)
-  const remote = await exportStores(USERS.wipe.token)
+  const remote = await exportStores(user.token)
   expect(local).toEqual(remote)
 })
 
 test('a snapshot writer pushes a differing local set', async ({ page }) => {
-  test.setTimeout(180_000)
-  await importFixture(USERS.writer)
-  const original = await liftingSet(USERS.writer.token)
+  const user = claimUser()
+  await importFixture(user)
+  const original = await liftingSet(user.token)
   const edited = { ...original, set: { ...original.set, weight: original.set.weight + 5 } }
   const pushes: string[] = []
   page.on('request', (request) => {
     if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
   })
-  await signIn(page, USERS.writer)
+  await signIn(page, user)
   const laterThanImport = new Date(Date.parse(fixture.exportDate) + 1000).toISOString()
   await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), laterThanImport)
   await writeSet(page, edited)
   await runSync(page)
   expect(pushes.some((body) => body.includes(edited.id))).toBe(true)
-  const stored = (await pullAll(USERS.writer.token)).find((row) => row.row.id === edited.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === edited.id)
   if (!stored || stored.table !== 'sets') throw new Error('missing writer set')
   expect((stored.row.set as SetExecution).weight).toBe(edited.set.weight)
 })
 
 test('another browser keeps the server set and pushes nothing for it', async ({ page }) => {
-  test.setTimeout(180_000)
-  await importFixture(USERS.other)
-  const original = await liftingSet(USERS.other.token)
+  const user = claimUser()
+  await importFixture(user)
+  const original = await liftingSet(user.token)
   const edited = { ...original, set: { ...original.set, weight: original.set.weight + 9 } }
   const pushes: string[] = []
   page.on('request', (request) => {
     if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
   })
-  await signIn(page, USERS.other)
+  await signIn(page, user)
   await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2020-01-01T00:00:00.000Z')
   await writeSet(page, edited)
   await runSync(page)
@@ -309,8 +245,8 @@ test('another browser keeps the server set and pushes nothing for it', async ({ 
 })
 
 test('a local-only set reaches D1', async ({ page }) => {
-  test.setTimeout(180_000)
-  await importFixture(USERS.local)
+  const user = claimUser()
+  await seedFixture(user)
   const set: SetBody = {
     id: 'local-only-set',
     sessionId: 'local-only-session',
@@ -320,15 +256,16 @@ test('a local-only set reaches D1', async ({ page }) => {
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.local)
+  await signIn(page, user)
   await writeSet(page, set)
   await runSync(page)
-  const stored = (await pullAll(USERS.local.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored || stored.table !== 'sets') throw new Error('missing local-only set')
   expect((stored.row.set as SetExecution).weight).toBe(42)
 })
 
 test('every local row reaches D1 when the user has no cloud snapshot', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
     id: 'nocloud-set',
     sessionId: 'nocloud-session',
@@ -338,19 +275,20 @@ test('every local row reaches D1 when the user has no cloud snapshot', async ({ 
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.nocloud)
+  await signIn(page, user)
   await writeSet(page, set)
   await runSync(page)
-  const stored = (await pullAll(USERS.nocloud.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored || stored.table !== 'sets') throw new Error('missing no-cloud set')
   expect((stored.row.set as SetExecution).weight).toBe(15)
   await expect(page.locator('#cloud-summary-status')).not.toHaveText('Cloud import has not been run yet')
 })
 
-test('a crash after the first pull page converges with an uninterrupted sync', async ({ page }) => {
-  test.setTimeout(180_000)
-  await importFixture(USERS.crash)
-  await importFixture(USERS.clean)
+test('a crash after the first pull page converges with an uninterrupted sync', async ({ page, browser }) => {
+  const crash = claimUser()
+  const clean = claimUser()
+  await seedFixture(crash)
+  await seedFixture(clean)
   let pulls = 0
   await page.route('**/api/pull**', async (route) => {
     if (route.request().method() !== 'GET') {
@@ -364,26 +302,29 @@ test('a crash after the first pull page converges with an uninterrupted sync', a
     }
     await route.continue()
   })
-  await signIn(page, USERS.crash)
+  await signIn(page, crash)
   await runSync(page).catch(() => undefined)
   expect(await cursorOf(page)).toBe(0)
   await page.unroute('**/api/pull**')
   await runSync(page)
   const crashLocal = sortExport((await localStores(page)) as ExportFile)
-  const crashRemote = await exportStores(USERS.crash.token)
+  const crashRemote = await exportStores(crash.token)
 
-  const clean = await page.context().newPage()
-  await signIn(clean, USERS.clean)
-  await runSync(clean)
-  const cleanLocal = sortExport((await localStores(clean)) as ExportFile)
-  const cleanRemote = await exportStores(USERS.clean.token)
+  // Another browser, with storage of its own, runs the same first sync without the crash.
+  const cleanContext = await browser.newContext()
+  const cleanPage = await cleanContext.newPage()
+  await signIn(cleanPage, clean)
+  await runSync(cleanPage)
+  const cleanLocal = sortExport((await localStores(cleanPage)) as ExportFile)
+  const cleanRemote = await exportStores(clean.token)
+  await cleanContext.close()
   expect(crashLocal).toEqual(cleanLocal)
   expect(crashRemote).toEqual(cleanRemote)
-  await clean.close()
 })
 
 test('three sets logged offline drain into D1', async ({ page }) => {
-  await signIn(page, USERS.offline)
+  const user = claimUser()
+  await signIn(page, user)
   await page.evaluate(async () => {
     await import('/src/db/stores/workoutSessionsStore.ts')
     await import('/src/db/storage.ts')
@@ -425,16 +366,17 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   })
   expect(logged.setIds).toHaveLength(3)
   await page.context().setOffline(false)
-  await expect.poll(async () => (await outbox(page)).length, { timeout: 15_000 }).toBe(0)
-  const stored = await pullAll(USERS.offline.token)
+  await expect.poll(async () => (await outbox(page)).length).toBe(0)
+  const stored = await pullAll(user.token)
   for (const id of logged.setIds) {
     expect(stored.some((row) => row.row.id === id)).toBe(true)
   }
 })
 
 test('an edit during a slow push stays in the outbox', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `inflight-${Date.now()}`,
+    id: 'inflight-set',
     sessionId: 'inflight-session',
     exerciseId: 'inflight-exercise',
     position: 0,
@@ -459,7 +401,7 @@ test('an edit during a slow push stays in the outbox', async ({ page }) => {
     await gate
     await route.continue()
   })
-  await signIn(page, USERS.inflight)
+  await signIn(page, user)
   await writeSet(page, set)
   const finished = page.evaluate(async (setId): Promise<{ ids: string[]; weight?: number } | null> => {
     const client = await import('/src/sync/syncClient.ts')
@@ -485,7 +427,8 @@ test('an edit during a slow push stays in the outbox', async ({ page }) => {
 })
 
 test('settings reports import_required and keeps the outbox', async ({ page }) => {
-  await putLatest(USERS.gate.userId)
+  const user = claimUser()
+  await putLatest(user.userId)
   const set: SetBody = {
     id: 'gate-set',
     sessionId: 'gate-session',
@@ -495,17 +438,16 @@ test('settings reports import_required and keeps the outbox', async ({ page }) =
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.gate)
+  await signIn(page, user)
   await writeSet(page, set)
   await page.reload()
-  await expect(page.locator('#cloud-summary-status')).toHaveText('Cloud import has not been run yet', {
-    timeout: 15_000
-  })
+  await expect(page.locator('#cloud-summary-status')).toHaveText('Cloud import has not been run yet')
   const queued = await outbox(page)
   expect(queued.some((entry) => entry.id === set.id)).toBe(true)
 })
 
 test('a later edit survives the second sync after an empty server accepted the first push', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
     id: 'steady-set',
     sessionId: 'steady-session',
@@ -515,7 +457,7 @@ test('a later edit survives the second sync after an empty server accepted the f
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.steady)
+  await signIn(page, user)
   await writeSet(page, set)
   await runSync(page)
   expect(await cursorOf(page)).not.toBe(0)
@@ -524,7 +466,7 @@ test('a later edit survives the second sync after an empty server accepted the f
   const local = await readLocalSet(page, set.id)
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
-  const stored = (await pullAll(USERS.steady.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -532,6 +474,7 @@ test('a later edit survives the second sync after an empty server accepted the f
 })
 
 test('a stop after an empty-server push ack keeps the cursor and the next edit', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
     id: 'gap-set',
     sessionId: 'gap-session',
@@ -555,11 +498,10 @@ test('a stop after an empty-server push ack keeps the cursor and the next edit',
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'Access-Control-Allow-Origin': 'http://localhost:5173' },
       body: JSON.stringify({ rows: [], cursor: 0, more: false, importedExportDate: null })
     })
   })
-  await signIn(page, USERS.gap)
+  await signIn(page, user)
   const cursorAfterAck = await page.evaluate(async (row) => {
     const client = await import('/src/sync/syncClient.ts')
     const db = await import('/src/db/storage.ts')
@@ -593,7 +535,7 @@ test('a stop after an empty-server push ack keeps the cursor and the next edit',
   const local = await readLocalSet(page, set.id)
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
-  const stored = (await pullAll(USERS.gap.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -601,6 +543,7 @@ test('a stop after an empty-server push ack keeps the cursor and the next edit',
 })
 
 test('a later edit survives when the empty-server push landed but the ack did not', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
     id: 'unacked-set',
     sessionId: 'unacked-session',
@@ -624,11 +567,10 @@ test('a later edit survives when the empty-server push landed but the ack did no
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'Access-Control-Allow-Origin': 'http://localhost:5173' },
       body: JSON.stringify({ rows: [], cursor: 0, more: false, importedExportDate: null })
     })
   })
-  await signIn(page, USERS.gap)
+  await signIn(page, user)
   const cursorAfterStop = await page.evaluate(async (row) => {
     const client = await import('/src/sync/syncClient.ts')
     const db = await import('/src/db/storage.ts')
@@ -663,7 +605,7 @@ test('a later edit survives when the empty-server push landed but the ack did no
   const local = await readLocalSet(page, set.id)
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
-  const stored = (await pullAll(USERS.gap.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -671,8 +613,9 @@ test('a later edit survives when the empty-server push landed but the ack did no
 })
 
 test('a later edit between the read and the inflight mark survives an unacked push', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `race-set-${Date.now()}`,
+    id: 'race-set',
     sessionId: 'race-session',
     exerciseId: 'race-exercise',
     position: 0,
@@ -694,11 +637,10 @@ test('a later edit between the read and the inflight mark survives an unacked pu
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      headers: { 'Access-Control-Allow-Origin': 'http://localhost:5173' },
       body: JSON.stringify({ rows: [], cursor: 0, more: false, importedExportDate: null })
     })
   })
-  await signIn(page, USERS.race)
+  await signIn(page, user)
   const cursorAfterStop = await page.evaluate(async (row) => {
     const client = await import('/src/sync/syncClient.ts')
     const db = await import('/src/db/storage.ts')
@@ -741,7 +683,7 @@ test('a later edit between the read and the inflight mark survives an unacked pu
   const local = await readLocalSet(page, set.id)
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
-  const stored = (await pullAll(USERS.race.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -749,8 +691,9 @@ test('a later edit between the read and the inflight mark survives an unacked pu
 })
 
 test('a second page does not post a body another page already acknowledged', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `tabs-set-${Date.now()}`,
+    id: 'tabs-set',
     sessionId: 'tabs-session',
     exerciseId: 'tabs-exercise',
     position: 0,
@@ -762,8 +705,8 @@ test('a second page does not post a body another page already acknowledged', asy
   await other.addInitScript(() => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
   })
-  await signIn(page, USERS.tabs)
-  await signIn(other, USERS.tabs)
+  await signIn(page, user)
+  await signIn(other, user)
   const syncing = page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
@@ -798,7 +741,7 @@ test('a second page does not post a body another page already acknowledged', asy
     ])
     await client.sync()
   }, set)
-  const during = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const during = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   const duringSet = during?.row.set
   if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
     throw new Error('missing in-flight weight')
@@ -813,7 +756,7 @@ test('a second page does not post a body another page already acknowledged', asy
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
   expect(await outbox(page)).toHaveLength(0)
-  const stored = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -822,8 +765,9 @@ test('a second page does not post a body another page already acknowledged', asy
 })
 
 test('a second page does not post after another page acks past the inflight mark', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `marked-set-${Date.now()}`,
+    id: 'marked-set',
     sessionId: 'marked-session',
     exerciseId: 'marked-exercise',
     position: 0,
@@ -835,8 +779,8 @@ test('a second page does not post after another page acks past the inflight mark
   await other.addInitScript(() => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
   })
-  await signIn(page, USERS.tabs)
-  await signIn(other, USERS.tabs)
+  await signIn(page, user)
+  await signIn(other, user)
   const syncing = page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
@@ -871,7 +815,7 @@ test('a second page does not post after another page acks past the inflight mark
     ])
     await client.sync()
   }, set)
-  const during = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const during = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   const duringSet = during?.row.set
   if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
     throw new Error('missing in-flight weight')
@@ -886,7 +830,7 @@ test('a second page does not post after another page acks past the inflight mark
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
   expect(await outbox(page)).toHaveLength(0)
-  const stored = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -895,8 +839,9 @@ test('a second page does not post after another page acks past the inflight mark
 })
 
 test('a push already on the wire is not the last write after another page edits', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `wire-set-${Date.now()}`,
+    id: 'wire-set',
     sessionId: 'wire-session',
     exerciseId: 'wire-exercise',
     position: 0,
@@ -908,8 +853,8 @@ test('a push already on the wire is not the last write after another page edits'
   await other.addInitScript(() => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
   })
-  await signIn(page, USERS.tabs)
-  await signIn(other, USERS.tabs)
+  await signIn(page, user)
+  await signIn(other, user)
   await page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
@@ -965,7 +910,7 @@ test('a push already on the wire is not the last write after another page edits'
   }, set)
   await other.waitForFunction(() => Reflect.get(window, '__wireWaiting') === true)
   expect(await other.evaluate(() => Reflect.get(window, '__wireDone') === true)).toBe(false)
-  const during = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const during = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   const duringSet = during?.row.set
   if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
     throw new Error('missing in-flight weight')
@@ -978,7 +923,7 @@ test('a push already on the wire is not the last write after another page edits'
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
   expect(await outbox(page)).toHaveLength(0)
-  const stored = (await pullAll(USERS.tabs.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
@@ -988,8 +933,9 @@ test('a push already on the wire is not the last write after another page edits'
 })
 
 test('a crashed second mark keeps the newer weight', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: `clobber-set-${Date.now()}`,
+    id: 'clobber-set',
     sessionId: 'clobber-session',
     exerciseId: 'clobber-exercise',
     position: 0,
@@ -1004,8 +950,8 @@ test('a crashed second mark keeps the newer weight', async ({ page }) => {
   await other.addInitScript(() => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
   })
-  await signIn(page, USERS.restore)
-  await signIn(other, USERS.restore)
+  await signIn(page, user)
+  await signIn(other, user)
   let release: (() => void) | undefined
   const gate = new Promise<void>((resolve) => {
     release = resolve
@@ -1062,7 +1008,7 @@ test('a crashed second mark keeps the newer weight', async ({ page }) => {
   })
   const local = await readLocalSet(page, set.id)
   expect(local?.set.weight).toBe(99)
-  const stored = (await pullAll(USERS.restore.token)).find((row) => row.row.id === set.id)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   const uploaded = stored?.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
   expect(uploaded.weight).toBe(99)
@@ -1070,6 +1016,7 @@ test('a crashed second mark keeps the newer weight', async ({ page }) => {
 })
 
 test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
+  const user = claimUser()
   const snapshot = {
     exerciseId: 'exercise-a',
     name: 'A',
@@ -1103,11 +1050,11 @@ test('a non-writer does not keep a set whose exercise left with the server heade
     exerciseId: 'exercise-b',
     set: { preset: 'lifting' as const, reps: 5, weight: 42 }
   }
-  await pushRows(USERS.orphan.token, [
+  await pushRows(user.token, [
     { table: 'sessions', row: header },
     { table: 'sets', row: kept }
   ])
-  await signIn(page, USERS.orphan)
+  await signIn(page, user)
   await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2020-01-01T00:00:00.000Z')
   await page.evaluate(
     async ({ serverHeader, extra }) => {
@@ -1138,12 +1085,13 @@ test('a non-writer does not keep a set whose exercise left with the server heade
   })
   expect(localHeader?.exercises.map((exercise) => exercise.exerciseId)).toEqual(['exercise-a'])
   expect(await readLocalSet(page, hidden.id)).toBeUndefined()
-  const rows = await pullAll(USERS.orphan.token)
+  const rows = await pullAll(user.token)
   expect(rows.some((row) => row.row.id === hidden.id)).toBe(false)
   expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
 })
 
 test('a restore before import stays on the page', async ({ page }) => {
+  const user = claimUser()
   await page.route('**/api/pull**', (route) =>
     route.fulfill({
       status: 409,
@@ -1151,7 +1099,7 @@ test('a restore before import stays on the page', async ({ page }) => {
       body: JSON.stringify({ error: 'import_required' })
     })
   )
-  await signIn(page, USERS.restore)
+  await signIn(page, user)
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore from cloud' }).click()
@@ -1161,8 +1109,9 @@ test('a restore before import stays on the page', async ({ page }) => {
 })
 
 test('a failed restore stays on the page', async ({ page }) => {
+  const user = claimUser()
   await page.route('**/api/pull**', (route) => route.fulfill({ status: 500, body: 'no' }))
-  await signIn(page, USERS.restore)
+  await signIn(page, user)
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore from cloud' }).click()
@@ -1174,10 +1123,9 @@ test('a failed restore stays on the page', async ({ page }) => {
 test('reset tells you when another tab holds the database', async ({ page }) => {
   const other = await page.context().newPage()
   await other.goto('/workouts/')
-  await other.waitForFunction(async () => {
+  await other.evaluate(async () => {
     const db = await import('/src/db/storage.ts')
     await db.storage.count('exercises')
-    return true
   })
   await page.goto('/settings/')
   await page.locator('summary').filter({ hasText: 'Manage local data' }).click()
@@ -1188,9 +1136,7 @@ test('reset tells you when another tab holds the database', async ({ page }) => 
 })
 
 test('restore joins the in-flight sync without logging an aborted rerun', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.addEventListener('visibilitychange', (event) => event.stopPropagation(), true)
-  })
+  const user = claimUser()
   const failures: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error' && message.text().includes('sync failed')) failures.push(message.text())
@@ -1209,7 +1155,7 @@ test('restore joins the in-flight sync without logging an aborted rerun', async 
     if (pulls === 1) await gate
     await route.continue()
   })
-  await signIn(page, USERS.restore)
+  await signIn(page, user)
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
   const clicked = page.getByRole('button', { name: 'Restore from cloud' }).click()
@@ -1220,6 +1166,7 @@ test('restore joins the in-flight sync without logging an aborted rerun', async 
 })
 
 test('an open settings page shows the outbox count after an offline write', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
     id: 'count-set',
     sessionId: 'count-session',
@@ -1229,7 +1176,7 @@ test('an open settings page shows the outbox count after an offline write', asyn
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.count)
+  await signIn(page, user)
   await page.evaluate(async () => {
     await import('/src/db/storage.ts')
   })
@@ -1239,16 +1186,17 @@ test('an open settings page shows the outbox count after an offline write', asyn
 })
 
 test('a write on another page moves the open settings count while offline', async ({ page }) => {
+  const user = claimUser()
   const set: SetBody = {
-    id: 'tabs-set',
-    sessionId: 'tabs-session',
-    exerciseId: 'tabs-exercise',
+    id: 'count-other-set',
+    sessionId: 'count-other-session',
+    exerciseId: 'count-other-exercise',
     position: 0,
     set: { preset: 'lifting', reps: 5, weight: 20 },
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  await signIn(page, USERS.count)
+  await signIn(page, user)
   await page.evaluate(() => {
     window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
   })

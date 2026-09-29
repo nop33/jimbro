@@ -13,6 +13,7 @@ export default defineWorkersConfig({
         miniflare: {
           bindings: {
             AUTH_TOKENS: '{"test-token-123":"nikos"}',
+            DEV_ORIGIN: 'http://localhost:5199',
             TEST_MIGRATIONS: migrations
           }
         }

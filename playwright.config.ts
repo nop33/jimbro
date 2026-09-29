@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { API_BASE } from './tests/localWorker'
 
 export default defineConfig({
   testDir: './tests',
@@ -12,6 +13,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
   reporter: 'html',
+  // Starts the local worker (wrangler dev) that tests/sync.spec.ts talks to, on WORKER_PORT (default 8790).
+  globalSetup: './tests/localWorker.ts',
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry'
@@ -35,7 +38,7 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     env: {
-      VITE_API_BASE: process.env.VITE_API_BASE ?? 'http://127.0.0.1:8787'
+      VITE_API_BASE: API_BASE
     }
   }
 })
