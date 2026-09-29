@@ -4,13 +4,13 @@ import { OBJECT_STORES } from '../constants'
 import { nowIso } from '../nowIso'
 import { upgradeExerciseRecord } from '../schemaUpgrade'
 
-export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel, type MuscleGroup } from '../muscleGroups'
+export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel } from '../muscleGroups'
 
 export type Exercise = ExerciseRow
 
 export type NewExercise = Omit<Exercise, 'id' | 'updatedAt'>
 
-export const normalizeExercise = (item: Exercise): Exercise =>
+const normalizeExercise = (item: Exercise): Exercise =>
   upgradeExerciseRecord(item as unknown as Record<string, unknown>, nowIso())
 
 export class ExercisesStore extends BaseStore<Exercise> {
@@ -34,16 +34,6 @@ export class ExercisesStore extends BaseStore<Exercise> {
     const now = nowIso()
     for (const exercise of seedExercises.exercises) {
       await this.create(upgradeExerciseRecord(exercise as Record<string, unknown>, now))
-    }
-  }
-
-  async softDelete(id: string): Promise<void> {
-    const exercise = await this.getById(id)
-
-    if (exercise) {
-      await this.update({ ...exercise, isDeleted: true })
-    } else {
-      throw new Error(`Exercise with id ${id} not found.`)
     }
   }
 }

@@ -59,9 +59,6 @@ class NewWorkoutDialog {
             'You have an incomplete workout session for this program this week.',
             programItem
           )
-        } else if (isProgramInThisWeek.status === 'pending') {
-          programItemDiv.classList.add('card-pending')
-          setTextContent('.this-week-status', 'Pending this week', programItem)
         }
       }
 

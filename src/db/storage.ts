@@ -460,6 +460,8 @@ export class Storage {
         const request = store.get(mark.key)
         request.onsuccess = () => {
           const current = request.result as OutboxEntry | undefined
+          // deleteDatabase restarts seq at 0, so a push that read the old outbox
+          // can meet a newer entry for the same row with a smaller seq.
           if (!current || current.seq < mark.seq) return
           if (current.inflightSeq === undefined || current.inflightCanonical === undefined) {
             store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
@@ -518,22 +520,16 @@ export class Storage {
     })
   }
 
-  async getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<IDBObjectStore> {
+  private async getStore(storeName: string): Promise<IDBObjectStore> {
     let db = this.db
 
     if (!db) {
       db = await this.init()
     }
 
-    const transaction = db.transaction([storeName], mode)
+    const transaction = db.transaction([storeName], 'readonly')
 
     return transaction.objectStore(storeName)
-  }
-
-  async create<T>(storeName: string, item: T): Promise<T> {
-    const store = await this.getStore(storeName, 'readwrite')
-    await promisifyRequest(store.add(item))
-    return item
   }
 
   async get<T>(storeName: string, key: string | number): Promise<T | undefined> {
@@ -542,45 +538,16 @@ export class Storage {
     return result
   }
 
-  async update<T>(storeName: string, item: T): Promise<T> {
-    const store = await this.getStore(storeName, 'readwrite')
-    await promisifyRequest(store.put(item))
-    return item
-  }
-
-  async getByIndex<T>(storeName: string, indexName: string, key: string | number): Promise<T | undefined> {
-    const store = await this.getStore(storeName)
-    const index = store.index(indexName)
-    return promisifyRequest<T | undefined>(index.get(key))
-  }
-
   async getAllByIndex<T>(storeName: string, indexName: string, key: string | number): Promise<Array<T>> {
     const store = await this.getStore(storeName)
     const index = store.index(indexName)
     return promisifyRequest(index.getAll(key))
   }
 
-  async getFirstByIndex<T>(
-    storeName: string,
-    indexName: string,
-    direction: IDBCursorDirection = 'next'
-  ): Promise<T | undefined> {
-    const store = await this.getStore(storeName)
-    const index = store.index(indexName)
-    return new Promise((resolve, reject) => {
-      const cursorRequest = index.openCursor(null, direction)
-      cursorRequest.onsuccess = () => {
-        const cursor = cursorRequest.result
-        resolve(cursor ? (cursor.value as T) : undefined)
-      }
-      cursorRequest.onerror = () => reject(cursorRequest.error)
-    })
-  }
-
   async getFirstByPredicate<T>(
     storeName: string,
     indexName: string,
-    direction: IDBCursorDirection = 'next',
+    direction: IDBCursorDirection,
     predicate: (value: T) => boolean
   ): Promise<T | undefined> {
     const store = await this.getStore(storeName)
@@ -623,11 +590,6 @@ export class Storage {
       request.onerror = () => reject(request.error)
       request.onblocked = () => reject(new Error('deleteDatabase blocked'))
     })
-  }
-
-  async delete(storeName: string, key: string | number): Promise<void> {
-    const store = await this.getStore(storeName, 'readwrite')
-    await promisifyRequest(store.delete(key))
   }
 }
 

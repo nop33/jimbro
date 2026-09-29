@@ -37,7 +37,7 @@ class GymtimePage {
       this.workoutDetailsAnimation.close()
     }
 
-    ExerciseCardList.init(program.id, program.exercises)
+    ExerciseCardList.init(program.exercises)
     AddExerciseDialog.init(async (exercise) => {
       if (!GymtimeSessionState.session) return
 

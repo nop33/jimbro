@@ -116,9 +116,6 @@
   .card-warning {
     @apply bg-jim-warning/15 border-jim-warning/20;
   }
-  .card-info {
-    @apply bg-jim-info/10 border-jim-info/20;
-  }
   .card-pending {
     @apply bg-jim-neutral/10 border-dashed border-jim-neutral/20;
   }
@@ -156,11 +153,6 @@
 
   .nav-link.active {
     @apply text-blue-400;
-  }
-
-  .nav-link.active::before {
-    content: '';
-    @apply absolute -top-0.5 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full;
   }
 
   /* Mobile-first: Ensure touch targets are at least 44x44px */
@@ -227,11 +219,6 @@
 
   .badge {
     @apply inline-block bg-neutral-800 text-jim-accent rounded-full px-3 py-1 text-xs font-semibold tracking-wide;
-  }
-
-  /* Section headers */
-  .section-header {
-    @apply text-xl font-bold mb-4 mt-6 first:mt-0;
   }
 
   /* Label styles */

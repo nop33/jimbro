@@ -7,10 +7,10 @@ export const EXERCISE_KIND_LABELS: Record<ExerciseKind, string> = {
   cardio: 'Cardio'
 }
 
-export const LOG_PRESETS = ['lifting', 'rehabReps', 'rehabHold', 'cardioTreadmill'] as const
+const LOG_PRESETS = ['lifting', 'rehabReps', 'rehabHold', 'cardioTreadmill'] as const
 export type LogPreset = (typeof LOG_PRESETS)[number]
 
-export const SET_SLOTS = ['reps', 'weight', 'durationSec', 'speed', 'incline'] as const
+const SET_SLOTS = ['reps', 'weight', 'durationSec', 'speed', 'incline'] as const
 export type SetSlot = (typeof SET_SLOTS)[number]
 
 export type ExerciseDefaults = Partial<Record<SetSlot, number>>

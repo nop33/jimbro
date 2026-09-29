@@ -7,7 +7,7 @@ export type Program = ProgramRow
 
 export type NewProgram = Omit<Program, 'id' | 'updatedAt'>
 
-export const normalizeProgram = (item: Program): Program => ({
+const normalizeProgram = (item: Program): Program => ({
   ...item,
   isDeleted: Boolean(item.isDeleted),
   updatedAt: item.updatedAt || nowIso()
@@ -44,16 +44,6 @@ export class ProgramsStore extends BaseStore<Program> {
     const { default: seedPrograms } = await import('./seed-programs.json')
     for (const program of seedPrograms.programs) {
       await this.create(program as Program)
-    }
-  }
-
-  async softDelete(id: string): Promise<void> {
-    const program = await this.getById(id)
-
-    if (program) {
-      await this.update({ ...program, isDeleted: true })
-    } else {
-      throw new Error(`Program with id ${id} not found.`)
     }
   }
 }
