@@ -195,9 +195,7 @@ const steadySync = async (start: number) => {
   let more = true
   while (more) {
     const page = await pullPage(cursor)
-    const rows = page.rows.map((entry) => bodyOf(entry))
-    await storage.commitPullPage(page.rows, page.cursor)
-    notifyOpenSession(rows)
+    notifyOpenSession(await storage.commitPullPage(page.rows, page.cursor))
     cursor = page.cursor
     more = page.more
     if (page.rows.length === 0) break

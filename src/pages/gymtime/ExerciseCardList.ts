@@ -19,11 +19,6 @@ class ExerciseCardList {
 
   static async render() {
     const generation = ++this.renderGeneration
-    const scrollY = window.scrollY
-    const openExerciseId = document
-      .querySelector<HTMLDetailsElement>('.exercise-details[open]')
-      ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
-
     const session = GymtimeSessionState.session
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
     const cards: DocumentFragment[] = []
@@ -53,6 +48,12 @@ class ExerciseCardList {
     }
 
     if (generation !== this.renderGeneration) return
+
+    // Read these only now: a tap or scroll that landed while the cards were rendering must survive the swap.
+    const scrollY = window.scrollY
+    const openExerciseId = document
+      .querySelector<HTMLDetailsElement>('.exercise-details[open]')
+      ?.closest<HTMLDivElement>('[data-exercise-id]')?.dataset.exerciseId
 
     this.exercisesList.replaceChildren(...cards)
 

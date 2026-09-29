@@ -2,6 +2,7 @@ import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
 import { announce } from '../sync/pageChannel'
 import {
   canonical,
+  rowsEqual,
   type ExerciseRow,
   type ProgramRow,
   type Row,
@@ -377,8 +378,11 @@ export class Storage {
     })
   }
 
-  async commitPullPage(page: Array<Row & { rev: number }>, cursor: number): Promise<void> {
+  // Resolves to the rows it stored. A steady sync pulls back the rows it just pushed, and another
+  // tab's rows are already in this shared database, so a row equal to the stored one is skipped.
+  async commitPullPage(page: Array<Row & { rev: number }>, cursor: number): Promise<Row[]> {
     const db = await this.init()
+    const written: Row[] = []
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(
         [
@@ -399,17 +403,25 @@ export class Storage {
       const pendingRequest = outbox.getAll()
       pendingRequest.onsuccess = () => {
         const pending = new Set((pendingRequest.result as OutboxEntry[]).map((entry) => entry.key))
+        const incoming = page.map(rowFromWire).filter((row) => !pending.has(rowKey(row)))
         const sets: SetRow[] = []
-        for (const entry of page) {
-          const row = rowFromWire(entry)
-          if (pending.has(rowKey(row))) continue
-          putRow(tx, row)
-          if (row.table === 'sets') sets.push(row.row)
+        let unread = incoming.length
+        for (const row of incoming) {
+          const storedRequest = tx.objectStore(STORE_FOR_TABLE[row.table]).get(row.row.id)
+          storedRequest.onsuccess = () => {
+            if (!rowsEqual(storedRequest.result, row.row)) {
+              putRow(tx, row)
+              written.push(row)
+              if (row.table === 'sets') sets.push(row.row)
+            }
+            unread -= 1
+            if (unread === 0) mergeSetGroups(tx, sets)
+          }
         }
-        mergeSetGroups(tx, sets)
         tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: cursor })
       }
     })
+    return written
   }
 
   async readOutboxRows(entries: OutboxEntry[]): Promise<{

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vite-plus/test'
 import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from '../src/db/schemaUpgrade'
 import type { Exercise } from '../src/db/stores/exercisesStore'
+import type { WorkoutSession } from '../src/db/stores/workoutSessionsStore'
 import {
   exportFromRows,
   legacySetId,
@@ -93,6 +94,46 @@ describe('row shapes', () => {
     ]
 
     expect(sessionFromRows(header, sets).exercises[0].sets).toEqual([{ preset: 'lifting', reps: 8, weight: 40 }])
+  })
+
+  it('reads a stored session back equal to the one the page holds', () => {
+    const session: WorkoutSession = {
+      id: 'sess-1',
+      date: '2026-01-02',
+      programId: 'prog-1',
+      location: 'Zurich',
+      status: 'incomplete',
+      notes: '',
+      exercises: [
+        {
+          exerciseId: 'ex-plank',
+          name: 'Side plank',
+          kind: 'rehab',
+          preset: 'rehabHold',
+          muscle: 'core',
+          targetSets: 3,
+          defaults: { durationSec: 30 },
+          sets: [{ preset: 'rehabHold', durationSec: 30, weight: undefined }]
+        },
+        {
+          exerciseId: 'ex-walk',
+          name: 'Treadmill walk',
+          kind: 'cardio',
+          preset: 'cardioTreadmill',
+          muscle: undefined,
+          targetSets: 1,
+          defaults: {},
+          sets: []
+        }
+      ],
+      updatedAt: NOW
+    }
+    // Storage clones rows through JSON before IndexedDB keeps them, which drops the undefined fields.
+    const stored = JSON.parse(JSON.stringify(rowsFromSession(session))) as ReturnType<typeof rowsFromSession>
+
+    expect(rowsEqual(sessionFromRows(stored.header, stored.sets), session)).toBe(true)
+    stored.sets[0].set = { preset: 'rehabHold', durationSec: 45 }
+    expect(rowsEqual(sessionFromRows(stored.header, stored.sets), session)).toBe(false)
   })
 
   it('round-trips the upgraded January export', () => {

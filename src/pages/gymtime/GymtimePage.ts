@@ -2,6 +2,8 @@ import { db } from '../../db'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
+import { onPageNotice } from '../../sync/pageChannel'
+import { canonical } from '../../sync/rows'
 import { setTextContent } from '../../utils'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import AddExerciseDialog from './AddExerciseDialog'
@@ -24,10 +26,9 @@ class GymtimePage {
     this.program = program
 
     GymtimeSessionState.initialize(workoutSession)
-    window.addEventListener('jimbro:open-session-pulled', (event) => {
-      const sessionId = (event as CustomEvent<{ sessionId: string }>).detail.sessionId
-      void this.applyPulledSession(sessionId)
-    })
+    window.addEventListener('jimbro:open-session-pulled', () => void this.refreshSession())
+    // Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
+    onPageNotice(() => void this.refreshSession())
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
@@ -90,9 +91,15 @@ class GymtimePage {
     this.updateSaveToProgramBtnVisibility()
   }
 
-  private static async applyPulledSession(sessionId: string) {
-    if (new URLSearchParams(window.location.search).get('id') !== sessionId) return
+  private static async refreshSession(): Promise<void> {
+    const sessionId = new URLSearchParams(window.location.search).get('id')
+    if (!sessionId) return
+    const shown = canonical(GymtimeSessionState.session)
     const session = await workoutSessionsStore.getWorkoutSession(sessionId)
+    // Logging a set changes the session in memory before its write lands, so a read that straddled that
+    // change is stale. A second read waits for the write.
+    if (canonical(GymtimeSessionState.session) !== shown) return this.refreshSession()
+    if (canonical(session) === shown) return
     GymtimeSessionState.initialize(session)
     await ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
