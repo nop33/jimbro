@@ -48,7 +48,7 @@ const installOriginMark = async (page: Page) => {
   })
 }
 
-const renderedMs = async (page: Page, path: string, waitForContent: () => Promise<void>): Promise<number> => {
+const renderedMs = async (page: Page, path: string, waitForContent: () => Promise<unknown>): Promise<number> => {
   await installOriginMark(page)
   await page.goto(path)
   await waitForContent()
@@ -240,7 +240,7 @@ test('measures workouts, stats, gymtime, and set-done on four fixture copies', a
     ;(window as Window & { __setDoneMs?: Promise<number> }).__setDoneMs = measured
   })
   await finished.click()
-  const setDoneMs = await page.evaluate(() => (window as Window & { __setDoneMs: Promise<number> }).__setDoneMs)
+  const setDoneMs = await page.evaluate(() => (window as Window & { __setDoneMs?: Promise<number> }).__setDoneMs)
   const uploadBytes = await waitForUploadBytes(page, uploads.read)
   uploads.stop()
 

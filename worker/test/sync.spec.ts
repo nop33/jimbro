@@ -197,20 +197,23 @@ describe('import gate', () => {
   })
 
   it('answers 400 invalid_row and writes nothing', async () => {
-    const pushed = await push([
-      { table: 'exercises', row: exercise('squat', 'Squat') },
-      {
-        table: 'sets',
-        row: {
-          id: 'set-1',
-          exerciseId: 'squat',
-          position: 0,
-          set: { preset: 'lifting', reps: 5, weight: 100 },
-          isDeleted: false,
-          updatedAt: '2026-01-02T00:00:00.000Z'
-        }
-      }
-    ])
+    const setWithoutSessionId = {
+      id: 'set-1',
+      exerciseId: 'squat',
+      position: 0,
+      set: { preset: 'lifting', reps: 5, weight: 100 },
+      isDeleted: false,
+      updatedAt: '2026-01-02T00:00:00.000Z'
+    }
+    const pushed = await api('/api/push', {
+      method: 'POST',
+      body: JSON.stringify({
+        rows: [
+          { table: 'exercises', row: exercise('squat', 'Squat') },
+          { table: 'sets', row: setWithoutSessionId }
+        ]
+      })
+    })
     expect(pushed.status).toBe(400)
     expect(await pushed.json()).toEqual({ error: 'invalid_row', index: 1 })
     expect(await countRows('exercises')).toBe(0)

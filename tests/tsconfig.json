@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    /* Node for the test runner, Vite client types for the app modules the tests import */
+    "types": ["node", "vite-plus/client"],
+    /* page.evaluate callbacks import app modules by dev server URL, e.g. import('/src/db/storage.ts') */
+    "paths": {
+      "/src/*": ["../src/*"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

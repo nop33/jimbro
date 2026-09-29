@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "build": "tsc && vp build",
+    "typecheck": "tsc && tsc -p tests && tsc -p tsconfig.node.json",
     "preview": "vp preview",
     "test": "playwright test",
     "test:unit": "vp test run \"**/*.unit.test.ts\"",

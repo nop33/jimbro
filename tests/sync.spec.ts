@@ -461,7 +461,7 @@ test('an edit during a slow push stays in the outbox', async ({ page }) => {
   })
   await signIn(page, USERS.inflight)
   await writeSet(page, set)
-  const finished = page.evaluate(async (setId) => {
+  const finished = page.evaluate(async (setId): Promise<{ ids: string[]; weight?: number } | null> => {
     const client = await import('/src/sync/syncClient.ts')
     const db = await import('/src/db/storage.ts')
     const original = db.storage.deleteOutboxIfUnchanged.bind(db.storage)
@@ -1073,8 +1073,8 @@ test('a non-writer does not keep a set whose exercise left with the server heade
   const snapshot = {
     exerciseId: 'exercise-a',
     name: 'A',
-    kind: 'lifting',
-    preset: 'lifting',
+    kind: 'lifting' as const,
+    preset: 'lifting' as const,
     targetSets: 1,
     defaults: {}
   }
