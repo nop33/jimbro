@@ -48,7 +48,8 @@ const sharedLock = () => {
   return { lock, requests: () => requests }
 }
 
-// The server keeps the last body of each row and numbers every push.
+// Like the worker: a changed body gets the user's next revision, an unchanged one keeps its own,
+// and a push answers with the user's highest revision, 0 while the user has no rows.
 const fakeServer = () => {
   const rows = new Map<string, Row>()
   const received: Row[][] = []
@@ -58,8 +59,12 @@ const fakeServer = () => {
     received,
     accept(batch: Row[]) {
       received.push(batch)
-      for (const row of batch) rows.set(rowKey(row), row)
-      revision += 1
+      for (const row of batch) {
+        const stored = rows.get(rowKey(row))
+        if (stored && canonical(stored.row) === canonical(row.row)) continue
+        rows.set(rowKey(row), row)
+        revision += 1
+      }
       return revision
     }
   }
@@ -188,6 +193,14 @@ describe('Outbox.drain on a database that has never synced', () => {
   it('marks the database bootstrapped when the server reports no revision', async () => {
     await page.writeRows([setRow(10)])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => null)
+    expect(await page.getMeta('cursor')).toBe(0)
+    expect(await page.getMeta('bootstrapped')).toBe(1)
+    expect(await outboxOf(page)).toEqual([])
+  })
+
+  it('marks the database bootstrapped when the server answers revision 0', async () => {
+    await page.writeRows([setRow(10)])
+    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => 0)
     expect(await page.getMeta('cursor')).toBe(0)
     expect(await page.getMeta('bootstrapped')).toBe(1)
     expect(await outboxOf(page)).toEqual([])

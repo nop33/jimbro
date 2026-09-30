@@ -125,7 +125,7 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
   async drain(push) {
     const db = await deps.storage.connection()
     const unsynced = (await deps.storage.getMeta('cursor')) === 0 && (await deps.storage.getMeta('bootstrapped')) === 0
-    let revision: number | null = null
+    let acked = false
     for (;;) {
       // Skip the lock when nothing is queued, so an idle page never waits on another page's push.
       if ((await deps.storage.count(OBJECT_STORES.OUTBOX)) === 0) break
@@ -140,12 +140,13 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
             ? { name: 'cursor' as const, value: result }
             : { name: 'bootstrapped' as const, value: 1 }
         await acknowledge(db, taken, advance)
-        return { revision: result }
+        return true
       })
       if (!pushed) break
-      if (pushed.revision !== null) revision = pushed.revision
+      acked = true
     }
-    if (unsynced && !(revision !== null && revision > 0)) await markBootstrapped(db)
+    // Every ack above already recorded the sync, so only a drain that sent nothing is left to mark.
+    if (unsynced && !acked) await markBootstrapped(db)
   }
 })
 
