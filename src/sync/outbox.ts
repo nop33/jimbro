@@ -113,6 +113,7 @@ const markBootstrapped = async (db: IDBDatabase) => {
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error ?? new Error('outbox bootstrap mark failed'))
+    tx.onabort = () => reject(tx.error ?? new Error('outbox bootstrap mark aborted'))
     tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: 1 })
   })
 }
