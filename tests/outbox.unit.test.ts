@@ -95,8 +95,11 @@ const deleteSets = async (storage: Storage, ids: string[]) => {
   })
 }
 
-// The page dies before the next readwrite transaction that touches meta commits: whatever that
-// transaction wrote rolls back, and the drain stops there.
+// The page dies in the next readwrite transaction that writes meta, right after its meta put
+// succeeds and before the transaction commits, so everything the transaction wrote rolls back.
+// The abort comes from the put's success event. When no other request of the transaction is
+// still pending, only the transaction's abort event fires. Pending requests fail with an
+// AbortError first, which also reaches the transaction's error event.
 const crashNextMetaWrite = async (storage: Storage) => {
   const db = await storage.connection()
   const open = db.transaction.bind(db)
@@ -104,13 +107,25 @@ const crashNextMetaWrite = async (storage: Storage) => {
   db.transaction = ((names: string | string[], mode?: IDBTransactionMode, options?: IDBTransactionOptions) => {
     const tx = open(names, mode, options)
     const stores = typeof names === 'string' ? [names] : names
-    if (armed && mode === 'readwrite' && stores.includes(OBJECT_STORES.META)) {
-      armed = false
-      queueMicrotask(() => tx.abort())
+    if (!armed || mode !== 'readwrite' || !stores.includes(OBJECT_STORES.META)) return tx
+    armed = false
+    const store = tx.objectStore(OBJECT_STORES.META)
+    const put = store.put.bind(store)
+    store.put = (value: unknown, key?: IDBValidKey) => {
+      const request = put(value, key)
+      request.addEventListener('success', () => tx.abort())
+      return request
     }
     return tx
   }) as IDBDatabase['transaction']
 }
+
+// Rejects when the promise has not settled soon, so a drain that hangs fails fast.
+const settlesSoon = <T>(promise: Promise<T>) =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('still pending after 200 ms')), 200)
+    promise.then(resolve, reject).finally(() => clearTimeout(timer))
+  })
 
 // A first sync on a server that still has `server`: the plan keeps the server copy.
 const firstSyncKeepsServer = async (storage: Storage, server: Row) => {
@@ -254,6 +269,13 @@ describe('Outbox.drain on a database that has never synced', () => {
   it('marks the database bootstrapped when nothing is queued', async () => {
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
     expect(await page.getMeta('bootstrapped')).toBe(1)
+  })
+
+  it('rejects when the bootstrap mark aborts', async () => {
+    await crashNextMetaWrite(page)
+    const drained = createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
+    await expect(settlesSoon(drained)).rejects.toThrow('outbox bootstrap mark aborted')
+    expect(await page.getMeta('bootstrapped')).toBe(0)
   })
 
   // With the next test, replaces 'a stop after an empty-server push ack keeps the cursor and the
