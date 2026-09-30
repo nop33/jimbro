@@ -85,6 +85,33 @@ const setMeta = async (storage: Storage, name: 'cursor' | 'bootstrapped', value:
   })
 }
 
+const deleteSets = async (storage: Storage, ids: string[]) => {
+  const db = await storage.connection()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([OBJECT_STORES.SETS], 'readwrite')
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+    for (const id of ids) tx.objectStore(OBJECT_STORES.SETS).delete(id)
+  })
+}
+
+// The page dies before the next readwrite transaction that touches meta commits: whatever that
+// transaction wrote rolls back, and the drain stops there.
+const crashNextMetaWrite = async (storage: Storage) => {
+  const db = await storage.connection()
+  const open = db.transaction.bind(db)
+  let armed = true
+  db.transaction = ((names: string | string[], mode?: IDBTransactionMode, options?: IDBTransactionOptions) => {
+    const tx = open(names, mode, options)
+    const stores = typeof names === 'string' ? [names] : names
+    if (armed && mode === 'readwrite' && stores.includes(OBJECT_STORES.META)) {
+      armed = false
+      queueMicrotask(() => tx.abort())
+    }
+    return tx
+  }) as IDBDatabase['transaction']
+}
+
 // A first sync on a server that still has `server`: the plan keeps the server copy.
 const firstSyncKeepsServer = async (storage: Storage, server: Row) => {
   const snapshot = await storage.readFirstSyncSnapshot()
@@ -107,10 +134,10 @@ describe('Outbox.drain', () => {
   it('sends queued rows oldest first and empties the outbox', async () => {
     const server = fakeServer()
     await setMeta(page, 'cursor', 3)
-    await page.writeRows([setRow(10, 'a')])
-    await page.writeRows([setRow(20, 'b')])
+    await page.writeRows([setRow(10, 'b')])
+    await page.writeRows([setRow(20, 'a')])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
-    expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['a', 'b']])
+    expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['b', 'a']])
     expect(await outboxOf(page)).toEqual([])
     expect(await page.getMeta('cursor')).toBe(3)
     expect(await page.getMeta('bootstrapped')).toBe(0)
@@ -130,12 +157,19 @@ describe('Outbox.drain', () => {
     await setMeta(page, 'cursor', 3)
     await page.writeRows([setRow(10, 'gone')])
     await page.writeRows([setRow(20, 'kept')])
-    const db = await page.connection()
-    await new Promise<void>((resolve) => {
-      const tx = db.transaction([OBJECT_STORES.SETS], 'readwrite')
-      tx.oncomplete = () => resolve()
-      tx.objectStore(OBJECT_STORES.SETS).delete('gone')
-    })
+    await deleteSets(page, ['gone'])
+    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
+    expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['kept']])
+    expect(await outboxOf(page)).toEqual([])
+  })
+
+  it('looks past a whole chunk of entries whose rows are gone', async () => {
+    const server = fakeServer()
+    await setMeta(page, 'cursor', 3)
+    const gone = Array.from({ length: 500 }, (_, index) => `gone-${index}`)
+    await page.writeRows(gone.map((id) => setRow(10, id)))
+    await page.writeRows([setRow(20, 'kept')])
+    await deleteSets(page, gone)
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
     expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['kept']])
     expect(await outboxOf(page)).toEqual([])
@@ -206,12 +240,37 @@ describe('Outbox.drain on a database that has never synced', () => {
     expect(await outboxOf(page)).toEqual([])
   })
 
+  it('sends nothing when every queued row is gone, and marks the database bootstrapped', async () => {
+    await page.writeRows([setRow(10, 'gone')])
+    await deleteSets(page, ['gone'])
+    const push = vi.fn<PushRows>()
+    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(push)
+    expect(push).not.toHaveBeenCalled()
+    expect(await outboxOf(page)).toEqual([])
+    expect(await page.getMeta('cursor')).toBe(0)
+    expect(await page.getMeta('bootstrapped')).toBe(1)
+  })
+
   it('marks the database bootstrapped when nothing is queued', async () => {
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
     expect(await page.getMeta('bootstrapped')).toBe(1)
   })
 
-  // Replaces 'a stop after an empty-server push ack keeps the cursor and the next edit'.
+  // With the next test, replaces 'a stop after an empty-server push ack keeps the cursor and the
+  // next edit'. That test pinned 12c4a48: the cursor lands in the same transaction as the ack.
+  it('rolls back the ack with the cursor when the page dies before they commit', async () => {
+    const server = fakeServer()
+    await page.writeRows([setRow(10)])
+    const queued = await entryFor(page, setRow(10))
+    await crashNextMetaWrite(page)
+    const crashed = createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
+    await expect(crashed).rejects.toThrow()
+    expect(weightOf(server.rows.get('sets:race-set'))).toBe(10)
+    expect((await entryFor(page, setRow(10)))?.seq).toBe(queued?.seq)
+    expect(await page.getMeta('cursor')).toBe(0)
+    expect(await page.getMeta('bootstrapped')).toBe(0)
+  })
+
   it('lands the cursor with the ack when the page stops right after it', async () => {
     const server = fakeServer()
     await page.writeRows([setRow(10)])
