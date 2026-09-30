@@ -149,6 +149,10 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
   }
 })
 
+// Without navigator.locks the task runs unguarded. That happens outside a secure context, such as
+// `vp dev` opened over a LAN IP, and in browsers without Web Locks. There two tabs can take and
+// post the same entries at once, and a stale body can land after a newer one. Sync still runs,
+// but the cross-tab guarantees in the comment on createOutbox do not hold.
 const webLock =
   (name: string): PushLock =>
   (task) => {
