@@ -1,11 +1,10 @@
 import { fetchJimbroApi, getCloudBackupConfig, getLastBackupDate } from '../db/cloudBackup'
-import { storage, type OutboxEntry } from '../db/storage'
+import { storage } from '../db/storage'
 import { planBootstrap, rowKey } from './bootstrap'
+import { outbox, type PushRows } from './outbox'
 import { announce } from './pageChannel'
 import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
-import { canonical, type Row } from './rows'
-
-const PUSH_CHUNK = 500
+import { type Row } from './rows'
 
 export class ImportRequiredError extends Error {
   constructor() {
@@ -68,93 +67,14 @@ const revisionOf = (body: unknown) => {
   return typeof body.revision === 'number' ? body.revision : null
 }
 
-const outboxHeadMoved = async (entries: OutboxEntry[]) => {
-  const again = await storage.readOutbox(1)
-  const head = entries[0]
-  return Boolean(again[0] && head && (again[0].key !== head.key || again[0].seq !== head.seq))
-}
-
-const withPushLock = <T>(task: () => Promise<T>): Promise<T> => {
-  const locks = navigator.locks
-  if (!locks) return task()
-  // LockGrantedCallback types its return as T, so a promise callback is
-  // Promise<Promise<T>>. The lock manager settles to the callback's value.
-  return locks.request('jimbro:sync-push', task).then((settled) => settled)
-}
-
-const pushChunk = async (entries: OutboxEntry[], ackCursor: boolean) => {
-  const loaded = await storage.readOutboxRows(entries)
-  if (loaded.rows.length === 0) {
-    await storage.deleteOutboxIfUnchanged(loaded.missing)
-    return { progressed: await outboxHeadMoved(entries), revision: null }
-  }
-  const marked = await storage.markOutboxInflight(
-    loaded.sent.map((entry, index) => ({
-      key: entry.key,
-      seq: entry.seq,
-      body: canonical(loaded.rows[index].row)
-    }))
-  )
-  const stillQueued = new Set(marked.map((entry) => entry.key))
-  const rows: Row[] = []
-  const sent: Array<{ key: string; seq: number }> = []
-  loaded.sent.forEach((entry, index) => {
-    if (!stillQueued.has(entry.key)) return
-    const row = loaded.rows[index]
-    if (!row) return
-    rows.push(row)
-    sent.push(entry)
+const pushToServer: PushRows = async (rows) => {
+  const response = await fetchJimbroApi('/api/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows })
   })
-  if (rows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
-  const present = await storage.outboxKeysPresent(sent.map((entry) => entry.key))
-  const liveRows: Row[] = []
-  const liveSent: Array<{ key: string; seq: number }> = []
-  sent.forEach((entry, index) => {
-    if (!present.has(entry.key)) return
-    const row = rows[index]
-    if (!row) return
-    liveRows.push(row)
-    liveSent.push(entry)
-  })
-  if (liveRows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
-  return withPushLock(async () => {
-    const stillThere = await storage.outboxKeysPresent(liveSent.map((entry) => entry.key))
-    const lockedRows: Row[] = []
-    const lockedSent: Array<{ key: string; seq: number }> = []
-    liveSent.forEach((entry, index) => {
-      if (!stillThere.has(entry.key)) return
-      const row = liveRows[index]
-      if (!row) return
-      lockedRows.push(row)
-      lockedSent.push(entry)
-    })
-    if (lockedRows.length === 0) return { progressed: await outboxHeadMoved(entries), revision: null }
-    const response = await fetchJimbroApi('/api/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows: lockedRows })
-    })
-    await assertOk(response)
-    const revision = revisionOf(await response.json())
-    const advance = ackCursor
-      ? revision !== null && revision > 0
-        ? { cursor: revision }
-        : { bootstrapped: 1 }
-      : undefined
-    await storage.deleteOutboxIfUnchanged(lockedSent, advance)
-    return { progressed: true, revision }
-  })
-}
-
-const pushOutbox = async (ackCursor = false) => {
-  let revision: number | null = null
-  for (;;) {
-    const entries = await storage.readOutbox(PUSH_CHUNK)
-    if (entries.length === 0) return revision
-    const pushed = await pushChunk(entries, ackCursor)
-    if (pushed.revision !== null) revision = pushed.revision
-    if (!pushed.progressed) return revision
-  }
+  await assertOk(response)
+  return revisionOf(await response.json())
 }
 
 const firstSync = async () => {
@@ -183,14 +103,11 @@ const firstSync = async () => {
     pulledByKey
   })
   notifyOpenSession(pulled)
-  const pushedRevision = await pushOutbox(cursor === 0)
-  if (cursor !== 0) return
-  if (pushedRevision !== null && pushedRevision > 0) return
-  await storage.setMeta('bootstrapped', 1)
+  await outbox.drain(pushToServer)
 }
 
 const steadySync = async (start: number) => {
-  await pushOutbox()
+  await outbox.drain(pushToServer)
   let cursor = start
   let more = true
   while (more) {
