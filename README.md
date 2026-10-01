@@ -227,6 +227,7 @@ src/
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the state classes
   sync/                Cloud sync
     syncClient.ts      sync(), which pushes the outbox and pulls by cursor
+    outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row types and export conversion, shared with the worker
     pageChannel.ts     Notices between tabs over a BroadcastChannel

@@ -25,3 +25,9 @@ dist-ssr
 
 playwright-report/
 test-results/
+data-backup/
+notes/
+
+# Verification skill runtime (proof PNGs/ARIA stay on disk, not in git)
+.cursor/skills/verify-jimbro/artifacts/
+.cursor/skills/verify-jimbro/.run/

@@ -14,7 +14,7 @@ import { DB_NAME, OBJECT_STORES } from './constants'
 import { DB_VERSION, upgradeDatabase } from './migrations'
 import { promisifyRequest } from './promisifyRequest'
 
-const STORE_FOR_TABLE: Record<RowTable, string> = {
+export const STORE_FOR_TABLE: Record<RowTable, string> = {
   exercises: OBJECT_STORES.EXERCISES,
   programs: OBJECT_STORES.PROGRAMS,
   sessions: OBJECT_STORES.WORKOUT_SESSIONS,
@@ -110,7 +110,7 @@ if (navigator.storage && navigator.storage.persist) {
 
 const openDatabase = async (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(DB_NAME, DB_VERSION)
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onsuccess = (event) => {
       console.log('✅ Opened DB connection', event)
@@ -216,22 +216,6 @@ export class Storage {
   async getMeta(name: MetaRecord['name']): Promise<number> {
     const record = await this.get<MetaRecord>(OBJECT_STORES.META, name)
     return record?.value ?? 0
-  }
-
-  async setMeta(name: MetaRecord['name'], value: number): Promise<void> {
-    const db = await this.init()
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([OBJECT_STORES.META], 'readwrite')
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('setMeta failed'))
-      tx.objectStore(OBJECT_STORES.META).put({ name, value })
-    })
-  }
-
-  async readOutbox(limit: number): Promise<OutboxEntry[]> {
-    const all = await this.getAll<OutboxEntry>(OBJECT_STORES.OUTBOX)
-    all.sort((left, right) => left.seq - right.seq)
-    return all.slice(0, limit)
   }
 
   async readFirstSyncSnapshot(): Promise<{ seq: number; rows: Row[] }> {
@@ -403,114 +387,6 @@ export class Storage {
       }
     })
     return written
-  }
-
-  async readOutboxRows(entries: OutboxEntry[]): Promise<{
-    rows: Row[]
-    sent: Array<{ key: string; seq: number }>
-    missing: Array<{ key: string; seq: number }>
-  }> {
-    if (entries.length === 0) return { rows: [], sent: [], missing: [] }
-    const db = await this.init()
-    const rows: Row[] = []
-    const sent: Array<{ key: string; seq: number }> = []
-    const missing: Array<{ key: string; seq: number }> = []
-    await new Promise<void>((resolve, reject) => {
-      const names = [...new Set(entries.map((entry) => STORE_FOR_TABLE[entry.table]))]
-      const tx = db.transaction(names, 'readonly')
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('readOutboxRows failed'))
-      for (const entry of entries) {
-        const request = tx.objectStore(STORE_FOR_TABLE[entry.table]).get(entry.id)
-        request.onsuccess = () => {
-          if (request.result === undefined) {
-            missing.push({ key: entry.key, seq: entry.seq })
-            return
-          }
-          sent.push({ key: entry.key, seq: entry.seq })
-          if (entry.table === 'exercises') rows.push({ table: 'exercises', row: request.result })
-          else if (entry.table === 'programs') rows.push({ table: 'programs', row: request.result })
-          else if (entry.table === 'sessions') rows.push({ table: 'sessions', row: request.result })
-          else rows.push({ table: 'sets', row: request.result })
-        }
-      }
-    })
-    return { rows, sent, missing }
-  }
-
-  async markOutboxInflight(
-    marks: Array<{ key: string; seq: number; body: string }>
-  ): Promise<Array<{ key: string; seq: number }>> {
-    if (marks.length === 0) return []
-    const db = await this.init()
-    const kept: Array<{ key: string; seq: number }> = []
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readwrite')
-      const store = tx.objectStore(OBJECT_STORES.OUTBOX)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('markOutboxInflight failed'))
-      for (const mark of marks) {
-        const request = store.get(mark.key)
-        request.onsuccess = () => {
-          const current = request.result as OutboxEntry | undefined
-          // deleteDatabase restarts seq at 0, so a push that read the old outbox
-          // can meet a newer entry for the same row with a smaller seq.
-          if (!current || current.seq < mark.seq) return
-          if (current.inflightSeq === undefined || current.inflightCanonical === undefined) {
-            store.put({ ...current, inflightSeq: mark.seq, inflightCanonical: mark.body })
-          }
-          kept.push({ key: mark.key, seq: mark.seq })
-        }
-      }
-    })
-    return kept
-  }
-
-  async outboxKeysPresent(keys: string[]): Promise<Set<string>> {
-    if (keys.length === 0) return new Set()
-    const db = await this.init()
-    const present = new Set<string>()
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([OBJECT_STORES.OUTBOX], 'readonly')
-      const store = tx.objectStore(OBJECT_STORES.OUTBOX)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('outboxKeysPresent failed'))
-      for (const key of keys) {
-        const request = store.get(key)
-        request.onsuccess = () => {
-          if (request.result) present.add(key)
-        }
-      }
-    })
-    return present
-  }
-
-  async deleteOutboxIfUnchanged(
-    entries: Array<{ key: string; seq: number }>,
-    advance?: { cursor?: number; bootstrapped?: number }
-  ): Promise<void> {
-    if (entries.length === 0) return
-    const db = await this.init()
-    await new Promise<void>((resolve, reject) => {
-      const names = advance ? [OBJECT_STORES.OUTBOX, OBJECT_STORES.META] : [OBJECT_STORES.OUTBOX]
-      const tx = db.transaction(names, 'readwrite')
-      const store = tx.objectStore(OBJECT_STORES.OUTBOX)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('deleteOutboxIfUnchanged failed'))
-      if (advance?.cursor !== undefined) {
-        tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: advance.cursor })
-      }
-      if (advance?.bootstrapped !== undefined) {
-        tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: advance.bootstrapped })
-      }
-      for (const entry of entries) {
-        const request = store.get(entry.key)
-        request.onsuccess = () => {
-          const current = request.result as OutboxEntry | undefined
-          if (current && current.seq === entry.seq) store.delete(entry.key)
-        }
-      }
-    })
   }
 
   private async getStore(storeName: string): Promise<IDBObjectStore> {
