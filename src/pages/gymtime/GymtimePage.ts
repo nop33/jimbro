@@ -5,7 +5,7 @@ import Toasts from '../../features/toasts'
 import { onPageNotice } from '../../sync/pageChannel'
 import { canonical } from '../../sync/rows'
 import { setTextContent } from '../../utils'
-import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { sessions } from '../../db/stores/workoutSessionsStore'
 import AddExerciseDialog from './AddExerciseDialog'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import ExerciseCardList from './ExerciseCardList'
@@ -25,7 +25,7 @@ class GymtimePage {
     const { program, workoutSession } = await parseUrlParams()
     this.program = program
 
-    GymtimeSessionState.initialize(workoutSession)
+    sessions.initialize(workoutSession)
     window.addEventListener('jimbro:open-session-pulled', () => void this.refreshSession())
     // Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
     onPageNotice(() => void this.refreshSession())
@@ -34,24 +34,24 @@ class GymtimePage {
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
     this.workoutDetailsAnimation = animateDetails(this.workoutDetails, workoutForm)
 
-    if (GymtimeSessionState.session) {
+    if (sessions.session) {
       this.workoutDetailsAnimation.close()
     }
 
     ExerciseCardList.init(program.exercises)
     AddExerciseDialog.init(async (exercise) => {
-      if (!GymtimeSessionState.session) return
+      if (!sessions.session) return
 
-      if (GymtimeSessionState.hasExercise(exercise.id, { showAlert: true })) {
+      if (sessions.hasExercise(exercise.id, { showAlert: true })) {
         return
       }
 
-      await GymtimeSessionState.addExercise(exercise.id)
+      await sessions.addExercise(exercise.id)
       await ExerciseCardList.render()
     })
 
     await WorkoutSessionForm.init(program.id, async () => {
-      const session = GymtimeSessionState.session
+      const session = sessions.session
       if (session) window.history.replaceState({}, '', `?id=${session.id}`)
       await ExerciseCardList.render()
       this.updateDeleteBtnVisibility()
@@ -59,16 +59,16 @@ class GymtimePage {
     })
 
     this.deleteWorkoutSessionBtn.addEventListener('click', async () => {
-      if (!GymtimeSessionState.session) return
+      if (!sessions.session) return
       if (!confirm('Are you sure you want to delete this workout session?')) return
 
-      await GymtimeSessionState.delete()
+      await sessions.delete()
       Toasts.show({ message: 'Workout session deleted' })
       window.location.href = `/workouts/`
     })
 
     this.saveToProgramCard.addEventListener('click', async () => {
-      const session = GymtimeSessionState.session
+      const session = sessions.session
       if (!session) return
 
       const sessionExerciseIds = session.exercises.map((e) => e.exerciseId)
@@ -82,7 +82,7 @@ class GymtimePage {
       this.updateSaveToProgramBtnVisibility()
     })
 
-    GymtimeSessionState.subscribe(() => {
+    sessions.subscribe(() => {
       this.updateSaveToProgramBtnVisibility()
     })
 
@@ -94,20 +94,20 @@ class GymtimePage {
   private static async refreshSession(): Promise<void> {
     const sessionId = new URLSearchParams(window.location.search).get('id')
     if (!sessionId) return
-    const shown = canonical(GymtimeSessionState.session)
+    const shown = canonical(sessions.session)
     const session = await workoutSessionsStore.getWorkoutSession(sessionId)
     // Logging a set changes the session in memory before its write lands, so a read that straddled that
     // change is stale. A second read waits for the write.
-    if (canonical(GymtimeSessionState.session) !== shown) return this.refreshSession()
+    if (canonical(sessions.session) !== shown) return this.refreshSession()
     if (canonical(session) === shown) return
-    GymtimeSessionState.initialize(session)
+    sessions.initialize(session)
     await ExerciseCardList.render()
     this.updateDeleteBtnVisibility()
     this.updateSaveToProgramBtnVisibility()
   }
 
   private static updateSaveToProgramBtnVisibility() {
-    const session = GymtimeSessionState.session
+    const session = sessions.session
     if (!session) {
       this.saveToProgramCard.classList.add('hidden')
       this.addExerciseCard.classList.replace('mt-2', 'mt-16')
@@ -131,7 +131,7 @@ class GymtimePage {
   }
 
   private static updateDeleteBtnVisibility() {
-    this.deleteWorkoutSessionBtn.classList.toggle('hidden', !GymtimeSessionState.session)
+    this.deleteWorkoutSessionBtn.classList.toggle('hidden', !sessions.session)
   }
 
   private static showError(message: string) {

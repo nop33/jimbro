@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { computeWorkoutSessionStatus } from '../src/state/GymtimeSessionState'
+import { computeWorkoutSessionStatus } from '../src/db/stores/workoutSessionsStore'
 import type { ExerciseExecution } from '../src/db/stores/workoutSessionsStore'
 import type { ExerciseSetExecution } from '../src/db/exerciseLogging'
 

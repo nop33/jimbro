@@ -12,7 +12,7 @@ import { exportIndexedDbToJson } from '../../db/export'
 import { muscleGroupLabel } from '../../db/stores/exercisesStore'
 import { snapshotFromExercise, workoutSessionsStore, type ExerciseSnapshot } from '../../db/stores/workoutSessionsStore'
 import { throwConfetti } from '../../features/confetti'
-import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { sessions } from '../../db/stores/workoutSessionsStore'
 import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -68,7 +68,7 @@ class ExerciseCard {
       accordionSelector: '.exercise-details'
     })
 
-    const session = GymtimeSessionState.session
+    const session = sessions.session
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
     // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
@@ -94,7 +94,7 @@ class ExerciseCard {
     )
 
     const isExerciseCompleted = () => {
-      const session = GymtimeSessionState.session
+      const session = sessions.session
       if (!session) return false
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
       return existingExercise && existingExercise.sets.length >= this.targetSets
@@ -113,7 +113,7 @@ class ExerciseCard {
         moveDownBtn.classList.toggle('hidden', !exerciseDetails.open)
 
         if (exerciseDetails.open) {
-          const session = GymtimeSessionState.session
+          const session = sessions.session
           if (session) {
             const exerciseIndex = session.exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
             if (exerciseIndex === 0) moveUpBtn.classList.add('hidden')
@@ -124,24 +124,24 @@ class ExerciseCard {
     })
 
     moveUpBtn.addEventListener('click', async () => {
-      if (!GymtimeSessionState.session) return
-      await GymtimeSessionState.moveExercise(this.exerciseId, 'up')
+      if (!sessions.session) return
+      await sessions.moveExercise(this.exerciseId, 'up')
       this.onExerciseDeleted()
     })
 
     moveDownBtn.addEventListener('click', async () => {
-      if (!GymtimeSessionState.session) return
-      await GymtimeSessionState.moveExercise(this.exerciseId, 'down')
+      if (!sessions.session) return
+      await sessions.moveExercise(this.exerciseId, 'down')
       this.onExerciseDeleted()
     })
 
     deleteBtn.addEventListener('click', async () => {
-      if (!GymtimeSessionState.session) {
+      if (!sessions.session) {
         alert('Start a workout session first')
         return
       }
 
-      const session = GymtimeSessionState.session
+      const session = sessions.session
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
       if (existingExercise && existingExercise.sets.length > 0) {
@@ -153,17 +153,17 @@ class ExerciseCard {
         if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
       }
 
-      await GymtimeSessionState.deleteExercise(this.exerciseId)
+      await sessions.deleteExercise(this.exerciseId)
       this.onExerciseDeleted()
     })
 
     swapBtn.addEventListener('click', () => {
-      if (!GymtimeSessionState.session) {
+      if (!sessions.session) {
         alert('Start a workout session first')
         return
       }
 
-      const session = GymtimeSessionState.session
+      const session = sessions.session
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
       if (existingExercise && existingExercise.sets.length > 0) {
@@ -180,11 +180,11 @@ class ExerciseCard {
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exerciseId) return
 
-          if (GymtimeSessionState.hasExercise(newExercise.id, { showAlert: true })) {
+          if (sessions.hasExercise(newExercise.id, { showAlert: true })) {
             return
           }
 
-          await GymtimeSessionState.swapExercise(this.exerciseId, newExercise.id)
+          await sessions.swapExercise(this.exerciseId, newExercise.id)
           this.onExerciseDeleted()
         }
       })
@@ -290,7 +290,7 @@ class ExerciseCard {
 
     div.addEventListener('click', () => {
       if (!div.classList.contains('isCompleted')) return
-      if (!GymtimeSessionState.session) throw new Error('No existing workout session found')
+      if (!sessions.session) throw new Error('No existing workout session found')
 
       EditSetDialog.openDialog({
         set: JSON.parse(div.dataset.set as string) as ExerciseSetExecution,
@@ -304,7 +304,7 @@ class ExerciseCard {
 
   private async prefillValues(): Promise<ExerciseDefaults> {
     const { preset, defaults } = this.snapshot
-    const session = GymtimeSessionState.session
+    const session = sessions.session
     const currentSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets.at(-1)
 
     if (currentSet) return { ...defaults, ...setValues(currentSet) }
@@ -366,11 +366,11 @@ class ExerciseCard {
         if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
       }
 
-      if (!GymtimeSessionState.session) throw new Error('No existing workout session found')
+      if (!sessions.session) throw new Error('No existing workout session found')
 
-      await GymtimeSessionState.addSet(this.exerciseId, completedSet)
+      await sessions.addSet(this.exerciseId, completedSet)
 
-      const updated = GymtimeSessionState.session!
+      const updated = sessions.session!
       const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === this.exerciseId)?.sets.length ?? 1) - 1
 
       // If user adds an extra set after finishing, the DOM might not have a pending slot for it if they didn't use the Add Set button

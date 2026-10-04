@@ -3,7 +3,7 @@ import { exercises } from '../../db/stores/exercisesStore'
 import type { Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { sessions } from '../../db/stores/workoutSessionsStore'
 import { setCityFromGeolocation } from './geolocation'
 
 class WorkoutSessionForm {
@@ -20,7 +20,7 @@ class WorkoutSessionForm {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
 
-    const session = GymtimeSessionState.session
+    const session = sessions.session
 
     const now = new Date()
     const year = now.getFullYear()
@@ -62,8 +62,8 @@ class WorkoutSessionForm {
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
 
-    if (GymtimeSessionState.session) {
-      await GymtimeSessionState.update({ date, location, notes })
+    if (sessions.session) {
+      await sessions.update({ date, location, notes })
     } else {
       const program = await db.programs.getById(this.programId)
       if (!program) throw new Error('Program not found')
@@ -77,7 +77,7 @@ class WorkoutSessionForm {
         })
       )
 
-      await GymtimeSessionState.create({
+      await sessions.create({
         programId: this.programId,
         date,
         location,

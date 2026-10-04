@@ -1,6 +1,6 @@
 import { db } from '../../db'
 import { snapshotFromExercise, type ExerciseSnapshot } from '../../db/stores/workoutSessionsStore'
-import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { sessions } from '../../db/stores/workoutSessionsStore'
 import ExerciseCard from './ExerciseCard'
 
 class ExerciseCardList {
@@ -19,7 +19,7 @@ class ExerciseCardList {
 
   static async render() {
     const generation = ++this.renderGeneration
-    const session = GymtimeSessionState.session
+    const session = sessions.session
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
     const cards: DocumentFragment[] = []
 

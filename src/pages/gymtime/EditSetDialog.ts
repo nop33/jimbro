@@ -1,7 +1,7 @@
 import { setValues, type ExerciseSetExecution } from '../../db/exerciseLogging'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
-import GymtimeSessionState from '../../state/GymtimeSessionState'
+import { sessions } from '../../db/stores/workoutSessionsStore'
 import { readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 interface EditSetData {
@@ -44,7 +44,7 @@ class EditSetDialog {
       if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
     }
 
-    await GymtimeSessionState.updateSet(this.editedSetData.exerciseId, this.editedSetData.index, updatedSet)
+    await sessions.updateSet(this.editedSetData.exerciseId, this.editedSetData.index, updatedSet)
 
     updateSetItem({ ...this.editedSetData, set: updatedSet })
 
