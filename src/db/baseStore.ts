@@ -1,4 +1,4 @@
-import type { Row } from '../sync/rows'
+import type { Row } from './types'
 import { storage } from './storage'
 
 export interface Entity {

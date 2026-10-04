@@ -1,11 +1,5 @@
-import {
-  legacySetId,
-  rowsFromSession,
-  sessionFromRows,
-  type ExerciseSnapshot,
-  type SessionHeader,
-  type SetRow
-} from '../../sync/rows'
+import { legacySetId, rowsFromSession, sessionFromRows } from '../../sync/rows'
+import type { ExerciseSnapshot, SessionHeader, SetRow } from '../types'
 import { OBJECT_STORES } from '../constants'
 import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
@@ -15,7 +9,7 @@ import type { Program } from './programsStore'
 import { setsStore } from './setsStore'
 
 export type { ExerciseSetExecution } from '../exerciseLogging'
-export type { ExerciseSnapshot } from '../../sync/rows'
+export type { ExerciseSnapshot } from '../types'
 
 const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
 export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]

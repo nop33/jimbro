@@ -1,4 +1,5 @@
-import { exportFromRows, type ExerciseRow, type ProgramRow, type SessionHeader, type SetRow } from '../sync/rows'
+import { exportFromRows } from '../sync/rows'
+import type { ExerciseRow, ProgramRow, SessionHeader, SetRow } from './types'
 import { OBJECT_STORES } from './constants'
 import { getSimpleDate } from '../dateUtils'
 import { storage } from './storage'
