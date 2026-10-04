@@ -1,7 +1,7 @@
-import { exercisesStore } from './stores/exercisesStore'
+import { exercises } from './stores/exercisesStore'
 import { programsStore } from './stores/programsStore'
 
 export const db = {
-  exercises: exercisesStore,
+  exercises,
   programs: programsStore
 }

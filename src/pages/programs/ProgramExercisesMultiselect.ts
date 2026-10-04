@@ -1,6 +1,5 @@
 import EventEmitter from '../../eventEmitter'
-import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
-import ExercisesState from '../../state/ExercisesState'
+import { exercises, muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
 import type { ExercisesListProps } from './programTypes'
 
 type ProgramExercisesMultiselectEventMap = {
@@ -28,7 +27,7 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
 
   render({ selectedExercises }: ExercisesListProps) {
     const groupMap = new Map<string, Exercise[]>()
-    for (const exercise of ExercisesState.exercises) {
+    for (const exercise of exercises.exercises) {
       const group = exercise.muscle ? muscleGroupLabel(exercise.muscle) : 'Cardio'
       if (!groupMap.has(group)) {
         groupMap.set(group, [])

@@ -1,6 +1,5 @@
 import EventEmitter from '../../eventEmitter'
-import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
-import ExercisesState from '../../state/ExercisesState'
+import { exercises, muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import type { ExercisesListProps } from './programTypes'
 
@@ -111,7 +110,7 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
 
     const exerciseListItems = selectedExercisesIds
       .map((exerciseId) => {
-        const exercise = ExercisesState.getById(exerciseId)
+        const exercise = exercises.findById(exerciseId)
         if (!exercise) return
 
         const exerciseItem = nodeFromTemplate('#selected-exercise-item-template')
