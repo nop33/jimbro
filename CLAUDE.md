@@ -50,7 +50,7 @@ pages/    UI layer; one folder per route
 features/ Cross-cutting UI (toasts, confetti, hapticFeedback)
 ```
 
-Pages read and write through the modules in `db/`, which own all IndexedDB access. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
+Pages read and write through the modules in `db/`, which own all IndexedDB access. `db/` and `sync/` never open a dialog: they throw, and the page decides what to tell the user. The lint config in `vite.config.ts` rejects `alert`, `confirm` and `prompt` there. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
 
 ### Persistence layer (`src/db/`)
 
