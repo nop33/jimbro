@@ -3,7 +3,7 @@ import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { setTextContent } from '../../utils'
 
 async function calculateAndRenderStats() {
-  const sessions = await workoutSessionsStore.getAllWorkoutSessions()
+  const sessions = await workoutSessionsStore.getAll()
 
   let totalCompletedSessions = 0
   let totalUncompletedSessions = 0

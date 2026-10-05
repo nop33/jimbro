@@ -22,40 +22,31 @@ test('writeRows stores nothing when a later put throws', async ({ page }) => {
 test('a new set reuses the legacy id of a tombstoned row', async ({ page }) => {
   await page.goto('/settings/')
   const result = await page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+    const { snapshotFromExercise, workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
     const { legacySetId } = await import('/src/sync/rows.ts')
     const { storage } = await import('/src/db/storage.ts')
     const exerciseId = 'ex-legacy'
-    const execution = {
-      exerciseId,
+    const exercise = {
+      id: exerciseId,
       name: 'Bench press',
       kind: 'lifting' as const,
       preset: 'lifting' as const,
       muscle: 'chest' as const,
       targetSets: 3,
       defaults: { reps: 8 },
-      sets: [] as Array<{ preset: 'lifting'; reps: number; weight: number }>
+      isDeleted: false,
+      updatedAt: '2026-03-01T00:00:00.000Z'
     }
-    const created = await workoutSessionsStore.createWorkoutSession({
+    const created = await workoutSessionsStore.create({
       date: '2026-03-01',
       programId: 'prog-legacy',
       location: 'Zurich',
-      status: 'incomplete',
-      exercises: [execution]
+      exercises: [snapshotFromExercise(exercise)]
     })
-    const logged = await workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
-      workoutSession: created,
-      exerciseId,
-      exerciseExecutionSet: { preset: 'lifting', reps: 8, weight: 40 }
-    })
-    const removed = await workoutSessionsStore.deleteExerciseFromWorkoutSession({
-      workoutSession: logged,
-      exerciseId
-    })
-    await workoutSessionsStore.addExerciseToWorkoutSession({
-      workoutSession: removed,
-      exercise: { ...execution, sets: [{ preset: 'lifting', reps: 5, weight: 20 }] }
-    })
+    const logged = await workoutSessionsStore.addSet(created, exerciseId, { preset: 'lifting', reps: 8, weight: 40 })
+    const removed = await workoutSessionsStore.removeExercise(logged, exerciseId)
+    const readded = await workoutSessionsStore.addExercise(removed, exercise)
+    await workoutSessionsStore.addSet(readded, exerciseId, { preset: 'lifting', reps: 5, weight: 20 })
     const sets = (await storage.getAll('sets')) as Array<{
       id: string
       sessionId: string

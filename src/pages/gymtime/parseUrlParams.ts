@@ -15,7 +15,7 @@ export const parseUrlParams = async () => {
   }
 
   if (sessionIdParam) {
-    workoutSession = await workoutSessionsStore.getWorkoutSession(sessionIdParam)
+    workoutSession = await workoutSessionsStore.getById(sessionIdParam)
     program = workoutSession?.programId ? await programsStore.getById(workoutSession.programId) : undefined
   } else if (programIdParam) {
     program = await programsStore.getById(programIdParam)

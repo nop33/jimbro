@@ -2,8 +2,8 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import { sessions } from '../../db/stores/workoutSessionsStore'
 import { setCityFromGeolocation } from './geolocation'
+import { openSession } from './openSession'
 
 class WorkoutSessionForm {
   private static form = document.querySelector('#gymtime-form') as HTMLFormElement
@@ -19,7 +19,7 @@ class WorkoutSessionForm {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
 
-    const session = sessions.session
+    const session = openSession.current
 
     const now = new Date()
     const year = now.getFullYear()
@@ -34,7 +34,7 @@ class WorkoutSessionForm {
     if (session) {
       this.locationInput.value = session.location
     } else {
-      const latestSaved = await workoutSessionsStore.getLatestSavedWorkoutSession()
+      const latestSaved = await workoutSessionsStore.getLatestSaved()
       if (latestSaved?.location) {
         this.locationInput.value = latestSaved.location
       }
@@ -61,8 +61,8 @@ class WorkoutSessionForm {
     const location = formData.get('location') as string
     const notes = formData.get('notes') as string
 
-    if (sessions.session) {
-      await sessions.update({ date, location, notes })
+    if (openSession.current) {
+      await openSession.apply((session) => workoutSessionsStore.update(session, { date, location, notes }))
     } else {
       const program = await programsStore.getById(this.programId)
       if (!program) throw new Error('Program not found')
@@ -70,20 +70,13 @@ class WorkoutSessionForm {
       const exercises = await Promise.all(
         program.exercises.map(async (exerciseId) => {
           const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
-          return exercise
-            ? { ...snapshotFromExercise(exercise), sets: [] }
-            : { ...placeholderSnapshot(exerciseId), sets: [] }
+          return exercise ? snapshotFromExercise(exercise) : placeholderSnapshot(exerciseId)
         })
       )
 
-      await sessions.create({
-        programId: this.programId,
-        date,
-        location,
-        status: 'incomplete',
-        exercises,
-        notes
-      })
+      openSession.show(
+        await workoutSessionsStore.create({ programId: this.programId, date, location, exercises, notes })
+      )
     }
 
     await this.onSessionSaved()

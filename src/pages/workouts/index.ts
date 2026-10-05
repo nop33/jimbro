@@ -24,7 +24,7 @@ import { getWorkoutModeSettings, getEffectiveWorkoutsPerWeek } from '../../setti
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
-const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
+const workoutWeeks = await workoutSessionsStore.getAllGroupedByWeek()
 const programNames = await programsStore.getNameMap()
 const _isDbEmpty = await isDbEmpty()
 const canRestore =
@@ -43,7 +43,7 @@ WorkoutModeDialog.init()
 const todayDate = new Date()
 const today = getSimpleDate(todayDate)
 const currentWeekKey = getWeekOfYear(todayDate)
-const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirstWorkoutSession()) ?? today
+const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirst()) ?? today
 const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession)).reverse()
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {

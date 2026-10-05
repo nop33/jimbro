@@ -171,7 +171,7 @@ test('a version 4 export is stored as session headers and set rows', async ({ pa
 
   const assembled = await page.evaluate(async () => {
     const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    return workoutSessionsStore.getWorkoutSession('sess-1')
+    return workoutSessionsStore.getById('sess-1')
   })
   expect(assembled?.exercises[0].sets).toEqual([
     { preset: 'lifting', reps: 8, weight: 40 },
