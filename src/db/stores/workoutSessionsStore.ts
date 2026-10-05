@@ -13,8 +13,7 @@ import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { storage } from '../storage'
 import ReactiveStore from '../reactiveStore'
-import type { Exercise } from './exercisesStore'
-import { exercises } from './exercisesStore'
+import { exercisesStore, type Exercise } from './exercisesStore'
 import type { Program } from './programsStore'
 import { setsStore } from './setsStore'
 
@@ -47,7 +46,7 @@ export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exerc
 }
 
 const executionFromCatalog = async (exerciseId: string): Promise<ExerciseExecution> => {
-  const exercise = exercises.findById(exerciseId) ?? (await exercises.getById(exerciseId))
+  const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
   if (!exercise) {
     return { ...placeholderSnapshot(exerciseId), sets: [] }
   }

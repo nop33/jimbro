@@ -1,5 +1,6 @@
 import { getWeekOfYear } from '../../dateUtils'
-import { db } from '../../db'
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import { programsStore } from '../../db/stores/programsStore'
 import type { WorkoutSession } from '../../db/types'
 import { getEffectiveWorkoutsPerWeek } from '../../settings'
 
@@ -18,7 +19,7 @@ class IntroText {
       (workoutSession) => workoutSession.status === 'completed'
     )
 
-    const programNames = await db.programs.getNameMap()
+    const programNames = await programsStore.getNameMap()
     const programCount = Object.keys(programNames).length
     const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
 
@@ -38,7 +39,7 @@ class IntroText {
       this.introText.textContent = `You have completed all your workouts this week! 💪`
     } else if (programCount > 0) {
       this.introText.textContent = `You have not completed any workouts this week. Time to get sweating! 💦`
-    } else if ((await db.exercises.getAll()).length > 0) {
+    } else if ((await exercisesStore.load()).length > 0) {
       this.introText.textContent = `Create a program from your exercises to start a workout.`
     } else {
       this.introText.textContent = `Let's start by defining your exercises and programs!`

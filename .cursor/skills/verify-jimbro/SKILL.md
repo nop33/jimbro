@@ -87,7 +87,7 @@ Proof lives in `.cursor/skills/verify-jimbro/artifacts/<feature-id>/`. Cleanup m
 
 Standards:
 
-- Exercise the real user path. Do not `indexedDB.deleteDatabase` or call `db.exercises.seed()` from the console as the proof.
+- Exercise the real user path. Do not `indexedDB.deleteDatabase` or call `exercisesStore.seed()` from the console as the proof.
 - Capture the action and the resulting state. A final screenshot without the click that produced it is incomplete.
 - After a mutation, reopen the record from a list or another page. A toast alone is not persistence.
 - Record the feature ID, URL, and entry point in `proof.txt` next to the PNG/ARIA files.

@@ -56,16 +56,15 @@ Pages read and write through the modules in `db/`, which own all IndexedDB acces
 
 - `connection.ts` opens the single shared `IDBDatabase` and runs the generic reads. `write.ts` holds `writeRows`, the one write path for local edits. In one transaction it writes the rows, an outbox entry per row and, for sets, the `setGroups` cache. Then it fires `jimbro:rows-written`. `write.ts` also holds the first-sync and pull-page commits. `storage.ts` exposes all of it through the `storage` singleton. Route every write through `storage.writeRows`, since nothing else reaches the outbox or the server.
 - `types.ts` declares each data shape once: the row types (`ExerciseRow`, `ProgramRow`, `SessionHeader`, `SetRow`), `SESSION_STATUSES`, `WorkoutSession` (a header joined with its live sets) and the export files. Derive a variant with `Omit` or `Pick` instead of copying its fields.
-- `baseStore.ts` is the abstract `BaseStore<T>` (`getAll`, `getById`, `create`, `update`). In `stores/`, `exercisesStore` and `programsStore` drop soft-deleted rows from `getAll` and load the JSON seeds in `seed()`. Each also keeps the live rows in a `ReactiveStore`: pages call `initialize()` on load, `subscribe(cb)` to re-render, and `createExercise`, `updateExercise` and `softDeleteExercise` (or the program versions) to write. Those apply the change in memory first, then persist through `create` or `update`. A failed create rolls back, and a failed update re-`initialize()`s from IndexedDB.
+- `catalogStore.ts` is the abstract `CatalogStore`, which `exercisesStore` and `programsStore` in `stores/` extend with their upgrade, sort and `seed()`. Pages call `load()` to read the live rows into `all`, `subscribe(cb)` to re-render, `find(id)` to look one up in memory, and `create`, `update` and `remove` to write. A write shows in `all` first, then goes through `writeRows`. A failed create takes the row out again, and a failed update reloads. `getById` reads one row from IndexedDB, deleted or not, for pages that never called `load()`.
 - `workoutSessionsStore` builds a `WorkoutSession` from a session header and its set rows, whose IDs are `sessionId:exerciseId:position`. Its `sessions` object also holds the workout open in gymtime. Each change writes through the store first, recomputes `completed` or `incomplete`, and only then publishes the new session. There is no optimistic update and no rollback.
-- `index.ts` exposes `db.exercises`, `db.programs` and `db.sessions`.
 - `migrations.ts` holds `DB_VERSION` (9), the version 9 stores for fresh installs, and `upgradeDatabase`, which rebuilds any older database empty so the next sync refills it. A new version becomes an `if (oldVersion < N)` step after the existing one. The `9` in that step stays a literal, so raising `DB_VERSION` never wipes a version 9 database.
 - `exerciseLogging.ts` is the registry of exercise kinds, log presets and set slots. `schemaUpgrade.ts` upgrades records from older exports.
 - `export.ts` writes JSON export version 4. `import.ts` reads versions 1 to 4, adds only rows whose ID isn't stored yet, and writes through `writeRows`.
 - `cloudBackup.ts` keeps the credentials in localStorage and sends requests with the bearer token to `VITE_API_BASE`.
 - `reactiveStore.ts` is a small generic `ReactiveStore<T>` (get/set/update/subscribe) used by the stores.
 
-**Dates are stored as ISO strings**, not `Date` objects. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' `getAll` filters deleted rows out, while import and export read every row through `storage.getAll`.
+**Dates are stored as ISO strings**, not `Date` objects. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' lists leave deleted rows out, while import and export read every row through `storage.getAll`.
 
 ### Sync (`src/sync/`)
 
@@ -92,7 +91,7 @@ Each route has its own entry module (e.g. `src/pages/gymtime/index.ts`) bootstra
 
 - A top-level page class/module (e.g. `GymtimePage.ts`) that owns lifecycle + rendering.
 - Per-component classes for cards, dialogs, forms (e.g. `ExerciseCard.ts`, `BreakTimerDialog.ts`).
-- Procedural entry in `index.ts` that calls `*.initialize()` / mounts the DOM.
+- Procedural entry in `index.ts` that calls the stores' `load()` and mounts the DOM.
 
 The gymtime page is the most complex. `ExerciseCardList.render()` rebuilds every card and keeps the scroll position and the open card. `GymtimePage` rereads the open session on `jimbro:open-session-pulled` and on other tabs' notices, and re-renders only when the session changed. The page also runs the break timer, wake lock and geolocation, and downloads a JSON export on workout completion when cloud sync is off.
 

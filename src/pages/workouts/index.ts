@@ -1,5 +1,6 @@
-import { db } from '../../db'
 import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { exercisesStore } from '../../db/stores/exercisesStore'
+import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { sync } from '../../sync/syncClient'
 import { isImportRequired } from '../../sync/status'
@@ -24,7 +25,7 @@ import { getWorkoutModeSettings, getEffectiveWorkoutsPerWeek } from '../../setti
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
 const workoutWeeks = await workoutSessionsStore.getAllWorkoutSessionsGroupedByWeek()
-const programNames = await db.programs.getNameMap()
+const programNames = await programsStore.getNameMap()
 const _isDbEmpty = await isDbEmpty()
 const canRestore =
   _isDbEmpty &&
@@ -124,8 +125,8 @@ if (_isDbEmpty) {
     seedDbButton.textContent = 'Seed Database'
     seedDbButton.addEventListener('click', async () => {
       try {
-        await db.exercises.seed()
-        await db.programs.seed()
+        await exercisesStore.seed()
+        await programsStore.seed()
         window.location.reload()
       } catch (error) {
         console.error('Error seeding database:', error)

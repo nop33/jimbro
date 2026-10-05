@@ -219,7 +219,7 @@ src/
     write.ts           writeRows, which stores rows and outbox entries together, and the sync commits
     storage.ts         The storage singleton over connection.ts and write.ts
     types.ts           Every data shape: rows, sessions, export files. Shared with the worker
-    baseStore.ts       BaseStore<T> with getAll, getById, create and update
+    catalogStore.ts    CatalogStore, the store exercises and programs share
     stores/            Exercises, programs, workout sessions, sets, seed data, and the state pages subscribe to
     migrations.ts      DB_VERSION and the version 9 stores
     exerciseLogging.ts Exercise kinds, log presets and set slots

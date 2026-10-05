@@ -1,4 +1,4 @@
-import { db } from '../../db'
+import { exercisesStore } from '../../db/stores/exercisesStore'
 import { snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot } from '../../db/types'
 import { sessions } from '../../db/stores/workoutSessionsStore'
@@ -31,7 +31,7 @@ class ExerciseCardList {
       let snapshot: ExerciseSnapshot | undefined = execution
 
       if (!snapshot) {
-        const catalog = await db.exercises.getById(exerciseId)
+        const catalog = await exercisesStore.getById(exerciseId)
         snapshot = catalog && snapshotFromExercise(catalog)
       }
 

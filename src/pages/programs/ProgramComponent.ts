@@ -1,5 +1,5 @@
 import type { Program } from '../../db/stores/programsStore'
-import { exercises } from '../../db/stores/exercisesStore'
+import { exercisesStore } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import ExerciseComponent from '../exercises/ExerciseComponent'
 import ProgramDialog from './ProgramDialog'
@@ -19,7 +19,7 @@ class ProgramComponent {
     setTextContent('.program-name', this.program.name, programItem)
 
     for (const exerciseId of this.program.exercises) {
-      const exercise = exercises.findById(exerciseId)
+      const exercise = exercisesStore.find(exerciseId)
 
       if (exercise) {
         programExericesList.appendChild(new ExerciseComponent(exercise).render())

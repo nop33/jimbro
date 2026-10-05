@@ -1,6 +1,5 @@
-import { db } from '../../db'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
-import type { Program } from '../../db/stores/programsStore'
+import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { onPageNotice } from '../../sync/pageChannel'
 import { canonical } from '../../sync/rows'
@@ -74,7 +73,7 @@ class GymtimePage {
       const sessionExerciseIds = session.exercises.map((e) => e.exerciseId)
 
       this.program.exercises = sessionExerciseIds
-      await db.programs.update(this.program)
+      await programsStore.update(this.program)
 
       ExerciseCardList.setProgramExerciseIds(sessionExerciseIds)
 

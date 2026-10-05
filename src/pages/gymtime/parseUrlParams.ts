@@ -1,5 +1,4 @@
-import { db } from '../../db'
-import type { Program } from '../../db/stores/programsStore'
+import { programsStore, type Program } from '../../db/stores/programsStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 
@@ -17,9 +16,9 @@ export const parseUrlParams = async () => {
 
   if (sessionIdParam) {
     workoutSession = await workoutSessionsStore.getWorkoutSession(sessionIdParam)
-    program = workoutSession?.programId ? await db.programs.getById(workoutSession.programId) : undefined
+    program = workoutSession?.programId ? await programsStore.getById(workoutSession.programId) : undefined
   } else if (programIdParam) {
-    program = await db.programs.getById(programIdParam)
+    program = await programsStore.getById(programIdParam)
   }
 
   if (!program) {
