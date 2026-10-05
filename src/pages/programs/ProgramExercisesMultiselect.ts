@@ -1,5 +1,6 @@
 import EventEmitter from '../../eventEmitter'
-import { exercises, muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
+import { muscleGroupLabel } from '../../db/muscleGroups'
+import { exercises, type Exercise } from '../../db/stores/exercisesStore'
 import type { ExercisesListProps } from './programTypes'
 
 type ProgramExercisesMultiselectEventMap = {

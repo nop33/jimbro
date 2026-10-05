@@ -9,8 +9,9 @@ import {
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { exportIndexedDbToJson } from '../../db/export'
-import { muscleGroupLabel } from '../../db/stores/exercisesStore'
-import { snapshotFromExercise, workoutSessionsStore, type ExerciseSnapshot } from '../../db/stores/workoutSessionsStore'
+import { muscleGroupLabel } from '../../db/muscleGroups'
+import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import type { ExerciseSnapshot } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
 import { sessions } from '../../db/stores/workoutSessionsStore'
 import { getBreakTimeSeconds } from '../../settings'

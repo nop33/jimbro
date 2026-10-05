@@ -1,6 +1,6 @@
 import { getWeekOfYear } from '../../dateUtils'
 import { db } from '../../db'
-import type { WorkoutSession } from '../../db/stores/workoutSessionsStore'
+import type { WorkoutSession } from '../../db/types'
 import { getEffectiveWorkoutsPerWeek } from '../../settings'
 
 type EmptyStateButton = 'seed' | 'restore' | 'none'

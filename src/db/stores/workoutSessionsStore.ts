@@ -1,5 +1,13 @@
 import { legacySetId, rowsFromSession, sessionFromRows } from '../../sync/rows'
-import type { ExerciseSnapshot, SessionHeader, SetRow } from '../types'
+import {
+  SESSION_STATUSES,
+  type ExerciseExecution,
+  type ExerciseSnapshot,
+  type SessionHeader,
+  type SessionStatus,
+  type SetRow,
+  type WorkoutSession
+} from '../types'
 import { OBJECT_STORES } from '../constants'
 import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
@@ -10,35 +18,7 @@ import { exercises } from './exercisesStore'
 import type { Program } from './programsStore'
 import { setsStore } from './setsStore'
 
-export type { ExerciseSetExecution } from '../exerciseLogging'
-export type { ExerciseSnapshot } from '../types'
-
-const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
-export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]
-
-export interface WorkoutSession {
-  id: string
-  date: string
-  programId: Program['id']
-  exercises: Array<ExerciseExecution>
-  location: string
-  status: PersistedWorkoutSessionStatus
-  notes?: string
-  updatedAt: string
-}
-
 export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'updatedAt'>
-
-export interface ExerciseExecution {
-  exerciseId: Exercise['id']
-  name: string
-  kind: Exercise['kind']
-  preset: Exercise['preset']
-  muscle?: Exercise['muscle']
-  targetSets: number
-  defaults: Exercise['defaults']
-  sets: Array<ExerciseSetExecution>
-}
 
 export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
   exerciseId: exercise.id,
@@ -60,7 +40,7 @@ export const placeholderSnapshot = (exerciseId: string): ExerciseSnapshot => ({
   defaults: {}
 })
 
-export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): PersistedWorkoutSessionStatus {
+export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): SessionStatus {
   if (session.exercises.length === 0) return 'incomplete'
   const allDone = session.exercises.every(({ sets, targetSets }) => sets.length >= targetSets)
   return allDone ? 'completed' : 'incomplete'
@@ -324,7 +304,7 @@ export class WorkoutSessionsStore {
   async getLatestSavedWorkoutSession(): Promise<WorkoutSession | undefined> {
     const header = await this.firstHeader(
       'prev',
-      (candidate) => !candidate.isDeleted && PERSISTED_WORKOUT_SESSION_STATUSES.includes(candidate.status)
+      (candidate) => !candidate.isDeleted && SESSION_STATUSES.includes(candidate.status)
     )
     if (!header) return undefined
     return this.assemble(header)

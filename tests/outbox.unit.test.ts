@@ -2,10 +2,12 @@ import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
-import { Storage, type OutboxEntry } from '../src/db/storage'
+import { Storage } from '../src/db/storage'
+import type { OutboxEntry } from '../src/db/write'
 import { rowKey } from '../src/sync/bootstrap'
 import { createOutbox, type PushLock, type PushRows } from '../src/sync/outbox'
-import { canonical, type Row, type SetRow } from '../src/sync/rows'
+import { canonical } from '../src/sync/rows'
+import type { Row, SetRow } from '../src/db/types'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())

@@ -1,25 +1,12 @@
 import { exportFromRows } from '../sync/rows'
-import type { ExerciseRow, ProgramRow, SessionHeader, SetRow } from './types'
+import type { ExerciseRow, ExportedFile, ProgramRow, SessionHeader, SetRow } from './types'
 import { OBJECT_STORES } from './constants'
 import { getSimpleDate } from '../dateUtils'
 import { storage } from './storage'
-import type { Exercise } from './stores/exercisesStore'
-import type { Program } from './stores/programsStore'
-import type { WorkoutSession } from './stores/workoutSessionsStore'
-
-export interface ExportData {
-  version: number
-  exportDate: string
-  stores: {
-    exercises: Array<Exercise>
-    programs: Array<Program>
-    workoutSessions: Array<WorkoutSession>
-  }
-}
 
 export const CURRENT_EXPORT_VERSION = 4
 
-export const buildExportData = async (): Promise<ExportData> => {
+export const buildExportData = async (): Promise<ExportedFile> => {
   const [exercises, programs, sessions, sets] = await Promise.all([
     storage.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES),
     storage.getAll<ProgramRow>(OBJECT_STORES.PROGRAMS),
@@ -36,7 +23,7 @@ export const buildExportData = async (): Promise<ExportData> => {
   })
 }
 
-const downloadExportDataAsFile = (data: ExportData) => {
+const downloadExportDataAsFile = (data: ExportedFile) => {
   const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

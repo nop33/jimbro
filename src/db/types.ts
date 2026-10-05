@@ -28,12 +28,15 @@ export type ExerciseSnapshot = Pick<ExerciseRow, 'name' | 'kind' | 'preset' | 'm
   exerciseId: ExerciseRow['id']
 }
 
+export const SESSION_STATUSES = ['completed', 'incomplete'] as const
+export type SessionStatus = (typeof SESSION_STATUSES)[number]
+
 export interface SessionHeader {
   id: string
   date: string
   programId: ProgramRow['id']
   location: string
-  status: 'completed' | 'incomplete'
+  status: SessionStatus
   notes?: string
   exercises: Array<ExerciseSnapshot>
   isDeleted: boolean
@@ -56,48 +59,32 @@ export type Row =
   | { table: 'sessions'; row: SessionHeader }
   | { table: 'sets'; row: SetRow }
 
-export interface NestedSession {
-  id: string
-  date: string
-  programId: string
-  location: string
-  status: SessionHeader['status']
-  notes?: string
+export type ExerciseExecution = ExerciseSnapshot & { sets: Array<ExerciseSetExecution> }
+
+// A session header joined with each exercise's live sets, in position order.
+export type WorkoutSession = Omit<SessionHeader, 'exercises' | 'isDeleted'> & { exercises: Array<ExerciseExecution> }
+
+// A session the way an export file nests it, with the sets inside each exercise.
+export type NestedSession = Omit<SessionHeader, 'exercises' | 'isDeleted'> & {
   exercises: Array<ExerciseSnapshot & { sets?: Array<ExerciseSetExecution> }>
   isDeleted?: boolean
-  updatedAt: string
 }
 
-export interface AssembledSession {
-  id: string
-  date: string
-  programId: string
-  location: string
-  status: SessionHeader['status']
-  notes?: string
-  exercises: Array<ExerciseSnapshot & { sets: Array<ExerciseSetExecution> }>
-  updatedAt: string
-}
-
-export interface ExportShape {
+interface ExportFile<Session> {
   version: number
   exportDate: string
   stores: {
     exercises: Array<ExerciseRow>
     programs: Array<ProgramRow>
-    workoutSessions: Array<NestedSession>
+    workoutSessions: Array<Session>
   }
 }
 
-export interface ExportedFile {
-  version: number
-  exportDate: string
-  stores: {
-    exercises: Array<ExerciseRow>
-    programs: Array<ProgramRow>
-    workoutSessions: Array<AssembledSession>
-  }
-}
+// What an import accepts.
+export type ExportShape = ExportFile<NestedSession>
+
+// What an export writes.
+export type ExportedFile = ExportFile<WorkoutSession>
 
 export interface RowSet {
   version: number

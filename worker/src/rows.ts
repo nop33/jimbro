@@ -1,7 +1,5 @@
 import {
   ROW_TABLES,
-  exportFromRows,
-  rowsFromExport,
   type ExerciseRow,
   type ExportShape,
   type ProgramRow,
@@ -10,10 +8,7 @@ import {
   type RowTable,
   type SessionHeader,
   type SetRow
-} from '../../src/sync/rows'
-
-export { exportFromRows, rowsFromExport }
-export type { ExportShape, Row, RowSet, RowTable }
+} from '../../src/db/types'
 
 export const ROW_LIMIT = 1000
 

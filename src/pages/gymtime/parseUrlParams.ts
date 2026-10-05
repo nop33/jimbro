@@ -1,6 +1,7 @@
 import { db } from '../../db'
 import type { Program } from '../../db/stores/programsStore'
-import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import type { WorkoutSession } from '../../db/types'
 
 export const parseUrlParams = async () => {
   const urlParams = new URLSearchParams(window.location.search)

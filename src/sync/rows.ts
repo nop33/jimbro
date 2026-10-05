@@ -1,30 +1,13 @@
 import type { ExerciseSetExecution } from '../db/exerciseLogging'
-
-export type {
-  ExerciseRow,
-  ProgramRow,
-  SessionHeader,
-  SetRow,
-  ExerciseSnapshot,
-  Row,
-  RowTable,
-  NestedSession,
-  AssembledSession,
-  ExportShape,
-  ExportedFile,
-  RowSet
-} from '../db/types'
-export { ROW_TABLES } from '../db/types'
-
 import type {
+  ExerciseSnapshot,
+  ExportedFile,
+  ExportShape,
+  NestedSession,
+  RowSet,
   SessionHeader,
   SetRow,
-  ExerciseSnapshot,
-  NestedSession,
-  AssembledSession,
-  ExportShape,
-  RowSet,
-  ExportedFile
+  WorkoutSession
 } from '../db/types'
 
 export const legacySetId = (sessionId: string, exerciseId: string, position: number) =>
@@ -79,7 +62,7 @@ export const rowsFromSession = (session: NestedSession): { header: SessionHeader
   return { header, sets }
 }
 
-export const sessionFromRows = (header: SessionHeader, sets: ReadonlyArray<SetRow>): AssembledSession => {
+export const sessionFromRows = (header: SessionHeader, sets: ReadonlyArray<SetRow>): WorkoutSession => {
   const setsByExercise = new Map<string, Array<ExerciseSetExecution>>()
   const live = sets.filter((set) => !set.isDeleted).sort((left, right) => left.position - right.position)
   for (const set of live) {
@@ -88,7 +71,7 @@ export const sessionFromRows = (header: SessionHeader, sets: ReadonlyArray<SetRo
     else setsByExercise.set(set.exerciseId, [set.set])
   }
 
-  const session: AssembledSession = {
+  const session: WorkoutSession = {
     id: header.id,
     date: header.date,
     programId: header.programId,

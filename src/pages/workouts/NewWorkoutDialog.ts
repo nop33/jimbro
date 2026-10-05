@@ -1,6 +1,7 @@
 import { daysAgo, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
 import { db } from '../../db'
-import { workoutSessionsStore, type WorkoutSession } from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import type { WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 
 class NewWorkoutDialog {

@@ -13,7 +13,7 @@ import {
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, type MuscleGroup } from './muscleGroups'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
-import type { ExerciseExecution, WorkoutSession } from './stores/workoutSessionsStore'
+import type { ExerciseExecution, WorkoutSession } from './types'
 
 const LABEL_TO_SLUG = Object.fromEntries(
   (Object.entries(MUSCLE_GROUP_LABELS) as Array<[MuscleGroup, string]>).map(([slug, label]) => [label, slug])
