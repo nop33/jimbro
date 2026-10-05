@@ -3,6 +3,8 @@ import { storage } from '../db/storage'
 import { planBootstrap, rowKey } from './bootstrap'
 import { outbox, type PushRows } from './outbox'
 import { announce } from './pageChannel'
+import { commitFirstSync, commitPullPage, readFirstSyncSnapshot, rowFromWire } from './pull'
+import { getMeta } from './queue'
 import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
 import type { Row } from '../db/types'
 
@@ -37,19 +39,6 @@ const pullPage = async (cursor: number): Promise<PullPage> => {
   return (await response.json()) as PullPage
 }
 
-const bodyOf = (entry: Row & { rev: number }): Row => {
-  switch (entry.table) {
-    case 'exercises':
-      return { table: 'exercises', row: entry.row }
-    case 'programs':
-      return { table: 'programs', row: entry.row }
-    case 'sessions':
-      return { table: 'sessions', row: entry.row }
-    case 'sets':
-      return { table: 'sets', row: entry.row }
-  }
-}
-
 const notifyOpenSession = (rows: readonly Row[]) => {
   const sessionId = new URLSearchParams(window.location.search).get('id')
   if (!sessionId) return
@@ -78,7 +67,7 @@ const pushToServer: PushRows = async (rows) => {
 }
 
 const firstSync = async () => {
-  const snapshot = await storage.readFirstSyncSnapshot()
+  const snapshot = await readFirstSyncSnapshot(storage)
   const pulled: Row[] = []
   let cursor = 0
   let more = true
@@ -86,7 +75,7 @@ const firstSync = async () => {
   while (more) {
     const page = await pullPage(cursor)
     if (cursor === 0) importedExportDate = page.importedExportDate ?? null
-    for (const entry of page.rows) pulled.push(bodyOf(entry))
+    for (const entry of page.rows) pulled.push(rowFromWire(entry))
     cursor = page.cursor
     more = page.more
     if (page.rows.length === 0) break
@@ -96,7 +85,7 @@ const firstSync = async () => {
   const isSnapshotWriter = Boolean(lastDate && importedExportDate && lastDate >= importedExportDate)
   const actions = planBootstrap(snapshot.rows, pulled, isSnapshotWriter)
   const pulledByKey = new Map(pulled.map((row) => [rowKey(row), row]))
-  await storage.commitFirstSync({
+  await commitFirstSync(storage, {
     seqAtStart: snapshot.seq,
     cursor,
     actions,
@@ -112,7 +101,7 @@ const steadySync = async (start: number) => {
   let more = true
   while (more) {
     const page = await pullPage(cursor)
-    notifyOpenSession(await storage.commitPullPage(page.rows, page.cursor))
+    notifyOpenSession(await commitPullPage(storage, page.rows, page.cursor))
     cursor = page.cursor
     more = page.more
     if (page.rows.length === 0) break
@@ -120,8 +109,8 @@ const steadySync = async (start: number) => {
 }
 
 const runSync = async () => {
-  const cursor = await storage.getMeta('cursor')
-  const bootstrapped = await storage.getMeta('bootstrapped')
+  const cursor = await getMeta(storage, 'cursor')
+  const bootstrapped = await getMeta(storage, 'bootstrapped')
   if (cursor === 0 && bootstrapped === 0) await firstSync()
   else await steadySync(cursor)
 }

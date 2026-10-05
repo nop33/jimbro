@@ -1,7 +1,6 @@
 import { getCloudBackupConfig, storeCloudBackupConfig } from '../../db/cloudBackup'
-import { OBJECT_STORES } from '../../db/constants'
-import { storage } from '../../db/storage'
 import Toasts from '../../features/toasts'
+import { outbox } from '../../sync/outbox'
 import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
 import { getLastSyncAt, isImportRequired } from '../../sync/status'
@@ -47,7 +46,7 @@ class CloudBackup {
       return
     }
 
-    const pending = await storage.count(OBJECT_STORES.OUTBOX)
+    const pending = await outbox.pending()
     const lastSync = getLastSyncAt()
     if (!lastSync) {
       this.summaryStatus.textContent = `${pending} pending`

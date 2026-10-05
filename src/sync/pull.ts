@@ -1,22 +1,22 @@
-import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
-import { announce } from '../sync/pageChannel'
-import { canonical, rowsEqual } from '../sync/rows'
-import type { ExerciseRow, ProgramRow, Row, RowTable, SessionHeader, SetRow } from './types'
-import { OBJECT_STORES } from './constants'
-import { type DatabaseConnection, STORE_FOR_TABLE, cloneForIdb } from './connection'
+import { OBJECT_STORES } from '../db/constants'
+import { STORE_FOR_TABLE, cloneForIdb, mergeSetGroups, putRow, type Storage } from '../db/storage'
+import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../db/types'
+import { rowKey, splitRowKey, type BootstrapAction } from './bootstrap'
+import type { MetaRecord, OutboxEntry } from './queue'
+import { canonical, rowsEqual } from './rows'
 
-export interface OutboxEntry {
-  key: string
-  table: RowTable
-  id: string
-  seq: number
-  inflightSeq?: number
-  inflightCanonical?: string
-}
-
-interface MetaRecord {
-  name: 'cursor' | 'seq' | 'bootstrapped'
-  value: number
+// A pulled entry without its revision.
+export const rowFromWire = (entry: Row & { rev: number }): Row => {
+  switch (entry.table) {
+    case 'exercises':
+      return { table: 'exercises', row: entry.row }
+    case 'programs':
+      return { table: 'programs', row: entry.row }
+    case 'sessions':
+      return { table: 'sessions', row: entry.row }
+    case 'sets':
+      return { table: 'sets', row: entry.row }
+  }
 }
 
 const serverStillHasPushedBody = (entry: OutboxEntry | undefined, pulled: Row) =>
@@ -43,118 +43,8 @@ const syncSetGroups = (tx: IDBTransaction, kept: Array<SetRow>, droppedBySession
   }
 }
 
-const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
-  if (sets.length === 0) return
-  const bySession = new Map<string, Array<SetRow>>()
-  for (const set of sets) {
-    const list = bySession.get(set.sessionId) ?? []
-    list.push(cloneForIdb(set))
-    bySession.set(set.sessionId, list)
-  }
-  const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
-  for (const [sessionId, rows] of bySession) {
-    const request = groupStore.get(sessionId)
-    request.onsuccess = () => {
-      const current = (request.result?.sets ?? []) as Array<SetRow>
-      const merged = new Map(current.map((set) => [set.id, set]))
-      for (const row of rows) merged.set(row.id, row)
-      groupStore.put({ sessionId, sets: [...merged.values()] })
-    }
-  }
-}
-
-const putRow = (tx: IDBTransaction, row: Row) => {
-  tx.objectStore(STORE_FOR_TABLE[row.table]).put(cloneForIdb(row.row))
-}
-
-const rowFromWire = (entry: Row & { rev: number }): Row => {
-  switch (entry.table) {
-    case 'exercises':
-      return { table: 'exercises', row: entry.row }
-    case 'programs':
-      return { table: 'programs', row: entry.row }
-    case 'sessions':
-      return { table: 'sessions', row: entry.row }
-    case 'sets':
-      return { table: 'sets', row: entry.row }
-  }
-}
-
-export async function writeRows(connection: DatabaseConnection, writes: Array<Row>): Promise<void> {
-  if (writes.length === 0) return
-  const db = await connection.getDatabase()
-  const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
-  storeNames.push(OBJECT_STORES.OUTBOX, OBJECT_STORES.META)
-  const setWrites = writes.filter((write): write is { table: 'sets'; row: SetRow } => write.table === 'sets')
-  if (setWrites.length > 0) storeNames.push(OBJECT_STORES.SET_GROUPS)
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(storeNames, 'readwrite')
-    let settled = false
-    const fail = (error: unknown) => {
-      if (settled) return
-      settled = true
-      try {
-        tx.abort()
-      } catch {
-        // The transaction already finished.
-      }
-      reject(error)
-    }
-    tx.oncomplete = () => {
-      if (settled) return
-      settled = true
-      resolve()
-    }
-    tx.onerror = () => fail(tx.error ?? new Error('writeRows failed'))
-    tx.onabort = () => fail(tx.error ?? new Error('writeRows aborted'))
-    try {
-      for (const write of writes) putRow(tx, write)
-      mergeSetGroups(
-        tx,
-        setWrites.map((write) => write.row)
-      )
-      const seqRequest = tx.objectStore(OBJECT_STORES.META).get('seq')
-      seqRequest.onsuccess = () => {
-        if (settled) return
-        let seq = (seqRequest.result as MetaRecord | undefined)?.value ?? 0
-        const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
-        const queued = writes.map((write) => {
-          seq += 1
-          return { write, seq, prior: outbox.get(rowKey(write)) }
-        })
-        tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
-        for (const item of queued) {
-          item.prior.onsuccess = () => {
-            const current = item.prior.result as OutboxEntry | undefined
-            const next: OutboxEntry = {
-              key: rowKey(item.write),
-              table: item.write.table,
-              id: item.write.row.id,
-              seq: item.seq
-            }
-            if (current?.inflightSeq !== undefined && current.inflightCanonical !== undefined) {
-              next.inflightSeq = current.inflightSeq
-              next.inflightCanonical = current.inflightCanonical
-            }
-            outbox.put(next)
-          }
-        }
-      }
-    } catch (error) {
-      fail(error)
-    }
-  })
-  window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
-  announce('rows-written')
-}
-
-export async function getMeta(connection: DatabaseConnection, name: MetaRecord['name']): Promise<number> {
-  const record = await connection.get<MetaRecord>(OBJECT_STORES.META, name)
-  return record?.value ?? 0
-}
-
-export async function readFirstSyncSnapshot(connection: DatabaseConnection): Promise<{ seq: number; rows: Row[] }> {
-  const db = await connection.getDatabase()
+export async function readFirstSyncSnapshot(storage: Storage): Promise<{ seq: number; rows: Row[] }> {
+  const db = await storage.connection()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(
       [
@@ -185,7 +75,7 @@ export async function readFirstSyncSnapshot(connection: DatabaseConnection): Pro
 }
 
 export async function commitFirstSync(
-  connection: DatabaseConnection,
+  storage: Storage,
   input: {
     seqAtStart: number
     cursor: number
@@ -193,7 +83,7 @@ export async function commitFirstSync(
     pulledByKey: Map<string, Row>
   }
 ): Promise<void> {
-  const db = await connection.getDatabase()
+  const db = await storage.connection()
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(
       [
@@ -284,11 +174,11 @@ export async function commitFirstSync(
 // Resolves to the rows it stored. A steady sync pulls back the rows it just pushed, and another
 // tab's rows are already in this shared database, so a row equal to the stored one is skipped.
 export async function commitPullPage(
-  connection: DatabaseConnection,
+  storage: Storage,
   page: Array<Row & { rev: number }>,
   cursor: number
 ): Promise<Row[]> {
-  const db = await connection.getDatabase()
+  const db = await storage.connection()
   const written: Row[] = []
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(

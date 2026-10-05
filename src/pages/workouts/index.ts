@@ -2,6 +2,7 @@ import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
+import { getMeta } from '../../sync/queue'
 import { sync } from '../../sync/syncClient'
 import { isImportRequired } from '../../sync/status'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
@@ -30,8 +31,8 @@ const _isDbEmpty = await isDbEmpty()
 const canRestore =
   _isDbEmpty &&
   getCloudBackupConfig() !== null &&
-  (await storage.getMeta('cursor')) === 0 &&
-  (await storage.getMeta('bootstrapped')) === 0
+  (await getMeta(storage, 'cursor')) === 0 &&
+  (await getMeta(storage, 'bootstrapped')) === 0
 const settings = getWorkoutModeSettings()
 const programCount = Object.keys(programNames).length
 const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)

@@ -139,7 +139,8 @@ const outbox = (page: Page) =>
 const cursorOf = (page: Page) =>
   page.evaluate(async () => {
     const db = await import('/src/db/storage.ts')
-    return db.storage.getMeta('cursor')
+    const { getMeta } = await import('/src/sync/queue.ts')
+    return getMeta(db.storage, 'cursor')
   })
 
 const localStores = (page: Page) =>
