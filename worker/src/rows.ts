@@ -1,5 +1,8 @@
+import { EXERCISE_KINDS, parseLogPreset, slotsForPreset } from '../../src/db/exerciseLogging'
+import { MUSCLE_GROUPS } from '../../src/db/muscleGroups'
 import {
   ROW_TABLES,
+  SESSION_STATUSES,
   type ExerciseRow,
   type ExportShape,
   type ProgramRow,
@@ -11,23 +14,6 @@ import {
 } from '../../src/db/types'
 
 export const ROW_LIMIT = 1000
-
-const KINDS = new Set(['lifting', 'rehab', 'cardio'])
-const PRESETS = new Set(['lifting', 'rehabReps', 'rehabHold', 'cardioTreadmill'])
-const MUSCLES = new Set([
-  'quads',
-  'calves',
-  'hamstrings',
-  'glutes',
-  'chest',
-  'biceps',
-  'triceps',
-  'shoulders',
-  'traps',
-  'back',
-  'core'
-])
-const STATUSES = new Set(['completed', 'incomplete'])
 
 const MAX_REV = `SELECT COALESCE(MAX(rev), 0) AS rev FROM (
   SELECT MAX(rev) AS rev FROM exercises WHERE user_id = ?1
@@ -100,7 +86,20 @@ const isBoolean = (value: unknown): value is boolean => typeof value === 'boolea
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 
+const isOneOf =
+  (list: ReadonlyArray<string>) =>
+  (value: unknown): boolean =>
+    isString(value) && list.includes(value)
+
 const isRowTable = (value: string): value is RowTable => (ROW_TABLES as readonly string[]).includes(value)
+
+const isKind = isOneOf(EXERCISE_KINDS)
+
+const isPreset = (value: unknown): boolean => parseLogPreset(value) !== undefined
+
+const isMuscle = isOneOf(MUSCLE_GROUPS)
+
+const isStatus = isOneOf(SESSION_STATUSES)
 
 const isDefaults = (value: unknown) => isRecord(value) && Object.values(value).every((item) => isFiniteNumber(item))
 
@@ -108,23 +107,20 @@ const isSnapshot = (value: unknown) => {
   if (!isRecord(value)) return false
   if (!isString(value.exerciseId) || value.exerciseId === '') return false
   if (!isString(value.name)) return false
-  if (!isString(value.kind) || !KINDS.has(value.kind)) return false
-  if (!isString(value.preset) || !PRESETS.has(value.preset)) return false
-  if (value.muscle !== undefined && (!isString(value.muscle) || !MUSCLES.has(value.muscle))) return false
+  if (!isKind(value.kind) || !isPreset(value.preset)) return false
+  if (value.muscle !== undefined && !isMuscle(value.muscle)) return false
   if (!isFiniteNumber(value.targetSets) || !isDefaults(value.defaults)) return false
   return true
 }
 
+// A set holds a finite number in every slot its preset requires, and in each optional slot it fills.
 const isSetExecution = (value: unknown) => {
-  if (!isRecord(value) || !isString(value.preset)) return false
-  const weightOk = value.weight === undefined || isFiniteNumber(value.weight)
-  if (value.preset === 'lifting') return isFiniteNumber(value.reps) && isFiniteNumber(value.weight)
-  if (value.preset === 'rehabReps') return isFiniteNumber(value.reps) && weightOk
-  if (value.preset === 'rehabHold') return isFiniteNumber(value.durationSec) && weightOk
-  if (value.preset === 'cardioTreadmill') {
-    return isFiniteNumber(value.durationSec) && isFiniteNumber(value.speed) && isFiniteNumber(value.incline)
-  }
-  return false
+  if (!isRecord(value)) return false
+  const preset = parseLogPreset(value.preset)
+  if (!preset) return false
+  return slotsForPreset(preset).every(
+    ({ slot, required }) => isFiniteNumber(value[slot]) || (!required && value[slot] === undefined)
+  )
 }
 
 const isExercise = (row: unknown): row is ExerciseRow =>
@@ -132,11 +128,9 @@ const isExercise = (row: unknown): row is ExerciseRow =>
   isString(row.id) &&
   row.id !== '' &&
   isString(row.name) &&
-  isString(row.kind) &&
-  KINDS.has(row.kind) &&
-  isString(row.preset) &&
-  PRESETS.has(row.preset) &&
-  (row.muscle === undefined || (isString(row.muscle) && MUSCLES.has(row.muscle))) &&
+  isKind(row.kind) &&
+  isPreset(row.preset) &&
+  (row.muscle === undefined || isMuscle(row.muscle)) &&
   isFiniteNumber(row.targetSets) &&
   isDefaults(row.defaults) &&
   isBoolean(row.isDeleted) &&
@@ -159,8 +153,7 @@ const isSession = (row: unknown): row is SessionHeader =>
   isString(row.date) &&
   isString(row.programId) &&
   isString(row.location) &&
-  isString(row.status) &&
-  STATUSES.has(row.status) &&
+  isStatus(row.status) &&
   (row.notes === undefined || isString(row.notes)) &&
   Array.isArray(row.exercises) &&
   row.exercises.every((exercise) => isSnapshot(exercise)) &&
