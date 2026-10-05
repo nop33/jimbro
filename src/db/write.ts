@@ -1,13 +1,13 @@
 import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
 import { announce } from '../sync/pageChannel'
 import { canonical, rowsEqual } from '../sync/rows'
-import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from './types'
+import type { ExerciseRow, ProgramRow, Row, RowTable, SessionHeader, SetRow } from './types'
 import { OBJECT_STORES } from './constants'
 import { type DatabaseConnection, STORE_FOR_TABLE, cloneForIdb } from './connection'
 
 export interface OutboxEntry {
   key: string
-  table: 'exercises' | 'programs' | 'sessions' | 'sets'
+  table: RowTable
   id: string
   seq: number
   inflightSeq?: number
@@ -281,6 +281,8 @@ export async function commitFirstSync(
   })
 }
 
+// Resolves to the rows it stored. A steady sync pulls back the rows it just pushed, and another
+// tab's rows are already in this shared database, so a row equal to the stored one is skipped.
 export async function commitPullPage(
   connection: DatabaseConnection,
   page: Array<Row & { rev: number }>,
