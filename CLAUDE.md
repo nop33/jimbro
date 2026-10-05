@@ -65,7 +65,7 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 - `cloudBackup.ts` keeps the credentials in localStorage and sends requests with the bearer token to `VITE_API_BASE`.
 - `reactiveStore.ts` is a small generic `ReactiveStore<T>` (get/set/update/subscribe) used by the stores.
 
-**Dates are stored as ISO strings**, not `Date` objects. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' lists leave deleted rows out, while import and export read every row through `storage.getAll`.
+**Dates are stored as strings**, not `Date` objects. Timestamps such as `updatedAt` are full ISO strings. A session's `date` is a calendar day, `YYYY-MM-DD`, in the user's time zone: `getSimpleDate` in `src/dateUtils.ts` makes one and `parseSimpleDate` reads one, since `toISOString()` and `new Date('2026-03-15')` both work in UTC and land on the wrong day away from it. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' lists leave deleted rows out, while import and export read every row through `storage.getAll`.
 
 ### Sync (`src/sync/`)
 
@@ -127,6 +127,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
 | A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
 | Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |
+| Calendar dates never come from `toISOString()`                                                           | `tests/architecture.unit.test.ts`                                                                   |
 | Code is formatted                                                                                        | `vp check`, which `vp staged` runs on each commit                                                   |
 
 Everything else in this file is a convention that only review catches. When a review corrects a mistake that no check covers, add a check that fails on that mistake and a row here in the same change. Drop a row once its mistake can no longer be written.

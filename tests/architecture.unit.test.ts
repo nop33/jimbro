@@ -55,4 +55,18 @@ describe('architecture', () => {
       })
     expect(found).toEqual([])
   })
+
+  it('takes calendar dates from local time, never from toISOString', () => {
+    // toISOString() is UTC, so away from UTC its date is a day off for part of every day. f9d3364 fixed the
+    // workout form's default date for that.
+    const utcDay =
+      /toISOString\(\)\s*\.\s*(?:split\(\s*['"]T['"]|slice\(\s*0\s*,\s*10\s*\)|substr(?:ing)?\(\s*0\s*,\s*10\s*\))/
+    const found = sourceFiles('src')
+      .filter((file) => utcDay.test(readFileSync(path.join(root, file), 'utf8')))
+      .map(
+        (file) =>
+          `${file} takes a date from toISOString(), which is UTC. Use getSimpleDate from src/dateUtils.ts for today, and parseSimpleDate to read a stored date.`
+      )
+    expect(found).toEqual([])
+  })
 })
