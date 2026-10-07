@@ -3,7 +3,7 @@ import Toasts from '../../features/toasts'
 import { outbox } from '../../sync/outbox'
 import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
-import { getLastSyncAt, isImportRequired } from '../../sync/status'
+import { getLastSyncAt } from '../../sync/status'
 
 class CloudBackup {
   private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
@@ -35,11 +35,6 @@ class CloudBackup {
   }
 
   private static async updateSummaryStatus() {
-    if (isImportRequired()) {
-      this.summaryStatus.textContent = 'Cloud import has not been run yet'
-      return
-    }
-
     const config = getCloudBackupConfig()
     if (!config) {
       this.summaryStatus.textContent = 'Not set up yet'

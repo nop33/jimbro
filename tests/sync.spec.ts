@@ -3,7 +3,7 @@ import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { rowsFromExport } from '../src/sync/rows'
 import type { ExportShape, Row } from '../src/db/types'
-import { API_BASE, claimUser, putR2Object, type WorkerUser } from './localWorker'
+import { API_BASE, claimUser, type WorkerUser } from './localWorker'
 
 const fixturePath = path.join(import.meta.dirname, '..', 'worker', 'test', 'fixtures', 'latest-v4.json')
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as ExportShape
@@ -100,14 +100,6 @@ const seedFixture = async (user: WorkerUser) => {
   for (let start = 0; start < rows.length; start += ROW_LIMIT) {
     await pushRows(user.token, rows.slice(start, start + ROW_LIMIT))
   }
-}
-
-const putLatest = (userId: string) => putR2Object(`jimbro-backups/users/${userId}/latest.json`, fixturePath)
-
-const importFixture = async (user: WorkerUser) => {
-  await putLatest(user.userId)
-  const response = await fetch(`${API_BASE}/api/import-r2`, { method: 'POST', headers: authHeaders(user.token) })
-  if (!response.ok) throw new Error(`import ${user.userId} ${response.status} ${await response.text()}`)
 }
 
 const signIn = async (page: Page, user: WorkerUser) => {
@@ -207,29 +199,9 @@ test('wipe and restore matches the server export', async ({ page }) => {
   expect(local).toEqual(remote)
 })
 
-test('a snapshot writer pushes a differing local set', async ({ page }) => {
+test('a first sync keeps the server set and pushes nothing for it', async ({ page }) => {
   const user = claimUser()
-  await importFixture(user)
-  const original = await liftingSet(user.token)
-  const edited = { ...original, set: { ...original.set, weight: original.set.weight + 5 } }
-  const pushes: string[] = []
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
-  })
-  await signIn(page, user)
-  const laterThanImport = new Date(Date.parse(fixture.exportDate) + 1000).toISOString()
-  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), laterThanImport)
-  await writeSet(page, edited)
-  await runSync(page)
-  expect(pushes.some((body) => body.includes(edited.id))).toBe(true)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === edited.id)
-  if (!stored || stored.table !== 'sets') throw new Error('missing writer set')
-  expect((stored.row.set as SetExecution).weight).toBe(edited.set.weight)
-})
-
-test('another browser keeps the server set and pushes nothing for it', async ({ page }) => {
-  const user = claimUser()
-  await importFixture(user)
+  await seedFixture(user)
   const original = await liftingSet(user.token)
   const edited = { ...original, set: { ...original.set, weight: original.set.weight + 9 } }
   const pushes: string[] = []
@@ -237,7 +209,6 @@ test('another browser keeps the server set and pushes nothing for it', async ({ 
     if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
   })
   await signIn(page, user)
-  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2020-01-01T00:00:00.000Z')
   await writeSet(page, edited)
   await runSync(page)
   expect(pushes.some((body) => body.includes(edited.id))).toBe(false)
@@ -266,12 +237,12 @@ test('a local-only set reaches D1', async ({ page }) => {
   expect((stored.row.set as SetExecution).weight).toBe(42)
 })
 
-test('every local row reaches D1 when the user has no cloud snapshot', async ({ page }) => {
+test('every local row reaches D1 when the server has no rows yet', async ({ page }) => {
   const user = claimUser()
   const set: SetBody = {
-    id: 'nocloud-set',
-    sessionId: 'nocloud-session',
-    exerciseId: 'nocloud-exercise',
+    id: 'empty-server-set',
+    sessionId: 'empty-server-session',
+    exerciseId: 'empty-server-exercise',
     position: 0,
     set: { preset: 'lifting', reps: 8, weight: 15 },
     isDeleted: false,
@@ -281,9 +252,8 @@ test('every local row reaches D1 when the user has no cloud snapshot', async ({ 
   await writeSet(page, set)
   await runSync(page)
   const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
-  if (!stored || stored.table !== 'sets') throw new Error('missing no-cloud set')
+  if (!stored || stored.table !== 'sets') throw new Error('missing empty-server set')
   expect((stored.row.set as SetExecution).weight).toBe(15)
-  await expect(page.locator('#cloud-summary-status')).not.toHaveText('Cloud import has not been run yet')
 })
 
 test('a crash after the first pull page converges with an uninterrupted sync', async ({ page, browser }) => {
@@ -367,26 +337,6 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   for (const id of logged.setIds) {
     expect(stored.some((row) => row.row.id === id)).toBe(true)
   }
-})
-
-test('settings reports import_required and keeps the outbox', async ({ page }) => {
-  const user = claimUser()
-  await putLatest(user.userId)
-  const set: SetBody = {
-    id: 'gate-set',
-    sessionId: 'gate-session',
-    exerciseId: 'gate-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 5, weight: 12 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  await signIn(page, user)
-  await writeSet(page, set)
-  await page.reload()
-  await expect(page.locator('#cloud-summary-status')).toHaveText('Cloud import has not been run yet')
-  const queued = await outbox(page)
-  expect(queued.some((entry) => entry.id === set.id)).toBe(true)
 })
 
 test('a later edit survives the second sync after an empty server accepted the first push', async ({ page }) => {
@@ -510,7 +460,7 @@ test('a push already on the wire is not the last write after another page edits'
   await other.close()
 })
 
-test('a non-writer does not keep a set whose exercise left with the server header', async ({ page }) => {
+test('a first sync does not keep a set whose exercise left with the server header', async ({ page }) => {
   const user = claimUser()
   const snapshot = {
     exerciseId: 'exercise-a',
@@ -550,7 +500,6 @@ test('a non-writer does not keep a set whose exercise left with the server heade
     { table: 'sets', row: kept }
   ])
   await signIn(page, user)
-  await page.evaluate((iso) => localStorage.setItem('jimbro.cloudBackup.lastDate', iso), '2020-01-01T00:00:00.000Z')
   await page.evaluate(
     async ({ serverHeader, extra }) => {
       const db = await import('/src/db/storage.ts')
@@ -583,24 +532,6 @@ test('a non-writer does not keep a set whose exercise left with the server heade
   const rows = await pullAll(user.token)
   expect(rows.some((row) => row.row.id === hidden.id)).toBe(false)
   expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
-})
-
-test('a restore before import stays on the page', async ({ page }) => {
-  const user = claimUser()
-  await page.route('**/api/pull**', (route) =>
-    route.fulfill({
-      status: 409,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'import_required' })
-    })
-  )
-  await signIn(page, user)
-  await page.goto('/workouts/')
-  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
-  await page.getByRole('button', { name: 'Restore from cloud' }).click()
-  await expect(page.locator('.toast-message-popup')).toHaveText('Cloud import has not been run yet.')
-  await expect(page).toHaveURL(/\/workouts/)
-  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
 })
 
 test('a failed restore stays on the page', async ({ page }) => {
