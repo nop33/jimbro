@@ -1,6 +1,7 @@
 import '../../style.css'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import ExerciseList from '../exercises/ExerciseList'
+import AddExerciseDialog from './AddExerciseDialog'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import GymtimePage from './GymtimePage'
@@ -14,7 +15,7 @@ await exercisesStore.load()
 
 EditSetDialog.init()
 BreakTimerDialog.init()
-ExerciseList.init()
+ExerciseList.init((exercise) => AddExerciseDialog.pick(exercise))
 ExerciseHistoryChart.init()
 LastSetDialog.init()
 GymtimePage.start()

@@ -52,12 +52,6 @@ class ExerciseDialog {
     this.exerciseKindSelect.addEventListener('change', () => this.onKindChanged())
     this.exercisePresetSelect.addEventListener('change', () => this.renderPresetFields())
 
-    window.addEventListener('exercise-clicked', (e) => {
-      const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
-      this.populateForm(exercise)
-      this.openDialog()
-    })
-
     this.newExerciseButton.addEventListener('click', () => {
       this.populateForm()
       this.openDialog()

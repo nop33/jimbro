@@ -123,7 +123,7 @@ Sync is optional. Without credentials the app sends nothing to the worker.
 - A sync pushes the outbox to the worker in chunks of 500 rows. Then it pulls pages of up to 1000 rows above the device's cursor, which is the highest server revision the device has seen. A pulled row never replaces a row that still has changes waiting in the outbox.
 - The worker gives each changed row the next revision number of that user, so a pull returns only what changed.
 - A database that has never synced, after a fresh install or a reset, runs a first sync instead. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs.
-- Tabs share one database. They tell each other about writes and finished syncs over a BroadcastChannel, and a Web Lock lets one tab push at a time.
+- Tabs share one database. Each tab announces its writes, finished syncs and pulled workout changes to the others over a BroadcastChannel, and a Web Lock lets one tab push at a time.
 
 ## Worker API
 
@@ -233,7 +233,7 @@ src/
     pull.ts            The first-sync commit and the commit of each pulled page
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
-    pageChannel.ts     Notices between tabs over a BroadcastChannel
+    pageChannel.ts     Page notices for this tab and, over a BroadcastChannel, the other tabs
     status.ts          Last sync time
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback

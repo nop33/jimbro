@@ -5,8 +5,10 @@ import MuscleGroupSelect from './MuscleGroupSelect'
 class ExerciseList {
   private static exercisesGrid = document.querySelector('#exercises-grid') as HTMLDivElement
   private static muscleFilter: MuscleGroupSelect | null = null
+  private static onExerciseClicked: (exercise: Exercise) => void = () => {}
 
-  static init() {
+  static init(onExerciseClicked: (exercise: Exercise) => void) {
+    this.onExerciseClicked = onExerciseClicked
     this.renderMuscleGroupExercises(exercisesStore.all, 'All')
     this.renderMuscleFilter()
 
@@ -18,7 +20,9 @@ class ExerciseList {
   static renderMuscleGroupExercises(exercises: Array<Exercise>, muscleGroup: string) {
     const filteredExercises = this.filterExercises(exercises, muscleGroup)
     this.exercisesGrid.innerHTML = ''
-    this.exercisesGrid.append(...filteredExercises.map((exercise) => new ExerciseComponent(exercise).render()))
+    this.exercisesGrid.append(
+      ...filteredExercises.map((exercise) => new ExerciseComponent(exercise, this.onExerciseClicked).render())
+    )
   }
 
   private static renderMuscleFilter() {
