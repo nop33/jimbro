@@ -86,6 +86,7 @@ test.describe('Programs Page', () => {
 
     await page.goto('/programs/')
     await page.getByRole('button', { name: 'New' }).click()
+    await expect(page.locator('dialog#program-dialog')).toBeVisible()
     const picker = page.locator('#exercises-selection')
     await expect(picker.locator('option', { hasText: 'Bench' })).toHaveText(name)
     await expect(picker.locator('img')).toHaveCount(0)

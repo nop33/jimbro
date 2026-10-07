@@ -124,7 +124,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
 | `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
 | `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them               | The worker typecheck, which has no DOM types                                                        |
-| Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                | `tests/architecture.unit.test.ts` fails on `innerHTML` or `outerHTML` set from a value              |
+| Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                | `tests/architecture.unit.test.ts` fails on HTML built from a value                                  |
 | The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
 | A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
 | Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |
