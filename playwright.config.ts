@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 import { API_BASE } from './tests/localWorker'
-import { PREVIEW_PORT, PREVIEW_URL } from './tests/preview'
+import { PREVIEW_HOST, PREVIEW_PORT, PREVIEW_URL } from './tests/preview'
 
 export default defineConfig({
   testDir: './tests',
@@ -45,7 +45,7 @@ export default defineConfig({
     },
     {
       // The service worker exists only in a build, so tests/offline.spec.ts runs against the preview server.
-      command: `vp build && vp preview --port ${PREVIEW_PORT} --strictPort`,
+      command: `vp build && vp preview --host ${PREVIEW_HOST} --port ${PREVIEW_PORT} --strictPort`,
       url: PREVIEW_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

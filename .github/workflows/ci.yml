@@ -93,7 +93,11 @@ jobs:
     runs-on: ubuntu-latest
     # The Playwright image of the installed version ships its browsers and the system packages they need. Installing
     # them on the runner with `playwright install --with-deps` sometimes ran into the timeout below.
-    container: mcr.microsoft.com/playwright:v${{ needs.install.outputs.playwright }}-noble
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.install.outputs.playwright }}-noble
+      # The job's own PID 1 is `tail`, which never reaps the processes a stopped wrangler leaves behind, so the test
+      # worker's teardown would wait out its timeout. --init runs a PID 1 that reaps them.
+      options: --init
     timeout-minutes: 20
     strategy:
       fail-fast: false
