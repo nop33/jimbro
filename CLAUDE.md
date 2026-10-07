@@ -85,7 +85,7 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 
 ### Event emitter (`src/eventEmitter.ts`)
 
-Generic `EventEmitter<EventMap>` extending `EventTarget`, used for typed custom events, as the programs page's exercise multiselect and sortable list do. Between modules, prefer it or a store's `subscribe` over ad-hoc DOM events.
+Generic `EventEmitter<EventMap>` extending `EventTarget`, used for typed custom events, as the programs page's exercise multiselect and sortable list do. Between modules, use it, a callback or a store's `subscribe`, not an ad-hoc DOM event.
 
 ### Pages (`src/pages/<route>/`)
 
@@ -120,6 +120,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Write rows only through `storage.writeRows`, which queues each one for the push in the same transaction  | `tests/architecture.unit.test.ts` fails on any other readwrite transaction outside `src/sync`       |
 | Only `src/sync` reads or writes the `outbox` and `meta` stores                                           | `tests/architecture.unit.test.ts`                                                                   |
+| Notices go to every tab via `announce` and `onPageNotice`, other events via callbacks or `EventEmitter`  | `tests/architecture.unit.test.ts`                                                                   |
 | Import each symbol from the module that declares it, never through a re-export                           | `tests/architecture.unit.test.ts`                                                                   |
 | No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
 | `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
