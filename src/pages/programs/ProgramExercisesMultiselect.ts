@@ -36,17 +36,19 @@ class ProgramExercisesMultiselect extends EventEmitter<ProgramExercisesMultisele
       groupMap.get(group)!.push(exercise)
     }
 
-    this.exercisesSelection.innerHTML = Array.from(groupMap.entries())
-      .map(([group, exercises]) => {
-        const options = exercises
-          .map((exercise) => {
+    this.exercisesSelection.replaceChildren(
+      ...Array.from(groupMap.entries()).map(([group, exercises]) => {
+        const optgroup = document.createElement('optgroup')
+        optgroup.label = group
+        optgroup.append(
+          ...exercises.map((exercise) => {
             const isSelected = selectedExercises.has(exercise.id)
-            return `<option class="multiselect-option" value="${exercise.id}"${isSelected ? ' selected' : ''}>${exercise.name}</option>`
+            return new Option(exercise.name, exercise.id, isSelected, isSelected)
           })
-          .join('')
-        return `<optgroup label="${group}">${options}</optgroup>`
+        )
+        return optgroup
       })
-      .join('')
+    )
   }
 }
 

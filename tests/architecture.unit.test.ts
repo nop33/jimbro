@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
 import { describe, expect, it } from 'vite-plus/test'
 
 const root = path.resolve(import.meta.dirname, '..')
@@ -20,6 +21,39 @@ describe('architecture', () => {
           `${file} re-exports from '${from}'. Import from '${from}' where it is used and delete the re-export.`
       )
     )
+    expect(found).toEqual([])
+  })
+
+  it('builds HTML only from fixed markup', () => {
+    // innerHTML parses what it gets, so an exercise name typed, imported or synced in runs as markup. df6d559 fixed
+    // that in the toast and the gymtime error page, and missed the program exercise picker.
+    const isFixed = (node: ts.Node | undefined) =>
+      node !== undefined && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    const found = sourceFiles('src').flatMap((file) => {
+      const source = ts.createSourceFile(file, readFileSync(path.join(root, file), 'utf8'), ts.ScriptTarget.Latest)
+      const sinks: Array<string> = []
+      const visit = (node: ts.Node) => {
+        const assignsMarkup =
+          ts.isBinaryExpression(node) &&
+          ts.isPropertyAccessExpression(node.left) &&
+          ['innerHTML', 'outerHTML'].includes(node.left.name.text) &&
+          (node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken ||
+            (node.operatorToken.kind === ts.SyntaxKind.EqualsToken && !isFixed(node.right)))
+        const insertsMarkup =
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === 'insertAdjacentHTML' &&
+          !isFixed(node.arguments[1])
+        if (assignsMarkup || insertsMarkup)
+          sinks.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`)
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+      return sinks.map(
+        (sink) =>
+          `${sink} builds HTML from a value. Create the elements and set their textContent, or use new Option() for a select.`
+      )
+    })
     expect(found).toEqual([])
   })
 

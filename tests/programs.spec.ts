@@ -71,4 +71,24 @@ test.describe('Programs Page', () => {
     await page.locator('#delete-program-btn').click()
     await expect(programCard).not.toBeVisible()
   })
+
+  test('shows an exercise name as text in the exercise picker', async ({ page }) => {
+    // The picker once built its options from an HTML string, so this name ran its onerror handler.
+    const name = '<img src=x onerror="window.__injected = true">Bench'
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
+    await page.getByLabel('Default sets').fill('3')
+    await page.getByLabel('Default reps').fill('10')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
+
+    await page.goto('/programs/')
+    await page.getByRole('button', { name: 'New' }).click()
+    const picker = page.locator('#exercises-selection')
+    await expect(picker.locator('option', { hasText: 'Bench' })).toHaveText(name)
+    await expect(picker.locator('img')).toHaveCount(0)
+    expect(await page.evaluate(() => Reflect.get(window, '__injected'))).toBeUndefined()
+  })
 })
