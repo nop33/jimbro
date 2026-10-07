@@ -78,7 +78,7 @@ Pages read and write through the modules in `db/`, which own all IndexedDB acces
 ### Worker (`worker/`)
 
 - `src/index.ts` routes `GET /api/ping`, `POST /api/push`, `GET /api/pull?cursor=&limit=`, `GET /api/export` and `POST /mcp`. A bearer token maps to a user through `AUTH_TOKENS`, a JSON object of token to user ID. CORS allows the production origin, `http://localhost:5173`, and `DEV_ORIGIN`, which only local runs set.
-- `src/rows.ts` validates pushed rows and upserts them. A changed row gets the user's next `rev` and an unchanged one keeps its own. Pulls page by `rev`. The validation keeps its own lists of kinds, presets, muscle groups and set fields, so mirror any change to `src/db/exerciseLogging.ts` or `src/db/muscleGroups.ts` there. Otherwise a push that carries the new values fails with `invalid_row` and the outbox stops draining.
+- `src/rows.ts` validates pushed rows and upserts them. A changed row gets the user's next `rev` and an unchanged one keeps its own. Pulls page by `rev`. The validation reads the kinds, presets, set slots and muscle groups from `src/db/exerciseLogging.ts` and `src/db/muscleGroups.ts`, and the session statuses from `src/db/types.ts`, so it accepts whatever the app can write. `test/rows.spec.ts` walks the registry to prove it. The worker bundles those lists when it deploys, so deploy it before an app version that adds a value. Otherwise a push that carries the new value fails with `invalid_row` and the outbox stops draining.
 - `src/mcp.ts` answers four read-only tools over JSON-RPC.
 - `migrations/` is the D1 schema, one table per row type.
 
