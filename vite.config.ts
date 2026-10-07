@@ -1,8 +1,34 @@
+import { createHash } from 'node:crypto'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'vite-plus'
+import { defineConfig, type Plugin } from 'vite-plus'
+
+// Files from public/ that the pages load. The manifest icons and screenshots are only fetched when installing.
+const PUBLIC_PRECACHE = ['/app.webmanifest', '/icons/favicon.ico', '/icons/apple-touch-icon.png']
+
+// Hands the built service worker every file of the build, so it can cache them all on install, and a hash of their
+// contents, so each deploy gets a new sw.js and the browser installs it.
+const serviceWorker = (): Plugin => ({
+  name: 'jimbro:service-worker',
+  apply: 'build',
+  enforce: 'post',
+  generateBundle(_, bundle) {
+    const worker = bundle['sw.js']
+    if (worker?.type !== 'chunk') return this.error('The build has no sw.js chunk')
+
+    const files = Object.values(bundle).filter((file) => file.fileName !== 'sw.js' && !file.fileName.endsWith('.map'))
+    const hash = createHash('sha256')
+    for (const file of files) hash.update(file.fileName).update(file.type === 'chunk' ? file.code : file.source)
+    // A page is cached under the URL the app links to: '/gymtime/', not '/gymtime/index.html'.
+    const urls = files.map((file) => `/${file.fileName}`.replace(/index\.html$/, ''))
+
+    worker.code = worker.code
+      .replace('__PRECACHE_URLS__', JSON.stringify([...urls, ...PUBLIC_PRECACHE]))
+      .replace('__PRECACHE_VERSION__', JSON.stringify(hash.digest('hex').slice(0, 16)))
+  }
+})
 
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), serviceWorker()],
   build: {
     rolldownOptions: {
       input: {
@@ -12,7 +38,12 @@ export default defineConfig({
         settings: 'settings/index.html',
         workouts: 'workouts/index.html',
         gymtime: 'gymtime/index.html',
-        stats: 'stats/index.html'
+        stats: 'stats/index.html',
+        sw: 'src/serviceWorker.ts'
+      },
+      output: {
+        // The service worker's URL is its scope and must stay the same across builds.
+        entryFileNames: (chunk) => (chunk.name === 'sw' ? 'sw.js' : 'assets/[name]-[hash].js')
       }
     }
   },

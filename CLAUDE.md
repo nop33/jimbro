@@ -135,7 +135,7 @@ Everything else in this file is a convention that only review catches. When a re
 ## Testing notes
 
 - Playwright runs every `tests/*.spec.ts` on chromium, webkit and Mobile Safari (iPhone 12) in parallel.
-- Playwright starts the dev server on port 5173 with `VITE_API_BASE` pointing at the test worker. Outside CI it reuses a server already listening on 5173, so stop your own `vp dev` before a run.
+- Playwright starts the dev server on port 5173 with `VITE_API_BASE` pointing at the test worker. It also builds the app and serves it with `vp preview` on port 4173 for `offline.spec.ts`, since only the build registers the service worker. Outside CI it reuses a server already listening on 5173, so stop your own `vp dev` before a run.
 - Global setup (`tests/localWorker.ts`) starts one fresh `wrangler dev --local` per run on `WORKER_PORT` (default 8790), with its own D1 state and tokens, and stops it at the end. It needs `cd worker && vp install`. A busy port fails the tests that need the worker with a clear message, instead of reusing whatever listens there. `claimUser()` gives each test its own user.
 - `tests/tsconfig.json` maps `/src/*` to `../src/*`, so `await import('/src/db/storage.ts')` inside `page.evaluate` is typed. Specs use such imports to drive app modules in the page.
 - `sync.spec.ts` syncs with the real local worker, and `gymtimeSync.spec.ts` with a fake one built on `context.route`. `dbSchema.spec.ts` checks the version 9 schema and the rebuild of older databases, `jsonImport.spec.ts` the Settings import, `rowWrites.spec.ts` `writeRows`, and `manifest.spec.ts` the manifest's icons and screenshots. Most other specs cover one page each.

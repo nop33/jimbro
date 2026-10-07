@@ -143,16 +143,16 @@ CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_OR
 
 ## PWA features
 
-| Feature            | Details                                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web manifest       | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display and WebP screenshots                                                                   |
-| Install prompt     | Keeps the `beforeinstallprompt` event so the install button can open the prompt, and removes the button after `appinstalled`                                        |
-| iOS install        | Without that event, the install button shows an alert with "Add to Home Screen" instructions                                                                        |
-| Screen wake lock   | Requests a screen wake lock when gymtime opens, and again when the tab becomes visible if the first request succeeded                                               |
-| Geolocation        | Fills in the workout location on request with the place name from Nominatim reverse geocoding                                                                       |
-| Haptic feedback    | A short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>` and `.light-haptic` elements, in browsers that have the Vibration API, which Safari lacks |
-| Persistent storage | Asks for persistent storage with `navigator.storage.persist()`. The browser decides, and the app only logs the answer                                               |
-| Service worker     | Not yet implemented                                                                                                                                                 |
+| Feature            | Details                                                                                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web manifest       | `app.webmanifest` with name, icons (192, 384, 512, 1024), standalone display and WebP screenshots                                                                                                               |
+| Install prompt     | Keeps the `beforeinstallprompt` event so the install button can open the prompt, and removes the button after `appinstalled`                                                                                    |
+| iOS install        | Without that event, the install button shows an alert with "Add to Home Screen" instructions                                                                                                                    |
+| Screen wake lock   | Requests a screen wake lock when gymtime opens, and again when the tab becomes visible if the first request succeeded                                                                                           |
+| Geolocation        | Fills in the workout location on request with the place name from Nominatim reverse geocoding                                                                                                                   |
+| Haptic feedback    | A short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>` and `.light-haptic` elements, in browsers that have the Vibration API, which Safari lacks                                             |
+| Persistent storage | Asks for persistent storage with `navigator.storage.persist()`. The browser decides, and the app only logs the answer                                                                                           |
+| Service worker     | `src/serviceWorker.ts`, built to `/sw.js`, caches every page and asset of the build on install and answers from that cache, so the app opens offline. Each deploy installs a new one, which drops the old cache |
 
 ## UI features
 
