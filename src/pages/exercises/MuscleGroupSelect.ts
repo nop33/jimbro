@@ -1,4 +1,4 @@
-import { MUSCLE_GROUPS, MUSCLE_GROUP_LABELS } from '../../db/stores/exercisesStore'
+import { MUSCLE_GROUPS, MUSCLE_GROUP_LABELS } from '../../db/muscleGroups'
 
 interface MuscleGroupSelectProps {
   selector: string

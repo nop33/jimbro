@@ -1,15 +1,14 @@
 import { AuthEnv, resolveUserId } from './auth'
 import { handleMcp } from './mcp'
+import { exportFromRows, rowsFromExport } from '../../src/sync/rows'
 import {
   countStatements,
   countsOf,
-  exportFromRows,
   flattenRowSet,
   loadRowSet,
   parseExportFile,
   parsePushBody,
   pullRows,
-  rowsFromExport,
   upsertRows,
   ROW_LIMIT,
   type ImportMarker

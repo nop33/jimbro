@@ -218,7 +218,7 @@ src/
     connection.ts      The shared IndexedDB connection and the generic reads
     write.ts           writeRows, which stores rows and outbox entries together, and the sync commits
     storage.ts         The storage singleton over connection.ts and write.ts
-    types.ts           Row types and export shapes, shared with the worker
+    types.ts           Every data shape: rows, sessions, export files. Shared with the worker
     baseStore.ts       BaseStore<T> with getAll, getById, create and update
     stores/            Exercises, programs, workout sessions, sets, seed data, and the state pages subscribe to
     migrations.ts      DB_VERSION and the version 9 stores

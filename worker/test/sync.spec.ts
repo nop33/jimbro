@@ -2,7 +2,8 @@ import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import january from '../../data-backup/gymbro-export-2026-01-02.json'
 import type { ExportShape, Row } from '../../src/db/types'
-import { flattenRowSet, rowsFromExport, upsertRows } from '../src/rows'
+import { rowsFromExport } from '../../src/sync/rows'
+import { flattenRowSet, upsertRows } from '../src/rows'
 import fixture from './fixtures/latest-v4.json'
 
 const authHeaders = {

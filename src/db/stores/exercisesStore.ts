@@ -5,8 +5,6 @@ import { nowIso } from '../nowIso'
 import { upgradeExerciseRecord } from '../schemaUpgrade'
 import ReactiveStore from '../reactiveStore'
 
-export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel } from '../muscleGroups'
-
 export type Exercise = ExerciseRow
 
 export type NewExercise = Omit<Exercise, 'id' | 'updatedAt'>

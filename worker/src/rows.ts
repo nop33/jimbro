@@ -9,9 +9,6 @@ import {
   type SessionHeader,
   type SetRow
 } from '../../src/db/types'
-import { exportFromRows, rowsFromExport } from '../../src/sync/rows'
-
-export { exportFromRows, rowsFromExport }
 
 export const ROW_LIMIT = 1000
 

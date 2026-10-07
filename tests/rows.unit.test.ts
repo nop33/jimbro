@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vite-plus/test'
 import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from '../src/db/schemaUpgrade'
 import type { Exercise } from '../src/db/stores/exercisesStore'
-import type { WorkoutSession } from '../src/db/stores/workoutSessionsStore'
 import {
   exportFromRows,
   legacySetId,
@@ -11,7 +10,7 @@ import {
   rowsFromSession,
   sessionFromRows
 } from '../src/sync/rows'
-import type { SessionHeader, SetRow } from '../src/db/types'
+import type { SessionHeader, SetRow, WorkoutSession } from '../src/db/types'
 
 const NOW = '2026-01-02T10:24:41.458Z'
 

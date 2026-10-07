@@ -9,9 +9,6 @@ import {
 import type { Row } from './types'
 import type { BootstrapAction } from '../sync/bootstrap'
 
-export { STORE_FOR_TABLE } from './connection'
-export type { OutboxEntry } from './write'
-
 export class Storage {
   private dbConnection = new DatabaseConnection()
 

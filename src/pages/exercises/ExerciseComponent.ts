@@ -1,5 +1,6 @@
 import { EXERCISE_KIND_LABELS, formatPrescription } from '../../db/exerciseLogging'
-import { muscleGroupLabel, type Exercise } from '../../db/stores/exercisesStore'
+import { muscleGroupLabel } from '../../db/muscleGroups'
+import type { Exercise } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 
 class ExerciseComponent {

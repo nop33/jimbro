@@ -1,17 +1,16 @@
 import { rowsFromExport } from '../sync/rows'
-import type { Row, SessionHeader, SetRow } from './types'
+import type { ExportShape, Row, SessionHeader, SetRow, WorkoutSession } from './types'
 import { OBJECT_STORES } from './constants'
-import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
+import { CURRENT_EXPORT_VERSION } from './export'
 import { nowIso } from './nowIso'
 import { upgradeExerciseRecord, upgradeProgramRecord, upgradeWorkoutSessionRecord } from './schemaUpgrade'
 import type { Exercise } from './stores/exercisesStore'
 import type { Program } from './stores/programsStore'
-import type { WorkoutSession } from './stores/workoutSessionsStore'
 import { storage } from './storage'
 
 export const importIndexedDbFromJson = async (file: File) => {
   const text = await file.text()
-  const data: ExportData = JSON.parse(text)
+  const data: ExportShape = JSON.parse(text)
   const { version, stores } = data
 
   if (version > CURRENT_EXPORT_VERSION) {
