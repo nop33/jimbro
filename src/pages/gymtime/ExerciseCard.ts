@@ -13,6 +13,7 @@ import { muscleGroupLabel } from '../../db/muscleGroups'
 import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
+import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -387,7 +388,14 @@ class ExerciseCard {
       if (updated.status === 'completed') {
         throwConfetti('Workout done!')
 
-        if (!getCloudBackupConfig()) exportIndexedDbToJson()
+        if (!getCloudBackupConfig()) {
+          try {
+            await exportIndexedDbToJson()
+          } catch (error) {
+            console.error('Error exporting database:', error)
+            Toasts.show({ message: 'Could not download the JSON export.', type: 'error' })
+          }
+        }
       } else {
         const isExerciseCompleted = this.targetSets === setIndex + 1
 
