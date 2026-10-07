@@ -128,7 +128,6 @@ export class Storage {
         fail(error)
       }
     })
-    window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
     announce('rows-written')
   }
 
