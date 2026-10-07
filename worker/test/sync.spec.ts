@@ -207,6 +207,13 @@ describe('export', () => {
       .sort((left, right) => left - right)
     expect(revs).toEqual(Array.from({ length: 2711 }, (_, index) => index + 1))
 
+    const firstPage = (await pull('0', '1000').then((response) => response.json())) as {
+      rows: unknown[]
+      more: boolean
+    }
+    expect(firstPage.rows).toHaveLength(1000)
+    expect(firstPage.more).toBe(true)
+
     const rows = rowsOf(file)
     for (let start = 0; start < rows.length; start += 1000) {
       const again = await push(rows.slice(start, start + 1000))

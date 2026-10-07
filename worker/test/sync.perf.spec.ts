@@ -2,7 +2,7 @@ import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import type { ExportShape } from '../../src/db/types'
 import fixture from './fixtures/latest-v4.json'
-import { seedExport } from './seed'
+import { rowsOf, seedExport } from './seed'
 
 const source = fixture as ExportShape
 
@@ -88,7 +88,7 @@ describe('sync perf', () => {
 
     for (let sample = 0; sample < 5; sample++) {
       await clearUser()
-      await seedExport(history)
+      expect(await seedExport(history)).toBe(rowsOf(history).length)
 
       const pushed = await timed(() => call('/api/push', { method: 'POST', body: JSON.stringify({ rows: pushRows }) }))
       pushMs.push(pushed.ms)
