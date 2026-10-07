@@ -4,7 +4,9 @@ import { OBJECT_STORES } from '../constants'
 import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { storage } from '../storage'
+import ReactiveStore from '../reactiveStore'
 import type { Exercise } from './exercisesStore'
+import { exercises } from './exercisesStore'
 import type { Program } from './programsStore'
 import { setsStore } from './setsStore'
 
@@ -57,6 +59,20 @@ export const placeholderSnapshot = (exerciseId: string): ExerciseSnapshot => ({
   defaults: {}
 })
 
+export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): PersistedWorkoutSessionStatus {
+  if (session.exercises.length === 0) return 'incomplete'
+  const allDone = session.exercises.every(({ sets, targetSets }) => sets.length >= targetSets)
+  return allDone ? 'completed' : 'incomplete'
+}
+
+const executionFromCatalog = async (exerciseId: string): Promise<ExerciseExecution> => {
+  const exercise = exercises.findById(exerciseId) ?? (await exercises.getById(exerciseId))
+  if (!exercise) {
+    return { ...placeholderSnapshot(exerciseId), sets: [] }
+  }
+  return { ...snapshotFromExercise(exercise), sets: [] }
+}
+
 const liveSets = (sets: Array<SetRow>, exerciseId: string): Array<SetRow> =>
   sets
     .filter((set) => set.exerciseId === exerciseId && !set.isDeleted)
@@ -64,6 +80,48 @@ const liveSets = (sets: Array<SetRow>, exerciseId: string): Array<SetRow> =>
 
 export class WorkoutSessionsStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
+  private store = new ReactiveStore<WorkoutSession | undefined>(undefined)
+
+  get session(): WorkoutSession | undefined {
+    return this.store.get()
+  }
+
+  initialize(session?: WorkoutSession): void {
+    this.store.set(session)
+  }
+
+  subscribe(callback: (session: WorkoutSession | undefined) => void): () => void {
+    return this.store.subscribe(callback)
+  }
+
+  findById(id: string): WorkoutSession | undefined {
+    const current = this.store.get()
+    return current?.id === id ? current : undefined
+  }
+
+  private requireSession(): WorkoutSession {
+    const session = this.store.get()
+    if (!session) throw new Error('No active workout session')
+    return session
+  }
+
+  private async reconcileStatus(session: WorkoutSession): Promise<WorkoutSession> {
+    const expected = computeWorkoutSessionStatus(session)
+    if (session.status === expected) return session
+    return this.updateWorkoutSession({ ...session, status: expected })
+  }
+
+  hasExercise(exerciseId: string, options: { showAlert?: boolean } = {}): boolean {
+    const session = this.store.get()
+    if (!session) return false
+
+    const exists = session.exercises.some((e) => e.exerciseId === exerciseId)
+    if (exists && options.showAlert) {
+      alert('This exercise is already in your session.')
+    }
+
+    return exists
+  }
 
   private async putRows(session: WorkoutSession, sets: Array<SetRow> = []): Promise<void> {
     await storage.writeRows([
@@ -145,7 +203,105 @@ export class WorkoutSessionsStore {
       })
     }
     await this.putRows(workoutSession, sets)
+    this.store.set(workoutSession)
     return workoutSession
+  }
+
+  async create(data: NewWorkoutSession): Promise<WorkoutSession> {
+    return this.createWorkoutSession(data)
+  }
+
+  async update(updates: Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const mutated = await this.updateWorkoutSession({ ...current, ...updates })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
+  }
+
+  async delete(): Promise<void> {
+    const current = this.requireSession()
+    await this.deleteWorkoutSession(current.id)
+    this.store.set(undefined)
+  }
+
+  async addSet(exerciseId: string, set: ExerciseSetExecution): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const mutated = await this.addExerciseExecutionSetToWorkoutSession({
+      workoutSession: current,
+      exerciseId,
+      exerciseExecutionSet: set
+    })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
+  }
+
+  async updateSet(exerciseId: string, setIndex: number, set: ExerciseSetExecution): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const updated = await this.updateExerciseExecutionSetInWorkoutSession({
+      workoutSession: current,
+      exerciseId,
+      exerciseExecutionSetIndex: setIndex,
+      exerciseExecutionSet: set
+    })
+    this.store.set(updated)
+    return updated
+  }
+
+  async addExercise(exerciseId: string): Promise<WorkoutSession> {
+    const current = this.requireSession()
+
+    if (this.hasExercise(exerciseId)) {
+      throw new Error('Exercise already exists in workout session')
+    }
+
+    const mutated = await this.addExerciseToWorkoutSession({
+      workoutSession: current,
+      exercise: await executionFromCatalog(exerciseId)
+    })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
+  }
+
+  async deleteExercise(exerciseId: string): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const mutated = await this.deleteExerciseFromWorkoutSession({
+      workoutSession: current,
+      exerciseId
+    })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
+  }
+
+  async swapExercise(oldExerciseId: string, newExerciseId: string): Promise<WorkoutSession> {
+    const current = this.requireSession()
+
+    if (this.hasExercise(newExerciseId)) {
+      throw new Error('Exercise already exists in workout session')
+    }
+
+    const mutated = await this.swapExerciseInWorkoutSession({
+      workoutSession: current,
+      oldExerciseId,
+      replacement: await executionFromCatalog(newExerciseId)
+    })
+    const reconciled = await this.reconcileStatus(mutated)
+    this.store.set(reconciled)
+    return reconciled
+  }
+
+  async moveExercise(exerciseId: string, direction: 'up' | 'down'): Promise<WorkoutSession> {
+    const current = this.requireSession()
+    const updated = await this.moveExerciseInWorkoutSession({
+      workoutSession: current,
+      exerciseId,
+      direction
+    })
+    this.store.set(updated)
+    return updated
   }
 
   async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
@@ -443,4 +599,34 @@ export class WorkoutSessionsStore {
   }
 }
 
-export const workoutSessionsStore = new WorkoutSessionsStore()
+const store = new WorkoutSessionsStore()
+
+export const sessions = {
+  get session() {
+    return store.session
+  },
+  initialize: (session?: WorkoutSession) => store.initialize(session),
+  subscribe: (callback: (session: WorkoutSession | undefined) => void) => store.subscribe(callback),
+  findById: (id: string) => store.findById(id),
+  hasExercise: (exerciseId: string, options?: { showAlert?: boolean }) => store.hasExercise(exerciseId, options),
+  create: (data: NewWorkoutSession) => store.create(data),
+  update: (updates: Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>) => store.update(updates),
+  delete: () => store.delete(),
+  addSet: (exerciseId: string, set: ExerciseSetExecution) => store.addSet(exerciseId, set),
+  updateSet: (exerciseId: string, setIndex: number, set: ExerciseSetExecution) =>
+    store.updateSet(exerciseId, setIndex, set),
+  addExercise: (exerciseId: string) => store.addExercise(exerciseId),
+  deleteExercise: (exerciseId: string) => store.deleteExercise(exerciseId),
+  swapExercise: (oldExerciseId: string, newExerciseId: string) => store.swapExercise(oldExerciseId, newExerciseId),
+  moveExercise: (exerciseId: string, direction: 'up' | 'down') => store.moveExercise(exerciseId, direction),
+  getById: (id: string) => store.getWorkoutSession(id),
+  getLatestCompletedOfProgram: (programId: Program['id']) => store.getLatestCompletedWorkoutSessionOfProgram(programId),
+  getLatestSaved: () => store.getLatestSavedWorkoutSession(),
+  getLatestWithCompletedExercise: (exerciseId: Exercise['id'], requiredSets: number, location?: string) =>
+    store.getLatestWorkoutSessionWithCompletedExercise(exerciseId, requiredSets, location),
+  getDateOfFirst: () => store.getDateOfFirstWorkoutSession(),
+  getAll: () => store.getAllWorkoutSessions(),
+  getAllGroupedByWeek: () => store.getAllWorkoutSessionsGroupedByWeek()
+}
+
+export const workoutSessionsStore = store
