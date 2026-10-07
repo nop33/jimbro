@@ -1,30 +1,15 @@
 import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
+import type { ExportShape } from '../../src/db/types'
 import fixture from './fixtures/latest-v4.json'
+import { seedExport } from './seed'
 
-interface ExportFile {
-  version: number
-  exportDate: string
-  stores: {
-    exercises: Array<Record<string, unknown> & { id: string }>
-    programs: Array<Record<string, unknown> & { id: string; exercises: string[] }>
-    workoutSessions: Array<
-      Record<string, unknown> & {
-        id: string
-        date: string
-        programId: string
-        exercises: Array<Record<string, unknown> & { exerciseId: string }>
-      }
-    >
-  }
-}
+const source = fixture as ExportShape
 
-const source = fixture as ExportFile
-
-const copyHistory = (copies: number): ExportFile => {
-  const exercises: ExportFile['stores']['exercises'] = []
-  const programs: ExportFile['stores']['programs'] = []
-  const workoutSessions: ExportFile['stores']['workoutSessions'] = []
+const copyHistory = (copies: number): ExportShape => {
+  const exercises: ExportShape['stores']['exercises'] = []
+  const programs: ExportShape['stores']['programs'] = []
+  const workoutSessions: ExportShape['stores']['workoutSessions'] = []
   for (let copy = 0; copy < copies; copy++) {
     const suffix = copy === 0 ? '' : `~${copy}`
     const mapId = (id: string) => `${id}${suffix}`
@@ -73,8 +58,6 @@ const clearUser = async () => {
     env.jimbro.prepare('DELETE FROM sessions WHERE user_id = ?1').bind('nikos'),
     env.jimbro.prepare('DELETE FROM sets WHERE user_id = ?1').bind('nikos')
   ])
-  await env.BACKUP_BUCKET.delete('users/nikos/latest.json')
-  await env.BACKUP_BUCKET.delete('users/nikos/import.json')
 }
 
 const median = (values: number[]) => {
@@ -105,9 +88,7 @@ describe('mcp perf', () => {
   it('keeps each tool within three queries, 200ms, and a 64KB recent_sessions body', async () => {
     if (!newestSession?.exercises[0]) throw new Error('fixture has no session')
     await clearUser()
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(history))
-    const imported = await call('/api/import-r2', { method: 'POST' })
-    expect(imported.status).toBe(200)
+    await seedExport(history)
 
     const exportMs: number[] = []
     const recent: Array<{ ms: number; statements: number; bytes: number }> = []

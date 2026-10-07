@@ -8,12 +8,6 @@
   },
   "upload_source_maps": true,
   "compatibility_flags": ["nodejs_compat"],
-  "r2_buckets": [
-    {
-      "bucket_name": "jimbro-backups",
-      "binding": "BACKUP_BUCKET"
-    }
-  ],
   "d1_databases": [
     {
       "binding": "jimbro",

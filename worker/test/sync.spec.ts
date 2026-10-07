@@ -1,10 +1,9 @@
 import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import january from '../../data-backup/gymbro-export-2026-01-02.json'
 import type { ExportShape, Row } from '../../src/db/types'
 import { rowsFromExport } from '../../src/sync/rows'
-import { flattenRowSet, upsertRows } from '../src/rows'
 import fixture from './fixtures/latest-v4.json'
+import { rowsOf, seedExport } from './seed'
 
 const authHeaders = {
   Authorization: 'Bearer test-token-123',
@@ -60,30 +59,11 @@ const dumpRevData = async () => {
   return dumped
 }
 
-const dumpData = async () => {
-  const tables = ['exercises', 'programs', 'sessions', 'sets'] as const
-  const dumped: Record<(typeof tables)[number], string[]> = {
-    exercises: [],
-    programs: [],
-    sessions: [],
-    sets: []
-  }
-  for (const table of tables) {
-    const result = await env.jimbro
-      .prepare(`SELECT data FROM ${table} WHERE user_id = ?1 ORDER BY id`)
-      .bind('nikos')
-      .all<{ data: string }>()
-    dumped[table] = result.results.map((item) => item.data)
-  }
-  return dumped
-}
-
 const byId = <T extends { id: string }>(items: T[]) =>
   [...items].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
 
 const sortedExport = (data: {
   version: number
-  exportDate: string
   stores: {
     exercises: Array<{ id: string }>
     programs: Array<{ id: string }>
@@ -91,7 +71,6 @@ const sortedExport = (data: {
   }
 }) => ({
   version: data.version,
-  exportDate: data.exportDate,
   stores: {
     exercises: byId(data.stores.exercises),
     programs: byId(data.stores.programs),
@@ -127,8 +106,7 @@ describe('push and pull', () => {
         { table: 'exercises', row: row, rev: 3 }
       ],
       cursor: 3,
-      more: false,
-      importedExportDate: null
+      more: false
     })
 
     const first = await pull('0', '2')
@@ -138,18 +116,15 @@ describe('push and pull', () => {
         { table: 'exercises', row: bench, rev: 2 }
       ],
       cursor: 2,
-      more: true,
-      importedExportDate: null
+      more: true
     })
 
     const second = await pull('2', '2')
-    const secondBody = await second.json()
-    expect(secondBody).toEqual({
+    expect(await second.json()).toEqual({
       rows: [{ table: 'exercises', row, rev: 3 }],
       cursor: 3,
       more: false
     })
-    expect(secondBody).not.toHaveProperty('importedExportDate')
   })
 
   it('keeps one row and moves a repeated id to revision 4', async () => {
@@ -172,21 +147,7 @@ describe('push and pull', () => {
   })
 })
 
-describe('import gate', () => {
-  it('answers 409 import_required on push and pull while latest.json has no marker', async () => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', '{"version":4,"exportDate":"2026-01-02T00:00:00.000Z"}')
-    const pushed = await push([{ table: 'exercises', row: exercise('squat', 'Squat') }])
-    expect(pushed.status).toBe(409)
-    expect(await pushed.json()).toEqual({ error: 'import_required' })
-    const pulled = await pull('0', '1000')
-    expect(pulled.status).toBe(409)
-    expect(await pulled.json()).toEqual({ error: 'import_required' })
-    expect(await countRows('exercises')).toBe(0)
-    expect(await countRows('programs')).toBe(0)
-    expect(await countRows('sessions')).toBe(0)
-    expect(await countRows('sets')).toBe(0)
-  })
-
+describe('push validation', () => {
   it('rejects a push of more than 1000 rows', async () => {
     const rows = Array.from({ length: 1001 }, (_, index) => ({
       table: 'exercises' as const,
@@ -221,112 +182,36 @@ describe('import gate', () => {
     expect(await countRows('exercises')).toBe(0)
     expect(await countRows('sets')).toBe(0)
   })
-
-  const expectInvalidExport = async (body: unknown) => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(body))
-    const imported = await api('/api/import-r2', { method: 'POST' })
-    expect(imported.status).toBe(400)
-    expect(await imported.json()).toEqual({ error: 'invalid_export' })
-    expect(await env.BACKUP_BUCKET.head('users/nikos/import.json')).toBeNull()
-    expect(await countRows('exercises')).toBe(0)
-    expect(await countRows('programs')).toBe(0)
-    expect(await countRows('sessions')).toBe(0)
-    expect(await countRows('sets')).toBe(0)
-    const pushed = await push([{ table: 'exercises', row: exercise('squat', 'Squat') }])
-    expect(pushed.status).toBe(409)
-    expect(await pushed.json()).toEqual({ error: 'import_required' })
-  }
-
-  const snapshotShell = (workoutSessions: unknown[]) => ({
-    version: 4,
-    exportDate: '2026-04-12T00:00:00.000Z',
-    stores: {
-      exercises: [{ id: 'e1' }],
-      programs: [{ id: 'p1' }],
-      workoutSessions
-    }
-  })
-
-  it('rejects a version 4 snapshot whose session is only an id', async () => {
-    await expectInvalidExport(snapshotShell([{ id: 's1' }]))
-  })
-
-  it('rejects a version 4 snapshot whose session has exercises but no date', async () => {
-    await expectInvalidExport(snapshotShell([{ id: 's1', exercises: [] }]))
-  })
-
-  it('rejects a version 4 snapshot whose set has no exerciseId', async () => {
-    await expectInvalidExport(
-      snapshotShell([
-        {
-          id: 's1',
-          date: '2026-04-12',
-          exercises: [{ sets: [{ preset: 'lifting', reps: 5, weight: 20 }] }]
-        }
-      ])
-    )
-  })
-
-  it('rejects the January version 1 export', async () => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(january))
-    const response = await api('/api/import-r2', { method: 'POST' })
-    expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'invalid_export' })
-    expect(await countRows('sessions')).toBe(0)
-    expect(await countRows('sets')).toBe(0)
-  })
 })
 
-describe('import and export', () => {
+describe('export', () => {
   const file = fixture as ExportShape
 
-  it('imports the version 4 fixture and exports the same rows', async () => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(file))
-    const imported = await api('/api/import-r2', { method: 'POST' })
-    expect(imported.status).toBe(200)
-    expect(await imported.json()).toEqual({
-      counts: { exercises: 21, programs: 3, sessions: 106, sets: 2581 },
-      revision: 2711
-    })
-
+  it('exports the stored rows dated at the time of the export', async () => {
+    await seedExport(file)
+    const before = Date.now()
     const exported = await api('/api/export')
     expect(exported.status).toBe(200)
     expect(exported.headers.get('Content-Disposition')).toBe('attachment; filename="jimbro-export.json"')
-    expect(sortedExport(await exported.json())).toEqual(sortedExport(file))
-
-    const again = await api('/api/import-r2', { method: 'POST' })
-    expect(again.status).toBe(409)
-    expect(await again.json()).toEqual({ error: 'already_imported' })
-    expect(await countRows('sets')).toBe(2581)
-
-    const pulled = await pull('0', '1000')
-    const body = (await pulled.json()) as { rows: unknown[]; more: boolean; importedExportDate: string }
-    expect(body.rows).toHaveLength(1000)
-    expect(body.more).toBe(true)
-    expect(body.importedExportDate).toBe(file.exportDate)
+    const body = (await exported.json()) as ExportShape
+    expect(sortedExport(body)).toEqual(sortedExport(file))
+    expect(Date.parse(body.exportDate)).toBeGreaterThanOrEqual(before)
+    expect(Date.parse(body.exportDate)).toBeLessThanOrEqual(Date.now())
   })
 
-  it('keeps every revision when import.json is deleted and the same file is imported again', async () => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(file))
-    const imported = await api('/api/import-r2', { method: 'POST' })
-    expect(imported.status).toBe(200)
-    expect(await imported.json()).toEqual({
-      counts: { exercises: 21, programs: 3, sessions: 106, sets: 2581 },
-      revision: 2711
-    })
+  it('keeps every revision when the same rows are pushed again', async () => {
+    expect(await seedExport(file)).toBe(2711)
     const before = await dumpRevData()
     const revs = (['exercises', 'programs', 'sessions', 'sets'] as const)
       .flatMap((table) => before[table].map((row) => row.rev))
       .sort((left, right) => left - right)
     expect(revs).toEqual(Array.from({ length: 2711 }, (_, index) => index + 1))
 
-    await env.BACKUP_BUCKET.delete('users/nikos/import.json')
-    const again = await api('/api/import-r2', { method: 'POST' })
-    expect(again.status).toBe(200)
-    expect(await again.json()).toEqual({
-      counts: { exercises: 21, programs: 3, sessions: 106, sets: 2581 },
-      revision: 2711
-    })
+    const rows = rowsOf(file)
+    for (let start = 0; start < rows.length; start += 1000) {
+      const again = await push(rows.slice(start, start + 1000))
+      expect(await again.json()).toEqual({ revision: 2711 })
+    }
     expect(await dumpRevData()).toEqual(before)
 
     const stale = (await pull('2711', '1000').then((response) => response.json())) as { rows: unknown[]; more: boolean }
@@ -345,31 +230,11 @@ describe('import and export', () => {
     expect(stored).toEqual({ rev: 2712 })
     expect(await countRows('sets')).toBe(2581)
   })
-
-  it('leaves the same row contents when the marker write is skipped and import runs again', async () => {
-    await env.BACKUP_BUCKET.put('users/nikos/latest.json', JSON.stringify(file))
-    await upsertDirect()
-    expect(await env.BACKUP_BUCKET.head('users/nikos/import.json')).toBeNull()
-    const before = await dumpData()
-
-    const imported = await api('/api/import-r2', { method: 'POST' })
-    expect(imported.status).toBe(200)
-    expect(await dumpData()).toEqual(before)
-    expect(await countRows('exercises')).toBe(21)
-    expect(await countRows('programs')).toBe(3)
-    expect(await countRows('sessions')).toBe(106)
-    expect(await countRows('sets')).toBe(2581)
-  })
 })
-
-const upsertDirect = async () => {
-  await upsertRows(env.jimbro, 'nikos', flattenRowSet(rowsFromExport(fixture as ExportShape)))
-}
 
 describe('auth', () => {
   it('answers 401 on every new route without a token', async () => {
     const routes = [
-      ['POST', '/api/import-r2'],
       ['POST', '/api/push'],
       ['GET', '/api/pull'],
       ['GET', '/api/export']
