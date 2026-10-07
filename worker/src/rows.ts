@@ -4,7 +4,6 @@ import {
   ROW_TABLES,
   SESSION_STATUSES,
   type ExerciseRow,
-  type ExportShape,
   type ProgramRow,
   type Row,
   type RowSet,
@@ -194,49 +193,6 @@ export const parsePushBody = (body: unknown): PushBody => {
   }
   return { ok: true, rows }
 }
-
-const canStoreSession = (session: unknown) => {
-  if (!isRecord(session) || !isString(session.id) || session.id === '' || !isString(session.date)) return false
-  if (!Array.isArray(session.exercises)) return false
-  return session.exercises.every((exercise) => {
-    if (!isRecord(exercise)) return false
-    const sets = exercise.sets
-    if (sets != null && !Array.isArray(sets)) return false
-    if (!Array.isArray(sets) || sets.length === 0) return true
-    return isString(exercise.exerciseId) && exercise.exerciseId !== ''
-  })
-}
-
-const isExportFile = (value: unknown): value is ExportShape => {
-  if (!isRecord(value) || value.version !== 4 || !isString(value.exportDate) || !isRecord(value.stores)) return false
-  const exercises = value.stores.exercises
-  const programs = value.stores.programs
-  const workoutSessions = value.stores.workoutSessions
-  if (!Array.isArray(exercises) || !Array.isArray(programs) || !Array.isArray(workoutSessions)) return false
-  return workoutSessions.every((session) => canStoreSession(session))
-}
-
-export const parseExportFile = (value: unknown): ExportShape | null => (isExportFile(value) ? value : null)
-
-export interface ImportMarker {
-  exportDate: string
-  importedAt: string
-  counts: Record<RowTable, number>
-}
-
-export const countsOf = (rows: RowSet): Record<RowTable, number> => ({
-  exercises: rows.exercises.length,
-  programs: rows.programs.length,
-  sessions: rows.sessions.length,
-  sets: rows.sets.length
-})
-
-export const flattenRowSet = (rows: RowSet): Row[] => [
-  ...rows.exercises.map((row) => ({ table: 'exercises' as const, row })),
-  ...rows.programs.map((row) => ({ table: 'programs' as const, row })),
-  ...rows.sessions.map((row) => ({ table: 'sessions' as const, row })),
-  ...rows.sets.map((row) => ({ table: 'sets' as const, row }))
-]
 
 export interface RowDatabase {
   prepare: D1Database['prepare']

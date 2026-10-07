@@ -4,7 +4,6 @@ import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { getMeta } from '../../sync/queue'
 import { sync } from '../../sync/syncClient'
-import { isImportRequired } from '../../sync/status'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 import '../../style.css'
@@ -109,10 +108,6 @@ if (_isDbEmpty) {
     restoreButton.addEventListener('click', async () => {
       try {
         await sync({ again: false })
-        if (isImportRequired()) {
-          Toasts.show({ message: 'Cloud import has not been run yet.', type: 'error' })
-          return
-        }
         window.location.reload()
       } catch (error) {
         console.error('Error restoring from cloud:', error)

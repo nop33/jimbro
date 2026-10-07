@@ -90,21 +90,6 @@ const runWrangler = async (dir: string, args: string[]) => {
   }
 }
 
-export const putR2Object = async (objectPath: string, file: string) => {
-  const dir = runDir()
-  const args = ['r2', 'object', 'put', objectPath, '--file', file, '--local', '--persist-to', stateDir(dir)]
-  // Parallel tests put into one local R2 store, and a put that starts right after
-  // another now and then fails with "Unspecified error (0)". Trying again works.
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await runWrangler(dir, args)
-    } catch (error) {
-      if (attempt === 3) throw error
-      await sleep(250 + Math.random() * 500)
-    }
-  }
-}
-
 const assertPortFree = () =>
   new Promise<void>((resolve, reject) => {
     const server = createServer()
@@ -229,7 +214,7 @@ const launch = async (dir: string, pageOrigin: string | undefined) => {
   return worker
 }
 
-// Global setup: one worker for the whole run, with fresh local D1 and R2 state in a
+// Global setup: one worker for the whole run, with fresh local D1 state in a
 // temporary directory, so a rerun behaves like a first run. Tests reach it through
 // claimUser and API_BASE. If it cannot start, only the tests that claim a user fail.
 export default async function startLocalWorker(config: FullConfig) {
