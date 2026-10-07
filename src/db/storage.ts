@@ -1,15 +1,7 @@
 import { rowKey, splitRowKey, type BootstrapAction } from '../sync/bootstrap'
 import { announce } from '../sync/pageChannel'
-import {
-  canonical,
-  rowsEqual,
-  type ExerciseRow,
-  type ProgramRow,
-  type Row,
-  type RowTable,
-  type SessionHeader,
-  type SetRow
-} from '../sync/rows'
+import { canonical, rowsEqual } from '../sync/rows'
+import type { ExerciseRow, ProgramRow, Row, RowTable, SessionHeader, SetRow } from './types'
 import { DB_NAME, OBJECT_STORES } from './constants'
 import { DB_VERSION, upgradeDatabase } from './migrations'
 import { promisifyRequest } from './promisifyRequest'

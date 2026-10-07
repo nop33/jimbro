@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
-import { rowsFromSession, type NestedSession, type SetRow } from '../src/sync/rows'
+import { rowsFromSession } from '../src/sync/rows'
+import type { NestedSession, SetRow } from '../src/db/types'
 
 const DB_NAME = 'gymbro-database'
 const UPDATED_AT = '2026-03-01T00:00:00.000Z'

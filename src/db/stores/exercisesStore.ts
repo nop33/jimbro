@@ -1,4 +1,4 @@
-import type { ExerciseRow } from '../../sync/rows'
+import type { ExerciseRow } from '../types'
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
 import { nowIso } from '../nowIso'

@@ -1,4 +1,5 @@
-import { rowsFromExport, type Row, type SessionHeader, type SetRow } from '../sync/rows'
+import { rowsFromExport } from '../sync/rows'
+import type { Row, SessionHeader, SetRow } from './types'
 import { OBJECT_STORES } from './constants'
 import { CURRENT_EXPORT_VERSION, type ExportData } from './export'
 import { nowIso } from './nowIso'

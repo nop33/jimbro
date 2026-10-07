@@ -1,4 +1,4 @@
-import type { ProgramRow } from '../../sync/rows'
+import type { ProgramRow } from '../types'
 import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
 import { nowIso } from '../nowIso'

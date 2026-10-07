@@ -1,4 +1,4 @@
-import type { SetRow } from '../../sync/rows'
+import type { SetRow } from '../types'
 import { OBJECT_STORES } from '../constants'
 import { storage } from '../storage'
 
