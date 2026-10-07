@@ -15,9 +15,8 @@ import {
   type ExerciseKind,
   type LogPreset
 } from '../../db/exerciseLogging'
-import type { Exercise } from '../../db/stores/exercisesStore'
+import { exercises, type Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
-import ExercisesState from '../../state/ExercisesState'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
 class ExerciseDialog {
@@ -90,11 +89,11 @@ class ExerciseDialog {
 
       try {
         if (id) {
-          const existing = ExercisesState.getById(id)
+          const existing = exercises.findById(id)
           if (!existing) throw new Error('Exercise not found')
-          await ExercisesState.updateExercise({ ...existing, ...fields })
+          await exercises.updateExercise({ ...existing, ...fields })
         } else {
-          await ExercisesState.createExercise({ ...fields, isDeleted: false })
+          await exercises.createExercise({ ...fields, isDeleted: false })
         }
 
         this.closeDialog()
@@ -212,12 +211,12 @@ class ExerciseDialog {
   private static async deleteExercise() {
     if (confirm('Are you sure you want to delete this exercise?')) {
       try {
-        await ExercisesState.softDeleteExercise(this.exerciseIdInput.value)
+        await exercises.softDeleteExercise(this.exerciseIdInput.value)
         this.closeDialog()
         Toasts.show({ message: 'Exercise deleted.' })
       } catch (error) {
         console.error('Error deleting exercise:', error)
-        Toasts.show({ message: `Could not delete exercise: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not save exercise: ${error}`, type: 'error' })
       }
     }
   }

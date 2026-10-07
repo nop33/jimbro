@@ -1,8 +1,8 @@
 import '../../style.css'
-import ExercisesState from '../../state/ExercisesState'
+import { exercises } from '../../db/stores/exercisesStore'
 import ExerciseDialog from './ExerciseDialog'
 import ExerciseList from './ExerciseList'
 
-await ExercisesState.initialize()
+await exercises.initialize()
 ExerciseList.init()
 ExerciseDialog.init()

@@ -1,8 +1,8 @@
 import { db } from '../../db'
+import { exercises } from '../../db/stores/exercisesStore'
 import type { Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import ExercisesState from '../../state/ExercisesState'
 import GymtimeSessionState from '../../state/GymtimeSessionState'
 import { setCityFromGeolocation } from './geolocation'
 
@@ -68,9 +68,9 @@ class WorkoutSessionForm {
       const program = await db.programs.getById(this.programId)
       if (!program) throw new Error('Program not found')
 
-      const exercises = await Promise.all(
+      const allExercises = await Promise.all(
         program.exercises.map(async (exerciseId) => {
-          const exercise = ExercisesState.getById(exerciseId) ?? (await db.exercises.getById(exerciseId))
+          const exercise = exercises.findById(exerciseId) ?? (await db.exercises.getById(exerciseId))
           return exercise
             ? { ...snapshotFromExercise(exercise), sets: [] }
             : { ...placeholderSnapshot(exerciseId), sets: [] }
@@ -82,7 +82,7 @@ class WorkoutSessionForm {
         date,
         location,
         status: 'incomplete',
-        exercises,
+        exercises: allExercises,
         notes
       })
     }

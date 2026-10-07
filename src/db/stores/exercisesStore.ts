@@ -3,6 +3,7 @@ import { BaseStore } from '../baseStore'
 import { OBJECT_STORES } from '../constants'
 import { nowIso } from '../nowIso'
 import { upgradeExerciseRecord } from '../schemaUpgrade'
+import ReactiveStore from '../reactiveStore'
 
 export { MUSCLE_GROUP_LABELS, MUSCLE_GROUPS, muscleGroupLabel } from '../muscleGroups'
 
@@ -13,8 +14,26 @@ export type NewExercise = Omit<Exercise, 'id' | 'updatedAt'>
 const normalizeExercise = (item: Exercise): Exercise =>
   upgradeExerciseRecord(item as unknown as Record<string, unknown>, nowIso())
 
-export class ExercisesStore extends BaseStore<Exercise> {
+class ExercisesStore extends BaseStore<Exercise> {
   protected readonly storeName = OBJECT_STORES.EXERCISES
+  private state = new ReactiveStore<Array<Exercise>>([])
+
+  get exercises(): Array<Exercise> {
+    return this.state.get()
+  }
+
+  findById(id: string): Exercise | undefined {
+    return this.state.get().find((e) => e.id === id)
+  }
+
+  subscribe(callback: (exercises: Array<Exercise>) => void): () => void {
+    return this.state.subscribe(callback)
+  }
+
+  async initialize(): Promise<void> {
+    const allExercises = await this.getAll()
+    this.state.set(allExercises)
+  }
 
   async getAll(): Promise<Array<Exercise>> {
     const all = await super.getAll()
@@ -29,6 +48,47 @@ export class ExercisesStore extends BaseStore<Exercise> {
     return super.update(normalizeExercise({ ...item, updatedAt: nowIso() }))
   }
 
+  async createExercise(data: NewExercise): Promise<Exercise> {
+    const exercise: Exercise = { ...data, id: crypto.randomUUID(), isDeleted: data.isDeleted ?? false, updatedAt: '' }
+    this.state.update((current) => [...current, exercise])
+
+    try {
+      await this.create(exercise)
+    } catch (error) {
+      this.state.update((current) => current.filter((e) => e.id !== exercise.id))
+      throw error
+    }
+
+    return exercise
+  }
+
+  async updateExercise(exercise: Exercise): Promise<Exercise> {
+    if (exercise.isDeleted) {
+      this.state.update((current) => current.filter((e) => e.id !== exercise.id))
+    } else {
+      this.state.update((current) => current.map((e) => (e.id === exercise.id ? exercise : e)))
+    }
+
+    try {
+      await this.update(exercise)
+    } catch (error) {
+      await this.initialize()
+      throw error
+    }
+
+    return exercise
+  }
+
+  async softDeleteExercise(id: string): Promise<void> {
+    const exercise = this.findById(id)
+
+    if (!exercise) {
+      throw new Error(`Exercise with id ${id} not found.`)
+    }
+
+    await this.updateExercise({ ...exercise, isDeleted: true })
+  }
+
   async seed(): Promise<void> {
     const { default: seedExercises } = await import('./seed-exercises.json')
     const now = nowIso()
@@ -38,4 +98,4 @@ export class ExercisesStore extends BaseStore<Exercise> {
   }
 }
 
-export const exercisesStore = new ExercisesStore()
+export const exercises = new ExercisesStore()
