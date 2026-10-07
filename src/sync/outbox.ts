@@ -1,6 +1,7 @@
 import { OBJECT_STORES } from '../db/constants'
 import { storage, STORE_FOR_TABLE, type OutboxEntry, type Storage } from '../db/storage'
-import { canonical, type Row, type RowTable } from './rows'
+import type { Row, RowTable } from '../db/types'
+import { canonical } from './rows'
 
 const PUSH_CHUNK = 500
 

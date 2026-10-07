@@ -1,8 +1,7 @@
 import { env, SELF } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { ExerciseRow, ProgramRow, SessionHeader, SetRow } from '../../src/sync/rows'
+import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../../src/db/types'
 import { MCP_TOOLS } from '../src/mcp'
-import type { Row } from '../src/rows'
 
 const authHeaders = {
   Authorization: 'Bearer test-token-123',
