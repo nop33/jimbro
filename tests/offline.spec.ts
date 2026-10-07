@@ -1,7 +1,7 @@
 import { createServer, request } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { test, expect, type Page } from '@playwright/test'
-import { PREVIEW_PORT } from './preview'
+import { PREVIEW_HOST, PREVIEW_PORT } from './preview'
 
 // Only the build registers the service worker, so each test opens the preview server through its own proxy and
 // closes the proxy to go offline. WebKit's emulated offline mode also stops the service worker from answering, so
@@ -9,7 +9,13 @@ import { PREVIEW_PORT } from './preview'
 const openPreview = async () => {
   const proxy = createServer((incoming, outgoing) => {
     const upstream = request(
-      { host: 'localhost', port: PREVIEW_PORT, path: incoming.url, method: incoming.method, headers: incoming.headers },
+      {
+        host: PREVIEW_HOST,
+        port: PREVIEW_PORT,
+        path: incoming.url,
+        method: incoming.method,
+        headers: incoming.headers
+      },
       (response) => {
         outgoing.writeHead(response.statusCode ?? 502, response.headers)
         response.pipe(outgoing)
