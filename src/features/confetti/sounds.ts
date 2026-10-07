@@ -157,7 +157,8 @@ export function playFunnySound() {
   try {
     const ctx = getAudioContext()
     if (ctx.state === 'suspended') {
-      ctx.resume()
+      // The context's clock stands still until it resumes, so the notes scheduled below still play in full.
+      void ctx.resume()
     }
 
     const sounds = [playMarioSuccess, playChime, playCoin, playLevelStart, playQuestComplete, playVictoryFanfare]

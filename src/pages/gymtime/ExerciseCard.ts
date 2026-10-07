@@ -235,7 +235,7 @@ class ExerciseCard {
 
     if (historyChartEnabled(this.snapshot.kind)) {
       viewHistoryBtn.addEventListener('click', () => {
-        ExerciseHistoryChart.openDialog({
+        void ExerciseHistoryChart.openDialog({
           id: this.exerciseId,
           name: this.snapshot.name,
           kind: this.snapshot.kind
@@ -251,7 +251,7 @@ class ExerciseCard {
       viewLastSetBtn.addEventListener('click', () => {
         const lastExercise = lastSession.exercises.find((e) => e.exerciseId === this.exerciseId)
         if (lastExercise) {
-          LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
+          void LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
         }
       })
     } else {

@@ -72,7 +72,7 @@ class ExerciseDialog {
     })
 
     this.deleteExerciseBtn.addEventListener('click', () => {
-      this.deleteExercise()
+      void this.deleteExercise()
     })
 
     this.exerciseForm.addEventListener('submit', async (e) => {

@@ -23,7 +23,8 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
-    this.render(workoutSessionsByWeek)
+    // The dialog is closed while its list fills, so the page doesn't wait for it.
+    void this.render(workoutSessionsByWeek)
   }
 
   private static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {

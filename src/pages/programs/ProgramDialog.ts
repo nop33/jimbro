@@ -45,7 +45,7 @@ class ProgramDialog {
     })
 
     this.deleteProgramBtn.addEventListener('click', () => {
-      this.deleteProgram()
+      void this.deleteProgram()
     })
 
     this.newProgramButton.addEventListener('click', () => {

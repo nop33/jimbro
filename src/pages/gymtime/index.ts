@@ -8,7 +8,8 @@ import { keepScreenAwake } from './keepScreenAwake'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 
-keepScreenAwake()
+// The page works without the wake lock, so it doesn't wait for it.
+void keepScreenAwake()
 await exercisesStore.load()
 
 EditSetDialog.init()
