@@ -1,21 +1,4 @@
 import type { ExerciseSetExecution } from '../db/exerciseLogging'
-
-export type {
-  ExerciseRow,
-  ProgramRow,
-  SessionHeader,
-  SetRow,
-  ExerciseSnapshot,
-  Row,
-  RowTable,
-  NestedSession,
-  AssembledSession,
-  ExportShape,
-  ExportedFile,
-  RowSet
-} from '../db/types'
-export { ROW_TABLES } from '../db/types'
-
 import type {
   SessionHeader,
   SetRow,

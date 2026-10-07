@@ -9,10 +9,9 @@ import {
   rowsEqual,
   rowsFromExport,
   rowsFromSession,
-  sessionFromRows,
-  type SessionHeader,
-  type SetRow
+  sessionFromRows
 } from '../src/sync/rows'
+import type { SessionHeader, SetRow } from '../src/db/types'
 
 const NOW = '2026-01-02T10:24:41.458Z'
 
