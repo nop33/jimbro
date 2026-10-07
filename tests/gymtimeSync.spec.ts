@@ -1,9 +1,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test'
+import { rereadsFinished, trackRereads } from './gymtimeRereads'
 
 const USER = { userId: 'gymtime-sync', token: 'gymtime-sync-token' }
-
-// A rebuild starts from the pull and lands just after jimbro:sync-settled, so give it time to show up.
-const REBUILD_GRACE_MS = 1000
 
 interface WireRow {
   table: string
@@ -228,11 +226,13 @@ test.describe('gymtime with cloud sync', () => {
     const nextReps = card.locator('.next-set-form input[name="set-reps"]')
     await nextReps.fill('7')
     const before = await cardNodes(page)
+    await trackRereads(page)
 
     await push.reached
     push.release()
     await syncSettledAfterWrite(page)
-    await page.waitForTimeout(REBUILD_GRACE_MS)
+    // A pull that announces the open session starts a reread before the sync settles, and a rebuild lands after.
+    await rereadsFinished(page)
 
     expect(worker.rows('sets')).toHaveLength(1)
     await expect(slots).toHaveCount(slotCount)
@@ -312,6 +312,7 @@ test.describe('gymtime with cloud sync', () => {
     const nextReps = card.locator('.next-set-form input[name="set-reps"]')
     await nextReps.fill('7')
     const before = await cardNodes(page)
+    await trackRereads(page)
 
     const settings = await context.newPage()
     await settings.goto('/settings/')
@@ -319,7 +320,8 @@ test.describe('gymtime with cloud sync', () => {
     await settings.getByRole('button', { name: 'Sync now' }).click()
     await expect(settings.locator('#cloud-summary-status')).toContainText('0 pending ·')
     await syncSettledAfterWrite(page)
-    await page.waitForTimeout(REBUILD_GRACE_MS)
+    // Every sync in the other tab sends a notice, which reaches this tab in its own time and starts a reread.
+    await rereadsFinished(page, { atLeast: 1 })
 
     await expect(slots).toHaveCount(slotCount)
     await expect(nextReps).toHaveValue('7')

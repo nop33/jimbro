@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { rereadsFinished, trackRereads } from './gymtimeRereads'
 
 test('missing program shows the load error', async ({ page }) => {
   await page.goto('/gymtime/?programId=non-existent')
@@ -220,6 +221,7 @@ test.describe('Gymtime Page', () => {
       })
     })
 
+    await trackRereads(page)
     // Another tab's notice makes the page reread its session.
     await page.evaluate(() => new BroadcastChannel('jimbro').postMessage('sync-settled'))
     await page.waitForFunction(() => Reflect.get(window, '__readDone') === true)
@@ -232,8 +234,8 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
-    // A rebuild from the stale read lands after the write, so give it time to show up.
-    await page.waitForTimeout(1000)
+    // A rebuild from the stale read would land after the write, before the reread ends.
+    await rereadsFinished(page, { atLeast: 1 })
 
     await expect(card.locator('.completed-sets .set.isCompleted')).toHaveCount(1)
     const sameCards = await page.evaluate((nodes) => {
