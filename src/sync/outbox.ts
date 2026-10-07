@@ -1,8 +1,7 @@
 import { OBJECT_STORES } from '../db/constants'
-import { STORE_FOR_TABLE } from '../db/connection'
-import { storage, type Storage } from '../db/storage'
+import { STORE_FOR_TABLE, storage, type Storage } from '../db/storage'
 import type { Row, RowTable } from '../db/types'
-import type { OutboxEntry } from '../db/write'
+import { getMeta, type OutboxEntry } from './queue'
 import { canonical } from './rows'
 
 const PUSH_CHUNK = 500
@@ -15,6 +14,8 @@ export type PushRows = (rows: Row[]) => Promise<number | null>
 export type PushLock = <T>(task: () => Promise<T>) => Promise<T>
 
 export interface Outbox {
+  // How many rows wait to be pushed.
+  pending(): Promise<number>
   // Pushes every queued row in chunks. A row edited while its push was in flight stays queued.
   // While the database has never synced, each ack also records the sync in meta.
   drain(push: PushRows): Promise<void>
@@ -125,9 +126,11 @@ const markBootstrapped = async (db: IDBDatabase) => {
 // same entries in between, so a page never posts a body another page already acked, and an ack
 // always follows the push it belongs to. Chunks release the lock between them so pages interleave.
 export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox => ({
+  pending: () => deps.storage.count(OBJECT_STORES.OUTBOX),
   async drain(push) {
     const db = await deps.storage.connection()
-    const unsynced = (await deps.storage.getMeta('cursor')) === 0 && (await deps.storage.getMeta('bootstrapped')) === 0
+    const unsynced =
+      (await getMeta(deps.storage, 'cursor')) === 0 && (await getMeta(deps.storage, 'bootstrapped')) === 0
     let acked = false
     for (;;) {
       // Skip the lock when nothing is queued, so an idle page never waits on another page's push.

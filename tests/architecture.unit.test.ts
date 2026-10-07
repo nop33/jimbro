@@ -22,4 +22,19 @@ describe('architecture', () => {
     )
     expect(found).toEqual([])
   })
+
+  it('leaves the outbox and meta stores to src/sync', () => {
+    // The schema creates them. Everything else reaches them through src/sync, so the rules for an entry's seq and
+    // inflight stamp live next to the push and pull that depend on them.
+    const schema = ['src/db/constants.ts', 'src/db/migrations.ts'].map((file) => path.normalize(file))
+    const syncStore = /OBJECT_STORES\.(?:OUTBOX|META)\b|['"](?:outbox|meta)['"]/
+    const found = sourceFiles('src')
+      .filter((file) => !file.startsWith(path.join('src', 'sync')) && !schema.includes(file))
+      .filter((file) => syncStore.test(readFileSync(path.join(root, file), 'utf8')))
+      .map(
+        (file) =>
+          `${file} reads or writes the outbox or meta store. Use storage.writeRows to queue a row, and the src/sync modules for the rest.`
+      )
+    expect(found).toEqual([])
+  })
 })

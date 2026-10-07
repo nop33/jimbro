@@ -3,9 +3,10 @@ import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import { Storage } from '../src/db/storage'
-import type { OutboxEntry } from '../src/db/write'
 import { rowKey } from '../src/sync/bootstrap'
 import { createOutbox, type PushLock, type PushRows } from '../src/sync/outbox'
+import { commitFirstSync, readFirstSyncSnapshot } from '../src/sync/pull'
+import { getMeta, type OutboxEntry } from '../src/sync/queue'
 import { canonical } from '../src/sync/rows'
 import type { Row, SetRow } from '../src/db/types'
 
@@ -131,8 +132,8 @@ const settlesSoon = <T>(promise: Promise<T>) =>
 
 // A first sync on a server that still has `server`: the plan keeps the server copy.
 const firstSyncKeepsServer = async (storage: Storage, server: Row) => {
-  const snapshot = await storage.readFirstSyncSnapshot()
-  await storage.commitFirstSync({
+  const snapshot = await readFirstSyncSnapshot(storage)
+  await commitFirstSync(storage, {
     seqAtStart: snapshot.seq,
     cursor: 0,
     actions: new Map([[rowKey(server), 'keepServer']]),
@@ -156,8 +157,8 @@ describe('Outbox.drain', () => {
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
     expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['b', 'a']])
     expect(await outboxOf(page)).toEqual([])
-    expect(await page.getMeta('cursor')).toBe(3)
-    expect(await page.getMeta('bootstrapped')).toBe(0)
+    expect(await getMeta(page, 'cursor')).toBe(3)
+    expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 
   it('sends at most 500 rows per push', async () => {
@@ -228,7 +229,7 @@ describe('Outbox.drain', () => {
     const entry = await entryFor(page, setRow(10))
     expect(entry?.inflightSeq).toBe(entry?.seq)
     expect(entry?.inflightCanonical).toBe(canonical(set(10)))
-    expect(await page.getMeta('bootstrapped')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 })
 
@@ -237,23 +238,23 @@ describe('Outbox.drain on a database that has never synced', () => {
     const server = fakeServer()
     await page.writeRows([setRow(10)])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
-    expect(await page.getMeta('cursor')).toBe(1)
-    expect(await page.getMeta('bootstrapped')).toBe(0)
+    expect(await getMeta(page, 'cursor')).toBe(1)
+    expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 
   it('marks the database bootstrapped when the server reports no revision', async () => {
     await page.writeRows([setRow(10)])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => null)
-    expect(await page.getMeta('cursor')).toBe(0)
-    expect(await page.getMeta('bootstrapped')).toBe(1)
+    expect(await getMeta(page, 'cursor')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(1)
     expect(await outboxOf(page)).toEqual([])
   })
 
   it('marks the database bootstrapped when the server answers revision 0', async () => {
     await page.writeRows([setRow(10)])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => 0)
-    expect(await page.getMeta('cursor')).toBe(0)
-    expect(await page.getMeta('bootstrapped')).toBe(1)
+    expect(await getMeta(page, 'cursor')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(1)
     expect(await outboxOf(page)).toEqual([])
   })
 
@@ -264,20 +265,20 @@ describe('Outbox.drain on a database that has never synced', () => {
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(push)
     expect(push).not.toHaveBeenCalled()
     expect(await outboxOf(page)).toEqual([])
-    expect(await page.getMeta('cursor')).toBe(0)
-    expect(await page.getMeta('bootstrapped')).toBe(1)
+    expect(await getMeta(page, 'cursor')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(1)
   })
 
   it('marks the database bootstrapped when nothing is queued', async () => {
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
-    expect(await page.getMeta('bootstrapped')).toBe(1)
+    expect(await getMeta(page, 'bootstrapped')).toBe(1)
   })
 
   it('rejects when the bootstrap mark aborts', async () => {
     await crashNextMetaWrite(page)
     const drained = createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
     await expect(settlesSoon(drained)).rejects.toThrow('outbox bootstrap mark aborted')
-    expect(await page.getMeta('bootstrapped')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 
   // With the next test, replaces 'a stop after an empty-server push ack keeps the cursor and the
@@ -291,8 +292,8 @@ describe('Outbox.drain on a database that has never synced', () => {
     await expect(crashed).rejects.toThrow()
     expect(weightOf(server.rows.get('sets:race-set'))).toBe(10)
     expect((await entryFor(page, setRow(10)))?.seq).toBe(queued?.seq)
-    expect(await page.getMeta('cursor')).toBe(0)
-    expect(await page.getMeta('bootstrapped')).toBe(0)
+    expect(await getMeta(page, 'cursor')).toBe(0)
+    expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 
   it('lands the cursor with the ack when the page stops right after it', async () => {
@@ -305,12 +306,12 @@ describe('Outbox.drain on a database that has never synced', () => {
     const stopped = createOutbox({ storage: page, lock: stopAfterTask }).drain(async (rows) => server.accept(rows))
     await expect(stopped).rejects.toThrow('stop after outbox ack')
     expect(await outboxOf(page)).toEqual([])
-    expect(await page.getMeta('cursor')).toBe(1)
+    expect(await getMeta(page, 'cursor')).toBe(1)
 
     await page.writeRows([setRow(99)])
     await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => server.accept(rows))
     expect(weightOf(server.rows.get('sets:race-set'))).toBe(99)
-    expect(await page.getMeta('cursor')).toBe(1)
+    expect(await getMeta(page, 'cursor')).toBe(1)
   })
 
   // Replaces 'a later edit survives when the empty-server push landed but the ack did not'.
@@ -322,7 +323,7 @@ describe('Outbox.drain on a database that has never synced', () => {
       throw new Error('ack lost')
     })
     await expect(lost).rejects.toThrow('ack lost')
-    expect(await page.getMeta('cursor')).toBe(0)
+    expect(await getMeta(page, 'cursor')).toBe(0)
 
     await page.writeRows([setRow(99)])
     const entry = await entryFor(page, setRow(99))

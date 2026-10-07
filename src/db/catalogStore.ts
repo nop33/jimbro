@@ -1,7 +1,6 @@
-import { STORE_FOR_TABLE } from './connection'
 import { nowIso } from './nowIso'
 import ReactiveStore from './reactiveStore'
-import { storage } from './storage'
+import { STORE_FOR_TABLE, storage } from './storage'
 import type { Row } from './types'
 
 type RowOfTable = { [R in Row as R['table']]: R['row'] }

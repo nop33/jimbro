@@ -215,9 +215,7 @@ The database is `gymbro-database`, version 9.
 ```
 src/
   db/                  Persistence (IndexedDB)
-    connection.ts      The shared IndexedDB connection and the generic reads
-    write.ts           writeRows, which stores rows and outbox entries together, and the sync commits
-    storage.ts         The storage singleton over connection.ts and write.ts
+    storage.ts         The shared IndexedDB connection, the generic reads, and writeRows
     types.ts           Every data shape: rows, sessions, export files. Shared with the worker
     catalogStore.ts    CatalogStore, the store exercises and programs share
     stores/            Exercises, programs and workout sessions, and the seed data
@@ -230,7 +228,9 @@ src/
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
     syncClient.ts      sync(), which pushes the outbox and pulls by cursor
+    queue.ts           Outbox entries and meta, and queueRows, which writeRows calls in its transaction
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
+    pull.ts            The first-sync commit and the commit of each pulled page
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Notices between tabs over a BroadcastChannel
