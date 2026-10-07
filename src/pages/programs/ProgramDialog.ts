@@ -82,7 +82,7 @@ class ProgramDialog {
         Toasts.show({ message: 'Program saved!' })
       } catch (error) {
         console.error('Error saving program:', error)
-        Toasts.show({ message: `Could not save program: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not save program: ${String(error)}`, type: 'error' })
       }
     })
   }
@@ -115,7 +115,7 @@ class ProgramDialog {
         Toasts.show({ message: 'Program deleted.' })
       } catch (error) {
         console.error('Error deleting program:', error)
-        Toasts.show({ message: `Could not delete program: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not delete program: ${String(error)}`, type: 'error' })
       }
     }
   }

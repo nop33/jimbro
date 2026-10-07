@@ -100,8 +100,11 @@ const rows: Row[] = [
   { table: 'sets', row: setRow('tomb', 'squat', 0, 100) }
 ]
 
-const api = (path: string, init: RequestInit = {}) =>
-  SELF.fetch(`https://example.com${path}`, { ...init, headers: { ...authHeaders, ...init.headers } })
+const api = (path: string, init: RequestInit = {}) => {
+  const headers = new Headers(authHeaders)
+  new Headers(init.headers).forEach((value, name) => headers.set(name, value))
+  return SELF.fetch(`https://example.com${path}`, { ...init, headers })
+}
 
 const rpc = (method: string, params?: unknown, id: number | string = 1, headers?: HeadersInit) =>
   api('/mcp', {
