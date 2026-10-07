@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
-import { rowsFromExport, type ExportShape, type Row } from '../src/sync/rows'
+import { rowsFromExport } from '../src/sync/rows'
+import type { ExportShape, Row } from '../src/db/types'
 import { API_BASE, claimUser, putR2Object, type WorkerUser } from './localWorker'
 
 const fixturePath = path.join(import.meta.dirname, '..', 'worker', 'test', 'fixtures', 'latest-v4.json')
