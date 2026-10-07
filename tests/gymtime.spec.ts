@@ -30,6 +30,8 @@ test.describe('Gymtime Page', () => {
 
   test('logs a set, edits the weight, and adds an exercise', async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    // The cards show before the save and are rebuilt once it lands, which resets whatever the test typed into them.
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
@@ -110,6 +112,7 @@ test.describe('Gymtime Page', () => {
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
     // 1. Start Workout Session
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     // Install clock to manipulate time
     await page.clock.install()
@@ -280,6 +283,7 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     await page.getByRole('button', { name: 'New' }).click()
     await page.locator('dialog#new-workout-dialog a.program-link').first().click()
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     await page.locator('#add-exercise-card').click()
     const addExerciseDialog = page.locator('#add-exercise-dialog')
