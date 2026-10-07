@@ -150,6 +150,43 @@ describe('architecture', () => {
     expect(found).toEqual([])
   })
 
+  it('waits in specs for what the app shows or stores, never for a fixed time', () => {
+    // A sleep long enough on one machine is too short on a slower one, and a forced click skips the checks that wait
+    // until the element can take it. f814248 added a sleep and 7b4170e a forced click to quiet flaky gymtime tests,
+    // and 0b3f181 and bc7c33a took such sleeps and clicks out again.
+    const read = (file: string) => readFileSync(path.join(root, file), 'utf8')
+    const testFiles = sourceFiles('tests')
+    const specs = testFiles.filter((file) => file.endsWith('.spec.ts'))
+    const helpers = specs.flatMap((spec) =>
+      [...read(spec).matchAll(/from\s+['"](\.{1,2}\/[^'"]+?)(?:\.ts)?['"]/g)].map(([, from]) =>
+        path.join(path.dirname(spec), `${from}.ts`)
+      )
+    )
+    const waitInstead =
+      'Wait for what the app shows or stores instead, with expect, expect.poll or page.waitForFunction.'
+    const mistakes = [
+      { pattern: /\.waitForTimeout\(/g, message: `waits a fixed time. ${waitInstead}` },
+      // setTimeout(resolve, 0) only yields to the event loop, so it is no fixed wait.
+      { pattern: /\bsetTimeout\(\s*(?:\w+|\(\)\s*=>\s*\w+\(\))\s*,(?!\s*0\s*\))/g, message: `sleeps. ${waitInstead}` },
+      {
+        pattern:
+          /\.(?:check|clear|click|dblclick|dragTo|fill|hover|selectOption|selectText|setChecked|tap|uncheck)\([^)]*\bforce:\s*true/g,
+        message: `forces an action past Playwright's checks. Wait for what the app shows, such as expect(button).toBeEnabled(), and act without force.`
+      }
+    ]
+    const found = testFiles
+      .filter((file) => specs.includes(file) || helpers.includes(file))
+      .flatMap((file) => {
+        const source = read(file)
+        return mistakes.flatMap(({ pattern, message }) =>
+          [...source.matchAll(pattern)].map(
+            ({ index }) => `${file}:${source.slice(0, index).split('\n').length} ${message}`
+          )
+        )
+      })
+    expect(found).toEqual([])
+  })
+
   it('takes calendar dates from local time, never from toISOString', () => {
     // toISOString() is UTC, so away from UTC its date is a day off for part of every day. f9d3364 fixed the
     // workout form's default date for that.

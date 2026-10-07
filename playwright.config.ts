@@ -12,6 +12,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // A test that passes only on a retry is flaky, so CI fails it instead of letting the retry hide it.
+  failOnFlakyTests: !!process.env.CI,
   workers: process.env.CI ? 1 : 2,
   reporter: 'html',
   // Starts the local worker (wrangler dev) that tests/sync.spec.ts talks to, on WORKER_PORT (default 8790).

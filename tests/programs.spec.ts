@@ -17,8 +17,8 @@ test.describe('Programs Page', () => {
     await page.getByLabel('Default sets').fill('4')
     await page.getByLabel('Default reps').fill('8')
     await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.locator('.card', { hasText: 'Squat' })).toBeVisible()
-    await page.waitForTimeout(500)
+    // The card shows before the exercise is stored, so wait for the save toast before leaving the page.
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
 
     await page.goto('/programs/')
   })

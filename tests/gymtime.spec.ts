@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { rereadsFinished, trackRereads } from './gymtimeRereads'
 
 test('missing program shows the load error', async ({ page }) => {
   await page.goto('/gymtime/?programId=non-existent')
@@ -29,6 +30,8 @@ test.describe('Gymtime Page', () => {
 
   test('logs a set, edits the weight, and adds an exercise', async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    // The cards show before the save and are rebuilt once it lands, which resets whatever the test typed into them.
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
@@ -109,6 +112,7 @@ test.describe('Gymtime Page', () => {
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
     // 1. Start Workout Session
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     // Install clock to manipulate time
     await page.clock.install()
@@ -220,6 +224,7 @@ test.describe('Gymtime Page', () => {
       })
     })
 
+    await trackRereads(page)
     // Another tab's notice makes the page reread its session.
     await page.evaluate(() => new BroadcastChannel('jimbro').postMessage('sync-settled'))
     await page.waitForFunction(() => Reflect.get(window, '__readDone') === true)
@@ -232,8 +237,8 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
-    // A rebuild from the stale read lands after the write, so give it time to show up.
-    await page.waitForTimeout(1000)
+    // Compare the cards only once the reread and any rebuild have ended.
+    await rereadsFinished(page, { atLeast: 1 })
 
     await expect(card.locator('.completed-sets .set.isCompleted')).toHaveCount(1)
     const sameCards = await page.evaluate((nodes) => {
@@ -278,6 +283,7 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     await page.getByRole('button', { name: 'New' }).click()
     await page.locator('dialog#new-workout-dialog a.program-link').first().click()
     await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     await page.locator('#add-exercise-card').click()
     const addExerciseDialog = page.locator('#add-exercise-dialog')
