@@ -128,6 +128,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
 | Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |
 | Calendar dates never come from `toISOString()`                                                           | `tests/architecture.unit.test.ts`                                                                   |
+| Specs wait for what the app shows or stores, never for a fixed time, and never force a click             | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a test that passes only on retry |
 | Code is formatted                                                                                        | `vp check`, which `vp staged` runs on each commit                                                   |
 
 Everything else in this file is a convention that only review catches. When a review corrects a mistake that no check covers, add a check that fails on that mistake and a row here in the same change. Drop a row once its mistake can no longer be written.
