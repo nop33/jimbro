@@ -23,7 +23,7 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
-    // The dialog is closed while its list fills, so the page doesn't wait for it.
+    // The page doesn't wait for the program list. A tap on New before it fills shows the programs read so far.
     void this.render(workoutSessionsByWeek)
   }
 

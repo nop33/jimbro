@@ -122,7 +122,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | Only `src/sync` reads or writes the `outbox` and `meta` stores                                           | `tests/architecture.unit.test.ts`                                                                   |
 | Import each symbol from the module that declares it, never through a re-export                           | `tests/architecture.unit.test.ts`                                                                   |
 | No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
-| Await every promise, or mark it `void` when nothing should wait for it                                   | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
+| Never leave a promise as a bare statement: await it, or mark it `void` when nothing should wait for it   | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
 | `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
 | `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them               | The worker typecheck, which has no DOM types                                                        |
 | Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                | `tests/architecture.unit.test.ts` fails on HTML built from a value                                  |
