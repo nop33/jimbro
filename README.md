@@ -216,6 +216,7 @@ The database is `gymbro-database`, version 9.
 src/
   db/                  Persistence (IndexedDB)
     storage.ts         Shared connection, and writeRows, which stores rows and outbox entries together
+    types.ts           Row types and export shapes, shared with the worker
     baseStore.ts       BaseStore<T> with getAll, getById, create and update
     stores/            Exercises, programs, workout sessions, sets, seed data
     migrations.ts      DB_VERSION and the version 9 stores
@@ -229,7 +230,7 @@ src/
     syncClient.ts      sync(), which pushes the outbox and pulls by cursor
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
     bootstrap.ts       The first sync's plan for each row
-    rows.ts            Row types and export conversion, shared with the worker
+    rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Notices between tabs over a BroadcastChannel
     status.ts          Last sync time
   state/               ExercisesState, ProgramsState, GymtimeSessionState

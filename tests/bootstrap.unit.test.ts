@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { planBootstrap } from '../src/sync/bootstrap'
-import type { ExerciseRow, Row } from '../src/sync/rows'
+import type { ExerciseRow, Row } from '../src/db/types'
 
 const exercise = (id: string, name: string): ExerciseRow => ({
   id,

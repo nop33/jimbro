@@ -1,5 +1,6 @@
 import { db } from '../../db'
-import { snapshotFromExercise, type ExerciseSnapshot } from '../../db/stores/workoutSessionsStore'
+import { snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
+import type { ExerciseSnapshot } from '../../db/types'
 import { sessions } from '../../db/stores/workoutSessionsStore'
 import ExerciseCard from './ExerciseCard'
 

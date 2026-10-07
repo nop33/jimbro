@@ -11,7 +11,6 @@ import type { Program } from './programsStore'
 import { setsStore } from './setsStore'
 
 export type { ExerciseSetExecution } from '../exerciseLogging'
-export type { ExerciseSnapshot } from '../types'
 
 const PERSISTED_WORKOUT_SESSION_STATUSES = ['completed', 'incomplete'] as const
 export type PersistedWorkoutSessionStatus = (typeof PERSISTED_WORKOUT_SESSION_STATUSES)[number]
