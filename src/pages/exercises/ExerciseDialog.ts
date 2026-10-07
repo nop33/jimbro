@@ -52,12 +52,6 @@ class ExerciseDialog {
     this.exerciseKindSelect.addEventListener('change', () => this.onKindChanged())
     this.exercisePresetSelect.addEventListener('change', () => this.renderPresetFields())
 
-    window.addEventListener('exercise-clicked', (e) => {
-      const exercise = (e as CustomEvent<{ exercise: Exercise }>).detail.exercise
-      this.populateForm(exercise)
-      this.openDialog()
-    })
-
     this.newExerciseButton.addEventListener('click', () => {
       this.populateForm()
       this.openDialog()
@@ -72,7 +66,7 @@ class ExerciseDialog {
     })
 
     this.deleteExerciseBtn.addEventListener('click', () => {
-      this.deleteExercise()
+      void this.deleteExercise()
     })
 
     this.exerciseForm.addEventListener('submit', async (e) => {
@@ -100,7 +94,7 @@ class ExerciseDialog {
         Toasts.show({ message: 'Exercise saved!' })
       } catch (error) {
         console.error('Error saving exercise:', error)
-        Toasts.show({ message: `Could not save exercise: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not save exercise: ${String(error)}`, type: 'error' })
       }
     })
   }
@@ -216,7 +210,7 @@ class ExerciseDialog {
         Toasts.show({ message: 'Exercise deleted.' })
       } catch (error) {
         console.error('Error deleting exercise:', error)
-        Toasts.show({ message: `Could not delete exercise: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not delete exercise: ${String(error)}`, type: 'error' })
       }
     }
   }

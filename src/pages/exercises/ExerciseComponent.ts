@@ -5,9 +5,12 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 
 class ExerciseComponent {
   private exercise: Exercise
+  private onClick?: (exercise: Exercise) => void
 
-  constructor(exercise: Exercise) {
+  // Without onClick, as in a program's exercise list, the card does nothing on a click.
+  constructor(exercise: Exercise, onClick?: (exercise: Exercise) => void) {
     this.exercise = exercise
+    this.onClick = onClick
   }
 
   render() {
@@ -26,9 +29,8 @@ class ExerciseComponent {
       kindBadge.classList.remove('hidden')
     }
 
-    exerciseItem.querySelector('div')?.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('exercise-clicked', { detail: { exercise: this.exercise } }))
-    })
+    const { onClick } = this
+    if (onClick) exerciseItem.querySelector('div')?.addEventListener('click', () => onClick(this.exercise))
 
     return exerciseItem
   }

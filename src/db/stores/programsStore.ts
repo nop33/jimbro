@@ -1,11 +1,9 @@
-import { CatalogStore, type NewCatalogRow } from '../catalogStore'
+import { CatalogStore } from '../catalogStore'
 import { nowIso } from '../nowIso'
 import { upgradeProgramRecord } from '../schemaUpgrade'
 import type { ProgramRow } from '../types'
 
 export type Program = ProgramRow
-
-export type NewProgram = NewCatalogRow<'programs'>
 
 class ProgramsStore extends CatalogStore<'programs'> {
   protected readonly table = 'programs'

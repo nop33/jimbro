@@ -25,9 +25,11 @@ class GymtimePage {
     this.program = program
 
     openSession.show(workoutSession)
-    window.addEventListener('jimbro:open-session-pulled', () => void this.refreshSession())
-    // Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
-    onPageNotice(() => void this.refreshSession())
+    // This tab's writes show through openSession, and its pulls announce open-session-pulled when they change this
+    // workout. Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
+    onPageNotice((notice, source) => {
+      if (notice === 'open-session-pulled' || source === 'other-tab') void this.refreshSession()
+    })
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement

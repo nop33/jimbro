@@ -24,12 +24,12 @@ class MuscleGroupSelect {
   }
 
   render({ includeOptionAll }: MuscleGroupSelectRenderProps) {
-    const options = ['<option value="">Select muscle group...</option>']
+    const options = [new Option('Select muscle group...', '')]
     if (includeOptionAll) {
-      options.push(`<option value="All">All</option>`)
+      options.push(new Option('All', 'All'))
     }
-    options.push(...MUSCLE_GROUPS.map((muscle) => `<option value="${muscle}">${MUSCLE_GROUP_LABELS[muscle]}</option>`))
-    this.muscleGroupSelect.innerHTML = options.join('')
+    options.push(...MUSCLE_GROUPS.map((muscle) => new Option(MUSCLE_GROUP_LABELS[muscle], muscle)))
+    this.muscleGroupSelect.replaceChildren(...options)
   }
 }
 

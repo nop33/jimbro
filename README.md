@@ -86,7 +86,7 @@ The page you keep open during a workout.
 - "Previous sets" lists the sets of the last workout with the exercise, preferring one at the same location. "View History" charts average weight, estimated 1RM and total volume per workout, with one point shape per location. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
-- Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export.
+- Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
 - "Delete" in the header deletes the workout after a confirmation.
 - A re-render keeps the scroll position and the open card, and changes to this workout from a sync or another tab show up without a reload.
 
@@ -123,7 +123,7 @@ Sync is optional. Without credentials the app sends nothing to the worker.
 - A sync pushes the outbox to the worker in chunks of 500 rows. Then it pulls pages of up to 1000 rows above the device's cursor, which is the highest server revision the device has seen. A pulled row never replaces a row that still has changes waiting in the outbox.
 - The worker gives each changed row the next revision number of that user, so a pull returns only what changed.
 - A database that has never synced, after a fresh install or a reset, runs a first sync instead. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs.
-- Tabs share one database. They tell each other about writes and finished syncs over a BroadcastChannel, and a Web Lock lets one tab push at a time.
+- Tabs share one database. Each tab announces its writes, finished syncs and pulled workout changes to the others over a BroadcastChannel, and a Web Lock lets one tab push at a time.
 
 ## Worker API
 
@@ -233,7 +233,7 @@ src/
     pull.ts            The first-sync commit and the commit of each pulled page
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
-    pageChannel.ts     Notices between tabs over a BroadcastChannel
+    pageChannel.ts     Page notices for this tab and, over a BroadcastChannel, the other tabs
     status.ts          Last sync time
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback

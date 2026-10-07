@@ -1,4 +1,5 @@
 import { sync } from './sync/syncClient'
+import { onPageNotice } from './sync/pageChannel'
 
 let rowsWrittenTimer = 0
 
@@ -73,7 +74,9 @@ export function initNavigation() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') startSync()
   })
-  window.addEventListener('jimbro:rows-written', () => {
+  // The tabs share one outbox, so only the tab that wrote schedules a push.
+  onPageNotice((notice, source) => {
+    if (notice !== 'rows-written' || source !== 'this-tab') return
     window.clearTimeout(rowsWrittenTimer)
     rowsWrittenTimer = window.setTimeout(startSync, 2000)
   })

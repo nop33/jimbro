@@ -20,12 +20,6 @@ class CloudBackup {
     }
 
     void this.updateSummaryStatus()
-    window.addEventListener('jimbro:sync-settled', () => {
-      void this.updateSummaryStatus()
-    })
-    window.addEventListener('jimbro:rows-written', () => {
-      void this.updateSummaryStatus()
-    })
     onPageNotice(() => {
       void this.updateSummaryStatus()
     })

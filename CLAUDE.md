@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Jimbro (aka gymbro) is a **workout tracking PWA built intentionally without a frontend framework**. It's a learning project: the goal is to use only native browser APIs + TypeScript + Tailwind. When suggesting changes, respect this constraint, and when a change uses a browser feature, say why it fits.
 
-- **No React/Vue/Svelte/etc.** Use vanilla DOM APIs, `<dialog>`, `<details>`, Custom Events.
+- **No React/Vue/Svelte/etc.** Use vanilla DOM APIs, `<dialog>`, `<details>`, Custom Events through `EventEmitter`.
 - **No runtime dependencies** beyond Tailwind and chart.js. Do not introduce state management libs, routers, utility libs, etc.
 - **No SPA router**. Navigation is plain full-page loads between `index.html` files under `/`, `/exercises/`, `/programs/`, `/workouts/`, `/gymtime/`, `/stats/`, `/settings/`. Each page has its own entry in `vite.config.ts` `rolldownOptions.input`.
 - **Mobile first and accessible.** Use semantic HTML, ARIA only where no element fits, and native input types (`date`, `number`, `time`). `src/style.css` keeps touch targets at least 44×44px and stops animations under `prefers-reduced-motion`, and an animation driven from script checks the preference too, as `animateDetails.ts` does.
@@ -33,7 +33,7 @@ This project uses **Vite+** (`vp`), a unified toolchain wrapping Vite/Rolldown/V
 | Build                      | `vp run build` (`tsc && vp build`)                     |
 | Preview prod build         | `vp preview`                                           |
 
-- `vp check` runs the format check and the linter, and never typechecks. The root `typecheck` script covers `src/`, `tests/` and the root config files, and the worker's covers `worker/src`, `worker/test` and `worker/vitest.config.mts`. The build typechecks `src/` only. Run both typecheck scripts before committing, as CI does.
+- `vp check` runs the format check and the linter. The linter reads types for rules such as `typescript/no-floating-promises` but reports no type errors, so it is not a typecheck. The root `typecheck` script covers `src/`, `tests/` and the root config files, and the worker's covers `worker/src`, `worker/test` and `worker/vitest.config.mts`. The build typechecks `src/` only. Run both typecheck scripts before committing, as CI does.
 - `vp test` is Vite+'s built-in Vitest, so the package.json `test` script (Playwright) runs as `vp run test`. Arguments after it go to Playwright.
 - Unit tests import from `vite-plus/test`. Worker tests import from `vitest` and `cloudflare:test`, because the worker has its own Vitest 3.2 with `@cloudflare/vitest-pool-workers`.
 - The pre-commit hook runs `vp staged`, which runs `vp check --fix` on the staged files.
@@ -55,7 +55,7 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 
 ### Persistence layer (`src/db/`)
 
-- `storage.ts` holds the `storage` singleton: the single shared `IDBDatabase`, the generic reads, and `writeRows`, the one write path for local edits. In one transaction it writes the rows, the `setGroups` cache for sets, and an outbox entry per row through `queueRows` from `src/sync/queue.ts`. Then it fires `jimbro:rows-written`. It is the only transaction that queues rows, so a row written any other way never reaches the server.
+- `storage.ts` holds the `storage` singleton: the single shared `IDBDatabase`, the generic reads, and `writeRows`, the one write path for local edits. In one transaction it writes the rows, the `setGroups` cache for sets, and an outbox entry per row through `queueRows` from `src/sync/queue.ts`. Then it announces `rows-written`. It is the only transaction that queues rows, so a row written any other way never reaches the server.
 - `types.ts` declares each data shape once: the row types (`ExerciseRow`, `ProgramRow`, `SessionHeader`, `SetRow`), `SESSION_STATUSES`, `WorkoutSession` (a header joined with its live sets) and the export files. Derive a variant with `Omit` or `Pick` instead of copying its fields.
 - `catalogStore.ts` is the abstract `CatalogStore`, which `exercisesStore` and `programsStore` in `stores/` extend with their upgrade, sort and `seed()`. Pages call `load()` to read the live rows into `all`, `subscribe(cb)` to re-render, `find(id)` to look one up in memory, and `create`, `update` and `remove` to write. A write shows in `all` first, then goes through `writeRows`. A failed create takes the row out again, and a failed update reloads. `getById` reads one row from IndexedDB, deleted or not, for pages that never called `load()`.
 - `workoutSessionsStore` builds a `WorkoutSession` from a session header and its set rows, whose IDs are `sessionId:exerciseId:position`. Each write (`create`, `update`, `addSet`, `addExercise`, …) takes the session it changes and resolves to the stored next one. It never changes the session passed in, and it recomputes `completed` or `incomplete` in the same write, so no caller sets `status`.
@@ -73,8 +73,8 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 - `src/sync` owns every read and write of the `outbox` and `meta` stores. `queue.ts` defines an outbox entry and the `meta` records, and queues rows inside the writer's transaction. `pull.ts` commits what a sync pulls.
 - `syncClient.ts` exports `sync()`. While `meta.cursor` and `meta.bootstrapped` are both 0 it runs a first sync: pull everything, plan each row with `bootstrap.ts`, commit with `commitFirstSync`, push. After that it runs a steady sync: push the outbox, then pull pages from the cursor through `commitPullPage`. A steady pull skips rows that have a pending outbox entry and rows equal to the stored copy.
 - `outbox.ts` owns the push. `outbox.drain(push)` takes chunks of 500 rows, sends each through `push`, which resolves to the server revision, and acks it. Take, push and ack of a chunk run under the `jimbro:sync-push` Web Lock. Take stamps each entry with the seq and body it sends, and ack drops only entries whose seq is unchanged, so an edit made during a push stays queued. On a database that has never synced, each ack also moves `cursor` or sets `bootstrapped` in the same transaction. `syncClient.ts` passes the `/api/push` request as `push`. Unit tests pass an in-memory server and lock through `createOutbox`.
-- `navigation.ts` calls `sync()` on page load, on `online`, when the tab becomes visible, and 2 s after the last `jimbro:rows-written`. Settings has "Sync now". `sync()` does nothing without credentials or offline. A call during a running sync waits for it and queues one more run.
-- `jimbro:rows-written` and `jimbro:sync-settled` fire on `window` in the tab that wrote or synced. Other tabs get them only as `onPageNotice` callbacks from `pageChannel.ts`, a BroadcastChannel named `jimbro`, so a page that must react to every tab listens to both, as `CloudBackup` does. `jimbro:open-session-pulled` fires when a pull changed the session open in gymtime.
+- `navigation.ts` calls `sync()` on page load, on `online`, when the tab becomes visible, and 2 s after this tab's last `rows-written` notice. Settings has "Sync now". `sync()` does nothing without credentials or offline. A call during a running sync waits for it and queues one more run.
+- Pages hear notices through `onPageNotice((notice, source) => …)` from `pageChannel.ts`, where `source` is `'this-tab'` or `'other-tab'`. `announce(notice)` sends one to this tab as a `jimbro:<notice>` window event, which the specs listen for, and to the other tabs over a BroadcastChannel named `jimbro`. `writeRows` announces `rows-written`, `sync()` announces `sync-settled` each time it ends, and a pull that changed the session open in gymtime announces `open-session-pulled`.
 
 ### Worker (`worker/`)
 
@@ -85,7 +85,7 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 
 ### Event emitter (`src/eventEmitter.ts`)
 
-Generic `EventEmitter<EventMap>` extending `EventTarget`, used for typed custom events, as the programs page's exercise multiselect and sortable list do. Between modules, prefer it or a store's `subscribe` over ad-hoc DOM events.
+Generic `EventEmitter<EventMap>` extending `EventTarget`, used for typed custom events, as the programs page's exercise multiselect and sortable list do. Between modules, use it, a callback or a store's `subscribe`, not an ad-hoc DOM event.
 
 ### Pages (`src/pages/<route>/`)
 
@@ -95,7 +95,7 @@ Each route has its own entry module (e.g. `src/pages/gymtime/index.ts`) bootstra
 - Per-component classes for cards, dialogs, forms (e.g. `ExerciseCard.ts`, `BreakTimerDialog.ts`).
 - Procedural entry in `index.ts` that calls the stores' `load()` and mounts the DOM.
 
-The gymtime page is the most complex. `openSession.ts` holds the workout it shows: `openSession.apply((session) => workoutSessionsStore.addSet(session, …))` runs a store write on it and shows the result once the write lands, with no optimistic update and no rollback. `ExerciseCardList.render()` rebuilds every card and keeps the scroll position and the open card. `GymtimePage` rereads the open session on `jimbro:open-session-pulled` and on other tabs' notices, and re-renders only when the session changed. The page also runs the break timer, wake lock and geolocation, and downloads a JSON export on workout completion when cloud sync is off.
+The gymtime page is the most complex. `openSession.ts` holds the workout it shows: `openSession.apply((session) => workoutSessionsStore.addSet(session, …))` runs a store write on it and shows the result once the write lands, with no optimistic update and no rollback. `ExerciseCardList.render()` rebuilds every card and keeps the scroll position and the open card. `GymtimePage` rereads the open session on this tab's `open-session-pulled` notice and on every notice from another tab, and re-renders only when the session changed. The page also runs the break timer, wake lock and geolocation, and downloads a JSON export on workout completion when cloud sync is off.
 
 ## TypeScript conventions
 
@@ -120,10 +120,13 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Write rows only through `storage.writeRows`, which queues each one for the push in the same transaction  | `tests/architecture.unit.test.ts` fails on any other readwrite transaction outside `src/sync`       |
 | Only `src/sync` reads or writes the `outbox` and `meta` stores                                           | `tests/architecture.unit.test.ts`                                                                   |
+| Notices go to every tab via `announce` and `onPageNotice`, other events via callbacks or `EventEmitter`  | `tests/architecture.unit.test.ts`                                                                   |
 | Import each symbol from the module that declares it, never through a re-export                           | `tests/architecture.unit.test.ts`                                                                   |
 | No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
+| Never leave a promise as a bare statement: await it, or mark it `void` when nothing should wait for it   | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
 | `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
 | `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them               | The worker typecheck, which has no DOM types                                                        |
+| Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                | `tests/architecture.unit.test.ts` fails on HTML built from a value                                  |
 | The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
 | A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
 | Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |

@@ -11,11 +11,11 @@ const authHeaders = {
   'Content-Type': 'application/json'
 }
 
-const api = (path: string, init: RequestInit = {}) =>
-  SELF.fetch(`https://example.com${path}`, {
-    ...init,
-    headers: { ...authHeaders, ...init.headers }
-  })
+const api = (path: string, init: RequestInit = {}) => {
+  const headers = new Headers(authHeaders)
+  new Headers(init.headers).forEach((value, name) => headers.set(name, value))
+  return SELF.fetch(`https://example.com${path}`, { ...init, headers })
+}
 
 const exercise = (id: string, name: string) => ({
   id,

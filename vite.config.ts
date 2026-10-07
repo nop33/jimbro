@@ -57,16 +57,30 @@ export default defineConfig({
   lint: {
     // oxlint's default plugins, plus import for no-cycle.
     plugins: ['typescript', 'unicorn', 'oxc', 'import'],
+    // Gives rules such as no-floating-promises the types. Type errors stay with the typecheck scripts.
+    options: { typeAware: true },
     rules: {
       // A module that reads an import while the cycle is still loading it gets undefined or a TDZ error, and a
       // storage.ts and utils.ts cycle once broke the build (1716b9a).
-      'import/no-cycle': 'error'
+      'import/no-cycle': 'error',
+      // The next line ran before an unawaited call finished, until 21bd233, e7795a0 and 1b00437 added the await.
+      'typescript/no-floating-promises': 'error'
     },
     overrides: [
       {
         // Pages own the dialogs. The data layers throw, and the page decides what to tell the user.
         files: ['src/db/**', 'src/sync/**'],
         rules: { 'no-alert': 'error' }
+      },
+      {
+        // Upgrading an old export turns whatever a field holds into text on purpose.
+        files: ['src/db/schemaUpgrade.ts'],
+        rules: { 'typescript/no-base-to-string': 'off' }
+      },
+      {
+        // Tests pass methods to vi.mocked and expect as values, which never call them without their object.
+        files: ['tests/**'],
+        rules: { 'typescript/unbound-method': 'off' }
       }
     ]
   },
