@@ -24,6 +24,13 @@ export default defineConfig({
     useTabs: false
   },
   lint: {
+    // oxlint's default plugins, plus import for no-cycle.
+    plugins: ['typescript', 'unicorn', 'oxc', 'import'],
+    rules: {
+      // A module that reads an import while the cycle is still loading it gets undefined or a TDZ error, and a
+      // storage.ts and utils.ts cycle once broke the build (1716b9a).
+      'import/no-cycle': 'error'
+    },
     overrides: [
       {
         // Pages own the dialogs. The data layers throw, and the page decides what to tell the user.

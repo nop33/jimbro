@@ -37,4 +37,22 @@ describe('architecture', () => {
       )
     expect(found).toEqual([])
   })
+
+  it('opens a readwrite transaction only in writeRows and src/sync', () => {
+    // A row put in any other transaction never reaches the outbox, so it never syncs. The Storage writers that
+    // 51fa002 deleted did that.
+    const writeRowsFile = path.normalize('src/db/storage.ts')
+    const found = sourceFiles('src')
+      .filter((file) => !file.startsWith(path.join('src', 'sync')))
+      .flatMap((file) => {
+        const opened = readFileSync(path.join(root, file), 'utf8').match(/['"]readwrite['"]/g)?.length ?? 0
+        const allowed = file === writeRowsFile ? 1 : 0
+        return opened > allowed
+          ? [
+              `${file} opens ${opened} readwrite transactions where ${allowed} is allowed. Write rows with storage.writeRows, and keep the sync's own transactions in src/sync.`
+            ]
+          : []
+      })
+    expect(found).toEqual([])
+  })
 })

@@ -1,3 +1,5 @@
+Read CLAUDE.md before you change code. It has this project's conventions, commands and architecture, and the rules that a check enforces.
+
 <!--VITE PLUS START-->
 
 # Using Vite+, the Unified Toolchain for the Web
@@ -75,4 +77,4 @@ These commands map to their corresponding tools. For example, `vp dev --port 300
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
 
-In this project `vp check` checks formatting and lint but not types. Typecheck with `vp run typecheck` and `cd worker && vp run typecheck`. CLAUDE.md has the project's conventions, commands and architecture.
+In this project `vp check` checks formatting and lint but not types. Typecheck with `vp run typecheck` and `cd worker && vp run typecheck`.
