@@ -56,6 +56,7 @@ Pages read and write through a `*State` class or the modules in `db/`, which own
 ### Persistence layer (`src/db/`)
 
 - `storage.ts` holds the single shared `IDBDatabase` connection and `writeRows`, the one write path. In one transaction it writes the rows, an outbox entry per row and, for sets, the `setGroups` cache. Then it fires `jimbro:rows-written`. Route every write through it, since nothing else reaches the outbox or the server.
+- `types.ts` declares the row types (`ExerciseRow`, `ProgramRow`, `SessionHeader`, `SetRow`), `Row`, `RowTable` and the export shapes. Import them from there, not through another module.
 - `baseStore.ts` is the abstract `BaseStore<T>` (`getAll`, `getById`, `create`, `update`). In `stores/`, `exercisesStore` and `programsStore` drop soft-deleted rows from `getAll` and load the JSON seeds in `seed()`. `workoutSessionsStore` builds a `WorkoutSession` from a session header and its set rows, whose IDs are `sessionId:exerciseId:position`. `index.ts` exposes `db.exercises` and `db.programs`.
 - `migrations.ts` holds `DB_VERSION` (9), the version 9 stores for fresh installs, and `upgradeDatabase`, which rebuilds any older database empty so the next sync refills it. A new version becomes an `if (oldVersion < N)` step after the existing one. The `9` in that step stays a literal, so raising `DB_VERSION` never wipes a version 9 database.
 - `exerciseLogging.ts` is the registry of exercise kinds, log presets and set slots. `schemaUpgrade.ts` upgrades records from older exports.
@@ -67,7 +68,7 @@ Pages read and write through a `*State` class or the modules in `db/`, which own
 
 ### Sync (`src/sync/`)
 
-- `rows.ts` defines the row types (`ExerciseRow`, `ProgramRow`, `SessionHeader`, `SetRow`), `canonical` and `rowsEqual`, and the export conversion. The worker imports it too, so keep it free of browser APIs.
+- `rows.ts` holds `canonical`, `rowsEqual` and the export conversion. The worker imports it and `db/types.ts`, so keep both free of browser APIs. The worker typecheck fails when either one uses `document`, `window` or `indexedDB`.
 - `syncClient.ts` exports `sync()`. While `meta.cursor` and `meta.bootstrapped` are both 0 it runs a first sync: pull everything, plan each row with `bootstrap.ts`, commit, push. After that it runs a steady sync: push the outbox, then pull pages from the cursor. A steady pull skips rows that have a pending outbox entry and rows equal to the stored copy.
 - `outbox.ts` owns the push. `outbox.drain(push)` takes chunks of 500 rows, sends each through `push`, which resolves to the server revision, and acks it. Take, push and ack of a chunk run under the `jimbro:sync-push` Web Lock. Take stamps each entry with the seq and body it sends, and ack drops only entries whose seq is unchanged, so an edit made during a push stays queued. On a database that has never synced, each ack also moves `cursor` or sets `bootstrapped` in the same transaction. `syncClient.ts` passes the `/api/push` request as `push`. Unit tests pass an in-memory server and lock through `createOutbox`.
 - `navigation.ts` calls `sync()` on page load, on `online`, when the tab becomes visible, and 2 s after the last `jimbro:rows-written`. Settings has "Sync now". `sync()` does nothing without credentials or offline. A call during a running sync waits for it and queues one more run.

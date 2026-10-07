@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test'
 import { WorkoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import type { SessionHeader } from '../src/sync/rows'
+import type { SessionHeader } from '../src/db/types'
 import { storage } from '../src/db/storage'
 
 vi.mock('../src/db/storage', () => ({

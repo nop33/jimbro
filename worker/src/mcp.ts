@@ -1,4 +1,4 @@
-import type { ExerciseRow, ProgramRow, SessionHeader, SetRow } from '../../src/sync/rows'
+import type { ExerciseRow, ProgramRow, SessionHeader, SetRow } from '../../src/db/types'
 import { countStatements, type RowDatabase } from './rows'
 
 const MAX_REV = `SELECT COALESCE(MAX(rev), 0) AS rev FROM (

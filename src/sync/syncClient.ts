@@ -4,7 +4,7 @@ import { planBootstrap, rowKey } from './bootstrap'
 import { outbox, type PushRows } from './outbox'
 import { announce } from './pageChannel'
 import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
-import { type Row } from './rows'
+import type { Row } from '../db/types'
 
 export class ImportRequiredError extends Error {
   constructor() {
