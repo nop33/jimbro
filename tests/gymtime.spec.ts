@@ -234,7 +234,7 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
-    // A rebuild from the stale read would land after the write, before the reread ends.
+    // Compare the cards only once the reread and any rebuild have ended.
     await rereadsFinished(page, { atLeast: 1 })
 
     await expect(card.locator('.completed-sets .set.isCompleted')).toHaveCount(1)
