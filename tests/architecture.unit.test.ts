@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
 import { describe, expect, it } from 'vite-plus/test'
 
 const root = path.resolve(import.meta.dirname, '..')
@@ -20,6 +21,71 @@ describe('architecture', () => {
           `${file} re-exports from '${from}'. Import from '${from}' where it is used and delete the re-export.`
       )
     )
+    expect(found).toEqual([])
+  })
+
+  it('builds HTML only from fixed markup', () => {
+    // innerHTML parses what it gets, so an exercise name typed, imported or synced in runs as markup. df6d559 fixed
+    // that in the toast and the gymtime error page, and missed the program exercise picker.
+    const unwrap = (node: ts.Expression): ts.Expression =>
+      ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node
+    const isFixed = (node: ts.Expression | undefined): boolean => {
+      const inner = node && unwrap(node)
+      return (
+        inner !== undefined &&
+        (ts.isStringLiteralLike(inner) ||
+          (ts.isConditionalExpression(inner) && isFixed(inner.whenTrue) && isFixed(inner.whenFalse)))
+      )
+    }
+    const isMarkupProperty = (node: ts.Expression) => {
+      const target = unwrap(node)
+      const name = ts.isPropertyAccessExpression(target)
+        ? target.name.text
+        : ts.isElementAccessExpression(target) && ts.isStringLiteralLike(target.argumentExpression)
+          ? target.argumentExpression.text
+          : undefined
+      return name === 'innerHTML' || name === 'outerHTML'
+    }
+    // = and the logical assignments store their right side as it is. += and the rest add to the markup already there.
+    const storesRightSide = [
+      ts.SyntaxKind.EqualsToken,
+      ts.SyntaxKind.BarBarEqualsToken,
+      ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+      ts.SyntaxKind.QuestionQuestionEqualsToken
+    ]
+    // The argument that each of these methods parses as markup.
+    const markupArgument = new Map([
+      ['insertAdjacentHTML', 1],
+      ['setHTMLUnsafe', 0],
+      ['createContextualFragment', 0],
+      ['parseFromString', 0]
+    ])
+    const found = sourceFiles('src').flatMap((file) => {
+      const source = ts.createSourceFile(file, readFileSync(path.join(root, file), 'utf8'), ts.ScriptTarget.Latest)
+      const sinks: Array<string> = []
+      const visit = (node: ts.Node) => {
+        const assignsMarkup =
+          ts.isBinaryExpression(node) &&
+          node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+          node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+          isMarkupProperty(node.left) &&
+          !(storesRightSide.includes(node.operatorToken.kind) && isFixed(node.right))
+        const markupIndex =
+          ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+            ? markupArgument.get(node.expression.name.text)
+            : undefined
+        const parsesMarkup =
+          ts.isCallExpression(node) && markupIndex !== undefined && !isFixed(node.arguments[markupIndex])
+        if (assignsMarkup || parsesMarkup)
+          sinks.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`)
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+      return sinks.map(
+        (sink) =>
+          `${sink} builds HTML from a value. Create the elements and set their textContent, or use new Option() for a select.`
+      )
+    })
     expect(found).toEqual([])
   })
 
