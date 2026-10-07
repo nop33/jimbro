@@ -1,4 +1,5 @@
-import { ROW_TABLES, rowsEqual, type Row, type RowTable } from './rows'
+import { ROW_TABLES, type Row, type RowTable } from '../db/types'
+import { rowsEqual } from './rows'
 
 export type BootstrapAction = 'keepServer' | 'pushLocal' | 'same'
 
