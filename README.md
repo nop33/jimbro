@@ -215,17 +215,19 @@ The database is `gymbro-database`, version 9.
 ```
 src/
   db/                  Persistence (IndexedDB)
-    storage.ts         Shared connection, and writeRows, which stores rows and outbox entries together
+    connection.ts      The shared IndexedDB connection and the generic reads
+    write.ts           writeRows, which stores rows and outbox entries together, and the sync commits
+    storage.ts         The storage singleton over connection.ts and write.ts
     types.ts           Row types and export shapes, shared with the worker
     baseStore.ts       BaseStore<T> with getAll, getById, create and update
-    stores/            Exercises, programs, workout sessions, sets, seed data
+    stores/            Exercises, programs, workout sessions, sets, seed data, and the state pages subscribe to
     migrations.ts      DB_VERSION and the version 9 stores
     exerciseLogging.ts Exercise kinds, log presets and set slots
     schemaUpgrade.ts   Upgrades records from older exports
     export.ts          JSON export, version 4
     import.ts          JSON import, versions 1 to 4
     cloudBackup.ts     Credentials and authenticated requests to the worker
-    reactiveStore.ts   ReactiveStore<T>, the observable value behind the state classes
+    reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
     syncClient.ts      sync(), which pushes the outbox and pulls by cursor
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
@@ -233,7 +235,6 @@ src/
     rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Notices between tabs over a BroadcastChannel
     status.ts          Last sync time
-  state/               ExercisesState, ProgramsState, GymtimeSessionState
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback
   navigation.ts        Bottom bar, back button and sync triggers

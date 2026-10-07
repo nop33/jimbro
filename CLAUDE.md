@@ -44,25 +44,26 @@ This project uses **Vite+** (`vp`), a unified toolchain wrapping Vite/Rolldown/V
 ### Layered structure under `src/`
 
 ```
-db/       Persistence (IndexedDB)
+db/       Persistence (IndexedDB) and the in-memory state pages subscribe to
 sync/     Cloud sync: outbox push, cursor pull, notices between tabs
-state/    Reactive in-memory state that pages subscribe to
 pages/    UI layer; one folder per route
 features/ Cross-cutting UI (toasts, confetti, hapticFeedback)
 ```
 
-Pages read and write through a `*State` class or the modules in `db/`, which own all IndexedDB access. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
+Pages read and write through the modules in `db/`, which own all IndexedDB access. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
 
 ### Persistence layer (`src/db/`)
 
-- `storage.ts` holds the single shared `IDBDatabase` connection and `writeRows`, the one write path. In one transaction it writes the rows, an outbox entry per row and, for sets, the `setGroups` cache. Then it fires `jimbro:rows-written`. Route every write through it, since nothing else reaches the outbox or the server.
+- `connection.ts` opens the single shared `IDBDatabase` and runs the generic reads. `write.ts` holds `writeRows`, the one write path for local edits. In one transaction it writes the rows, an outbox entry per row and, for sets, the `setGroups` cache. Then it fires `jimbro:rows-written`. `write.ts` also holds the first-sync and pull-page commits. `storage.ts` exposes all of it through the `storage` singleton. Route every write through `storage.writeRows`, since nothing else reaches the outbox or the server.
 - `types.ts` declares the row types (`ExerciseRow`, `ProgramRow`, `SessionHeader`, `SetRow`), `Row`, `RowTable` and the export shapes. Import them from there, not through another module.
-- `baseStore.ts` is the abstract `BaseStore<T>` (`getAll`, `getById`, `create`, `update`). In `stores/`, `exercisesStore` and `programsStore` drop soft-deleted rows from `getAll` and load the JSON seeds in `seed()`. `workoutSessionsStore` builds a `WorkoutSession` from a session header and its set rows, whose IDs are `sessionId:exerciseId:position`. `index.ts` exposes `db.exercises` and `db.programs`.
+- `baseStore.ts` is the abstract `BaseStore<T>` (`getAll`, `getById`, `create`, `update`). In `stores/`, `exercisesStore` and `programsStore` drop soft-deleted rows from `getAll` and load the JSON seeds in `seed()`. Each also keeps the live rows in a `ReactiveStore`: pages call `initialize()` on load, `subscribe(cb)` to re-render, and `createExercise`, `updateExercise` and `softDeleteExercise` (or the program versions) to write. Those apply the change in memory first, then persist through `create` or `update`. A failed create rolls back, and a failed update re-`initialize()`s from IndexedDB.
+- `workoutSessionsStore` builds a `WorkoutSession` from a session header and its set rows, whose IDs are `sessionId:exerciseId:position`. Its `sessions` object also holds the workout open in gymtime. Each change writes through the store first, recomputes `completed` or `incomplete`, and only then publishes the new session. There is no optimistic update and no rollback.
+- `index.ts` exposes `db.exercises`, `db.programs` and `db.sessions`.
 - `migrations.ts` holds `DB_VERSION` (9), the version 9 stores for fresh installs, and `upgradeDatabase`, which rebuilds any older database empty so the next sync refills it. A new version becomes an `if (oldVersion < N)` step after the existing one. The `9` in that step stays a literal, so raising `DB_VERSION` never wipes a version 9 database.
 - `exerciseLogging.ts` is the registry of exercise kinds, log presets and set slots. `schemaUpgrade.ts` upgrades records from older exports.
 - `export.ts` writes JSON export version 4. `import.ts` reads versions 1 to 4, adds only rows whose ID isn't stored yet, and writes through `writeRows`.
 - `cloudBackup.ts` keeps the credentials in localStorage and sends requests with the bearer token to `VITE_API_BASE`.
-- `reactiveStore.ts` is a small generic `ReactiveStore<T>` (get/set/update/subscribe) used by the state layer.
+- `reactiveStore.ts` is a small generic `ReactiveStore<T>` (get/set/update/subscribe) used by the stores.
 
 **Dates are stored as ISO strings**, not `Date` objects. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' `getAll` filters deleted rows out, while import and export read every row through `storage.getAll`.
 
@@ -80,13 +81,6 @@ Pages read and write through a `*State` class or the modules in `db/`, which own
 - `src/rows.ts` validates pushed rows and upserts them. A changed row gets the user's next `rev` and an unchanged one keeps its own. Pulls page by `rev`. The validation keeps its own lists of kinds, presets, muscle groups and set fields, so mirror any change to `src/db/exerciseLogging.ts` or `src/db/muscleGroups.ts` there. Otherwise a push that carries the new values fails with `invalid_row` and the outbox stops draining.
 - `src/mcp.ts` answers four read-only tools over JSON-RPC.
 - `migrations/` is the D1 schema, one table per row type.
-
-### State layer (`src/state/`)
-
-`ExercisesState`, `ProgramsState`, and `GymtimeSessionState` are **static singleton classes** wrapping a `ReactiveStore`. Pages subscribe with `subscribe(cb)` and call `initialize()` on page load to hydrate before rendering.
-
-- `ExercisesState` and `ProgramsState` apply optimistic updates, then persist via `db.exercises` / `db.programs`. A failed create rolls back, and a failed update re-`initialize()`s from IndexedDB.
-- `GymtimeSessionState` holds the open workout. It writes through `workoutSessionsStore` first, recomputes `completed` or `incomplete`, and only then publishes the new session. There is no optimistic update and no rollback.
 
 ### Event emitter (`src/eventEmitter.ts`)
 

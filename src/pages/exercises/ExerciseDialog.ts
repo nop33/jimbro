@@ -216,7 +216,7 @@ class ExerciseDialog {
         Toasts.show({ message: 'Exercise deleted.' })
       } catch (error) {
         console.error('Error deleting exercise:', error)
-        Toasts.show({ message: `Could not save exercise: ${error}`, type: 'error' })
+        Toasts.show({ message: `Could not delete exercise: ${error}`, type: 'error' })
       }
     }
   }
