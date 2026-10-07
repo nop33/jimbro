@@ -68,6 +68,9 @@ jobs:
           node-version: '22'
           cache: true
       - run: vp install
+      # The type-aware rules read worker/test through the worker's own packages, so without them its promises go unseen.
+      - name: Install worker dependencies
+        run: cd worker && vp install
       - name: Lint
         run: vp lint
 

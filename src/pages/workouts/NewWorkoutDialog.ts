@@ -23,7 +23,8 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
-    this.render(workoutSessionsByWeek)
+    // The page doesn't wait for the program list. A tap on New before it fills shows the programs read so far.
+    void this.render(workoutSessionsByWeek)
   }
 
   private static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {

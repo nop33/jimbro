@@ -57,8 +57,11 @@ const headers = {
   'x-d1-count': '1'
 }
 
-const call = (path: string, init: RequestInit = {}) =>
-  SELF.fetch(`https://example.com${path}`, { ...init, headers: { ...headers, ...init.headers } })
+const call = (path: string, init: RequestInit = {}) => {
+  const merged = new Headers(headers)
+  new Headers(init.headers).forEach((value, name) => merged.set(name, value))
+  return SELF.fetch(`https://example.com${path}`, { ...init, headers: merged })
+}
 
 const callTool = (name: string, args: Record<string, unknown> = {}) =>
   call('/mcp', {

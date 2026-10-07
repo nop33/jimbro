@@ -1,4 +1,4 @@
-export const setCityFromGeolocation = async (locationInput: HTMLInputElement) => {
+export const setCityFromGeolocation = (locationInput: HTMLInputElement) => {
   if (!navigator.geolocation) {
     console.error('Geolocation is not supported')
     return

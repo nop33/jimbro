@@ -30,11 +30,8 @@ export const fetchJimbroApi = async (path: string, options: RequestInit = {}) =>
   const config = getCloudBackupConfig()
   if (!config) throw new Error('Cloud backup not configured')
 
-  return fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${config.token}`
-    }
-  })
+  // Headers reads every form of HeadersInit. Spreading a Headers object or an array of pairs would lose them.
+  const headers = new Headers(options.headers)
+  headers.set('Authorization', `Bearer ${config.token}`)
+  return fetch(`${API_BASE}${path}`, { ...options, headers })
 }

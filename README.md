@@ -86,7 +86,7 @@ The page you keep open during a workout.
 - "Previous sets" lists the sets of the last workout with the exercise, preferring one at the same location. "View History" charts average weight, estimated 1RM and total volume per workout, with one point shape per location. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
-- Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export.
+- Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
 - "Delete" in the header deletes the workout after a confirmation.
 - A re-render keeps the scroll position and the open card, and changes to this workout from a sync or another tab show up without a reload.
 
