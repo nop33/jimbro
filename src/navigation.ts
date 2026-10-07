@@ -63,6 +63,11 @@ export function initNavigation() {
     window.history.back()
   })
 
+  // The service worker caches every page and asset, so the app opens offline. The dev server has no build to cache.
+  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch((error: unknown) => console.error('Service worker failed:', error))
+  }
+
   startSync()
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    /* The service worker has no DOM */
+    "lib": ["ES2022", "WebWorker"],
+    "types": []
+  },
+  "include": ["src/serviceWorker.ts"],
+  "exclude": []
+}

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 import { API_BASE } from './tests/localWorker'
+import { PREVIEW_PORT, PREVIEW_URL } from './tests/preview'
 
 export default defineConfig({
   testDir: './tests',
@@ -33,12 +34,24 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] }
     }
   ],
-  webServer: {
-    command: 'vp run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    env: {
-      VITE_API_BASE: API_BASE
+  webServer: [
+    {
+      command: 'vp run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      env: {
+        VITE_API_BASE: API_BASE
+      }
+    },
+    {
+      // The service worker exists only in a build, so tests/offline.spec.ts runs against the preview server.
+      command: `vp build && vp preview --port ${PREVIEW_PORT} --strictPort`,
+      url: PREVIEW_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        VITE_API_BASE: API_BASE
+      }
     }
-  }
+  ]
 })
