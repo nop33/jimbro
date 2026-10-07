@@ -1,5 +1,5 @@
 import '../../style.css'
-import { exercises } from '../../db/stores/exercisesStore'
+import { exercisesStore } from '../../db/stores/exercisesStore'
 import ExerciseList from '../exercises/ExerciseList'
 import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
@@ -9,7 +9,7 @@ import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 
 keepScreenAwake()
-await exercises.initialize()
+await exercisesStore.load()
 
 EditSetDialog.init()
 BreakTimerDialog.init()

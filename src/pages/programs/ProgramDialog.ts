@@ -1,6 +1,5 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
-import type { Program } from '../../db/stores/programsStore'
-import { programs } from '../../db/stores/programsStore'
+import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import ProgramExercisesMultiselect from './ProgramExercisesMultiselect'
 import ProgramExercisesSortableList from './ProgramExercisesSortableList'
@@ -72,11 +71,11 @@ class ProgramDialog {
 
       try {
         if (id) {
-          const existing = programs.programs.find((program) => program.id === id)
+          const existing = programsStore.find(id)
           if (!existing) throw new Error('Program not found')
-          await programs.updateProgram({ ...existing, name, exercises })
+          await programsStore.update({ ...existing, name, exercises })
         } else {
-          await programs.createProgram({ name, exercises, isDeleted: false })
+          await programsStore.create({ name, exercises })
         }
 
         this.closeDialog()
@@ -111,7 +110,7 @@ class ProgramDialog {
   private static async deleteProgram() {
     if (confirm('Are you sure you want to delete this program?')) {
       try {
-        await programs.softDeleteProgram(this.programIdInput.value)
+        await programsStore.remove(this.programIdInput.value)
         this.closeDialog()
         Toasts.show({ message: 'Program deleted.' })
       } catch (error) {

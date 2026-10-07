@@ -1,5 +1,5 @@
 import { daysAgo, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
-import { db } from '../../db'
+import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
@@ -27,7 +27,7 @@ class NewWorkoutDialog {
   }
 
   private static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
-    const programs = await db.programs.getAll()
+    const programs = await programsStore.load()
     const thisWeekWorkoutSessions = workoutSessionsByWeek[getWeekOfYear(new Date())] ?? []
 
     for (const program of programs) {

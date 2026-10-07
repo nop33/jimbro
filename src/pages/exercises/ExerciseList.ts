@@ -1,4 +1,4 @@
-import { exercises, type Exercise } from '../../db/stores/exercisesStore'
+import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import ExerciseComponent from './ExerciseComponent'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
@@ -7,16 +7,16 @@ class ExerciseList {
   private static muscleFilter: MuscleGroupSelect | null = null
 
   static init() {
-    this.renderMuscleGroupExercises(exercises.exercises, 'All')
+    this.renderMuscleGroupExercises(exercisesStore.all, 'All')
     this.renderMuscleFilter()
 
-    exercises.subscribe((allExercises) =>
-      this.renderMuscleGroupExercises(allExercises, this.muscleFilter?.selectedMuscle || 'All')
+    exercisesStore.subscribe((exercises) =>
+      this.renderMuscleGroupExercises(exercises, this.muscleFilter?.selectedMuscle || 'All')
     )
   }
 
-  static renderMuscleGroupExercises(allExercises: Array<Exercise>, muscleGroup: string) {
-    const filteredExercises = this.filterExercises(allExercises, muscleGroup)
+  static renderMuscleGroupExercises(exercises: Array<Exercise>, muscleGroup: string) {
+    const filteredExercises = this.filterExercises(exercises, muscleGroup)
     this.exercisesGrid.innerHTML = ''
     this.exercisesGrid.append(...filteredExercises.map((exercise) => new ExerciseComponent(exercise).render()))
   }
@@ -24,16 +24,16 @@ class ExerciseList {
   private static renderMuscleFilter() {
     this.muscleFilter = new MuscleGroupSelect({
       selector: '#muscle-filter',
-      onSelect: (muscleGroup) => this.renderMuscleGroupExercises(exercises.exercises, muscleGroup)
+      onSelect: (muscleGroup) => this.renderMuscleGroupExercises(exercisesStore.all, muscleGroup)
     })
 
     this.muscleFilter.render({ includeOptionAll: true })
   }
 
-  private static filterExercises(allExercises: Array<Exercise>, selectedMuscle: string) {
+  private static filterExercises(exercises: Array<Exercise>, selectedMuscle: string) {
     return selectedMuscle === 'All' || !selectedMuscle
-      ? allExercises
-      : allExercises.filter((exercise) => exercise.muscle === selectedMuscle)
+      ? exercises
+      : exercises.filter((exercise) => exercise.muscle === selectedMuscle)
   }
 }
 

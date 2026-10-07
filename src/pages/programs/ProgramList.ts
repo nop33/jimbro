@@ -1,20 +1,20 @@
 import type { Program } from '../../db/stores/programsStore'
-import { programs } from '../../db/stores/programsStore'
+import { programsStore } from '../../db/stores/programsStore'
 import ProgramComponent from './ProgramComponent'
 
 class ProgramList {
   private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
 
   static init() {
-    this.render(programs.programs)
+    this.render(programsStore.all)
 
-    programs.subscribe((programsList) => this.render(programsList))
+    programsStore.subscribe((programs) => this.render(programs))
   }
 
-  static render(programsList: Array<Program>) {
+  static render(programs: Array<Program>) {
     this.programsGrid.innerHTML = ''
 
-    for (const program of programsList) {
+    for (const program of programs) {
       const programComponent = new ProgramComponent(program)
       const programItem = programComponent.render()
       this.programsGrid.appendChild(programItem)

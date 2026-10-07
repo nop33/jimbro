@@ -1,4 +1,4 @@
-import { db } from '../../db'
+import { exercisesStore } from '../../db/stores/exercisesStore'
 import {
   breakTimerEnabled,
   emptySet,
@@ -415,7 +415,7 @@ class ExerciseCard {
               if (checkId === this.exerciseId) continue
 
               const sessionExercise = updated.exercises.find(({ exerciseId }) => exerciseId === checkId)
-              const catalogEx = sessionExercise ? undefined : await db.exercises.getById(checkId)
+              const catalogEx = sessionExercise ? undefined : await exercisesStore.getById(checkId)
               const target = sessionExercise ?? (catalogEx && snapshotFromExercise(catalogEx))
               if (!target) continue
 

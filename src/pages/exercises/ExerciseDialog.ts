@@ -15,7 +15,7 @@ import {
   type ExerciseKind,
   type LogPreset
 } from '../../db/exerciseLogging'
-import { exercises, type Exercise } from '../../db/stores/exercisesStore'
+import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
@@ -89,11 +89,11 @@ class ExerciseDialog {
 
       try {
         if (id) {
-          const existing = exercises.findById(id)
+          const existing = exercisesStore.find(id)
           if (!existing) throw new Error('Exercise not found')
-          await exercises.updateExercise({ ...existing, ...fields })
+          await exercisesStore.update({ ...existing, ...fields })
         } else {
-          await exercises.createExercise({ ...fields, isDeleted: false })
+          await exercisesStore.create(fields)
         }
 
         this.closeDialog()
@@ -211,7 +211,7 @@ class ExerciseDialog {
   private static async deleteExercise() {
     if (confirm('Are you sure you want to delete this exercise?')) {
       try {
-        await exercises.softDeleteExercise(this.exerciseIdInput.value)
+        await exercisesStore.remove(this.exerciseIdInput.value)
         this.closeDialog()
         Toasts.show({ message: 'Exercise deleted.' })
       } catch (error) {
