@@ -77,8 +77,7 @@ const fakeWorker = async (context: BrowserContext) => {
       await reply(route, 200, {
         rows: page.map(({ table, data, rev }) => ({ table, row: JSON.parse(data) as unknown, rev })),
         cursor: page.at(-1)?.rev ?? cursor,
-        more: above.length > limit,
-        ...(cursor === 0 ? { importedExportDate: null } : {})
+        more: above.length > limit
       })
     })
   )

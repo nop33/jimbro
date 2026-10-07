@@ -1,41 +1,26 @@
-import { fetchJimbroApi, getCloudBackupConfig, getLastBackupDate } from '../db/cloudBackup'
+import { fetchJimbroApi, getCloudBackupConfig } from '../db/cloudBackup'
 import { storage } from '../db/storage'
 import { planBootstrap, rowKey } from './bootstrap'
 import { outbox, type PushRows } from './outbox'
 import { announce } from './pageChannel'
 import { commitFirstSync, commitPullPage, readFirstSyncSnapshot, rowFromWire } from './pull'
 import { getMeta } from './queue'
-import { clearImportRequired, markImportRequired, setLastSyncAt } from './status'
+import { setLastSyncAt } from './status'
 import type { Row } from '../db/types'
-
-export class ImportRequiredError extends Error {
-  constructor() {
-    super('import_required')
-    this.name = 'ImportRequiredError'
-  }
-}
 
 interface PullPage {
   rows: Array<Row & { rev: number }>
   cursor: number
   more: boolean
-  importedExportDate?: string | null
 }
 
-const assertOk = async (response: Response) => {
-  if (response.status === 409) {
-    const body: unknown = await response.json().catch(() => null)
-    if (body && typeof body === 'object' && 'error' in body && body.error === 'import_required') {
-      throw new ImportRequiredError()
-    }
-    throw new Error('sync request failed: 409')
-  }
+const assertOk = (response: Response) => {
   if (!response.ok) throw new Error(`sync request failed: ${response.status}`)
 }
 
 const pullPage = async (cursor: number): Promise<PullPage> => {
   const response = await fetchJimbroApi(`/api/pull?cursor=${cursor}&limit=1000`)
-  await assertOk(response)
+  assertOk(response)
   return (await response.json()) as PullPage
 }
 
@@ -62,7 +47,7 @@ const pushToServer: PushRows = async (rows) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows })
   })
-  await assertOk(response)
+  assertOk(response)
   return revisionOf(await response.json())
 }
 
@@ -71,19 +56,15 @@ const firstSync = async () => {
   const pulled: Row[] = []
   let cursor = 0
   let more = true
-  let importedExportDate: string | null = null
   while (more) {
     const page = await pullPage(cursor)
-    if (cursor === 0) importedExportDate = page.importedExportDate ?? null
     for (const entry of page.rows) pulled.push(rowFromWire(entry))
     cursor = page.cursor
     more = page.more
     if (page.rows.length === 0) break
   }
 
-  const lastDate = getLastBackupDate()
-  const isSnapshotWriter = Boolean(lastDate && importedExportDate && lastDate >= importedExportDate)
-  const actions = planBootstrap(snapshot.rows, pulled, isSnapshotWriter)
+  const actions = planBootstrap(snapshot.rows, pulled)
   const pulledByKey = new Map(pulled.map((row) => [rowKey(row), row]))
   await commitFirstSync(storage, {
     seqAtStart: snapshot.seq,
@@ -141,13 +122,8 @@ export const sync = (options?: { again?: boolean }): Promise<void> => {
   tail = (async () => {
     try {
       await runSync()
-      clearImportRequired()
       setLastSyncAt(new Date().toISOString())
     } catch (error) {
-      if (error instanceof ImportRequiredError) {
-        markImportRequired()
-        return
-      }
       if (leaving) return
       console.error('sync failed', error)
       throw error
