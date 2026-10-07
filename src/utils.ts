@@ -13,7 +13,7 @@ export const setTextContent = (
 ) => {
   const element = parent.querySelector(selector) as HTMLElement
   if (!element) {
-    throw new Error(`Element with selector ${selector} not found in parent ${parent}`)
+    throw new Error(`Element with selector ${selector} not found in parent ${parent.nodeName}`)
   }
   element.textContent = text
 }

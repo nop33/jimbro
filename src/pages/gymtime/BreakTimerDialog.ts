@@ -30,7 +30,7 @@ class BreakTimerDialog {
       }
     })
     this.viewHistoryButton.addEventListener('click', () => {
-      if (this.currentExercise) ExerciseHistoryChart.openDialog(this.currentExercise)
+      if (this.currentExercise) void ExerciseHistoryChart.openDialog(this.currentExercise)
     })
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
   }

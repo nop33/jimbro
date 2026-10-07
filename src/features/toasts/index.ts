@@ -7,7 +7,8 @@ class Toasts {
 
   static show({ message, type = 'success', duration = 'short' }: ToastMessageSimple) {
     this.messageQueue.push({ message, type, duration })
-    this.processQueue()
+    // The queue shows the toasts one after another, and nothing waits for them.
+    void this.processQueue()
   }
 
   private static async processQueue() {
@@ -18,7 +19,7 @@ class Toasts {
     await toastMessagePopup.show()
 
     this.currentlyDisplayingMessage = null
-    this.processQueue()
+    void this.processQueue()
   }
 }
 

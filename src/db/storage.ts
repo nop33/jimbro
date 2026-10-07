@@ -41,7 +41,8 @@ export const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
 }
 
 if (navigator.storage && navigator.storage.persist) {
-  navigator.storage.persist().then((persistent) => {
+  // Nothing waits for the answer, since the browser may ask the user first.
+  void navigator.storage.persist().then((persistent) => {
     if (persistent) {
       console.log('Storage will not be cleared except by explicit user action')
     } else {
@@ -128,7 +129,6 @@ export class Storage {
         fail(error)
       }
     })
-    window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
     announce('rows-written')
   }
 
