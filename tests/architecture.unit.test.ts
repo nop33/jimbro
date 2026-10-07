@@ -40,20 +40,21 @@ describe('architecture', () => {
 
   it('leaves page notices to pageChannel and custom events to EventEmitter', () => {
     // A jimbro: window event reaches only its own tab. Settings and gymtime each heard only those and missed the
-    // other tabs' writes and syncs, until 3e600d6 and 5317946. A custom event between modules, like the
-    // exercise-clicked event that ExerciseList's callback replaced, reaches its listeners untyped.
+    // other tabs' writes and syncs, until 3e600d6 and 5317946. A second jimbro channel would hear this tab's notices as
+    // if another tab had sent them. A custom event between modules, like the exercise-clicked event that
+    // ExerciseList's callback replaced, reaches its listeners untyped.
     const channelFile = path.normalize('src/sync/pageChannel.ts')
     const emitterFile = path.normalize('src/eventEmitter.ts')
-    const windowNotice = /(?:EventListener|Event)\s*(?:<.*?>)?\(\s*['"`]jimbro:/
-    const customEvent = /new\s+CustomEvent\s*(?:<.*?>)?\((?!\s*['"`]jimbro:)/
+    const pageNotice = /(?:EventListener|Event)\s*(?:<.*?>)?\(\s*['"`]jimbro:|BroadcastChannel\s*\(\s*['"`]jimbro['"`]/
+    const customEvent = /new\s+(?:window\.)?CustomEvent\s*(?:<.*?>)?\((?!\s*['"`]jimbro:)/
     const files = sourceFiles('src').filter((file) => file !== channelFile)
     const read = (file: string) => readFileSync(path.join(root, file), 'utf8')
     const found = [
       ...files
-        .filter((file) => windowNotice.test(read(file)))
+        .filter((file) => pageNotice.test(read(file)))
         .map(
           (file) =>
-            `${file} sends or hears a jimbro: window event, which reaches only this tab. Use announce and onPageNotice from src/sync/pageChannel.ts, which reach every tab.`
+            `${file} sends or hears a notice outside pageChannel. A jimbro: window event reaches only this tab, and a second jimbro channel hears this tab's notices as if another tab sent them. Use announce and onPageNotice from src/sync/pageChannel.ts, which reach every tab and say which tab sent each notice.`
         ),
       ...files
         .filter((file) => file !== emitterFile && customEvent.test(read(file)))

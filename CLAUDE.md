@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Jimbro (aka gymbro) is a **workout tracking PWA built intentionally without a frontend framework**. It's a learning project: the goal is to use only native browser APIs + TypeScript + Tailwind. When suggesting changes, respect this constraint, and when a change uses a browser feature, say why it fits.
 
-- **No React/Vue/Svelte/etc.** Use vanilla DOM APIs, `<dialog>`, `<details>`, Custom Events.
+- **No React/Vue/Svelte/etc.** Use vanilla DOM APIs, `<dialog>`, `<details>`, Custom Events through `EventEmitter`.
 - **No runtime dependencies** beyond Tailwind and chart.js. Do not introduce state management libs, routers, utility libs, etc.
 - **No SPA router**. Navigation is plain full-page loads between `index.html` files under `/`, `/exercises/`, `/programs/`, `/workouts/`, `/gymtime/`, `/stats/`, `/settings/`. Each page has its own entry in `vite.config.ts` `rolldownOptions.input`.
 - **Mobile first and accessible.** Use semantic HTML, ARIA only where no element fits, and native input types (`date`, `number`, `time`). `src/style.css` keeps touch targets at least 44×44px and stops animations under `prefers-reduced-motion`, and an animation driven from script checks the preference too, as `animateDetails.ts` does.
