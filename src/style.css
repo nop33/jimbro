@@ -257,7 +257,6 @@
     @apply mb-0;
   }
 
-  /* Rows share the list's tracks, which size to their widest cell and spread out with equal space between them. */
   .set-list {
     display: grid;
     row-gap: 0.5rem;
