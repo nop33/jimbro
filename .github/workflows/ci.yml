@@ -9,6 +9,8 @@ on:
 jobs:
   install:
     runs-on: ubuntu-latest
+    outputs:
+      playwright: ${{ steps.playwright.outputs.version }}
     steps:
       - uses: actions/checkout@v5
       - uses: voidzero-dev/setup-vp@v1
@@ -19,6 +21,11 @@ jobs:
         run: vp install
       - name: Install worker dependencies
         run: cd worker && vp install
+      - name: Read the installed Playwright version
+        id: playwright
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   typecheck:
     needs: install
@@ -84,19 +91,19 @@ jobs:
     name: e2e (${{ matrix.artifact }})
     needs: install
     runs-on: ubuntu-latest
+    # The Playwright image of the installed version ships its browsers and the system packages they need. Installing
+    # them on the runner with `playwright install --with-deps` sometimes ran into the timeout below.
+    container: mcr.microsoft.com/playwright:v${{ needs.install.outputs.playwright }}-noble
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
           - project: chromium
-            browser: chromium
             artifact: chromium
           - project: webkit
-            browser: webkit
             artifact: webkit
           - project: Mobile Safari
-            browser: webkit
             artifact: mobile-safari
     steps:
       - uses: actions/checkout@v5
@@ -107,8 +114,6 @@ jobs:
       - run: vp install
       - name: Install worker dependencies
         run: cd worker && vp install
-      - name: Install Playwright browsers
-        run: vp exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run Playwright tests
         run: xvfb-run vp exec playwright test --project="${{ matrix.project }}"
       - uses: actions/upload-artifact@v6
