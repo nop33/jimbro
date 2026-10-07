@@ -33,7 +33,7 @@ This project uses **Vite+** (`vp`), a unified toolchain wrapping Vite/Rolldown/V
 | Build                      | `vp run build` (`tsc && vp build`)                     |
 | Preview prod build         | `vp preview`                                           |
 
-- `vp check` runs the format check and the linter, and never typechecks. The root `typecheck` script covers `src/`, `tests/` and the root config files, and the worker's covers `worker/src`, `worker/test` and `worker/vitest.config.mts`. The build typechecks `src/` only. Run both typecheck scripts before committing, as CI does.
+- `vp check` runs the format check and the linter. The linter reads types for rules such as `typescript/no-floating-promises` but reports no type errors, so it is not a typecheck. The root `typecheck` script covers `src/`, `tests/` and the root config files, and the worker's covers `worker/src`, `worker/test` and `worker/vitest.config.mts`. The build typechecks `src/` only. Run both typecheck scripts before committing, as CI does.
 - `vp test` is Vite+'s built-in Vitest, so the package.json `test` script (Playwright) runs as `vp run test`. Arguments after it go to Playwright.
 - Unit tests import from `vite-plus/test`. Worker tests import from `vitest` and `cloudflare:test`, because the worker has its own Vitest 3.2 with `@cloudflare/vitest-pool-workers`.
 - The pre-commit hook runs `vp staged`, which runs `vp check --fix` on the staged files.
@@ -122,6 +122,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | Only `src/sync` reads or writes the `outbox` and `meta` stores                                           | `tests/architecture.unit.test.ts`                                                                   |
 | Import each symbol from the module that declares it, never through a re-export                           | `tests/architecture.unit.test.ts`                                                                   |
 | No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
+| Await every promise, or mark it `void` when nothing should wait for it                                   | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
 | `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
 | `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them               | The worker typecheck, which has no DOM types                                                        |
 | The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
