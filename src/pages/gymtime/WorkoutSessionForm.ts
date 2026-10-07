@@ -1,3 +1,4 @@
+import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
@@ -21,11 +22,7 @@ class WorkoutSessionForm {
 
     const session = openSession.current
 
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    const today = `${year}-${month}-${day}`
+    const today = getSimpleDate(new Date())
 
     this.dateInput.value = session?.date || today
     this.dateInput.max = today

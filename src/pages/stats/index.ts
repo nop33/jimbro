@@ -1,3 +1,4 @@
+import { parseSimpleDate } from '../../dateUtils'
 import { isRepsSet } from '../../db/exerciseLogging'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { setTextContent } from '../../utils'
@@ -39,7 +40,7 @@ async function calculateAndRenderStats() {
   const totalDaysWorkedOut = uniqueDaysWorkedOut.size
 
   const sortedDates = Array.from(uniqueDaysWorkedOut)
-    .map((d) => new Date(d).getTime())
+    .map((d) => parseSimpleDate(d).getTime())
     .sort((a, b) => a - b)
 
   let averageWorkoutsPerWeek = 0
