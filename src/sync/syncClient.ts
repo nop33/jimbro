@@ -48,7 +48,7 @@ const notifyOpenSession = (rows: readonly Row[]) => {
     return false
   })
   if (!touched) return
-  window.dispatchEvent(new CustomEvent('jimbro:open-session-pulled', { detail: { sessionId } }))
+  announce('open-session-pulled')
 }
 
 const revisionOf = (body: unknown) => {
@@ -125,7 +125,6 @@ window.addEventListener('pagehide', () => {
 })
 
 const settle = () => {
-  window.dispatchEvent(new CustomEvent('jimbro:sync-settled'))
   announce('sync-settled')
 }
 
