@@ -44,7 +44,7 @@ class ExerciseHistoryChart {
   }
 
   private static async renderChart(exercise: ExerciseHistoryTarget) {
-    const sessions = await workoutSessionsStore.getAllWorkoutSessions()
+    const sessions = await workoutSessionsStore.getAll()
 
     // Filter sessions that have this exercise and have completed sets
     const relevantSessions = sessions.reduce<

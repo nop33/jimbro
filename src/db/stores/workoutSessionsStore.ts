@@ -12,12 +12,15 @@ import { OBJECT_STORES } from '../constants'
 import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { storage } from '../storage'
-import ReactiveStore from '../reactiveStore'
-import { exercisesStore, type Exercise } from './exercisesStore'
+import type { Exercise } from './exercisesStore'
 import type { Program } from './programsStore'
-import { setsStore } from './setsStore'
 
-export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'updatedAt'>
+// What starting a workout provides. The store adds the id, the status and updatedAt.
+export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'status' | 'updatedAt' | 'exercises'> & {
+  exercises: Array<ExerciseSnapshot>
+}
+
+type SessionFields = Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>
 
 export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
   exerciseId: exercise.id,
@@ -45,73 +48,268 @@ export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exerc
   return allDone ? 'completed' : 'incomplete'
 }
 
-const executionFromCatalog = async (exerciseId: string): Promise<ExerciseExecution> => {
-  const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
-  if (!exercise) {
-    return { ...placeholderSnapshot(exerciseId), sets: [] }
-  }
-  return { ...snapshotFromExercise(exercise), sets: [] }
+// A session holds each exercise once.
+export const hasExercise = (
+  session: { exercises: ReadonlyArray<ExerciseSnapshot> },
+  exerciseId: Exercise['id']
+): boolean => session.exercises.some((exercise) => exercise.exerciseId === exerciseId)
+
+const indexOfExercise = (session: WorkoutSession, exerciseId: Exercise['id']): number => {
+  const index = session.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId)
+  if (index === -1) throw new Error('Exercise not found in workout session')
+  return index
 }
+
+const withExerciseAt = (session: WorkoutSession, index: number, exercise: ExerciseExecution): WorkoutSession => ({
+  ...session,
+  exercises: session.exercises.map((current, position) => (position === index ? exercise : current))
+})
 
 const liveSets = (sets: Array<SetRow>, exerciseId: string): Array<SetRow> =>
   sets
     .filter((set) => set.exerciseId === exerciseId && !set.isDeleted)
     .sort((left, right) => left.position - right.position)
 
+const tombstones = (sets: Array<SetRow>, updatedAt: string): Array<SetRow> =>
+  sets.map((set) => ({ ...set, isDeleted: true, updatedAt }))
+
+// Workout sessions, each read as its header joined with its live sets. A write takes the session it changes and
+// resolves to the next one once it is stored. It never changes the session it was given, and every write but
+// remove goes through save, which recomputes the status.
 export class WorkoutSessionsStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
-  private store = new ReactiveStore<WorkoutSession | undefined>(undefined)
 
-  get session(): WorkoutSession | undefined {
-    return this.store.get()
+  // A session that exists and is not deleted.
+  async getById(id: string): Promise<WorkoutSession | undefined> {
+    const header = await storage.get<SessionHeader>(this.storeName, id)
+    if (!header || header.isDeleted) return undefined
+    return this.assemble(header)
   }
 
-  initialize(session?: WorkoutSession): void {
-    this.store.set(session)
+  async getAll(): Promise<Array<WorkoutSession>> {
+    const db = await storage.connection()
+    const { headers, groups } = await new Promise<{
+      headers: Array<SessionHeader>
+      groups: Array<{ sessionId: string; sets: Array<SetRow> }>
+    }>((resolve, reject) => {
+      const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
+      const headersRequest = tx.objectStore(this.storeName).getAll()
+      const groupsRequest = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll()
+      tx.oncomplete = () =>
+        resolve({
+          headers: headersRequest.result as Array<SessionHeader>,
+          groups: groupsRequest.result as Array<{ sessionId: string; sets: Array<SetRow> }>
+        })
+      tx.onerror = () => reject(tx.error)
+    })
+    const bySession = new Map(groups.map((group) => [group.sessionId, group.sets]))
+    return headers
+      .filter((header) => !header.isDeleted)
+      .map((header) => sessionFromRows(header, bySession.get(header.id) ?? []))
   }
 
-  subscribe(callback: (session: WorkoutSession | undefined) => void): () => void {
-    return this.store.subscribe(callback)
-  }
+  // The sessions without their sets, by week of the year, each week in date order.
+  async getAllGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
+    const { getWeekOfYear, parseSimpleDate } = await import('../../dateUtils')
+    const headers = await storage.getAll<SessionHeader>(this.storeName)
+    const workoutSessions = headers.filter((header) => !header.isDeleted).map((header) => sessionFromRows(header, []))
 
-  findById(id: string): WorkoutSession | undefined {
-    const current = this.store.get()
-    return current?.id === id ? current : undefined
-  }
+    const grouped = workoutSessions.reduce(
+      (acc, workoutSession) => {
+        const week = getWeekOfYear(parseSimpleDate(workoutSession.date))
+        if (acc[week]) {
+          acc[week].push(workoutSession)
+        } else {
+          acc[week] = [workoutSession]
+        }
+        return acc
+      },
+      {} as Record<string, Array<WorkoutSession>>
+    )
 
-  private requireSession(): WorkoutSession {
-    const session = this.store.get()
-    if (!session) throw new Error('No active workout session')
-    return session
-  }
-
-  private async reconcileStatus(session: WorkoutSession): Promise<WorkoutSession> {
-    const expected = computeWorkoutSessionStatus(session)
-    if (session.status === expected) return session
-    return this.updateWorkoutSession({ ...session, status: expected })
-  }
-
-  hasExercise(exerciseId: string, options: { showAlert?: boolean } = {}): boolean {
-    const session = this.store.get()
-    if (!session) return false
-
-    const exists = session.exercises.some((e) => e.exerciseId === exerciseId)
-    if (exists && options.showAlert) {
-      alert('This exercise is already in your session.')
+    for (const week in grouped) {
+      grouped[week].sort((a, b) => parseSimpleDate(a.date).getTime() - parseSimpleDate(b.date).getTime())
     }
 
-    return exists
+    return grouped
   }
 
-  private async putRows(session: WorkoutSession, sets: Array<SetRow> = []): Promise<void> {
+  async getLatestSaved(): Promise<WorkoutSession | undefined> {
+    const header = await this.firstHeader(
+      'prev',
+      (candidate) => !candidate.isDeleted && SESSION_STATUSES.includes(candidate.status)
+    )
+    if (!header) return undefined
+    return this.assemble(header)
+  }
+
+  async getLatestCompletedOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
+    const { parseSimpleDate } = await import('../../dateUtils')
+    const headers = await storage.getAllByIndex<SessionHeader>(this.storeName, 'programId', programId)
+    const latest = headers
+      .filter((header) => !header.isDeleted && header.status === 'completed')
+      .sort((left, right) => parseSimpleDate(right.date).getTime() - parseSimpleDate(left.date).getTime())[0]
+    if (!latest) return undefined
+    return this.assemble(latest)
+  }
+
+  // The latest session with at least requiredSets sets of the exercise, preferring one at the location.
+  async getLatestWithCompletedExercise(
+    exerciseId: Exercise['id'],
+    requiredSets: number,
+    location?: string
+  ): Promise<WorkoutSession | undefined> {
+    const hasEnoughSets = (session: WorkoutSession) => {
+      const exercise = session.exercises.find((candidate) => candidate.exerciseId === exerciseId)
+      return !!exercise && exercise.sets.length >= requiredSets
+    }
+    const headerHasExercise = (header: SessionHeader) => hasExercise(header, exerciseId)
+
+    const session = await this.firstMatchingSession(
+      'prev',
+      (header) => headerHasExercise(header) && (!location || header.location === location),
+      hasEnoughSets
+    )
+    if (session) return session
+    if (!location) return undefined
+
+    return this.firstMatchingSession('prev', headerHasExercise, hasEnoughSets)
+  }
+
+  async getDateOfFirst(): Promise<string | undefined> {
+    const earliest = await this.firstHeader('next', (header) => !header.isDeleted)
+    return earliest?.date
+  }
+
+  async create(fields: NewWorkoutSession): Promise<WorkoutSession> {
+    return this.save({
+      ...fields,
+      id: crypto.randomUUID(),
+      exercises: fields.exercises.map((exercise) => ({ ...exercise, sets: [] }))
+    })
+  }
+
+  async update(session: WorkoutSession, fields: SessionFields): Promise<WorkoutSession> {
+    return this.save({ ...session, ...fields })
+  }
+
+  // Soft-deletes the session and its sets.
+  async remove(id: string): Promise<void> {
+    const header = await storage.get<SessionHeader>(this.storeName, id)
+    if (!header || header.isDeleted) {
+      throw new Error('Workout session not found')
+    }
+    const updatedAt = nowIso()
+    const sets = await this.setsOf(id)
     await storage.writeRows([
-      { table: 'sessions', row: rowsFromSession(session).header },
-      ...sets.map((row) => ({ table: 'sets' as const, row }))
+      { table: 'sessions', row: { ...header, isDeleted: true, updatedAt } },
+      ...tombstones(sets, updatedAt).map((row) => ({ table: 'sets' as const, row }))
     ])
   }
 
+  async addSet(
+    session: WorkoutSession,
+    exerciseId: Exercise['id'],
+    set: ExerciseSetExecution
+  ): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const exercise = session.exercises[index]
+    const updatedAt = nowIso()
+    const position = exercise.sets.length
+    const row: SetRow = {
+      id: legacySetId(session.id, exerciseId, position),
+      sessionId: session.id,
+      exerciseId,
+      position,
+      set,
+      isDeleted: false,
+      updatedAt
+    }
+    return this.save(withExerciseAt(session, index, { ...exercise, sets: [...exercise.sets, set] }), [row], updatedAt)
+  }
+
+  async updateSet(
+    session: WorkoutSession,
+    exerciseId: Exercise['id'],
+    setIndex: number,
+    set: ExerciseSetExecution
+  ): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const stored = liveSets(await this.setsOf(session.id), exerciseId)[setIndex]
+    if (!stored) throw new Error('Set not found in workout session')
+
+    const exercise = session.exercises[index]
+    const updatedAt = nowIso()
+    const sets = exercise.sets.map((current, position) => (position === setIndex ? set : current))
+    return this.save(withExerciseAt(session, index, { ...exercise, sets }), [{ ...stored, set, updatedAt }], updatedAt)
+  }
+
+  async addExercise(session: WorkoutSession, exercise: Exercise): Promise<WorkoutSession> {
+    if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
+    return this.save({ ...session, exercises: [...session.exercises, { ...snapshotFromExercise(exercise), sets: [] }] })
+  }
+
+  // Soft-deletes the exercise's sets with it.
+  async removeExercise(session: WorkoutSession, exerciseId: Exercise['id']): Promise<WorkoutSession> {
+    const updatedAt = nowIso()
+    const removed = tombstones(liveSets(await this.setsOf(session.id), exerciseId), updatedAt)
+    const exercises = session.exercises.filter((exercise) => exercise.exerciseId !== exerciseId)
+    return this.save({ ...session, exercises }, removed, updatedAt)
+  }
+
+  // Puts the exercise in the old one's place and soft-deletes the old one's sets.
+  async swapExercise(
+    session: WorkoutSession,
+    oldExerciseId: Exercise['id'],
+    exercise: Exercise
+  ): Promise<WorkoutSession> {
+    if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
+    const index = indexOfExercise(session, oldExerciseId)
+    const updatedAt = nowIso()
+    const removed = tombstones(liveSets(await this.setsOf(session.id), oldExerciseId), updatedAt)
+    return this.save(
+      withExerciseAt(session, index, { ...snapshotFromExercise(exercise), sets: [] }),
+      removed,
+      updatedAt
+    )
+  }
+
+  // Resolves to the session as it is, with no write, when the exercise is already first or last.
+  async moveExercise(
+    session: WorkoutSession,
+    exerciseId: Exercise['id'],
+    direction: 'up' | 'down'
+  ): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (swapIndex < 0 || swapIndex >= session.exercises.length) return session
+
+    const exercises = [...session.exercises]
+    exercises[swapIndex] = session.exercises[index]
+    exercises[index] = session.exercises[swapIndex]
+    return this.save({ ...session, exercises })
+  }
+
+  // Stores the header, with the status its sets give, in one write with the set rows the change made.
+  private async save(
+    session: Omit<WorkoutSession, 'status' | 'updatedAt'>,
+    sets: Array<SetRow> = [],
+    updatedAt = nowIso()
+  ): Promise<WorkoutSession> {
+    const next: WorkoutSession = { ...session, status: computeWorkoutSessionStatus(session), updatedAt }
+    await storage.writeRows([
+      { table: 'sessions', row: rowsFromSession(next).header },
+      ...sets.map((row) => ({ table: 'sets' as const, row }))
+    ])
+    return next
+  }
+
+  private async setsOf(sessionId: string): Promise<Array<SetRow>> {
+    return storage.getAllByIndex<SetRow>(OBJECT_STORES.SETS, 'sessionId', sessionId)
+  }
+
   private async assemble(header: SessionHeader): Promise<WorkoutSession> {
-    return sessionFromRows(header, await setsStore.getBySession(header.id))
+    return sessionFromRows(header, await this.setsOf(header.id))
   }
 
   private async firstHeader(
@@ -165,448 +363,6 @@ export class WorkoutSessionsStore {
       }
     })
   }
-
-  async createWorkoutSession(item: NewWorkoutSession): Promise<WorkoutSession> {
-    const workoutSession: WorkoutSession = { ...item, id: crypto.randomUUID(), updatedAt: nowIso() }
-    const sets: Array<SetRow> = []
-    for (const exercise of workoutSession.exercises) {
-      exercise.sets.forEach((set, position) => {
-        sets.push({
-          id: legacySetId(workoutSession.id, exercise.exerciseId, position),
-          sessionId: workoutSession.id,
-          exerciseId: exercise.exerciseId,
-          position,
-          set,
-          isDeleted: false,
-          updatedAt: workoutSession.updatedAt
-        })
-      })
-    }
-    await this.putRows(workoutSession, sets)
-    this.store.set(workoutSession)
-    return workoutSession
-  }
-
-  async create(data: NewWorkoutSession): Promise<WorkoutSession> {
-    return this.createWorkoutSession(data)
-  }
-
-  async update(updates: Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const mutated = await this.updateWorkoutSession({ ...current, ...updates })
-    const reconciled = await this.reconcileStatus(mutated)
-    this.store.set(reconciled)
-    return reconciled
-  }
-
-  async delete(): Promise<void> {
-    const current = this.requireSession()
-    await this.deleteWorkoutSession(current.id)
-    this.store.set(undefined)
-  }
-
-  async addSet(exerciseId: string, set: ExerciseSetExecution): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const mutated = await this.addExerciseExecutionSetToWorkoutSession({
-      workoutSession: current,
-      exerciseId,
-      exerciseExecutionSet: set
-    })
-    const reconciled = await this.reconcileStatus(mutated)
-    this.store.set(reconciled)
-    return reconciled
-  }
-
-  async updateSet(exerciseId: string, setIndex: number, set: ExerciseSetExecution): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const updated = await this.updateExerciseExecutionSetInWorkoutSession({
-      workoutSession: current,
-      exerciseId,
-      exerciseExecutionSetIndex: setIndex,
-      exerciseExecutionSet: set
-    })
-    this.store.set(updated)
-    return updated
-  }
-
-  async addExercise(exerciseId: string): Promise<WorkoutSession> {
-    const current = this.requireSession()
-
-    if (this.hasExercise(exerciseId)) {
-      throw new Error('Exercise already exists in workout session')
-    }
-
-    const mutated = await this.addExerciseToWorkoutSession({
-      workoutSession: current,
-      exercise: await executionFromCatalog(exerciseId)
-    })
-    const reconciled = await this.reconcileStatus(mutated)
-    this.store.set(reconciled)
-    return reconciled
-  }
-
-  async deleteExercise(exerciseId: string): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const mutated = await this.deleteExerciseFromWorkoutSession({
-      workoutSession: current,
-      exerciseId
-    })
-    const reconciled = await this.reconcileStatus(mutated)
-    this.store.set(reconciled)
-    return reconciled
-  }
-
-  async swapExercise(oldExerciseId: string, newExerciseId: string): Promise<WorkoutSession> {
-    const current = this.requireSession()
-
-    if (this.hasExercise(newExerciseId)) {
-      throw new Error('Exercise already exists in workout session')
-    }
-
-    const mutated = await this.swapExerciseInWorkoutSession({
-      workoutSession: current,
-      oldExerciseId,
-      replacement: await executionFromCatalog(newExerciseId)
-    })
-    const reconciled = await this.reconcileStatus(mutated)
-    this.store.set(reconciled)
-    return reconciled
-  }
-
-  async moveExercise(exerciseId: string, direction: 'up' | 'down'): Promise<WorkoutSession> {
-    const current = this.requireSession()
-    const updated = await this.moveExerciseInWorkoutSession({
-      workoutSession: current,
-      exerciseId,
-      direction
-    })
-    this.store.set(updated)
-    return updated
-  }
-
-  async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
-    const header = await storage.get<SessionHeader>(this.storeName, id)
-    if (!header || header.isDeleted) return undefined
-    return this.assemble(header)
-  }
-
-  async getLatestCompletedWorkoutSessionOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
-    const { parseSimpleDate } = await import('../../dateUtils')
-    const headers = await storage.getAllByIndex<SessionHeader>(this.storeName, 'programId', programId)
-    const latest = headers
-      .filter((header) => !header.isDeleted && header.status === 'completed')
-      .sort((left, right) => parseSimpleDate(right.date).getTime() - parseSimpleDate(left.date).getTime())[0]
-    if (!latest) return undefined
-    return this.assemble(latest)
-  }
-
-  async getLatestSavedWorkoutSession(): Promise<WorkoutSession | undefined> {
-    const header = await this.firstHeader(
-      'prev',
-      (candidate) => !candidate.isDeleted && SESSION_STATUSES.includes(candidate.status)
-    )
-    if (!header) return undefined
-    return this.assemble(header)
-  }
-
-  async getLatestWorkoutSessionWithCompletedExercise(
-    exerciseId: Exercise['id'],
-    requiredSets: number,
-    location?: string
-  ): Promise<WorkoutSession | undefined> {
-    const hasEnoughSets = (session: WorkoutSession) => {
-      const exercise = session.exercises.find((candidate) => candidate.exerciseId === exerciseId)
-      return !!exercise && exercise.sets.length >= requiredSets
-    }
-    const headerHasExercise = (header: SessionHeader) =>
-      header.exercises.some((exercise) => exercise.exerciseId === exerciseId)
-
-    const session = await this.firstMatchingSession(
-      'prev',
-      (header) => headerHasExercise(header) && (!location || header.location === location),
-      hasEnoughSets
-    )
-    if (session) return session
-    if (!location) return undefined
-
-    return this.firstMatchingSession('prev', headerHasExercise, hasEnoughSets)
-  }
-
-  async getDateOfFirstWorkoutSession(): Promise<string | undefined> {
-    const earliest = await this.firstHeader('next', (header) => !header.isDeleted)
-    return earliest?.date
-  }
-
-  async getAllWorkoutSessions(): Promise<Array<WorkoutSession>> {
-    const db = await storage.connection()
-    const { headers, groups } = await new Promise<{
-      headers: Array<SessionHeader>
-      groups: Array<{ sessionId: string; sets: Array<SetRow> }>
-    }>((resolve, reject) => {
-      const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
-      const headersRequest = tx.objectStore(this.storeName).getAll()
-      const groupsRequest = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll()
-      tx.oncomplete = () =>
-        resolve({
-          headers: headersRequest.result as Array<SessionHeader>,
-          groups: groupsRequest.result as Array<{ sessionId: string; sets: Array<SetRow> }>
-        })
-      tx.onerror = () => reject(tx.error)
-    })
-    const bySession = new Map(groups.map((group) => [group.sessionId, group.sets]))
-    return headers
-      .filter((header) => !header.isDeleted)
-      .map((header) => sessionFromRows(header, bySession.get(header.id) ?? []))
-  }
-
-  async getAllWorkoutSessionsGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
-    const { getWeekOfYear, parseSimpleDate } = await import('../../dateUtils')
-    const headers = await storage.getAll<SessionHeader>(this.storeName)
-    const workoutSessions = headers.filter((header) => !header.isDeleted).map((header) => sessionFromRows(header, []))
-
-    const grouped = workoutSessions.reduce(
-      (acc, workoutSession) => {
-        const week = getWeekOfYear(parseSimpleDate(workoutSession.date))
-        if (acc[week]) {
-          acc[week].push(workoutSession)
-        } else {
-          acc[week] = [workoutSession]
-        }
-        return acc
-      },
-      {} as Record<string, Array<WorkoutSession>>
-    )
-
-    for (const week in grouped) {
-      grouped[week].sort((a, b) => parseSimpleDate(a.date).getTime() - parseSimpleDate(b.date).getTime())
-    }
-
-    return grouped
-  }
-
-  async updateWorkoutSession(item: WorkoutSession): Promise<WorkoutSession> {
-    const updated = { ...item, updatedAt: nowIso() }
-    await this.putRows(updated)
-    return updated
-  }
-
-  async addExerciseExecutionSetToWorkoutSession({
-    workoutSession,
-    exerciseId,
-    exerciseExecutionSet
-  }: {
-    workoutSession: WorkoutSession
-    exerciseId: Exercise['id']
-    exerciseExecutionSet: ExerciseSetExecution
-  }): Promise<WorkoutSession> {
-    const workoutSessionExercise = workoutSession.exercises.find(({ exerciseId: id }) => id === exerciseId)
-
-    if (!workoutSessionExercise) {
-      throw new Error('Exercise not found in workout session')
-    }
-
-    const updatedAt = nowIso()
-    const position = workoutSessionExercise.sets.length
-    const setRow: SetRow = {
-      id: legacySetId(workoutSession.id, exerciseId, position),
-      sessionId: workoutSession.id,
-      exerciseId,
-      position,
-      set: exerciseExecutionSet,
-      isDeleted: false,
-      updatedAt
-    }
-    workoutSessionExercise.sets.push(exerciseExecutionSet)
-    workoutSession.updatedAt = updatedAt
-    await this.putRows(workoutSession, [setRow])
-    return workoutSession
-  }
-
-  async deleteWorkoutSession(id: string): Promise<void> {
-    const header = await storage.get<SessionHeader>(this.storeName, id)
-    if (!header || header.isDeleted) {
-      throw new Error('Workout session not found')
-    }
-    const updatedAt = nowIso()
-    const sets = await setsStore.getBySession(id)
-    await storage.writeRows([
-      { table: 'sessions', row: { ...header, isDeleted: true, updatedAt } },
-      ...sets.map((set) => ({ table: 'sets' as const, row: { ...set, isDeleted: true, updatedAt } }))
-    ])
-  }
-
-  async updateExerciseExecutionSetInWorkoutSession({
-    workoutSession,
-    exerciseId,
-    exerciseExecutionSetIndex,
-    exerciseExecutionSet
-  }: {
-    workoutSession: WorkoutSession
-    exerciseId: Exercise['id']
-    exerciseExecutionSetIndex: number
-    exerciseExecutionSet: ExerciseSetExecution
-  }): Promise<WorkoutSession> {
-    const workoutSessionExercise = workoutSession.exercises.find(({ exerciseId: id }) => id === exerciseId)
-    if (!workoutSessionExercise) {
-      throw new Error('Exercise not found')
-    }
-    const current = liveSets(await setsStore.getBySession(workoutSession.id), exerciseId)[exerciseExecutionSetIndex]
-    if (!current) {
-      throw new Error('Exercise not found')
-    }
-    const updatedAt = nowIso()
-    workoutSessionExercise.sets[exerciseExecutionSetIndex] = exerciseExecutionSet
-    workoutSession.updatedAt = updatedAt
-    await this.putRows(workoutSession, [{ ...current, set: exerciseExecutionSet, updatedAt }])
-    return workoutSession
-  }
-
-  async addExerciseToWorkoutSession({
-    workoutSession,
-    exercise
-  }: {
-    workoutSession: WorkoutSession
-    exercise: ExerciseExecution
-  }): Promise<WorkoutSession> {
-    const updatedAt = nowIso()
-    const next: WorkoutSession = {
-      ...workoutSession,
-      exercises: [...workoutSession.exercises, exercise],
-      updatedAt
-    }
-    const sets: Array<SetRow> = exercise.sets.map((set, position) => ({
-      id: legacySetId(workoutSession.id, exercise.exerciseId, position),
-      sessionId: workoutSession.id,
-      exerciseId: exercise.exerciseId,
-      position,
-      set,
-      isDeleted: false,
-      updatedAt
-    }))
-    await this.putRows(next, sets)
-    return next
-  }
-
-  async deleteExerciseFromWorkoutSession({
-    workoutSession,
-    exerciseId
-  }: {
-    workoutSession: WorkoutSession
-    exerciseId: Exercise['id']
-  }): Promise<WorkoutSession> {
-    const updatedAt = nowIso()
-    const next: WorkoutSession = {
-      ...workoutSession,
-      exercises: workoutSession.exercises.filter(({ exerciseId: id }) => id !== exerciseId),
-      updatedAt
-    }
-    const tombstones = liveSets(await setsStore.getBySession(workoutSession.id), exerciseId).map((set) => ({
-      ...set,
-      isDeleted: true,
-      updatedAt
-    }))
-    await this.putRows(next, tombstones)
-    return next
-  }
-
-  async swapExerciseInWorkoutSession({
-    workoutSession,
-    oldExerciseId,
-    replacement
-  }: {
-    workoutSession: WorkoutSession
-    oldExerciseId: Exercise['id']
-    replacement: ExerciseExecution
-  }): Promise<WorkoutSession> {
-    const exerciseIndex = workoutSession.exercises.findIndex(({ exerciseId }) => exerciseId === oldExerciseId)
-    if (exerciseIndex === -1) {
-      throw new Error('Exercise not found in workout session')
-    }
-
-    const updatedAt = nowIso()
-    const updatedExercises = [...workoutSession.exercises]
-    updatedExercises[exerciseIndex] = replacement
-    const next: WorkoutSession = { ...workoutSession, exercises: updatedExercises, updatedAt }
-    const tombstones = liveSets(await setsStore.getBySession(workoutSession.id), oldExerciseId).map((set) => ({
-      ...set,
-      isDeleted: true,
-      updatedAt
-    }))
-    const added = replacement.sets.map((set, position) => ({
-      id: legacySetId(workoutSession.id, replacement.exerciseId, position),
-      sessionId: workoutSession.id,
-      exerciseId: replacement.exerciseId,
-      position,
-      set,
-      isDeleted: false,
-      updatedAt
-    }))
-    await this.putRows(next, [...tombstones, ...added])
-    return next
-  }
-
-  async moveExerciseInWorkoutSession({
-    workoutSession,
-    exerciseId,
-    direction
-  }: {
-    workoutSession: WorkoutSession
-    exerciseId: Exercise['id']
-    direction: 'up' | 'down'
-  }): Promise<WorkoutSession> {
-    const exerciseIndex = workoutSession.exercises.findIndex(({ exerciseId: id }) => id === exerciseId)
-    if (exerciseIndex === -1) {
-      throw new Error('Exercise not found in workout session')
-    }
-
-    if (direction === 'up' && exerciseIndex === 0) {
-      return workoutSession
-    }
-
-    if (direction === 'down' && exerciseIndex === workoutSession.exercises.length - 1) {
-      return workoutSession
-    }
-
-    const updatedExercises = [...workoutSession.exercises]
-    const swapIndex = direction === 'up' ? exerciseIndex - 1 : exerciseIndex + 1
-    const temp = updatedExercises[swapIndex]
-    updatedExercises[swapIndex] = updatedExercises[exerciseIndex]
-    updatedExercises[exerciseIndex] = temp
-
-    const next: WorkoutSession = { ...workoutSession, exercises: updatedExercises, updatedAt: nowIso() }
-    await this.putRows(next)
-    return next
-  }
 }
 
-const store = new WorkoutSessionsStore()
-
-export const sessions = {
-  get session() {
-    return store.session
-  },
-  initialize: (session?: WorkoutSession) => store.initialize(session),
-  subscribe: (callback: (session: WorkoutSession | undefined) => void) => store.subscribe(callback),
-  findById: (id: string) => store.findById(id),
-  hasExercise: (exerciseId: string, options?: { showAlert?: boolean }) => store.hasExercise(exerciseId, options),
-  create: (data: NewWorkoutSession) => store.create(data),
-  update: (updates: Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>) => store.update(updates),
-  delete: () => store.delete(),
-  addSet: (exerciseId: string, set: ExerciseSetExecution) => store.addSet(exerciseId, set),
-  updateSet: (exerciseId: string, setIndex: number, set: ExerciseSetExecution) =>
-    store.updateSet(exerciseId, setIndex, set),
-  addExercise: (exerciseId: string) => store.addExercise(exerciseId),
-  deleteExercise: (exerciseId: string) => store.deleteExercise(exerciseId),
-  swapExercise: (oldExerciseId: string, newExerciseId: string) => store.swapExercise(oldExerciseId, newExerciseId),
-  moveExercise: (exerciseId: string, direction: 'up' | 'down') => store.moveExercise(exerciseId, direction),
-  getById: (id: string) => store.getWorkoutSession(id),
-  getLatestCompletedOfProgram: (programId: Program['id']) => store.getLatestCompletedWorkoutSessionOfProgram(programId),
-  getLatestSaved: () => store.getLatestSavedWorkoutSession(),
-  getLatestWithCompletedExercise: (exerciseId: Exercise['id'], requiredSets: number, location?: string) =>
-    store.getLatestWorkoutSessionWithCompletedExercise(exerciseId, requiredSets, location),
-  getDateOfFirst: () => store.getDateOfFirstWorkoutSession(),
-  getAll: () => store.getAllWorkoutSessions(),
-  getAllGroupedByWeek: () => store.getAllWorkoutSessionsGroupedByWeek()
-}
-
-export const workoutSessionsStore = store
+export const workoutSessionsStore = new WorkoutSessionsStore()

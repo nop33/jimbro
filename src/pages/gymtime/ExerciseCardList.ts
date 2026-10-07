@@ -1,8 +1,8 @@
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot } from '../../db/types'
-import { sessions } from '../../db/stores/workoutSessionsStore'
 import ExerciseCard from './ExerciseCard'
+import { openSession } from './openSession'
 
 class ExerciseCardList {
   private static exercisesList: HTMLDivElement
@@ -20,7 +20,7 @@ class ExerciseCardList {
 
   static async render() {
     const generation = ++this.renderGeneration
-    const session = sessions.session
+    const session = openSession.current
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
     const cards: DocumentFragment[] = []
 

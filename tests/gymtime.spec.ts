@@ -152,13 +152,13 @@ test.describe('Gymtime Page', () => {
     // Hold the re-render that starting the workout triggers at its first lookup, after it has begun.
     await page.evaluate(async () => {
       const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-      const lookup = workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise.bind(workoutSessionsStore)
+      const lookup = workoutSessionsStore.getLatestWithCompletedExercise.bind(workoutSessionsStore)
       let release = () => {}
       const gate = new Promise<void>((resolve) => {
         release = resolve
       })
       Reflect.set(window, '__releaseRender', release)
-      workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise = async (...args) => {
+      workoutSessionsStore.getLatestWithCompletedExercise = async (...args) => {
         Reflect.set(window, '__renderHeld', true)
         await gate
         return lookup(...args)
@@ -189,12 +189,12 @@ test.describe('Gymtime Page', () => {
     await page.evaluate(async () => {
       const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
       const { storage } = await import('/src/db/storage.ts')
-      const read = workoutSessionsStore.getWorkoutSession.bind(workoutSessionsStore)
+      const read = workoutSessionsStore.getById.bind(workoutSessionsStore)
       let releaseRead = () => {}
       const readHeld = new Promise<void>((resolve) => {
         releaseRead = resolve
       })
-      workoutSessionsStore.getWorkoutSession = async (id) => {
+      workoutSessionsStore.getById = async (id) => {
         const session = await read(id)
         Reflect.set(window, '__readDone', true)
         await readHeld

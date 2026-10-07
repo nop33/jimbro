@@ -23,6 +23,15 @@ export default defineConfig({
     printWidth: 120,
     useTabs: false
   },
+  lint: {
+    overrides: [
+      {
+        // Pages own the dialogs. The data layers throw, and the page decides what to tell the user.
+        files: ['src/db/**', 'src/sync/**'],
+        rules: { 'no-alert': 'error' }
+      }
+    ]
+  },
   staged: {
     '*': 'vp check --fix'
   },

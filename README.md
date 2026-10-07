@@ -220,7 +220,7 @@ src/
     storage.ts         The storage singleton over connection.ts and write.ts
     types.ts           Every data shape: rows, sessions, export files. Shared with the worker
     catalogStore.ts    CatalogStore, the store exercises and programs share
-    stores/            Exercises, programs, workout sessions, sets, seed data, and the state pages subscribe to
+    stores/            Exercises, programs and workout sessions, and the seed data
     migrations.ts      DB_VERSION and the version 9 stores
     exerciseLogging.ts Exercise kinds, log presets and set slots
     schemaUpgrade.ts   Upgrades records from older exports

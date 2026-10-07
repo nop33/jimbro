@@ -335,29 +335,23 @@ test('three sets logged offline drain into D1', async ({ page }) => {
     const sessions = await import('/src/db/stores/workoutSessionsStore.ts')
     const db = await import('/src/db/storage.ts')
     const exerciseId = 'offline-exercise'
-    const execution = {
+    const snapshot = {
       exerciseId,
       name: 'Bench press',
       kind: 'lifting' as const,
       preset: 'lifting' as const,
       muscle: 'chest' as const,
       targetSets: 3,
-      defaults: { reps: 8 },
-      sets: [] as Array<{ preset: 'lifting'; reps: number; weight: number }>
+      defaults: { reps: 8 }
     }
-    let session = await sessions.workoutSessionsStore.createWorkoutSession({
+    let session = await sessions.workoutSessionsStore.create({
       date: '2026-09-27',
       programId: 'offline-program',
       location: 'Home',
-      status: 'incomplete',
-      exercises: [execution]
+      exercises: [snapshot]
     })
     for (const weight of [10, 20, 30]) {
-      session = await sessions.workoutSessionsStore.addExerciseExecutionSetToWorkoutSession({
-        workoutSession: session,
-        exerciseId,
-        exerciseExecutionSet: { preset: 'lifting', reps: 8, weight }
-      })
+      session = await sessions.workoutSessionsStore.addSet(session, exerciseId, { preset: 'lifting', reps: 8, weight })
     }
     const queued = await db.storage.getAll<{ table: string; id: string }>('outbox')
     return {

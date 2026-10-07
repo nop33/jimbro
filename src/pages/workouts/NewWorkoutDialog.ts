@@ -31,9 +31,7 @@ class NewWorkoutDialog {
     const thisWeekWorkoutSessions = workoutSessionsByWeek[getWeekOfYear(new Date())] ?? []
 
     for (const program of programs) {
-      const lastCompletedWorkoutSession = await workoutSessionsStore.getLatestCompletedWorkoutSessionOfProgram(
-        program.id
-      )
+      const lastCompletedWorkoutSession = await workoutSessionsStore.getLatestCompletedOfProgram(program.id)
       const programItem = nodeFromTemplate('#program-item-template')
       const programItemDiv = programItem.querySelector('div') as HTMLDivElement
       const programLink = programItem.querySelector('.program-link') as HTMLAnchorElement

@@ -13,7 +13,6 @@ import { muscleGroupLabel } from '../../db/muscleGroups'
 import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
-import { sessions } from '../../db/stores/workoutSessionsStore'
 import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -22,6 +21,7 @@ import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
+import { alertIfInSession, openSession } from './openSession'
 import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 
@@ -69,13 +69,13 @@ class ExerciseCard {
       accordionSelector: '.exercise-details'
     })
 
-    const session = sessions.session
+    const session = openSession.current
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
     // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
     let lastSessionSetsCount = this.snapshot.targetSets
     if (session) {
-      const lastSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
+      const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(
         this.exerciseId,
         1,
         session.location
@@ -95,7 +95,7 @@ class ExerciseCard {
     )
 
     const isExerciseCompleted = () => {
-      const session = sessions.session
+      const session = openSession.current
       if (!session) return false
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
       return existingExercise && existingExercise.sets.length >= this.targetSets
@@ -114,7 +114,7 @@ class ExerciseCard {
         moveDownBtn.classList.toggle('hidden', !exerciseDetails.open)
 
         if (exerciseDetails.open) {
-          const session = sessions.session
+          const session = openSession.current
           if (session) {
             const exerciseIndex = session.exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
             if (exerciseIndex === 0) moveUpBtn.classList.add('hidden')
@@ -125,24 +125,24 @@ class ExerciseCard {
     })
 
     moveUpBtn.addEventListener('click', async () => {
-      if (!sessions.session) return
-      await sessions.moveExercise(this.exerciseId, 'up')
+      if (!openSession.current) return
+      await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
       this.onExerciseDeleted()
     })
 
     moveDownBtn.addEventListener('click', async () => {
-      if (!sessions.session) return
-      await sessions.moveExercise(this.exerciseId, 'down')
+      if (!openSession.current) return
+      await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
       this.onExerciseDeleted()
     })
 
     deleteBtn.addEventListener('click', async () => {
-      if (!sessions.session) {
+      if (!openSession.current) {
         alert('Start a workout session first')
         return
       }
 
-      const session = sessions.session
+      const session = openSession.current
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
       if (existingExercise && existingExercise.sets.length > 0) {
@@ -154,17 +154,17 @@ class ExerciseCard {
         if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
       }
 
-      await sessions.deleteExercise(this.exerciseId)
+      await openSession.apply((session) => workoutSessionsStore.removeExercise(session, this.exerciseId))
       this.onExerciseDeleted()
     })
 
     swapBtn.addEventListener('click', () => {
-      if (!sessions.session) {
+      if (!openSession.current) {
         alert('Start a workout session first')
         return
       }
 
-      const session = sessions.session
+      const session = openSession.current
       const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
       if (existingExercise && existingExercise.sets.length > 0) {
@@ -179,13 +179,9 @@ class ExerciseCard {
       AddExerciseDialog.openDialog({
         title: 'Swap exercise',
         onExerciseClicked: async (newExercise) => {
-          if (newExercise.id === this.exerciseId) return
+          if (newExercise.id === this.exerciseId || alertIfInSession(newExercise.id)) return
 
-          if (sessions.hasExercise(newExercise.id, { showAlert: true })) {
-            return
-          }
-
-          await sessions.swapExercise(this.exerciseId, newExercise.id)
+          await openSession.apply((session) => workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise))
           this.onExerciseDeleted()
         }
       })
@@ -249,11 +245,7 @@ class ExerciseCard {
       viewHistoryBtn.classList.add('hidden')
     }
 
-    const lastSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
-      this.exerciseId,
-      1,
-      session?.location
-    )
+    const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(this.exerciseId, 1, session?.location)
 
     if (lastSession) {
       viewLastSetBtn.addEventListener('click', () => {
@@ -291,7 +283,7 @@ class ExerciseCard {
 
     div.addEventListener('click', () => {
       if (!div.classList.contains('isCompleted')) return
-      if (!sessions.session) throw new Error('No existing workout session found')
+      if (!openSession.current) throw new Error('No existing workout session found')
 
       EditSetDialog.openDialog({
         set: JSON.parse(div.dataset.set as string) as ExerciseSetExecution,
@@ -305,12 +297,12 @@ class ExerciseCard {
 
   private async prefillValues(): Promise<ExerciseDefaults> {
     const { preset, defaults } = this.snapshot
-    const session = sessions.session
+    const session = openSession.current
     const currentSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets.at(-1)
 
     if (currentSet) return { ...defaults, ...setValues(currentSet) }
 
-    const latestSession = await workoutSessionsStore.getLatestWorkoutSessionWithCompletedExercise(
+    const latestSession = await workoutSessionsStore.getLatestWithCompletedExercise(
       this.exerciseId,
       this.snapshot.targetSets
     )
@@ -367,11 +359,9 @@ class ExerciseCard {
         if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
       }
 
-      if (!sessions.session) throw new Error('No existing workout session found')
-
-      await sessions.addSet(this.exerciseId, completedSet)
-
-      const updated = sessions.session!
+      const updated = await openSession.apply((session) =>
+        workoutSessionsStore.addSet(session, this.exerciseId, completedSet)
+      )
       const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === this.exerciseId)?.sets.length ?? 1) - 1
 
       // If user adds an extra set after finishing, the DOM might not have a pending slot for it if they didn't use the Add Set button

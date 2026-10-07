@@ -21,7 +21,7 @@ const header = {
   updatedAt: '2026-01-02T10:24:41.458Z'
 } as SessionHeader
 
-describe('getLatestSavedWorkoutSession', () => {
+describe('getLatestSaved', () => {
   const store = new WorkoutSessionsStore()
 
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe('getLatestSavedWorkoutSession', () => {
   it('returns the latest persisted session by date index', async () => {
     vi.mocked(storage.getFirstByPredicate).mockResolvedValue(header)
 
-    const session = await store.getLatestSavedWorkoutSession()
+    const session = await store.getLatestSaved()
     expect(session?.id).toBe('1')
     expect(session?.location).toBe('Zurich')
     expect(storage.getFirstByPredicate).toHaveBeenCalledWith('workoutSessions', 'date', 'prev', expect.any(Function))
@@ -52,6 +52,6 @@ describe('getLatestSavedWorkoutSession', () => {
       return undefined
     })
 
-    await expect(store.getLatestSavedWorkoutSession()).resolves.toBeUndefined()
+    await expect(store.getLatestSaved()).resolves.toBeUndefined()
   })
 })
