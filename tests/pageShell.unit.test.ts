@@ -67,4 +67,11 @@ describe('page shell', () => {
       })
     }
   })
+
+  // The browser paints a page's background before its stylesheet applies, white unless the page says it is dark.
+  it('tells the browser every page is dark before its stylesheet loads', () => {
+    for (const file of Object.keys(PAGES)) {
+      expect(served(file), file).toContain('<meta name="color-scheme" content="dark" />')
+    }
+  })
 })
