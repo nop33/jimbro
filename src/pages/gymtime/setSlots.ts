@@ -70,21 +70,26 @@ export const configureSetRowGrid = (container: HTMLElement, preset: LogPreset) =
 export const renderSetFields = (container: HTMLElement, set: ExerciseSetExecution) => {
   container.replaceChildren(
     ...setFields(set).map(({ slot, label, text, unit }) => {
+      // When a row runs out of room, the value wraps under its label instead of running into the next field.
       const field = document.createElement('div')
-      field.className = 'set-field text-jim-neutral-secondary whitespace-nowrap'
+      field.className = 'set-field text-jim-neutral-secondary flex flex-wrap items-baseline gap-x-1'
       field.append(`${label} `)
+
+      const reading = document.createElement('span')
+      reading.className = 'whitespace-nowrap'
 
       const value = document.createElement('span')
       value.className = `set-${slot} font-bold text-jim-accent`
       value.textContent = text
 
-      field.append(value)
+      reading.append(value)
       if (unit) {
         const suffix = document.createElement('span')
         suffix.className = 'text-xs text-jim-neutral-tertiary'
         suffix.textContent = unit === '%' ? unit : ` ${unit}`
-        field.append(suffix)
+        reading.append(suffix)
       }
+      field.append(reading)
       return field
     })
   )

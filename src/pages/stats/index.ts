@@ -66,7 +66,7 @@ async function calculateAndRenderStats() {
   if (sortedDates.length > 0) {
     const firstWorkoutDate = new Date(sortedDates[0])
 
-    const dateFormatted = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(firstWorkoutDate)
+    const dateFormatted = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(firstWorkoutDate)
     setTextContent('#stat-since-date', dateFormatted)
 
     const now = new Date()

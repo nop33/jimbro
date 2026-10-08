@@ -227,6 +227,7 @@ test.describe('Workout session status reconciliation', () => {
     await lastCard.locator('.exercise-details').click()
 
     page.once('dialog', (dialog) => dialog.accept())
+    await lastCard.locator('.exercise-actions-btn').click()
     await lastCard.locator('.delete-workout-session-exercise-btn').click()
 
     await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')

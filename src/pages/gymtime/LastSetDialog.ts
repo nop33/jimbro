@@ -31,12 +31,8 @@ class LastSetDialog {
       configureSetRowGrid(this.listContainer, sets[0].preset)
     }
 
-    const { parseSimpleDate } = await import('../../dateUtils')
-    const formattedDate = parseSimpleDate(date).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    const { formatShortDate, parseSimpleDate } = await import('../../dateUtils')
+    const formattedDate = formatShortDate(parseSimpleDate(date))
 
     if (this.subtitleEl) {
       if (location) {

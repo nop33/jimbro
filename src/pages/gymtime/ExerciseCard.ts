@@ -26,6 +26,9 @@ import { alertIfInSession, openSession } from './openSession'
 import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 
+// Room the actions menu needs below its button: four 48px items and a margin.
+const MENU_ROOM = 220
+
 export interface ExerciseCardConfig {
   snapshot: ExerciseSnapshot
   programExerciseIds: string[]
@@ -61,6 +64,7 @@ class ExerciseCard {
     const swapBtn = template.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
     const moveUpBtn = template.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
     const moveDownBtn = template.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
+    const actionsBtn = template.querySelector('.exercise-actions-btn') as HTMLButtonElement
     const viewHistoryBtn = template.querySelector('.view-history-btn') as HTMLButtonElement
     const viewLastSetBtn = template.querySelector('.view-last-set-btn') as HTMLButtonElement
 
@@ -102,28 +106,53 @@ class ExerciseCard {
       return existingExercise && existingExercise.sets.length >= this.targetSets
     }
 
-    exerciseDetails.addEventListener('toggle', () => {
-      if (isExerciseCompleted()) {
-        deleteBtn.classList.add('hidden')
-        swapBtn.classList.add('hidden')
-        moveUpBtn.classList.add('hidden')
-        moveDownBtn.classList.add('hidden')
-      } else {
-        deleteBtn.classList.toggle('hidden', !exerciseDetails.open)
-        swapBtn.classList.toggle('hidden', !exerciseDetails.open)
-        moveUpBtn.classList.toggle('hidden', !exerciseDetails.open)
-        moveDownBtn.classList.toggle('hidden', !exerciseDetails.open)
+    // A popover gives light dismiss (outside tap, Esc) and the button's aria-expanded for free.
+    // Script places it, since CSS anchor positioning is missing from older iOS versions.
+    const actionsMenu = template.querySelector('.exercise-actions-menu') as HTMLDivElement
+    actionsBtn.popoverTargetElement = actionsMenu
+    actionsBtn.setAttribute('aria-label', `Actions for ${this.snapshot.name}`)
 
-        if (exerciseDetails.open) {
-          const session = openSession.current
-          if (session) {
-            const exerciseIndex = session.exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
-            if (exerciseIndex === 0) moveUpBtn.classList.add('hidden')
-            if (exerciseIndex === session.exercises.length - 1) moveDownBtn.classList.add('hidden')
-          }
-        }
-      }
+    // Under the button, or above it when the menu's four items wouldn't fit below.
+    const placeMenu = () => {
+      const button = actionsBtn.getBoundingClientRect()
+      const opensUp = window.innerHeight - button.bottom < MENU_ROOM
+      actionsMenu.style.top = opensUp ? 'auto' : `${button.bottom + 4}px`
+      actionsMenu.style.bottom = opensUp ? `${window.innerHeight - button.top + 4}px` : 'auto'
+      actionsMenu.style.right = `${document.documentElement.clientWidth - button.right}px`
+    }
+
+    let followScroll: AbortController | undefined
+    actionsMenu.addEventListener('beforetoggle', (event) => {
+      if (event.newState !== 'open') return
+
+      // A finished exercise keeps its sets: it can move, but not be swapped or deleted.
+      const completed = isExerciseCompleted()
+      swapBtn.classList.toggle('hidden', completed)
+      deleteBtn.classList.toggle('hidden', completed)
+
+      const exercises = openSession.current?.exercises ?? []
+      const exerciseIndex = exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
+      moveUpBtn.classList.toggle('hidden', exerciseIndex <= 0)
+      moveDownBtn.classList.toggle('hidden', exerciseIndex === -1 || exerciseIndex === exercises.length - 1)
+
+      placeMenu()
     })
+
+    // The menu follows its button while the page scrolls. Capture catches a scroll in any container.
+    actionsMenu.addEventListener('toggle', (event) => {
+      followScroll?.abort()
+      if (event.newState !== 'open') return
+
+      followScroll = new AbortController()
+      const { signal } = followScroll
+      // A card rebuild removes the menu without a toggle event, so the listener drops itself then.
+      const follow = () => (actionsMenu.isConnected ? placeMenu() : followScroll?.abort())
+      document.addEventListener('scroll', follow, { capture: true, passive: true, signal })
+    })
+
+    for (const item of [moveUpBtn, moveDownBtn, swapBtn, deleteBtn]) {
+      item.addEventListener('click', () => actionsMenu.hidePopover())
+    }
 
     moveUpBtn.addEventListener('click', async () => {
       if (!openSession.current) return
