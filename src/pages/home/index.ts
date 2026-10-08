@@ -1,5 +1,3 @@
-import './style.css'
-
 const installBtn = document.getElementById('install-btn')
 let deferredPrompt: Event | null = null
 

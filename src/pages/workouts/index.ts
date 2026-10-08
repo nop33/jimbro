@@ -7,7 +7,6 @@ import { isOutOfDate } from '../../sync/freshness'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
-import '../../style.css'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import {
   extractWeekKeyNumbers,

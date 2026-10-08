@@ -1,4 +1,3 @@
-import '../../style.css'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import ExerciseDialog from './ExerciseDialog'
 import ExerciseList from './ExerciseList'
