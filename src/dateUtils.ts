@@ -53,3 +53,11 @@ export const extractWeekKeyNumbers = (weekKey: string): { year: number; week: nu
 export const daysAgo = (date: Date): number => {
   return Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 }
+
+// "Oct 1", or "Oct 1, 2025" outside the current year, which fits a phone-width line where a full date wraps.
+export const formatShortDate = (date: Date, now = new Date()): string =>
+  date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric'
+  })

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { getSimpleDate, getWeekOfYear, getWeeksKeysFromDateToNow, parseSimpleDate } from '../src/dateUtils'
+import {
+  formatShortDate,
+  getSimpleDate,
+  getWeekOfYear,
+  getWeeksKeysFromDateToNow,
+  parseSimpleDate
+} from '../src/dateUtils'
 
 const withTimezone = <T>(timezone: string, callback: () => T): T => {
   const originalTimezone = process.env.TZ
@@ -134,5 +140,15 @@ describe('parseSimpleDate', () => {
     expect(date.getFullYear()).toBe(2026)
     expect(date.getMonth()).toBe(4)
     expect(date.getDate()).toBe(18)
+  })
+})
+
+describe('formatShortDate', () => {
+  it('leaves the year out for a date in the current year', () => {
+    expect(formatShortDate(new Date(2026, 9, 1), new Date(2026, 9, 8))).not.toContain('2026')
+  })
+
+  it('keeps the year for a date in another year', () => {
+    expect(formatShortDate(new Date(2025, 11, 30), new Date(2026, 0, 2))).toContain('2025')
   })
 })

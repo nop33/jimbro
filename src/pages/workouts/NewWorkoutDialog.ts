@@ -1,4 +1,4 @@
-import { daysAgo, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
+import { daysAgo, formatShortDate, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
 import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
@@ -37,7 +37,7 @@ class NewWorkoutDialog {
       const programItemDiv = programItem.querySelector('div') as HTMLDivElement
       const programLink = programItem.querySelector('.program-link') as HTMLAnchorElement
       const lastCompletedDate = lastCompletedWorkoutSession?.date
-        ? parseSimpleDate(lastCompletedWorkoutSession.date).toLocaleDateString()
+        ? formatShortDate(parseSimpleDate(lastCompletedWorkoutSession.date))
         : 'Never'
       const daysAgoText = lastCompletedWorkoutSession?.date
         ? daysAgo(parseSimpleDate(lastCompletedWorkoutSession.date))

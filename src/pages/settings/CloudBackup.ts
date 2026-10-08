@@ -1,3 +1,4 @@
+import { formatShortDate } from '../../dateUtils'
 import { getCloudBackupConfig, storeCloudBackupConfig } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 import { outbox } from '../../sync/outbox'
@@ -42,13 +43,9 @@ class CloudBackup {
       return
     }
 
-    const formatted = new Date(lastSync).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const lastSyncDate = new Date(lastSync)
+    const time = lastSyncDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    const formatted = `${formatShortDate(lastSyncDate)}, ${time}`
     this.summaryStatus.textContent = `${pending} pending · ${formatted}`
   }
 

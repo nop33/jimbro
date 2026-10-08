@@ -65,6 +65,6 @@ test.describe('Stats Page west of UTC', () => {
     })
     await page.reload()
     // new Date('2026-03-15') is midnight UTC, which is still March 14 in New York.
-    await expect(page.locator('#stat-since-date')).toHaveText('March 15, 2026')
+    await expect(page.locator('#stat-since-date')).toHaveText('Mar 15, 2026')
   })
 })
