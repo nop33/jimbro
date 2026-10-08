@@ -59,6 +59,36 @@
           </div>
 
           <div class="card card-hover">
+            <details id="gyms-details">
+              <summary class="text-xl font-bold text-jim-neutral">🏋️ Gyms</summary>
+              <p id="no-gyms" class="mt-4 text-jim-neutral-secondary" hidden>No workout names a gym yet.</p>
+              <form id="rename-gym-form" class="flex flex-col gap-2 mt-4">
+                <p class="text-sm text-jim-neutral-secondary">
+                  Rename a gym on every workout. Pick another gym's name to merge the two.
+                </p>
+                <label class="text-jim-neutral-secondary">
+                  Gym
+                  <select id="rename-gym-from" name="from" required class="mt-2 w-full"></select>
+                </label>
+                <label class="text-jim-neutral-secondary">
+                  New name
+                  <input
+                    type="text"
+                    id="rename-gym-to"
+                    name="to"
+                    list="rename-gym-options"
+                    autocomplete="off"
+                    required
+                    class="mt-2"
+                  />
+                </label>
+                <datalist id="rename-gym-options"></datalist>
+                <button type="submit" class="btn-primary">Rename</button>
+              </form>
+            </details>
+          </div>
+
+          <div class="card card-hover">
             <details>
               <summary class="text-xl font-bold text-jim-neutral">Manage local data</summary>
               <div class="flex flex-col gap-6 mt-4">

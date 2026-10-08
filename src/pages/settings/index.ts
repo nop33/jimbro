@@ -4,8 +4,10 @@ import { storage } from '../../db/storage'
 import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds, storeBreakTimeSeconds } from '../../settings'
 import CloudBackup from './CloudBackup'
+import GymsSettings from './GymsSettings'
 
 CloudBackup.init()
+void GymsSettings.init()
 
 const breakMinutesInput = document.querySelector('#break-minutes') as HTMLInputElement
 const breakSecondsInput = document.querySelector('#break-seconds') as HTMLInputElement

@@ -39,14 +39,18 @@
                 class="w-full p-2 rounded border border-neutral-600 grow"
                 type="text"
                 name="location"
-                placeholder="Location"
+                list="gym-options"
+                autocomplete="off"
+                placeholder="Gym"
+                aria-label="Gym"
               />
+              <datalist id="gym-options"></datalist>
               <button
                 type="button"
                 id="get-location-btn"
                 class="btn-secondary px-3 shrink-0"
-                aria-label="Get current location"
-                title="Get current location"
+                aria-label="Find gyms near me"
+                title="Find gyms near me"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -390,6 +394,12 @@
         <div class="flex-1 min-h-0 w-full relative mt-4">
           <canvas id="exercise-history-chart"></canvas>
         </div>
+        <ul
+          id="exercise-history-gyms"
+          class="shrink-0 flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 text-sm text-jim-neutral-secondary"
+          aria-label="Gyms"
+          hidden
+        ></ul>
       </div>
     </dialog>
 
