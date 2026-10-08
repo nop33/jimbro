@@ -104,6 +104,10 @@ let tail: Promise<void> = Promise.resolve()
 window.addEventListener('pagehide', () => {
   leaving = true
 })
+// A page restored from the back/forward cache syncs again.
+window.addEventListener('pageshow', () => {
+  leaving = false
+})
 
 const settle = () => {
   announce('sync-settled')

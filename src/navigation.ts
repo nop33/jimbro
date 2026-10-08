@@ -1,5 +1,6 @@
 import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
+import { isOutOfDate } from './sync/freshness'
 
 let rowsWrittenTimer = 0
 
@@ -70,6 +71,11 @@ export function initNavigation() {
   }
 
   startSync()
+  // Back and Forward restore the page as it was left. When the database changed meanwhile, load it fresh instead.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return
+    void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
+  })
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') startSync()
