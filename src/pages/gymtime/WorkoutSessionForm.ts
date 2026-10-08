@@ -11,6 +11,7 @@ class WorkoutSessionForm {
   private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
   private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
   private static getLocationBtn = this.form.querySelector('#get-location-btn') as HTMLButtonElement
+  private static clearGymBtn = this.form.querySelector('#clear-gym-btn') as HTMLButtonElement
   private static gymOptions = this.form.querySelector('#gym-options') as HTMLDataListElement
   private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
@@ -45,6 +46,13 @@ class WorkoutSessionForm {
       void this.fillNearbyGym(knownGyms)
     })
 
+    // Emptying the field shows every suggestion, and keeping the focus there keeps the keyboard and the
+    // suggestions above it open.
+    this.clearGymBtn.addEventListener('click', () => {
+      this.locationInput.value = ''
+      this.locationInput.focus()
+    })
+
     if (session?.status === 'completed') {
       this.submitButton.textContent = 'Save'
     } else if (session?.status === 'incomplete') {
@@ -69,7 +77,7 @@ class WorkoutSessionForm {
         this.locationInput.value = gyms[0]
         this.showGymOptions([...gyms, ...knownGyms])
         if (gyms.length > 1) {
-          Toasts.show({ message: `${gyms.length} gyms nearby. Clear the field to pick another.` })
+          Toasts.show({ message: `${gyms.length} gyms nearby. Tap ✕ to pick another.` })
         }
       } else if (city) {
         this.locationInput.value = city

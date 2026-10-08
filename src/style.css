@@ -165,7 +165,7 @@
   }
 
   /* Chrome and Safari draw a dropdown arrow in a field with a <datalist>, but on phones the suggestions show above
-     the keyboard, so the arrow points at nothing. */
+     the keyboard, so the arrow points at nothing. The gym field has a clear button instead. */
   input[list]::-webkit-calendar-picker-indicator {
     display: none !important;
   }

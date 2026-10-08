@@ -51,6 +51,11 @@ test('suggests the gyms already used and fills in the nearest gym', async ({ pag
   await expect(gym).toHaveValue('Holmes Place Syntagma')
   await expect(page.locator('#gym-options option')).toHaveText(['Holmes Place Syntagma', 'Athens'])
 
+  await page.getByRole('button', { name: 'Clear gym' }).click()
+  await expect(gym).toHaveValue('')
+  await expect(gym).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Clear gym' })).toBeHidden()
+
   await page.getByRole('button', { name: 'Find gyms near me' }).click()
   await expect(gym).toHaveValue('Near Gym')
   await expect(page.locator('#gym-options option')).toHaveText([
