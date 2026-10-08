@@ -2,7 +2,7 @@ import { historyChartEnabled, isRepsSet, type ExerciseKind } from '../../db/exer
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
-import Chart from 'chart.js/auto'
+import type { Chart as ChartInstance } from 'chart.js'
 
 export interface ExerciseHistoryTarget {
   id: string
@@ -14,7 +14,7 @@ class ExerciseHistoryChart {
   private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
   private static canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
   private static closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
-  private static chartInstance: Chart | null = null
+  private static chartInstance: ChartInstance | null = null
 
   static init() {
     this.closeBtn.addEventListener('click', () => {
@@ -118,6 +118,11 @@ class ExerciseHistoryChart {
       }
       return locationToShapeMap.get(loc)!
     })
+
+    // Chart.js is most of gymtime's code and only this dialog draws with it, so it loads when the dialog first opens.
+    // The service worker caches its chunk with the rest of the build, so it loads offline too.
+    const { default: Chart } = await import('chart.js/auto')
+    if (!this.dialog.open) return
 
     if (this.chartInstance) {
       this.chartInstance.destroy()
