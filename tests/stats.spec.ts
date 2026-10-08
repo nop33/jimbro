@@ -32,7 +32,7 @@ test.describe('Stats Page', () => {
 
     const statsLink = page.locator('.nav-link[href="/stats/"]')
     await expect(statsLink).toBeVisible()
-    await expect(statsLink).toHaveClass(/active/)
+    await expect(statsLink).toHaveAttribute('aria-current', 'page')
   })
 })
 

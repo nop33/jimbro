@@ -7,9 +7,17 @@
     <link rel="icon" href="/icons/favicon.ico" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/app.webmanifest" />
+    <!-- Chromium prerenders the other bottom-nav pages, so tapping one shows it complete at once. -->
+    <script type="speculationrules">
+      {
+        "prerender": [
+          { "where": { "selector_matches": ".bottom-nav a:not([aria-current])" }, "eagerness": "immediate" }
+        ]
+      }
+    </script>
   </head>
   <body class="app">
-    <div class="app-page">
+    <div class="app-page pb-20 md:pb-0">
       <header class="app-header">
         <a id="back-button" class="link-primary"
           ><svg
@@ -45,7 +53,7 @@
           </div>
           <button id="workout-mode-badge" class="btn-secondary text-xs px-3 py-2 light-haptic shrink-0"></button>
         </div>
-        <div id="workout-weeks" class="flex flex-col gap-6">
+        <div id="workout-weeks" class="fills-in flex flex-col gap-6">
           <!-- Workout weeks will be rendered here -->
         </div>
         <template id="workout-week-template">
@@ -172,6 +180,46 @@
       </div>
     </dialog>
 
+    <nav class="bottom-nav fixed bottom-0 left-0 right-0 md:max-w-2xl md:mx-auto z-50">
+      <div class="flex justify-around items-center h-20 px-2">
+        <a
+          href="/"
+          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
+        >
+          <span class="text-2xl mb-1">🏠</span>
+          <span class="text-xs font-medium">Home</span>
+        </a>
+        <a
+          href="/workouts/"
+          aria-current="page"
+          class="nav-link flex flex-col items-center justify-center flex-1 h-full hover:text-blue-400 transition-all duration-200"
+        >
+          <span class="text-2xl mb-1">💪</span>
+          <span class="text-xs font-medium">Workouts</span>
+        </a>
+        <a
+          href="/exercises/"
+          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
+        >
+          <span class="text-2xl mb-1">📋</span>
+          <span class="text-xs font-medium">Exercises</span>
+        </a>
+        <a
+          href="/programs/"
+          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
+        >
+          <span class="text-2xl mb-1">📝</span>
+          <span class="text-xs font-medium">Programs</span>
+        </a>
+        <a
+          href="/stats/"
+          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
+        >
+          <span class="text-2xl mb-1">📊</span>
+          <span class="text-xs font-medium">Stats</span>
+        </a>
+      </div>
+    </nav>
     <script type="module" src="../src/pages/workouts/index.ts"></script>
     <script type="module" src="../src/navigation.ts"></script>
     <script type="module" src="../src/features/hapticFeedback/index.ts"></script>

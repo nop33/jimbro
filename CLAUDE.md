@@ -51,7 +51,7 @@ pages/    UI layer; one folder per route
 features/ Cross-cutting UI (toasts, confetti, hapticFeedback)
 ```
 
-Pages read and write through the stores in `db/`, which own all IndexedDB access. `db/` and `sync/` never open a dialog: they throw, and the page decides what to tell the user. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
+Pages read and write through the stores in `db/`, which own all IndexedDB access. `db/` and `sync/` never open a dialog: they throw, and the page decides what to tell the user. Every page carries the bottom nav in its own HTML, marking its link with `aria-current="page"`, so the nav is there in the first frame. Its `<script type="speculationrules">` has Chromium prerender the other nav pages, and `navigation.ts` reloads a prerendered page on the tap when the database changed since it rendered. Every page also loads `src/navigation.ts`, which wires the back button and triggers syncs.
 
 ### Persistence layer (`src/db/`)
 
@@ -75,6 +75,7 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 - `outbox.ts` owns the push. `outbox.drain(push)` takes chunks of 500 rows, sends each through `push`, which resolves to the server revision, and acks it. Take, push and ack of a chunk run under the `jimbro:sync-push` Web Lock. Take stamps each entry with the seq and body it sends, and ack drops only entries whose seq is unchanged, so an edit made during a push stays queued. On a database that has never synced, each ack also moves `cursor` or sets `bootstrapped` in the same transaction. `syncClient.ts` passes the `/api/push` request as `push`. Unit tests pass an in-memory server and lock through `createOutbox`.
 - `navigation.ts` calls `sync()` on page load, on `online`, when the tab becomes visible, and 2 s after this tab's last `rows-written` notice. Settings has "Sync now". `sync()` does nothing without credentials or offline. A call during a running sync waits for it and queues one more run.
 - Pages hear notices through `onPageNotice((notice, source) => …)` from `pageChannel.ts`, where `source` is `'this-tab'` or `'other-tab'`. `announce(notice)` sends one to this tab as a `jimbro:<notice>` window event, which the specs listen for, and to the other tabs over a BroadcastChannel named `jimbro`. `writeRows` announces `rows-written`, `sync()` announces `sync-settled` each time it ends, and a pull that changed the session open in gymtime announces `open-session-pulled`.
+- The channel closes on `pagehide`, because the back/forward cache evicts a page whose channel gets a message. A restored page missed the notices sent meanwhile, so `navigation.ts` reloads it when `isOutOfDate()` from `freshness.ts` says the database's `seq` or `cursor` moved since the page rendered.
 
 ### Worker (`worker/`)
 
@@ -116,23 +117,24 @@ Configured in `vite.config.ts` under `fmt`: single quotes, no semicolons, no tra
 
 Each rule below has a check that fails when the rule is broken, and CI runs all of them on every pull request. Change the code until the check passes. Don't loosen the check.
 
-| Rule                                                                                                     | Enforced by                                                                                         |
-| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Write rows only through `storage.writeRows`, which queues each one for the push in the same transaction  | `tests/architecture.unit.test.ts` fails on any other readwrite transaction outside `src/sync`       |
-| Only `src/sync` reads or writes the `outbox` and `meta` stores                                           | `tests/architecture.unit.test.ts`                                                                   |
-| Notices go to every tab via `announce` and `onPageNotice`, other events via callbacks or `EventEmitter`  | `tests/architecture.unit.test.ts`                                                                   |
-| Import each symbol from the module that declares it, never through a re-export                           | `tests/architecture.unit.test.ts`                                                                   |
-| No import cycles                                                                                         | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
-| Never leave a promise as a bare statement: await it, or mark it `void` when nothing should wait for it   | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
-| `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                          | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
-| `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them               | The worker typecheck, which has no DOM types                                                        |
-| Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                | `tests/architecture.unit.test.ts` fails on HTML built from a value                                  |
-| The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
-| A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
-| Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |
-| Calendar dates never come from `toISOString()`                                                           | `tests/architecture.unit.test.ts`                                                                   |
-| Specs wait for what the app shows or stores, never for a fixed time, and never force a click             | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a run that needed a retry        |
-| Code is formatted                                                                                        | `vp check`, which `vp staged` runs on each commit                                                   |
+| Rule                                                                                                                 | Enforced by                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Write rows only through `storage.writeRows`, which queues each one for the push in the same transaction              | `tests/architecture.unit.test.ts` fails on any other readwrite transaction outside `src/sync`       |
+| Only `src/sync` reads or writes the `outbox` and `meta` stores                                                       | `tests/architecture.unit.test.ts`                                                                   |
+| Notices go to every tab via `announce` and `onPageNotice`, other events via callbacks or `EventEmitter`              | `tests/architecture.unit.test.ts`                                                                   |
+| Import each symbol from the module that declares it, never through a re-export                                       | `tests/architecture.unit.test.ts`                                                                   |
+| No import cycles                                                                                                     | `import/no-cycle` in the `vite.config.ts` lint config, run by `vp check`                            |
+| Never leave a promise as a bare statement: await it, or mark it `void` when nothing should wait for it               | `typescript/no-floating-promises` in the `vite.config.ts` lint config, run with types by `vp check` |
+| `src/db` and `src/sync` throw instead of calling `alert`, `confirm` or `prompt`                                      | `no-alert` in the `vite.config.ts` lint config, run by `vp check`                                   |
+| `src/db/types.ts` and `src/sync/rows.ts` use no browser API, since the worker imports them                           | The worker typecheck, which has no DOM types                                                        |
+| Build HTML from fixed markup only, and put values in with `textContent` or `new Option()`                            | `tests/architecture.unit.test.ts` fails on HTML built from a value                                  |
+| The worker accepts every kind, preset, set slot, muscle group and status the app can write                           | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
+| A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once             | `tests/workoutSessionsStore.unit.test.ts`                                                           |
+| Rows store dates as strings, never `Date` objects                                                                    | TypeScript: the row types declare them as `string`                                                  |
+| Every page carries the same bottom nav and speculation rules in its HTML, and marks only its own nav link as current | `tests/pageShell.unit.test.ts`                                                                      |
+| Calendar dates never come from `toISOString()`                                                                       | `tests/architecture.unit.test.ts`                                                                   |
+| Specs wait for what the app shows or stores, never for a fixed time, and never force a click                         | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a run that needed a retry        |
+| Code is formatted                                                                                                    | `vp check`, which `vp staged` runs on each commit                                                   |
 
 Everything else in this file is a convention that only review catches. When a review corrects a mistake that no check covers, add a check that fails on that mistake and a row here in the same change. Drop a row once its mistake can no longer be written.
 

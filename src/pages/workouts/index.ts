@@ -3,6 +3,7 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { getMeta } from '../../sync/queue'
+import { isOutOfDate } from '../../sync/freshness'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
@@ -181,15 +182,22 @@ type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date' | 'stat
   status: 'pending' | 'skipped'
 }
 
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted) {
-    window.location.reload()
-  }
-})
+// The list is drawn once. A new day, changed settings or a changed database need the page loaded again, unless a
+// dialog is open, which a reload would throw away.
+const renderedSettings = JSON.stringify(settings)
+const reloadIfStale = async () => {
+  // A prerendered page is checked when it is shown, in navigation.ts.
+  if (document.prerendering || document.querySelector('dialog[open]')) return
+  const stale =
+    getSimpleDate(new Date()) !== today ||
+    JSON.stringify(getWorkoutModeSettings()) !== renderedSettings ||
+    (await isOutOfDate())
+  if (stale) window.location.reload()
+}
 
-// Fallback for browsers that don't trigger pageshow event properly
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) void reloadIfStale()
+})
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    window.location.reload()
-  }
+  if (document.visibilityState === 'visible') void reloadIfStale()
 })

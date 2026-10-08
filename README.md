@@ -234,10 +234,11 @@ src/
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Page notices for this tab and, over a BroadcastChannel, the other tabs
+    freshness.ts       Whether the database changed since this page rendered it
     status.ts          Last sync time
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback
-  navigation.ts        Bottom bar, back button and sync triggers
+  navigation.ts        Back button and sync triggers
   settings.ts          Device settings in localStorage
   eventEmitter.ts      Typed EventTarget subclass
 worker/

@@ -172,6 +172,25 @@ test.describe('Gymtime Page', () => {
     await expect(menu).toHaveCount(0)
   })
 
+  test('draws the history chart, which loads Chart.js when the dialog opens', async ({ page }) => {
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+    const firstExercise = page.locator('details.exercise-details').first()
+    await firstExercise.locator('summary').click()
+    const chartDialog = page.locator('#exercise-history-dialog')
+    const chartDrawn = page.waitForFunction(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
+      return canvas !== null && canvas.width > 0 && canvas.hasAttribute('style')
+    })
+    await firstExercise.locator('.view-history-btn').click()
+    await expect(chartDialog).toBeVisible()
+    await chartDrawn
+
+    await chartDialog.locator('.close-dialog-btn').click()
+    await expect(chartDialog).toBeHidden()
+  })
+
   test('a card opened while the cards re-render stays open', async ({ page }) => {
     const firstExercise = page.locator('details.exercise-details').first()
     await expect(firstExercise).toBeVisible()

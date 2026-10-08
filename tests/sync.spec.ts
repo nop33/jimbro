@@ -546,7 +546,9 @@ test('a failed restore stays on the page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
 })
 
-test('reset tells you when another tab holds the database', async ({ page }) => {
+test('reset succeeds while another tab holds the database', async ({ page }) => {
+  // Another tab, a page Chromium prerendered or a page in the back/forward cache all hold a connection, and each
+  // closes it when the reset asks.
   const other = await page.context().newPage()
   await other.goto('/workouts/')
   await other.evaluate(async () => {
@@ -557,7 +559,13 @@ test('reset tells you when another tab holds the database', async ({ page }) => 
   await page.locator('summary').filter({ hasText: 'Manage local data' }).click()
   page.once('dialog', (dialog) => dialog.accept())
   await page.locator('#reset-database').click()
-  await expect(page.locator('.toast-message-popup')).toHaveText('Close other tabs and try again.')
+  await expect(page.locator('.toast-message-popup')).toHaveText('Database reset.')
+  // The other tab opens a new connection on its next read.
+  const exerciseCount = await other.evaluate(async () => {
+    const db = await import('/src/db/storage.ts')
+    return db.storage.count('exercises')
+  })
+  expect(exerciseCount).toBe(0)
   await other.close()
 })
 

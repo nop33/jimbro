@@ -79,6 +79,16 @@ export class Storage {
     if (this.db) return this.db
     if (!this.opening) {
       this.opening = openDatabase().then((db) => {
+        // Another page is deleting or upgrading the database. Pages Chromium prerendered from the speculation rules
+        // and pages in the back/forward cache hold a connection too, and nobody can close those by hand, so every
+        // connection steps aside, and the next read opens a new one.
+        db.onversionchange = () => {
+          db.close()
+          if (this.db === db) {
+            this.db = null
+            this.opening = null
+          }
+        }
         this.db = db
         return db
       })
