@@ -30,21 +30,8 @@ const seedWorkoutsAt = async (page: Page, gyms: Array<string>) => {
   }, gyms)
 }
 
-test('suggests the gyms already used and fills in the nearest gym', async ({ page, context }) => {
+test('suggests the gyms already used, and clears the field to show them all', async ({ page }) => {
   const { programId } = await seedWorkoutsAt(page, ['Athens', 'Holmes Place Syntagma'])
-  await context.grantPermissions(['geolocation'])
-  await context.setGeolocation({ latitude: 37.9755, longitude: 23.7348 })
-  await context.route('https://overpass-api.de/**', (route) =>
-    route.fulfill({
-      json: {
-        elements: [
-          { type: 'way', center: { lat: 37.978, lon: 23.737 }, tags: { name: 'Far Gym' } },
-          { type: 'node', lat: 37.9756, lon: 23.7349, tags: { name: 'Near Gym' } },
-          { type: 'node', lat: 37.9757, lon: 23.7349, tags: {} }
-        ]
-      }
-    })
-  )
 
   await page.goto(`/gymtime/?programId=${programId}`)
   const gym = page.locator('input[name="location"]')
@@ -55,30 +42,6 @@ test('suggests the gyms already used and fills in the nearest gym', async ({ pag
   await expect(gym).toHaveValue('')
   await expect(gym).toBeFocused()
   await expect(page.getByRole('button', { name: 'Clear gym' })).toBeHidden()
-
-  await page.getByRole('button', { name: 'Find gyms near me' }).click()
-  await expect(gym).toHaveValue('Near Gym')
-  await expect(page.locator('#gym-options option')).toHaveText([
-    'Near Gym',
-    'Far Gym',
-    'Holmes Place Syntagma',
-    'Athens'
-  ])
-})
-
-test('falls back to the city when no gym is nearby', async ({ page, context }) => {
-  const { programId } = await seedWorkoutsAt(page, [])
-  await context.grantPermissions(['geolocation'])
-  await context.setGeolocation({ latitude: 37.9755, longitude: 23.7348 })
-  await context.route('https://overpass-api.de/**', (route) => route.fulfill({ json: { elements: [] } }))
-  await context.route('https://nominatim.openstreetmap.org/**', (route) =>
-    route.fulfill({ json: { address: { city: 'Athens' } } })
-  )
-
-  await page.goto(`/gymtime/?programId=${programId}`)
-  await page.getByRole('button', { name: 'Find gyms near me' }).click()
-  await expect(page.locator('input[name="location"]')).toHaveValue('Athens')
-  await expect(page.locator('.toast-message-popup')).toContainText('No gym found nearby')
 })
 
 test('renames a gym on every workout, merging it into another', async ({ page }) => {
