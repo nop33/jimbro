@@ -402,21 +402,39 @@
 
     <dialog
       id="exercise-history-dialog"
-      class="w-[95dvw] h-[95dvh] sm:w-[80dvw] sm:h-[80dvh] max-w-none max-h-none m-auto overflow-hidden rounded-xl force-landscape-in-portrait"
+      class="w-[95dvw] h-[95dvh] sm:w-[80dvw] sm:h-[80dvh] max-w-none max-h-none m-auto overflow-hidden rounded-xl p-3 sm:p-4 force-landscape-in-portrait"
     >
       <div class="h-full w-full flex flex-col">
-        <header class="flex justify-between items-center shrink-0">
-          <h2 class="text-xl font-bold exercise-history-title flex items-center gap-2">
+        <!-- One row for the title, the metrics and the close button, so the chart gets the rest of the short side. -->
+        <header class="flex items-center gap-3 shrink-0">
+          <h2 class="text-lg font-bold exercise-history-title truncate">
             <span>Exercise History</span>
           </h2>
+          <ul class="flex flex-wrap justify-center gap-x-1 grow text-sm" aria-label="Lines">
+            <li>
+              <button type="button" class="history-metric" data-dataset="0" aria-pressed="true">
+                <span class="history-metric-swatch bg-blue-500"></span>Average weight
+              </button>
+            </li>
+            <li>
+              <button type="button" class="history-metric" data-dataset="1" aria-pressed="true">
+                <span class="history-metric-swatch bg-emerald-500"></span>Estimated 1RM
+              </button>
+            </li>
+            <li>
+              <button type="button" class="history-metric" data-dataset="2" aria-pressed="true">
+                <span class="history-metric-swatch bg-violet-500"></span>Total volume
+              </button>
+            </li>
+          </ul>
           <!-- partial:close-dialog-button -->
         </header>
-        <div class="flex-1 min-h-0 w-full relative mt-4">
+        <div class="flex-1 min-h-0 w-full relative">
           <canvas id="exercise-history-chart"></canvas>
         </div>
         <ul
           id="exercise-history-gyms"
-          class="shrink-0 flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 text-sm text-jim-neutral-secondary"
+          class="shrink-0 flex flex-wrap justify-center gap-x-4 gap-y-1 mt-1 text-sm text-jim-neutral-secondary"
           aria-label="Gyms"
           hidden
         ></ul>

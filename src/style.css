@@ -164,6 +164,15 @@
     @apply border-neutral-600;
   }
 
+  /* The history chart's legend: each metric toggles its line. */
+  .history-metric {
+    @apply flex items-center gap-1.5 px-2 rounded-lg text-jim-neutral-secondary aria-[pressed=false]:opacity-40 aria-[pressed=false]:line-through;
+  }
+
+  .history-metric-swatch {
+    @apply inline-block w-4 h-1 rounded-full;
+  }
+
   /* Chrome and Safari draw a dropdown arrow in a field with a <datalist>, but on phones the suggestions show above
      the keyboard, so the arrow points at nothing. The gym field has a clear button instead. */
   input[list]::-webkit-calendar-picker-indicator {

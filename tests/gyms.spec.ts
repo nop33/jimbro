@@ -97,7 +97,7 @@ test('renames a gym on every workout, merging it into another', async ({ page })
   await expect(from.locator('option')).toHaveText(['Holmes Place Syntagma (3 workouts)'])
 })
 
-test('the history chart names the usual gym and keys the others apart from the metrics', async ({ page }) => {
+test('the history chart keys the gyms under it and toggles a metric from its header', async ({ page }) => {
   const { sessionId } = await seedWorkoutsAt(page, ['Holmes Place Syntagma', 'Hotel gym', 'Holmes Place Syntagma'])
   await page.goto(`/gymtime/?id=${sessionId}`)
   const card = page.locator('details.exercise-details').first()
@@ -105,4 +105,11 @@ test('the history chart names the usual gym and keys the others apart from the m
   await card.locator('.view-history-btn').click()
 
   await expect(page.locator('#exercise-history-gyms li')).toHaveText(['Unshaded: Holmes Place Syntagma', 'Hotel gym'])
+
+  // The header's metric buttons hide and show their line.
+  const volume = page.getByRole('button', { name: 'Total volume' })
+  await volume.click()
+  await expect(volume).toHaveAttribute('aria-pressed', 'false')
+  await volume.click()
+  await expect(volume).toHaveAttribute('aria-pressed', 'true')
 })
