@@ -4,6 +4,16 @@
   navigation: auto;
 }
 
+/* The header and the bottom nav sit in the same place on every page, so a navigation keeps them still and
+   cross-fades only what changes inside them, while the rest of the page cross-fades as the root. */
+.app-header {
+  view-transition-name: app-header;
+}
+
+.bottom-nav {
+  view-transition-name: bottom-nav;
+}
+
 @theme {
   /* Base colors, inspired from https://colorhunt.co/palette/0c0c0c481e149b3922f2613f */
   --color-jim-dark: #0c0c0c;
@@ -157,7 +167,7 @@
     @apply relative transition-all duration-200;
   }
 
-  .nav-link.active {
+  .nav-link[aria-current='page'] {
     @apply text-blue-400;
   }
 
@@ -347,6 +357,10 @@
 
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
   *,
   *::before,
   *::after {

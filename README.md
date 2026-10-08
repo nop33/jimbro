@@ -238,7 +238,7 @@ src/
     status.ts          Last sync time
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback
-  navigation.ts        Bottom bar, back button and sync triggers
+  navigation.ts        Back button and sync triggers
   settings.ts          Device settings in localStorage
   eventEmitter.ts      Typed EventTarget subclass
 worker/

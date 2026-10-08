@@ -51,7 +51,7 @@ pages/    UI layer; one folder per route
 features/ Cross-cutting UI (toasts, confetti, hapticFeedback)
 ```
 
-Pages read and write through the stores in `db/`, which own all IndexedDB access. `db/` and `sync/` never open a dialog: they throw, and the page decides what to tell the user. Every page also loads `src/navigation.ts`, which draws the bottom bar and triggers syncs.
+Pages read and write through the stores in `db/`, which own all IndexedDB access. `db/` and `sync/` never open a dialog: they throw, and the page decides what to tell the user. Every page carries the bottom nav in its own HTML, marking its link with `aria-current="page"`, so the nav is there in the first frame. Every page also loads `src/navigation.ts`, which wires the back button and triggers syncs.
 
 ### Persistence layer (`src/db/`)
 
@@ -131,6 +131,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | The worker accepts every kind, preset, set slot, muscle group and status the app can write               | The worker's validation imports those lists from the app, and `worker/test/rows.spec.ts` walks them |
 | A session write recomputes `status`, leaves the session passed in unchanged and keeps each exercise once | `tests/workoutSessionsStore.unit.test.ts`                                                           |
 | Rows store dates as strings, never `Date` objects                                                        | TypeScript: the row types declare them as `string`                                                  |
+| Every page carries the same bottom nav in its HTML and marks only its own link as current                | `tests/pageShell.unit.test.ts`                                                                      |
 | Calendar dates never come from `toISOString()`                                                           | `tests/architecture.unit.test.ts`                                                                   |
 | Specs wait for what the app shows or stores, never for a fixed time, and never force a click             | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a run that needed a retry        |
 | Code is formatted                                                                                        | `vp check`, which `vp staged` runs on each commit                                                   |
