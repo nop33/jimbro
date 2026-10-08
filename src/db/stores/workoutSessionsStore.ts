@@ -134,6 +134,36 @@ export class WorkoutSessionsStore {
     return grouped
   }
 
+  // The gyms named on live sessions, each with its session count, the most recently used first.
+  async getGyms(): Promise<Array<{ name: string; sessions: number }>> {
+    const headers = await storage.getAll<SessionHeader>(this.storeName)
+    const gyms = new Map<string, { name: string; sessions: number; lastDate: string }>()
+    for (const header of headers) {
+      const name = header.location.trim()
+      if (header.isDeleted || !name) continue
+      const gym = gyms.get(name) ?? { name, sessions: 0, lastDate: header.date }
+      gym.sessions++
+      if (header.date > gym.lastDate) gym.lastDate = header.date
+      gyms.set(name, gym)
+    }
+    return [...gyms.values()]
+      .sort((left, right) => right.lastDate.localeCompare(left.lastDate) || left.name.localeCompare(right.name))
+      .map(({ name, sessions }) => ({ name, sessions }))
+  }
+
+  // Moves every live session at the gym to the new name, in one write. Naming another known gym merges the two.
+  async renameGym(from: string, to: string): Promise<number> {
+    const name = to.trim()
+    if (!name) throw new Error('A gym needs a name')
+    const headers = await storage.getAll<SessionHeader>(this.storeName)
+    const updatedAt = nowIso()
+    const renamed = headers
+      .filter((header) => !header.isDeleted && header.location.trim() === from && header.location !== name)
+      .map((header) => ({ table: 'sessions' as const, row: { ...header, location: name, updatedAt } }))
+    await storage.writeRows(renamed)
+    return renamed.length
+  }
+
   async getLatestSaved(): Promise<WorkoutSession | undefined> {
     const header = await this.firstHeader(
       'prev',

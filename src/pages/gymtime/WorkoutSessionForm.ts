@@ -3,7 +3,7 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import { setCityFromGeolocation } from './geolocation'
+import { findNearbyGyms } from './geolocation'
 import { openSession } from './openSession'
 
 class WorkoutSessionForm {
@@ -11,6 +11,7 @@ class WorkoutSessionForm {
   private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
   private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
   private static getLocationBtn = this.form.querySelector('#get-location-btn') as HTMLButtonElement
+  private static gymOptions = this.form.querySelector('#gym-options') as HTMLDataListElement
   private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
   private static programId: Program['id']
@@ -37,8 +38,11 @@ class WorkoutSessionForm {
       }
     }
 
+    const knownGyms = (await workoutSessionsStore.getGyms()).map(({ name }) => name)
+    this.showGymOptions(knownGyms)
+
     this.getLocationBtn.addEventListener('click', () => {
-      setCityFromGeolocation(this.locationInput)
+      void this.fillNearbyGym(knownGyms)
     })
 
     if (session?.status === 'completed') {
@@ -49,6 +53,34 @@ class WorkoutSessionForm {
 
     this.form.addEventListener('submit', (e) => this.onSubmit(e))
     this.submitButton.disabled = false
+  }
+
+  // The field's suggestions: a <datalist>, which Chrome shows as a dropdown and Safari above the keyboard.
+  private static showGymOptions(names: Array<string>) {
+    this.gymOptions.replaceChildren(...[...new Set(names)].map((name) => new Option(name)))
+  }
+
+  // Fills in the nearest gym and puts the other nearby ones first among the suggestions.
+  private static async fillNearbyGym(knownGyms: Array<string>) {
+    this.getLocationBtn.disabled = true
+    try {
+      const { gyms, city } = await findNearbyGyms()
+      if (gyms.length > 0) {
+        this.locationInput.value = gyms[0]
+        this.showGymOptions([...gyms, ...knownGyms])
+        if (gyms.length > 1) {
+          Toasts.show({ message: `${gyms.length} gyms nearby. Clear the field to pick another.` })
+        }
+      } else if (city) {
+        this.locationInput.value = city
+        Toasts.show({ message: 'No gym found nearby, so this is the city.' })
+      }
+    } catch (error) {
+      console.error('Could not find gyms nearby', error)
+      Toasts.show({ message: 'Could not get your location.', type: 'error' })
+    } finally {
+      this.getLocationBtn.disabled = false
+    }
   }
 
   private static async onSubmit(event: Event) {

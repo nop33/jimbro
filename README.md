@@ -78,12 +78,12 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 The page you keep open during a workout.
 
 - `?programId=<id>` starts a workout for a program and `?id=<session-id>` opens a saved one. An unknown program or session shows an error with a link back to the workouts page.
-- The workout details form has date, location and notes. The date defaults to today and can't be in the future. A new workout takes the location of the last saved one, and the location button fills in the place name from geolocation through OpenStreetMap's Nominatim. The first save creates the workout and puts its `?id=` in the URL.
+- The workout details form has date, gym and notes. The date defaults to today and can't be in the future. The gym is stored as the session's `location`. A new workout takes the gym of the last saved one, and the field suggests the gyms already used, the most recent first. "Find gyms near me" asks for the device's position and fills in the nearest OpenStreetMap place tagged `leisure=fitness_centre` within 300 m, through the Overpass API, putting the other nearby gyms first among the suggestions. With none nearby it fills in the city from Nominatim. The first save creates the workout and puts its `?id=` in the URL.
 - There is one card per exercise, with its muscle group and a badge for rehab exercises. Opening a card closes the others.
 - The "Finished set" form shows the inputs of the exercise's preset. Its values come from the previous set in this workout, else from the last workout that completed the exercise, using that workout's heaviest weight for lifting, else from the exercise's defaults. Zero reps or zero weight asks for confirmation.
 - A card has as many set slots as the exercise's target, or more if the last workout with the exercise had more sets. "Add set" adds another slot. Tapping a logged set opens a dialog to edit it.
 - An open card that isn't finished has buttons to move the exercise up or down, swap it for another exercise, or delete it from the workout.
-- "Previous sets" lists the sets of the last workout with the exercise, preferring one at the same location. "View History" charts average weight, estimated 1RM and total volume per workout, with one point shape per location. Cardio exercises have no chart.
+- "Previous sets" lists the sets of the last workout with the exercise, preferring one at the same gym. "View History" charts average weight, estimated 1RM and total volume per workout. The gym with the most of those workouts stays unshaded, and each other gym tints the stretch of the chart behind its workouts, with a key under the chart. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
 - Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Finishing the last one marks the workout completed with "Workout done!". Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
@@ -109,6 +109,7 @@ Totals over completed workouts: the first workout's date and how long ago it was
 
 - Workout settings hold the break timer's length.
 - Cloud backup takes a user ID and a token, with "Save credentials" and "Sync now" buttons. Its status line shows how many changes wait to sync and when the last sync ran.
+- Gyms renames a gym on every workout after a confirmation. Giving it another gym's name merges the two, which also fixes workouts saved under a city.
 - Manage local data:
   - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
   - "Import from JSON file" merges an export into the database. See [Import and export](#import-and-export).
@@ -149,7 +150,7 @@ CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_OR
 | Install prompt     | Keeps the `beforeinstallprompt` event so the install button can open the prompt, and removes the button after `appinstalled`                                                                                    |
 | iOS install        | Without that event, the install button shows an alert with "Add to Home Screen" instructions                                                                                                                    |
 | Screen wake lock   | Requests a screen wake lock when gymtime opens, and again when the tab becomes visible if the first request succeeded                                                                                           |
-| Geolocation        | Fills in the workout location on request with the place name from Nominatim reverse geocoding                                                                                                                   |
+| Geolocation        | On request, fills in the nearest gym from OpenStreetMap's Overpass API, or the city from Nominatim reverse geocoding when no gym is near                                                                        |
 | Haptic feedback    | A short vibration (`navigator.vibrate(2)`) on buttons, links, `<summary>` and `.light-haptic` elements, in browsers that have the Vibration API, which Safari lacks                                             |
 | Persistent storage | Asks for persistent storage with `navigator.storage.persist()`. The browser decides, and the app only logs the answer                                                                                           |
 | Service worker     | `src/serviceWorker.ts`, built to `/sw.js`, caches every page and asset of the build on install and answers from that cache, so the app opens offline. Each deploy installs a new one, which drops the old cache |

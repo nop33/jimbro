@@ -2,7 +2,7 @@ import { historyChartEnabled, isRepsSet, type ExerciseKind } from '../../db/exer
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
-import type { Chart as ChartInstance } from 'chart.js'
+import type { Chart as ChartInstance, Plugin } from 'chart.js'
 
 export interface ExerciseHistoryTarget {
   id: string
@@ -14,6 +14,7 @@ class ExerciseHistoryChart {
   private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
   private static canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
   private static closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
+  private static gymKey = this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
   private static chartInstance: ChartInstance | null = null
 
   static init() {
@@ -89,35 +90,12 @@ class ExerciseHistoryChart {
         avgWeightData.push(totalWeight / validSetsCount)
         est1rmData.push(total1rm / validSetsCount)
         totalVolumeData.push(totalVolume)
-        locationsData.push(session.location || '')
+        locationsData.push(session.location.trim())
       }
     }
 
-    // Map locations to distinct point shapes
-    const AVAILABLE_SHAPES = [
-      'rect',
-      'triangle',
-      'rectRot',
-      'star',
-      'crossRot',
-      'rectRounded',
-      'cross',
-      'dash',
-      'line'
-    ] as const
-
-    const locationToShapeMap = new Map<string, string>()
-    let shapeIndex = 0
-
-    const pointStylesData = locationsData.map((loc) => {
-      if (!loc) return 'circle'
-
-      if (!locationToShapeMap.has(loc)) {
-        locationToShapeMap.set(loc, AVAILABLE_SHAPES[shapeIndex % AVAILABLE_SHAPES.length])
-        shapeIndex++
-      }
-      return locationToShapeMap.get(loc)!
-    })
+    const gymBands = bandsByGym(locationsData)
+    this.renderGymKey(gymBands)
 
     // Chart.js is most of gymtime's code and only this dialog draws with it, so it loads when the dialog first opens.
     // The service worker caches its chunk with the rest of the build, so it loads offline too.
@@ -149,12 +127,10 @@ class ExerciseHistoryChart {
             backgroundColor: accentColor + '33', // 20% opacity
             borderWidth: 2,
             pointBackgroundColor: accentColor,
-            pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointStyle: pointStylesData,
-            fill: true,
+            pointBorderWidth: 0,
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+            fill: false,
             tension: 0.3,
             yAxisID: 'y'
           },
@@ -165,12 +141,10 @@ class ExerciseHistoryChart {
             backgroundColor: est1rmColor + '33',
             borderWidth: 2,
             pointBackgroundColor: est1rmColor,
-            pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointStyle: pointStylesData,
-            fill: true,
+            pointBorderWidth: 0,
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+            fill: false,
             tension: 0.3,
             yAxisID: 'y'
           },
@@ -181,12 +155,10 @@ class ExerciseHistoryChart {
             backgroundColor: volumeColor + '33',
             borderWidth: 2,
             pointBackgroundColor: volumeColor,
-            pointBorderColor: isDarkMode ? '#171717' : '#ffffff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointStyle: pointStylesData,
-            fill: true,
+            pointBorderWidth: 0,
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+            fill: false,
             tension: 0.3,
             yAxisID: 'y1'
           }
@@ -262,9 +234,85 @@ class ExerciseHistoryChart {
             beginAtZero: true
           }
         }
-      }
+      },
+      plugins: [gymBandsPlugin(gymBands)]
     })
   }
+
+  private static renderGymKey({ usual, away }: GymBands) {
+    this.gymKey.hidden = away.length === 0
+    const items = away.map(({ name, color }) => {
+      const swatch = document.createElement('span')
+      swatch.className = 'inline-block size-3 rounded-sm border'
+      swatch.style.backgroundColor = color + BAND_ALPHA
+      swatch.style.borderColor = color
+      const item = document.createElement('li')
+      item.className = 'flex items-center gap-1.5'
+      item.append(swatch, name)
+      return item
+    })
+    if (usual) {
+      const item = document.createElement('li')
+      item.textContent = `Unshaded: ${usual}`
+      items.unshift(item)
+    }
+    this.gymKey.replaceChildren(...items)
+  }
 }
+
+// Gyms other than the usual one get a band of colour behind their sessions. These hues stay clear of the three
+// metric lines (blue, emerald, violet).
+const GYM_COLORS = ['#f59e0b', '#f43f5e', '#22d3ee', '#a3e635', '#f97316', '#e879f9'] as const
+const BAND_ALPHA = '33' // 20% opacity
+
+interface GymBands {
+  // The gym with the most sessions, left unshaded.
+  usual: string | undefined
+  away: Array<{ name: string; color: string }>
+  // Runs of consecutive sessions at one gym that is not the usual one, by index into the chart's points.
+  runs: Array<{ color: string; from: number; to: number }>
+}
+
+const bandsByGym = (locations: Array<string>): GymBands => {
+  const counts = new Map<string, number>()
+  for (const location of locations) {
+    if (location) counts.set(location, (counts.get(location) ?? 0) + 1)
+  }
+  const usual = [...counts].sort((left, right) => right[1] - left[1])[0]?.[0]
+  const away = [...counts.keys()]
+    .filter((name) => name !== usual)
+    .map((name, index) => ({ name, color: GYM_COLORS[index % GYM_COLORS.length] as string }))
+  const colorOf = new Map(away.map(({ name, color }) => [name, color]))
+
+  const runs: GymBands['runs'] = []
+  locations.forEach((location, index) => {
+    const color = colorOf.get(location)
+    const last = runs.at(-1)
+    if (!color) return
+    if (last && last.to === index - 1 && locations[last.from] === location) last.to = index
+    else runs.push({ color, from: index, to: index })
+  })
+  return { usual, away, runs }
+}
+
+// Draws the bands under the lines, each reaching halfway to the neighbouring points, with a solid edge on top.
+const gymBandsPlugin = ({ runs }: GymBands): Plugin<'line'> => ({
+  id: 'gymBands',
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart
+    const x = scales.x
+    const halfStep = (chart.data.labels?.length ?? 0) > 1 ? (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2 : 12
+    ctx.save()
+    for (const { color, from, to } of runs) {
+      const left = Math.max(chartArea.left, x.getPixelForValue(from) - halfStep)
+      const right = Math.min(chartArea.right, x.getPixelForValue(to) + halfStep)
+      ctx.fillStyle = color + BAND_ALPHA
+      ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
+      ctx.fillStyle = color
+      ctx.fillRect(left, chartArea.top, right - left, 3)
+    }
+    ctx.restore()
+  }
+})
 
 export default ExerciseHistoryChart
