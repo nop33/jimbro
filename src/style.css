@@ -154,14 +154,38 @@
   /* Modern input styles */
   input[type='text'],
   input[type='number'],
+  input[type='date'],
+  textarea,
   select {
     @apply w-full px-4 py-3 rounded-xl border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
   }
 
   input[type='text']:hover,
   input[type='number']:hover,
+  input[type='date']:hover,
+  textarea:hover,
   select:hover {
     @apply border-neutral-600;
+  }
+
+  /* The history chart's legend: each metric toggles its line. */
+  .history-metric {
+    @apply flex items-center gap-1.5 px-2 rounded-lg text-jim-neutral-secondary aria-[pressed=false]:opacity-40 aria-[pressed=false]:line-through;
+  }
+
+  .history-metric-swatch {
+    @apply inline-block w-4 h-1 rounded-full;
+  }
+
+  /* The app is dark, so the date picker's icon and popup should be too. */
+  input[type='date'] {
+    color-scheme: dark;
+  }
+
+  /* Chrome and Safari draw a dropdown arrow in a field with a <datalist>, but on phones the suggestions show above
+     the keyboard, so the arrow points at nothing. The gym field has a clear button instead. */
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
   }
 
   /* Modern link styles */

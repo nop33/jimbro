@@ -38,6 +38,5 @@ Preconditions:
 - Opening `/gymtime/` with no `programId` or `id` is an error state, not a session. Use Workouts to enter.
 - The set list includes pending placeholders. Only `.set.isCompleted` opens the edit dialog.
 - Skip on the break timer needs `{ force: true }` in Playwright. A normal click can miss the dialog.
-- Geolocation may prompt for location. Ignore it. Location is optional.
 - Completing every set in the program is a longer path (confetti, auto-export). Logging one set is enough to prove the core loop. Do not claim a full completion unless every exercise is filled.
 - After save, prefer the `id` URL. Starting a second session with the same `programId` creates another row.

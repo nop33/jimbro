@@ -15,9 +15,20 @@ class ExerciseHistoryChart {
   private static canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
   private static closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
   private static gymKey = this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
+  private static metricButtons = [...this.dialog.querySelectorAll<HTMLButtonElement>('.history-metric')]
   private static chartInstance: ChartInstance | null = null
 
   static init() {
+    for (const button of this.metricButtons) {
+      // A hidden line stays hidden for the other exercises' charts until the page reloads.
+      button.addEventListener('click', () => {
+        const visible = button.getAttribute('aria-pressed') === 'false'
+        button.setAttribute('aria-pressed', String(visible))
+        this.chartInstance?.setDatasetVisibility(Number(button.dataset.dataset), visible)
+        this.chartInstance?.update()
+      })
+    }
+
     this.closeBtn.addEventListener('click', () => {
       this.closeDialog()
     })
@@ -132,6 +143,7 @@ class ExerciseHistoryChart {
             pointHoverRadius: 5,
             fill: false,
             tension: 0.3,
+            hidden: this.isMetricHidden(0),
             yAxisID: 'y'
           },
           {
@@ -146,6 +158,7 @@ class ExerciseHistoryChart {
             pointHoverRadius: 5,
             fill: false,
             tension: 0.3,
+            hidden: this.isMetricHidden(1),
             yAxisID: 'y'
           },
           {
@@ -160,6 +173,7 @@ class ExerciseHistoryChart {
             pointHoverRadius: 5,
             fill: false,
             tension: 0.3,
+            hidden: this.isMetricHidden(2),
             yAxisID: 'y1'
           }
         ]
@@ -168,11 +182,9 @@ class ExerciseHistoryChart {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+          // The header lists the metrics, in the same row as the title.
           legend: {
-            display: true,
-            labels: {
-              color: textColor
-            }
+            display: false
           },
           tooltip: {
             callbacks: {
@@ -191,8 +203,9 @@ class ExerciseHistoryChart {
           x: {
             ticks: {
               color: textColor,
-              maxRotation: 45,
-              minRotation: 45
+              // Level labels, thinned out to fit, take one line of the short side instead of three.
+              maxRotation: 0,
+              autoSkipPadding: 12
             },
             grid: {
               color: gridColor,
@@ -237,6 +250,10 @@ class ExerciseHistoryChart {
       },
       plugins: [gymBandsPlugin(gymBands)]
     })
+  }
+
+  private static isMetricHidden(index: number) {
+    return this.metricButtons[index]?.getAttribute('aria-pressed') === 'false'
   }
 
   private static renderGymKey({ usual, away }: GymBands) {

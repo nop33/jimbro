@@ -3,14 +3,13 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import { findNearbyGyms } from './geolocation'
 import { openSession } from './openSession'
 
 class WorkoutSessionForm {
   private static form = document.querySelector('#gymtime-form') as HTMLFormElement
   private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
   private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
-  private static getLocationBtn = this.form.querySelector('#get-location-btn') as HTMLButtonElement
+  private static clearGymBtn = this.form.querySelector('#clear-gym-btn') as HTMLButtonElement
   private static gymOptions = this.form.querySelector('#gym-options') as HTMLDataListElement
   private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
   private static submitButton = this.form.querySelector('button[type="submit"]') as HTMLButtonElement
@@ -38,11 +37,13 @@ class WorkoutSessionForm {
       }
     }
 
-    const knownGyms = (await workoutSessionsStore.getGyms()).map(({ name }) => name)
-    this.showGymOptions(knownGyms)
+    this.showGymOptions((await workoutSessionsStore.getGyms()).map(({ name }) => name))
 
-    this.getLocationBtn.addEventListener('click', () => {
-      void this.fillNearbyGym(knownGyms)
+    // Emptying the field shows every suggestion, and keeping the focus there keeps the keyboard and the
+    // suggestions above it open.
+    this.clearGymBtn.addEventListener('click', () => {
+      this.locationInput.value = ''
+      this.locationInput.focus()
     })
 
     if (session?.status === 'completed') {
@@ -57,30 +58,7 @@ class WorkoutSessionForm {
 
   // The field's suggestions: a <datalist>, which Chrome shows as a dropdown and Safari above the keyboard.
   private static showGymOptions(names: Array<string>) {
-    this.gymOptions.replaceChildren(...[...new Set(names)].map((name) => new Option(name)))
-  }
-
-  // Fills in the nearest gym and puts the other nearby ones first among the suggestions.
-  private static async fillNearbyGym(knownGyms: Array<string>) {
-    this.getLocationBtn.disabled = true
-    try {
-      const { gyms, city } = await findNearbyGyms()
-      if (gyms.length > 0) {
-        this.locationInput.value = gyms[0]
-        this.showGymOptions([...gyms, ...knownGyms])
-        if (gyms.length > 1) {
-          Toasts.show({ message: `${gyms.length} gyms nearby. Clear the field to pick another.` })
-        }
-      } else if (city) {
-        this.locationInput.value = city
-        Toasts.show({ message: 'No gym found nearby, so this is the city.' })
-      }
-    } catch (error) {
-      console.error('Could not find gyms nearby', error)
-      Toasts.show({ message: 'Could not get your location.', type: 'error' })
-    } finally {
-      this.getLocationBtn.disabled = false
-    }
+    this.gymOptions.replaceChildren(...names.map((name) => new Option(name)))
   }
 
   private static async onSubmit(event: Event) {

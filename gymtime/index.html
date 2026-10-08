@@ -33,43 +33,40 @@
         <details open id="workout-details">
           <summary>Workout details</summary>
           <form id="gymtime-form" class="flex flex-col gap-2">
-            <input class="w-full p-2 rounded border border-neutral-600" type="date" name="date" value="" required />
             <div class="flex gap-2 w-full">
-              <input
-                class="w-full p-2 rounded border border-neutral-600 grow"
-                type="text"
-                name="location"
-                list="gym-options"
-                autocomplete="off"
-                placeholder="Gym"
-                aria-label="Gym"
-              />
-              <datalist id="gym-options"></datalist>
-              <button
-                type="button"
-                id="get-location-btn"
-                class="btn-secondary px-3 shrink-0"
-                aria-label="Find gyms near me"
-                title="Find gyms near me"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                  class="size-6"
+              <input type="date" name="date" value="" required aria-label="Date" class="w-auto shrink-0 px-3" />
+              <div class="relative grow min-w-0">
+                <input
+                  class="peer pl-3 pr-11"
+                  type="text"
+                  name="location"
+                  list="gym-options"
+                  autocomplete="off"
+                  placeholder="Gym"
+                  aria-label="Gym"
+                />
+                <button
+                  type="button"
+                  id="clear-gym-btn"
+                  class="absolute inset-y-0 right-0 flex items-center justify-center text-neutral-400 peer-placeholder-shown:hidden"
+                  aria-label="Clear gym"
+                  title="Clear gym"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="size-5"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <datalist id="gym-options"></datalist>
             </div>
-            <textarea class="w-full p-2 rounded border border-neutral-600" name="notes" placeholder="Notes"></textarea>
+            <textarea name="notes" placeholder="Notes"></textarea>
             <button type="submit" disabled class="btn-primary text-white w-full">Save &amp; start workout</button>
           </form>
         </details>
@@ -382,21 +379,39 @@
 
     <dialog
       id="exercise-history-dialog"
-      class="w-[95dvw] h-[95dvh] sm:w-[80dvw] sm:h-[80dvh] max-w-none max-h-none m-auto overflow-hidden rounded-xl force-landscape-in-portrait"
+      class="w-[95dvw] h-[95dvh] sm:w-[80dvw] sm:h-[80dvh] max-w-none max-h-none m-auto overflow-hidden rounded-xl p-3 sm:p-4 force-landscape-in-portrait"
     >
       <div class="h-full w-full flex flex-col">
-        <header class="flex justify-between items-center shrink-0">
-          <h2 class="text-xl font-bold exercise-history-title flex items-center gap-2">
+        <!-- One row for the title, the metrics and the close button, so the chart gets the rest of the short side. -->
+        <header class="flex items-center gap-3 shrink-0">
+          <h2 class="text-lg font-bold exercise-history-title truncate">
             <span>Exercise History</span>
           </h2>
+          <ul class="flex flex-wrap justify-center gap-x-1 grow text-sm" aria-label="Lines">
+            <li>
+              <button type="button" class="history-metric" data-dataset="0" aria-pressed="true">
+                <span class="history-metric-swatch bg-blue-500"></span>Average weight
+              </button>
+            </li>
+            <li>
+              <button type="button" class="history-metric" data-dataset="1" aria-pressed="true">
+                <span class="history-metric-swatch bg-emerald-500"></span>Estimated 1RM
+              </button>
+            </li>
+            <li>
+              <button type="button" class="history-metric" data-dataset="2" aria-pressed="true">
+                <span class="history-metric-swatch bg-violet-500"></span>Total volume
+              </button>
+            </li>
+          </ul>
           <!-- partial:close-dialog-button -->
         </header>
-        <div class="flex-1 min-h-0 w-full relative mt-4">
+        <div class="flex-1 min-h-0 w-full relative">
           <canvas id="exercise-history-chart"></canvas>
         </div>
         <ul
           id="exercise-history-gyms"
-          class="shrink-0 flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 text-sm text-jim-neutral-secondary"
+          class="shrink-0 flex flex-wrap justify-center gap-x-4 gap-y-1 mt-1 text-sm text-jim-neutral-secondary"
           aria-label="Gyms"
           hidden
         ></ul>

@@ -96,7 +96,7 @@ Each route has its own entry module (e.g. `src/pages/gymtime/index.ts`) bootstra
 - Per-component classes for cards, dialogs, forms (e.g. `ExerciseCard.ts`, `BreakTimerDialog.ts`).
 - Procedural entry in `index.ts` that calls the stores' `load()` and mounts the DOM.
 
-The gymtime page is the most complex. `openSession.ts` holds the workout it shows: `openSession.apply((session) => workoutSessionsStore.addSet(session, …))` runs a store write on it and shows the result once the write lands, with no optimistic update and no rollback. `ExerciseCardList.render()` rebuilds every card and keeps the scroll position and the open card. `GymtimePage` rereads the open session on this tab's `open-session-pulled` notice and on every notice from another tab, and re-renders only when the session changed. The page also runs the break timer, wake lock and geolocation, and downloads a JSON export on workout completion when cloud sync is off.
+The gymtime page is the most complex. `openSession.ts` holds the workout it shows: `openSession.apply((session) => workoutSessionsStore.addSet(session, …))` runs a store write on it and shows the result once the write lands, with no optimistic update and no rollback. `ExerciseCardList.render()` rebuilds every card and keeps the scroll position and the open card. `GymtimePage` rereads the open session on this tab's `open-session-pulled` notice and on every notice from another tab, and re-renders only when the session changed. The page also runs the break timer and wake lock, and downloads a JSON export on workout completion when cloud sync is off.
 
 ## TypeScript conventions
 
