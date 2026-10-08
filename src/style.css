@@ -14,6 +14,18 @@
   view-transition-name: bottom-nav;
 }
 
+/* A list the page draws from IndexedDB arrives a few frames after the page. Where nothing prerendered the page,
+   as in Safari, its items fade in instead of popping in. */
+.fills-in > * {
+  animation: fill-in 150ms ease-out;
+}
+
+@keyframes fill-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @theme {
   /* Base colors, inspired from https://colorhunt.co/palette/0c0c0c481e149b3922f2613f */
   --color-jim-dark: #0c0c0c;
