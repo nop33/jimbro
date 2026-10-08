@@ -186,7 +186,8 @@ type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date' | 'stat
 // dialog is open, which a reload would throw away.
 const renderedSettings = JSON.stringify(settings)
 const reloadIfStale = async () => {
-  if (document.querySelector('dialog[open]')) return
+  // A prerendered page is checked when it is shown, in navigation.ts.
+  if (document.prerendering || document.querySelector('dialog[open]')) return
   const stale =
     getSimpleDate(new Date()) !== today ||
     JSON.stringify(getWorkoutModeSettings()) !== renderedSettings ||

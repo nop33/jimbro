@@ -18,11 +18,15 @@ export function initNavigation() {
     navigator.serviceWorker.register('/sw.js').catch((error: unknown) => console.error('Service worker failed:', error))
   }
 
-  startSync()
-  // Back and Forward restore the page as it was left. When the database changed meanwhile, load it fresh instead.
-  window.addEventListener('pageshow', (event) => {
-    if (!event.persisted) return
+  // A page Back or Forward restored, or one prerendered before the tap, shows the database as it was then. When it
+  // changed meanwhile, the page loads fresh instead.
+  const showOrReload = () =>
     void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
+  // A prerendered page waits for the tap before it syncs, so only the page on screen pushes and pulls.
+  if (document.prerendering) document.addEventListener('prerenderingchange', showOrReload, { once: true })
+  else startSync()
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) showOrReload()
   })
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {

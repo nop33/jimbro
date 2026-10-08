@@ -7,6 +7,14 @@
     <link rel="icon" href="/icons/favicon.ico" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/app.webmanifest" />
+    <!-- Chromium prerenders the other bottom-nav pages, so tapping one shows it complete at once. -->
+    <script type="speculationrules">
+      {
+        "prerender": [
+          { "where": { "selector_matches": ".bottom-nav a:not([aria-current])" }, "eagerness": "immediate" }
+        ]
+      }
+    </script>
   </head>
   <body class="app">
     <div class="app-page pb-20 md:pb-0">

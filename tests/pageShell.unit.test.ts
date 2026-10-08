@@ -37,4 +37,19 @@ describe('page shell', () => {
       expect(marked, file).toEqual(current ? [current] : [])
     }
   })
+
+  // Chromium prerenders the other nav pages from these rules. Gymtime stays out of them, since opening it can start
+  // a workout.
+  it('gives every page the same speculation rules, which prerender only the bottom-nav links', () => {
+    const rulesOf = (file: string) => {
+      const html = readFileSync(path.join(root, file), 'utf8')
+      const json = /<script type="speculationrules">([\s\S]*?)<\/script>/.exec(html)?.[1]
+      if (!json) throw new Error(`${file} has no speculation rules`)
+      return JSON.parse(json) as unknown
+    }
+    const expected = {
+      prerender: [{ where: { selector_matches: '.bottom-nav a:not([aria-current])' }, eagerness: 'immediate' }]
+    }
+    for (const file of Object.keys(PAGES)) expect(rulesOf(file), file).toEqual(expected)
+  })
 })
