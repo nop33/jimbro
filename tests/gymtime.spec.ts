@@ -150,6 +150,28 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
   })
 
+  test("moves an exercise from its card's actions menu", async ({ page }) => {
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+    const names = page.locator('.exercise-name')
+    const [first, second] = (await names.allTextContents()).map((name) => name.trim())
+
+    await page.getByRole('button', { name: `Actions for ${first}` }).click()
+    const menu = page.locator('.exercise-actions-menu:popover-open')
+    await expect(menu.getByRole('button', { name: 'Move up' })).toBeHidden()
+    await menu.getByRole('button', { name: 'Move down' }).click()
+
+    await expect(names.nth(0)).toHaveText(second)
+    await expect(names.nth(1)).toHaveText(first)
+    await expect(menu).toHaveCount(0)
+
+    await page.getByRole('button', { name: `Actions for ${first}` }).click()
+    await expect(menu.getByRole('button', { name: 'Move up' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+  })
+
   test('a card opened while the cards re-render stays open', async ({ page }) => {
     const firstExercise = page.locator('details.exercise-details').first()
     await expect(firstExercise).toBeVisible()

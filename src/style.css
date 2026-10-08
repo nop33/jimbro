@@ -219,6 +219,30 @@
     line-height: 2.5rem !important;
   }
 
+  /* A popover menu that script places under the button that opens it. */
+  .card-menu {
+    @apply fixed m-0 w-56 overflow-hidden rounded-xl border border-neutral-700/60 bg-neutral-800 p-0 text-jim-neutral;
+    inset: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+
+    button {
+      @apply flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-neutral-700/50 active:bg-neutral-700;
+    }
+
+    /* A line between shown items, whichever ones the card hides. */
+    button:not(.hidden) ~ button {
+      @apply border-t border-neutral-700/60;
+    }
+
+    svg {
+      @apply text-jim-accent;
+    }
+  }
+
+  .card-menu::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
   dialog > header {
     @apply mb-6 flex items-center justify-between;
   }
