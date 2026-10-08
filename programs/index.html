@@ -1,36 +1,13 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- partial:head -->
     <title>Jimbro - Programs</title>
-    <link rel="icon" href="/icons/favicon.ico" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="manifest" href="/app.webmanifest" />
-    <!-- Chromium prerenders the other bottom-nav pages, so tapping one shows it complete at once. -->
-    <script type="speculationrules">
-      {
-        "prerender": [
-          { "where": { "selector_matches": ".bottom-nav a:not([aria-current])" }, "eagerness": "immediate" }
-        ]
-      }
-    </script>
   </head>
   <body class="app">
     <div class="app-page pb-20 md:pb-0">
       <header class="app-header">
-        <a id="back-button" class="link-primary"
-          ><svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="size-6"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-        </a>
+        <!-- partial:back-button -->
         <h1 class="app-header-title">Programs</h1>
         <button id="new-program-btn" class="link-primary ml-auto font-semibold">
           <svg
@@ -120,22 +97,7 @@
               />
             </svg>
           </button>
-          <button
-            type="button"
-            class="close-dialog-btn border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200"
-            aria-label="Close dialog"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-6"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <!-- partial:close-dialog-button -->
         </div>
       </header>
       <form id="program-form" class="flex flex-col gap-4">
@@ -197,48 +159,7 @@
       </form>
     </dialog>
 
-    <nav class="bottom-nav fixed bottom-0 left-0 right-0 md:max-w-2xl md:mx-auto z-50">
-      <div class="flex justify-around items-center h-20 px-2">
-        <a
-          href="/"
-          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
-        >
-          <span class="text-2xl mb-1">🏠</span>
-          <span class="text-xs font-medium">Home</span>
-        </a>
-        <a
-          href="/workouts/"
-          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
-        >
-          <span class="text-2xl mb-1">💪</span>
-          <span class="text-xs font-medium">Workouts</span>
-        </a>
-        <a
-          href="/exercises/"
-          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
-        >
-          <span class="text-2xl mb-1">📋</span>
-          <span class="text-xs font-medium">Exercises</span>
-        </a>
-        <a
-          href="/programs/"
-          aria-current="page"
-          class="nav-link flex flex-col items-center justify-center flex-1 h-full hover:text-blue-400 transition-all duration-200"
-        >
-          <span class="text-2xl mb-1">📝</span>
-          <span class="text-xs font-medium">Programs</span>
-        </a>
-        <a
-          href="/stats/"
-          class="nav-link flex flex-col items-center justify-center flex-1 h-full text-neutral-400 hover:text-blue-400 transition-all duration-200"
-        >
-          <span class="text-2xl mb-1">📊</span>
-          <span class="text-xs font-medium">Stats</span>
-        </a>
-      </div>
-    </nav>
-    <script type="module" src="../src/pages/programs/index.ts"></script>
-    <script type="module" src="../src/navigation.ts"></script>
-    <script type="module" src="../src/features/hapticFeedback/index.ts"></script>
+    <!-- partial:bottom-nav -->
+    <script type="module" src="/src/pages/programs/index.ts"></script>
   </body>
 </html>

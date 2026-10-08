@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite-plus'
+import { partials } from './partials/plugin.ts'
 
 // Files from public/ that the pages load. The manifest icons and screenshots are only fetched when installing.
 const PUBLIC_PRECACHE = ['/app.webmanifest', '/icons/favicon.ico', '/icons/apple-touch-icon.png']
@@ -28,7 +29,7 @@ const serviceWorker = (): Plugin => ({
 })
 
 export default defineConfig({
-  plugins: [tailwindcss(), serviceWorker()],
+  plugins: [partials(), tailwindcss(), serviceWorker()],
   build: {
     rolldownOptions: {
       input: {

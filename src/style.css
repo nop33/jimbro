@@ -176,7 +176,7 @@
   }
 
   .nav-link {
-    @apply relative transition-all duration-200;
+    @apply relative text-neutral-400 transition-all duration-200;
   }
 
   .nav-link[aria-current='page'] {

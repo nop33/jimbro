@@ -1,4 +1,3 @@
-import '../../style.css'
 import { exportIndexedDbToJson } from '../../db/export'
 import { importIndexedDbFromJson } from '../../db/import'
 import { storage } from '../../db/storage'
