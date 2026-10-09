@@ -188,6 +188,141 @@
     display: none !important;
   }
 
+  /* Home: the week card, the highlights and the programs to pick from. */
+  .home-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-neutral-400;
+  }
+
+  .week-goal {
+    @apply flex gap-1.5;
+
+    span {
+      @apply h-2 flex-1 rounded-full bg-white/10;
+    }
+
+    .met {
+      @apply bg-jim-success;
+    }
+  }
+
+  .week-days {
+    @apply grid grid-cols-7 gap-1 text-center;
+  }
+
+  .week-day {
+    @apply flex flex-col items-center gap-1.5 text-xs text-neutral-400;
+  }
+
+  .week-day-dot {
+    @apply grid place-items-center size-9 rounded-full border border-white/10 text-sm font-semibold text-neutral-500;
+  }
+
+  .week-day[data-status='completed'] .week-day-dot {
+    @apply bg-jim-success border-transparent text-white;
+  }
+
+  .week-day[data-status='incomplete'] .week-day-dot {
+    @apply bg-jim-warning/25 border-jim-warning text-jim-warning;
+  }
+
+  .week-day[aria-current='date'] {
+    @apply font-bold text-jim-accent;
+
+    .week-day-dot {
+      @apply border-2 border-jim-accent;
+    }
+  }
+
+  .week-day[aria-current='date']:not([data-status]) .week-day-dot {
+    @apply text-jim-accent;
+  }
+
+  .highlights {
+    @apply grid grid-cols-3 gap-2;
+  }
+
+  .highlight {
+    @apply flex flex-col min-w-0 rounded-2xl px-3 py-2.5 bg-jim-dark-blue/70;
+  }
+
+  .highlight-value {
+    @apply text-xl font-bold text-white whitespace-nowrap;
+  }
+
+  .highlight-label {
+    @apply text-xs text-neutral-400;
+  }
+
+  .highlight-detail {
+    @apply text-xs font-semibold text-neutral-400 line-clamp-2;
+  }
+
+  .highlight-detail[data-trend='up'] {
+    @apply text-green-400;
+  }
+
+  .highlight-detail[data-trend='down'] {
+    @apply text-jim-accent;
+  }
+
+  .program-pick {
+    @apply flex items-center gap-3.5 min-h-14 px-3.5 py-2.5 rounded-2xl bg-jim-dark-blue/70 border border-transparent;
+  }
+
+  .program-pick-check {
+    @apply grid place-items-center size-6.5 flex-none rounded-full border-2 border-neutral-600 text-sm font-bold;
+  }
+
+  .program-pick-name {
+    @apply font-semibold truncate;
+  }
+
+  .program-pick-meta {
+    @apply text-sm text-neutral-400;
+  }
+
+  .program-pick-action {
+    @apply ml-auto text-xl text-neutral-400;
+  }
+
+  .program-pick[data-status='completed'] {
+    .program-pick-check {
+      @apply bg-jim-success border-transparent text-white;
+    }
+
+    .program-pick-name {
+      @apply text-neutral-400;
+    }
+  }
+
+  .program-pick[data-status='incomplete'] .program-pick-check {
+    @apply border-jim-warning text-jim-warning;
+  }
+
+  .program-pick[data-suggested] {
+    @apply border-jim-accent/55 bg-jim-primary/20;
+
+    .program-pick-name {
+      @apply text-white;
+    }
+
+    .program-pick-action {
+      @apply text-base font-bold text-jim-accent whitespace-nowrap;
+    }
+  }
+
+  .program-pick[data-suggested][data-status='incomplete'] {
+    @apply border-jim-warning/55 bg-jim-warning/15;
+
+    .program-pick-action {
+      @apply text-jim-warning;
+    }
+  }
+
+  .install-row {
+    @apply flex items-center gap-3 rounded-2xl border border-dashed border-neutral-700 px-3.5 py-2 text-sm text-neutral-300;
+  }
+
   /* Modern link styles */
   .link-primary {
     @apply text-jim-accent/80 hover:text-jim-accent font-medium transition-colors duration-200 flex items-center gap-1 cursor-pointer;
@@ -408,7 +543,7 @@
 }
 
 @media all and (display-mode: standalone) {
-  #install-btn {
+  #install-row {
     display: none;
   }
 }

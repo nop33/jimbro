@@ -27,7 +27,7 @@ The data lives in the browser's IndexedDB. An optional cloud backup syncs it to 
 
 | Route         | Purpose                                                          |
 | ------------- | ---------------------------------------------------------------- |
-| `/`           | Home page with an install button and a "Start workout" link      |
+| `/`           | This week at a glance, highlights, and the next workout to start |
 | `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode     |
 | `/gymtime/`   | The active workout: log sets, break timer, completion            |
 | `/exercises/` | Exercise library: create, edit, delete                           |
@@ -59,8 +59,16 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 
 ### Home (`/`)
 
-- "Hey, gymbro." header with a Settings link, and a "Start workout" button that opens `/workouts/`.
-- "Install app" opens the browser's install prompt when the browser has offered one, and otherwise shows the iOS "Add to Home Screen" instructions. The page removes the button after an install, and CSS hides it when the app runs standalone.
+- "Hey, gymbro." header with a Settings link.
+- "This week" counts the completed workouts against the goal (every program in rotation mode, the weekly goal in freestyle mode), with one bar per workout and a Monday to Sunday strip that marks each day's workout and today.
+- Three highlights, once any workout exists:
+  - The streak: weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the streak never drops before the week ends.
+  - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday.
+  - Personal records this week: a lifting exercise whose top set beat its heaviest earlier weight, or matched it with more reps. An exercise's first workout is not a record. With none this week, it shows the date of the latest one.
+- "Pick your workout" lists every program, each opening gymtime. A workout started this week and not finished comes first with "Continue". Otherwise, until the week meets its goal, the program done longest ago comes first with "Start", in rotation mode only among the programs not started this week. The programs still open follow, then the ones done this week.
+- With no programs, "Get started" opens `/workouts/`, which offers the seed or the restore.
+- "Install" opens the browser's install prompt when the browser has offered one, and otherwise shows the iOS "Add to Home Screen" instructions. The page removes the row after an install, and CSS hides it when the app runs standalone.
+- Like the workouts page, the page loads again when it comes back after the day, the workout mode or the database changed.
 
 ### Workouts (`/workouts/`)
 
