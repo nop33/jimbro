@@ -66,7 +66,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
   - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday.
   - Personal records this week: a lifting exercise whose top set beat its heaviest earlier weight, or matched it with more reps. An exercise's first workout is not a record. With none this week, it shows the date of the latest one.
 - "Pick your workout" lists every program, each opening gymtime. A workout started this week and not finished comes first with "Continue". Otherwise, until the week meets its goal, the program done longest ago comes first with "Start", in rotation mode only among the programs not started this week. The programs still open follow, then the ones done this week.
-- With no programs, "Get started" opens `/workouts/`, which offers the seed or the restore.
+- With no programs, the list gives way to "Let's set up your first workout." and a centred "Get started" button that opens `/workouts/`, which offers the seed or the restore.
 - "Install" opens the browser's install prompt when the browser has offered one, and otherwise shows the iOS "Add to Home Screen" instructions. The page removes the row after an install, and CSS hides it when the app runs standalone.
 - Like the workouts page, the page loads again when it comes back after the day, the workout mode or the database changed.
 

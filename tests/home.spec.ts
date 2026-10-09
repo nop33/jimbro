@@ -54,6 +54,8 @@ test.describe('Home Page', () => {
     await expect(page.locator('.week-day')).toHaveCount(7)
     await expect(page.locator('.week-day[aria-current="date"]')).toContainText('9')
     await expect(page.locator('#highlights')).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Pick your workout' })).toBeHidden()
+    await expect(page.getByText("Let's set up your first workout.")).toBeVisible()
 
     await page.getByRole('link', { name: 'Get started' }).click()
     await expect(page).toHaveURL(/\/workouts\/$/)

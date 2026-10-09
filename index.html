@@ -37,14 +37,15 @@
           </li>
         </ul>
 
-        <section class="flex flex-col gap-2" aria-labelledby="picks-heading">
+        <section id="picks" class="flex flex-col gap-2" aria-labelledby="picks-heading">
           <h2 id="picks-heading" class="home-eyebrow">Pick your workout</h2>
           <ul id="program-picks" class="flex flex-col gap-2 fills-in"></ul>
-          <p id="no-programs" class="flex flex-col items-start gap-3 text-neutral-300" hidden>
-            You have no programs yet.
-            <a class="btn-primary" href="/workouts/">Get started</a>
-          </p>
         </section>
+
+        <div id="first-steps" class="flex flex-1 flex-col items-center justify-center gap-4 text-center" hidden>
+          <p class="text-lg text-neutral-300">Let's set up your first workout.</p>
+          <a class="btn-primary text-lg" href="/workouts/">Get started</a>
+        </div>
 
         <div id="install-row" class="install-row mt-auto">
           <span>Install Jimbro for quick access</span>

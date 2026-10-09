@@ -87,7 +87,8 @@ const pickMeta = ({ thisWeek, lastCompletedDate }: ProgramPick) => {
 
 const renderPicks = ({ picks }: WeekOverview) => {
   if (picks.length === 0) {
-    ;(document.getElementById('no-programs') as HTMLParagraphElement).hidden = false
+    ;(document.getElementById('picks') as HTMLElement).hidden = true
+    ;(document.getElementById('first-steps') as HTMLDivElement).hidden = false
     return
   }
 
