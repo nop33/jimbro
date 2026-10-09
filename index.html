@@ -10,29 +10,70 @@
         <h1 class="app-header-title">Hey, gymbro.</h1>
         <a href="/settings/" class="link-primary ml-auto">Settings</a>
       </header>
-      <div class="app-page-content items-center justify-center relative">
-        <div class="absolute top-4 right-4">
-          <button id="install-btn" class="btn-secondary flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-6"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"
-              />
-            </svg>
-            Install app
-          </button>
+      <main class="app-page-content gap-5">
+        <section class="card flex flex-col gap-3 py-4" aria-labelledby="week-heading">
+          <div class="flex items-baseline justify-between">
+            <h2 id="week-heading" class="home-eyebrow">This week</h2>
+            <p id="week-count" class="text-sm text-neutral-400"></p>
+          </div>
+          <div id="week-goal" class="week-goal" aria-hidden="true"></div>
+          <ol id="week-days" class="week-days fills-in"></ol>
+        </section>
+
+        <ul id="highlights" class="highlights fills-in" aria-label="Highlights" hidden>
+          <li class="highlight">
+            <span id="streak-value" class="highlight-value"></span>
+            <span id="streak-label" class="highlight-label"></span>
+          </li>
+          <li class="highlight">
+            <span id="volume-value" class="highlight-value"></span>
+            <span class="highlight-label">lifted this week</span>
+            <span id="volume-delta" class="highlight-detail"></span>
+          </li>
+          <li class="highlight">
+            <span id="records-value" class="highlight-value"></span>
+            <span class="highlight-label">this week</span>
+            <span id="records-detail" class="highlight-detail"></span>
+          </li>
+        </ul>
+
+        <section id="picks" class="flex flex-col gap-2" aria-labelledby="picks-heading">
+          <h2 id="picks-heading" class="home-eyebrow">Pick your workout</h2>
+          <ul id="program-picks" class="flex flex-col gap-2 fills-in"></ul>
+        </section>
+
+        <div id="first-steps" class="flex flex-1 flex-col items-center justify-center gap-4 text-center" hidden>
+          <p class="text-lg text-neutral-300">Let's set up your first workout.</p>
+          <a class="btn-primary text-lg" href="/workouts/">Get started</a>
         </div>
-        <a class="btn-primary text-lg" href="/workouts/"> Start workout </a>
-      </div>
+
+        <div id="install-row" class="install-row mt-auto">
+          <span>Install Jimbro for quick access</span>
+          <button id="install-btn" type="button" class="btn-secondary px-4 py-2 ml-auto">Install</button>
+        </div>
+      </main>
     </div>
+
+    <template id="week-day-template">
+      <li class="week-day">
+        <span class="week-day-dot" aria-hidden="true"></span>
+        <span class="week-day-name" aria-hidden="true"></span>
+        <span class="week-day-label sr-only"></span>
+      </li>
+    </template>
+
+    <template id="program-pick-template">
+      <li>
+        <a class="program-pick">
+          <span class="program-pick-check" aria-hidden="true"></span>
+          <span class="flex flex-col min-w-0">
+            <span class="program-pick-name"></span>
+            <span class="program-pick-meta"></span>
+          </span>
+          <span class="program-pick-action"></span>
+        </a>
+      </li>
+    </template>
     <!-- partial:bottom-nav -->
     <script type="module" src="/src/pages/home/index.ts"></script>
   </body>

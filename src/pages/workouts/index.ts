@@ -3,7 +3,6 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { getMeta } from '../../sync/queue'
-import { isOutOfDate } from '../../sync/freshness'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
@@ -18,6 +17,7 @@ import {
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
+import { reloadWhenStale } from '../reloadWhenStale'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings, getEffectiveWorkoutsPerWeek } from '../../settings'
@@ -181,22 +181,5 @@ type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date' | 'stat
   status: 'pending' | 'skipped'
 }
 
-// The list is drawn once. A new day, changed settings or a changed database need the page loaded again, unless a
-// dialog is open, which a reload would throw away.
-const renderedSettings = JSON.stringify(settings)
-const reloadIfStale = async () => {
-  // A prerendered page is checked when it is shown, in navigation.ts.
-  if (document.prerendering || document.querySelector('dialog[open]')) return
-  const stale =
-    getSimpleDate(new Date()) !== today ||
-    JSON.stringify(getWorkoutModeSettings()) !== renderedSettings ||
-    (await isOutOfDate())
-  if (stale) window.location.reload()
-}
-
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted) void reloadIfStale()
-})
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') void reloadIfStale()
-})
+// The list is drawn once, so a new day, changed settings or a changed database need the page loaded again.
+reloadWhenStale(today)
