@@ -23,6 +23,7 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
+import { planExercise } from './exercisePlan'
 import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 
@@ -77,27 +78,8 @@ class ExerciseCard {
     const session = openSession.current
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
-    // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
-    let lastSessionSetsCount = this.snapshot.targetSets
-    if (session) {
-      const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(
-        this.exerciseId,
-        1,
-        session.location
-      )
-      if (lastSession) {
-        const lastSessionExercise = lastSession.exercises.find((e) => e.exerciseId === this.exerciseId)
-        if (lastSessionExercise) {
-          lastSessionSetsCount = lastSessionExercise.sets.length
-        }
-      }
-    }
-
-    this.targetSets = Math.max(
-      this.snapshot.targetSets,
-      lastSessionSetsCount,
-      existingExercise ? existingExercise.sets.length : 0
-    )
+    const plan = await planExercise(this.snapshot, session)
+    this.targetSets = plan.targetSets
 
     const isExerciseCompleted = () => {
       const session = openSession.current
@@ -257,7 +239,7 @@ class ExerciseCard {
       submitButton.classList.remove('hidden')
     }
 
-    await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
+    this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv, plan.prefill)
 
     if (existingExercise && existingExercise.sets.length >= this.targetSets) {
       nextSetDiv.classList.add('hidden')
@@ -275,14 +257,10 @@ class ExerciseCard {
       viewHistoryBtn.classList.add('hidden')
     }
 
-    const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(this.exerciseId, 1, session?.location)
-
-    if (lastSession) {
+    const { lastTime } = plan
+    if (lastTime) {
       viewLastSetBtn.addEventListener('click', () => {
-        const lastExercise = lastSession.exercises.find((e) => e.exerciseId === this.exerciseId)
-        if (lastExercise) {
-          void LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
-        }
+        void LastSetDialog.openDialog(lastTime.sets, lastTime.date, lastTime.location)
       })
     } else {
       viewLastSetBtn.classList.add('hidden')
@@ -325,47 +303,20 @@ class ExerciseCard {
     return template
   }
 
-  private async prefillValues(): Promise<ExerciseDefaults> {
-    const { preset, defaults } = this.snapshot
-    const session = openSession.current
-    const currentSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets.at(-1)
-
-    if (currentSet) return { ...defaults, ...setValues(currentSet) }
-
-    const latestSession = await workoutSessionsStore.getLatestWithCompletedExercise(
-      this.exerciseId,
-      this.snapshot.targetSets
-    )
-    const previousSets = (
-      latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets ?? []
-    ).filter((set) => set.preset === preset)
-
-    const previousSet = previousSets.at(-1)
-    const prefill = previousSet ? { ...defaults, ...setValues(previousSet) } : { ...defaults }
-
-    if (preset === 'lifting' && previousSets.length > 0) {
-      const maxWeight = Math.max(...previousSets.map((set) => setValues(set).weight ?? 0))
-      if (maxWeight > 0) prefill.weight = maxWeight
-    }
-
-    if (preset === 'cardioTreadmill' && prefill.incline === undefined) prefill.incline = 0
-
-    return prefill
-  }
-
-  private async setupNextSetForm(
+  private setupNextSetForm(
     template: DocumentFragment,
     completedSets: HTMLDivElement,
     detailsAnimation: AnimateDetailsHandle,
     cardDiv: HTMLDivElement,
-    nextSetDiv: HTMLDivElement
+    nextSetDiv: HTMLDivElement,
+    prefill: ExerciseDefaults
   ) {
     const { preset } = this.snapshot
     const nextSetForm = template.querySelector('.next-set-form') as HTMLFormElement
     const nextSetFields = nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
     const addExtraSetBtn = template.querySelector('.add-extra-set-btn') as HTMLButtonElement
 
-    renderSetInputs(nextSetFields, preset, await this.prefillValues())
+    renderSetInputs(nextSetFields, preset, prefill)
 
     const currentIndex = this.programExerciseIds.findIndex((id) => id === this.exerciseId)
 
