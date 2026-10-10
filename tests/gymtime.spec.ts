@@ -197,13 +197,13 @@ test.describe('Gymtime Page', () => {
     // Hold the re-render that starting the workout triggers at its first lookup, after it has begun.
     await page.evaluate(async () => {
       const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-      const lookup = workoutSessionsStore.getLatestWithCompletedExercise.bind(workoutSessionsStore)
+      const lookup = workoutSessionsStore.lastTimeOf.bind(workoutSessionsStore)
       let release = () => {}
       const gate = new Promise<void>((resolve) => {
         release = resolve
       })
       Reflect.set(window, '__releaseRender', release)
-      workoutSessionsStore.getLatestWithCompletedExercise = async (...args) => {
+      workoutSessionsStore.lastTimeOf = async (...args) => {
         Reflect.set(window, '__renderHeld', true)
         await gate
         return lookup(...args)

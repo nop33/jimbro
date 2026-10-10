@@ -20,6 +20,9 @@ export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'status' | 'updatedA
   exercises: Array<ExerciseSnapshot>
 }
 
+// An exercise's sets as one earlier session holds them.
+export type LastTime = Pick<WorkoutSession, 'date' | 'location'> & Pick<ExerciseExecution, 'sets'>
+
 type SessionFields = Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>
 
 export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
@@ -183,27 +186,28 @@ export class WorkoutSessionsStore {
     return this.assemble(latest)
   }
 
-  // The latest session with at least requiredSets sets of the exercise, preferring one at the location.
-  async getLatestWithCompletedExercise(
+  // The exercise's sets the last time it was done before the session: the latest other session up to its date with
+  // a set of the exercise, preferring one at the same gym. Without a session, the latest at any gym.
+  async lastTimeOf(
     exerciseId: Exercise['id'],
-    requiredSets: number,
-    location?: string
-  ): Promise<WorkoutSession | undefined> {
-    const hasEnoughSets = (session: WorkoutSession) => {
-      const exercise = session.exercises.find((candidate) => candidate.exerciseId === exerciseId)
-      return !!exercise && exercise.sets.length >= requiredSets
-    }
-    const headerHasExercise = (header: SessionHeader) => hasExercise(header, exerciseId)
+    session?: Pick<WorkoutSession, 'id' | 'date' | 'location'>
+  ): Promise<LastTime | undefined> {
+    const earlier = (header: SessionHeader) =>
+      hasExercise(header, exerciseId) && (!session || (header.id !== session.id && header.date <= session.date))
+    const hasSets = (candidate: WorkoutSession) =>
+      candidate.exercises.some((exercise) => exercise.exerciseId === exerciseId && exercise.sets.length > 0)
 
-    const session = await this.firstMatchingSession(
-      'prev',
-      (header) => headerHasExercise(header) && (!location || header.location === location),
-      hasEnoughSets
-    )
-    if (session) return session
-    if (!location) return undefined
-
-    return this.firstMatchingSession('prev', headerHasExercise, hasEnoughSets)
+    const found =
+      (session?.location &&
+        (await this.firstMatchingSession(
+          'prev',
+          (header) => earlier(header) && header.location === session.location,
+          hasSets
+        ))) ||
+      (await this.firstMatchingSession('prev', earlier, hasSets))
+    const exercise = found?.exercises.find((candidate) => candidate.exerciseId === exerciseId)
+    if (!found || !exercise) return undefined
+    return { date: found.date, location: found.location, sets: exercise.sets }
   }
 
   async getDateOfFirst(): Promise<string | undefined> {
