@@ -20,6 +20,9 @@ export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'status' | 'updatedA
   exercises: Array<ExerciseSnapshot>
 }
 
+// An exercise's sets as one earlier session holds them.
+export type LastTime = Pick<WorkoutSession, 'date' | 'location'> & Pick<ExerciseExecution, 'sets'>
+
 type SessionFields = Partial<Pick<WorkoutSession, 'date' | 'location' | 'notes'>>
 
 export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
@@ -183,27 +186,28 @@ export class WorkoutSessionsStore {
     return this.assemble(latest)
   }
 
-  // The latest session with at least requiredSets sets of the exercise, preferring one at the location.
-  async getLatestWithCompletedExercise(
+  // The exercise's sets the last time it was done before the session: the latest other session up to its date with
+  // a set of the exercise, preferring one at the same gym. Without a session, the latest at any gym.
+  async lastTimeOf(
     exerciseId: Exercise['id'],
-    requiredSets: number,
-    location?: string
-  ): Promise<WorkoutSession | undefined> {
-    const hasEnoughSets = (session: WorkoutSession) => {
-      const exercise = session.exercises.find((candidate) => candidate.exerciseId === exerciseId)
-      return !!exercise && exercise.sets.length >= requiredSets
-    }
-    const headerHasExercise = (header: SessionHeader) => hasExercise(header, exerciseId)
+    session?: Pick<WorkoutSession, 'date' | 'location'> & { id?: WorkoutSession['id'] }
+  ): Promise<LastTime | undefined> {
+    const earlier = (header: SessionHeader) =>
+      hasExercise(header, exerciseId) && (!session || (header.id !== session.id && header.date <= session.date))
+    const hasSets = (candidate: WorkoutSession) =>
+      candidate.exercises.some((exercise) => exercise.exerciseId === exerciseId && exercise.sets.length > 0)
 
-    const session = await this.firstMatchingSession(
-      'prev',
-      (header) => headerHasExercise(header) && (!location || header.location === location),
-      hasEnoughSets
-    )
-    if (session) return session
-    if (!location) return undefined
-
-    return this.firstMatchingSession('prev', headerHasExercise, hasEnoughSets)
+    const found =
+      (session?.location &&
+        (await this.firstMatchingSession(
+          'prev',
+          (header) => earlier(header) && header.location === session.location,
+          hasSets
+        ))) ||
+      (await this.firstMatchingSession('prev', earlier, hasSets))
+    const exercise = found?.exercises.find((candidate) => candidate.exerciseId === exerciseId)
+    if (!found || !exercise) return undefined
+    return { date: found.date, location: found.location, sets: exercise.sets }
   }
 
   async getDateOfFirst(): Promise<string | undefined> {
@@ -274,9 +278,25 @@ export class WorkoutSessionsStore {
     return this.save(withExerciseAt(session, index, { ...exercise, sets }), [{ ...stored, set, updatedAt }], updatedAt)
   }
 
-  async addExercise(session: WorkoutSession, exercise: Exercise): Promise<WorkoutSession> {
+  // targetSets defaults to the exercise's own.
+  async addExercise(
+    session: WorkoutSession,
+    exercise: Exercise,
+    targetSets = exercise.targetSets
+  ): Promise<WorkoutSession> {
     if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
-    return this.save({ ...session, exercises: [...session.exercises, { ...snapshotFromExercise(exercise), sets: [] }] })
+    return this.save({
+      ...session,
+      exercises: [...session.exercises, { ...snapshotFromExercise(exercise), targetSets, sets: [] }]
+    })
+  }
+
+  // One more set to do for the exercise today, which leaves the session incomplete until it is logged.
+  async addSetSlot(session: WorkoutSession, exerciseId: Exercise['id']): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const exercise = session.exercises[index]
+    const targetSets = Math.max(exercise.targetSets, exercise.sets.length) + 1
+    return this.save(withExerciseAt(session, index, { ...exercise, targetSets }))
   }
 
   // Soft-deletes the exercise's sets with it.
@@ -291,14 +311,15 @@ export class WorkoutSessionsStore {
   async swapExercise(
     session: WorkoutSession,
     oldExerciseId: Exercise['id'],
-    exercise: Exercise
+    exercise: Exercise,
+    targetSets = exercise.targetSets
   ): Promise<WorkoutSession> {
     if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
     const index = indexOfExercise(session, oldExerciseId)
     const updatedAt = nowIso()
     const removed = tombstones(liveSets(await this.setsOf(session.id), oldExerciseId), updatedAt)
     return this.save(
-      withExerciseAt(session, index, { ...snapshotFromExercise(exercise), sets: [] }),
+      withExerciseAt(session, index, { ...snapshotFromExercise(exercise), targetSets, sets: [] }),
       removed,
       updatedAt
     )

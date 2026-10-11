@@ -116,4 +116,19 @@ describe('workoutSessionsStore', () => {
       'already exists'
     )
   })
+
+  it('stays incomplete after an added set slot until that set is logged', async () => {
+    let session = await workoutSessionsStore.addSet(await start(exercise('pull', 1)), 'pull', lift(10))
+    expect(session.status).toBe('completed')
+
+    session = await workoutSessionsStore.addSetSlot(session, 'pull')
+    expect([session.exercises[0].targetSets, session.status, await storedStatus(session)]).toEqual([
+      2,
+      'incomplete',
+      'incomplete'
+    ])
+
+    session = await workoutSessionsStore.addSet(session, 'pull', lift(10))
+    expect(session.status).toBe('completed')
+  })
 })

@@ -40,7 +40,6 @@ class ExerciseCardList {
       cards.push(
         await new ExerciseCard({
           snapshot,
-          programExerciseIds: this.programExerciseIds,
           onExerciseDeleted: () => {
             void this.render()
           }

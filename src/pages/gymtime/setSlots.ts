@@ -8,7 +8,8 @@ import {
   toDisplayValues,
   type ExerciseDefaults,
   type ExerciseSetExecution,
-  type LogPreset
+  type LogPreset,
+  type SetSlot
 } from '../../db/exerciseLogging'
 
 // Spelled out so Tailwind emits them; an interpolated `grid-cols-${n}` never reaches its scanner.
@@ -20,7 +21,15 @@ const applyGrid = (container: HTMLElement, columns: number) => {
   container.classList.add(GRID_COLS[Math.min(columns, GRID_COLS.length) - 1])
 }
 
-export const renderSetInputs = (container: HTMLElement, preset: LogPreset, values: ExerciseDefaults) => {
+let noteCount = 0
+
+// A note shows under its slot's input until the value is edited, as with "Max last time" on a prefilled weight.
+export const renderSetInputs = (
+  container: HTMLElement,
+  preset: LogPreset,
+  values: ExerciseDefaults,
+  notes: Partial<Record<SetSlot, string>> = {}
+) => {
   const slots = slotsForPreset(preset)
   const display = toDisplayValues(preset, values)
 
@@ -45,6 +54,18 @@ export const renderSetInputs = (container: HTMLElement, preset: LogPreset, value
       if (value !== undefined) input.value = String(value)
 
       field.append(input)
+
+      const note = notes[spec.slot]
+      if (note) {
+        const hint = document.createElement('span')
+        hint.id = `set-field-note-${++noteCount}`
+        hint.className = 'set-field-note text-xs font-normal normal-case tracking-normal text-center text-jim-accent'
+        hint.textContent = note
+        input.setAttribute('aria-describedby', hint.id)
+        input.addEventListener('input', () => clearSetNotes(field), { once: true })
+        field.append(hint)
+      }
+
       return field
     })
   )
@@ -93,4 +114,11 @@ export const renderSetFields = (container: HTMLElement, set: ExerciseSetExecutio
       return field
     })
   )
+}
+
+export const clearSetNotes = (container: HTMLElement) => {
+  for (const hint of container.querySelectorAll('.set-field-note')) hint.remove()
+  for (const input of container.querySelectorAll('[aria-describedby^="set-field-note-"]')) {
+    input.removeAttribute('aria-describedby')
+  }
 }

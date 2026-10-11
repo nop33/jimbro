@@ -1,19 +1,15 @@
-import { exercisesStore } from '../../db/stores/exercisesStore'
 import {
   breakTimerEnabled,
   emptySet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
   setValues,
-  type ExerciseDefaults,
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
-import { exportIndexedDbToJson } from '../../db/export'
 import { muscleGroupLabel } from '../../db/muscleGroups'
 import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
-import type { ExerciseSnapshot } from '../../db/types'
+import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
-import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -23,27 +19,24 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
-import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
-import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { planExercise, startingTargetSets, type ExercisePlan } from './exercisePlan'
+import { clearSetNotes, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 // Room the actions menu needs below its button: four 48px items and a margin.
 const MENU_ROOM = 220
 
 export interface ExerciseCardConfig {
   snapshot: ExerciseSnapshot
-  programExerciseIds: string[]
   onExerciseDeleted: () => void
 }
 
 class ExerciseCard {
   private snapshot: ExerciseSnapshot
-  private programExerciseIds: string[]
   private onExerciseDeleted: () => void
   private targetSets: number
 
   constructor(config: ExerciseCardConfig) {
     this.snapshot = config.snapshot
-    this.programExerciseIds = config.programExerciseIds
     this.onExerciseDeleted = config.onExerciseDeleted
     this.targetSets = config.snapshot.targetSets
   }
@@ -77,27 +70,8 @@ class ExerciseCard {
     const session = openSession.current
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
-    // Determine the dynamic targetSets (if there is a last session that had more sets, use that instead of the default, unless we've already done more)
-    let lastSessionSetsCount = this.snapshot.targetSets
-    if (session) {
-      const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(
-        this.exerciseId,
-        1,
-        session.location
-      )
-      if (lastSession) {
-        const lastSessionExercise = lastSession.exercises.find((e) => e.exerciseId === this.exerciseId)
-        if (lastSessionExercise) {
-          lastSessionSetsCount = lastSessionExercise.sets.length
-        }
-      }
-    }
-
-    this.targetSets = Math.max(
-      this.snapshot.targetSets,
-      lastSessionSetsCount,
-      existingExercise ? existingExercise.sets.length : 0
-    )
+    const plan = await planExercise(this.snapshot, session)
+    this.targetSets = plan.targetSets
 
     const isExerciseCompleted = () => {
       const session = openSession.current
@@ -211,7 +185,14 @@ class ExerciseCard {
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exerciseId || alertIfInSession(newExercise.id)) return
 
-          await openSession.apply((session) => workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise))
+          await openSession.apply(async (session) =>
+            workoutSessionsStore.swapExercise(
+              session,
+              this.exerciseId,
+              newExercise,
+              await startingTargetSets(snapshotFromExercise(newExercise), session)
+            )
+          )
           this.onExerciseDeleted()
         }
       })
@@ -257,7 +238,7 @@ class ExerciseCard {
       submitButton.classList.remove('hidden')
     }
 
-    await this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv)
+    this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv, plan)
 
     if (existingExercise && existingExercise.sets.length >= this.targetSets) {
       nextSetDiv.classList.add('hidden')
@@ -275,14 +256,10 @@ class ExerciseCard {
       viewHistoryBtn.classList.add('hidden')
     }
 
-    const lastSession = await workoutSessionsStore.getLatestWithCompletedExercise(this.exerciseId, 1, session?.location)
-
-    if (lastSession) {
+    const { lastTime } = plan
+    if (lastTime) {
       viewLastSetBtn.addEventListener('click', () => {
-        const lastExercise = lastSession.exercises.find((e) => e.exerciseId === this.exerciseId)
-        if (lastExercise) {
-          void LastSetDialog.openDialog(lastExercise.sets, lastSession.date, lastSession.location)
-        }
+        void LastSetDialog.openDialog(lastTime.sets, lastTime.date, lastTime.location)
       })
     } else {
       viewLastSetBtn.classList.add('hidden')
@@ -325,60 +302,34 @@ class ExerciseCard {
     return template
   }
 
-  private async prefillValues(): Promise<ExerciseDefaults> {
-    const { preset, defaults } = this.snapshot
-    const session = openSession.current
-    const currentSet = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets.at(-1)
-
-    if (currentSet) return { ...defaults, ...setValues(currentSet) }
-
-    const latestSession = await workoutSessionsStore.getLatestWithCompletedExercise(
-      this.exerciseId,
-      this.snapshot.targetSets
-    )
-    const previousSets = (
-      latestSession?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets ?? []
-    ).filter((set) => set.preset === preset)
-
-    const previousSet = previousSets.at(-1)
-    const prefill = previousSet ? { ...defaults, ...setValues(previousSet) } : { ...defaults }
-
-    if (preset === 'lifting' && previousSets.length > 0) {
-      const maxWeight = Math.max(...previousSets.map((set) => setValues(set).weight ?? 0))
-      if (maxWeight > 0) prefill.weight = maxWeight
-    }
-
-    if (preset === 'cardioTreadmill' && prefill.incline === undefined) prefill.incline = 0
-
-    return prefill
-  }
-
-  private async setupNextSetForm(
+  private setupNextSetForm(
     template: DocumentFragment,
     completedSets: HTMLDivElement,
     detailsAnimation: AnimateDetailsHandle,
     cardDiv: HTMLDivElement,
-    nextSetDiv: HTMLDivElement
+    nextSetDiv: HTMLDivElement,
+    plan: ExercisePlan
   ) {
     const { preset } = this.snapshot
     const nextSetForm = template.querySelector('.next-set-form') as HTMLFormElement
     const nextSetFields = nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
     const addExtraSetBtn = template.querySelector('.add-extra-set-btn') as HTMLButtonElement
 
-    renderSetInputs(nextSetFields, preset, await this.prefillValues())
+    renderSetInputs(nextSetFields, preset, plan.prefill, plan.prefillIsMax ? { weight: 'Max last time' } : {})
 
-    const currentIndex = this.programExerciseIds.findIndex((id) => id === this.exerciseId)
-
-    if (addExtraSetBtn) {
-      addExtraSetBtn.addEventListener('click', () => {
-        this.targetSets += 1
-        cardDiv.classList.remove('card-success')
-        nextSetDiv.classList.remove('hidden')
-        completedSets.appendChild(
-          this.renderSetItem({ set: emptySet(preset), index: this.targetSets - 1, isCompleted: false })
-        )
-      })
-    }
+    // The session stores the extra set, so the workout is not done until it is logged.
+    addExtraSetBtn.addEventListener('click', async () => {
+      if (!openSession.current) return
+      const updated = await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
+      const exercise = updated.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
+      if (!exercise) return
+      this.targetSets = exercise.targetSets
+      cardDiv.classList.remove('card-success')
+      nextSetDiv.classList.remove('hidden')
+      completedSets.appendChild(
+        this.renderSetItem({ set: emptySet(preset), index: this.targetSets - 1, isCompleted: false })
+      )
+    })
 
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
@@ -392,13 +343,13 @@ class ExerciseCard {
       const updated = await openSession.apply((session) =>
         workoutSessionsStore.addSet(session, this.exerciseId, completedSet)
       )
-      const setIndex = (updated.exercises.find(({ exerciseId: id }) => id === this.exerciseId)?.sets.length ?? 1) - 1
+      const exercise = updated.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
+      if (!exercise) return
+      const setIndex = exercise.sets.length - 1
+      this.targetSets = Math.max(exercise.targetSets, exercise.sets.length)
 
-      // If user adds an extra set after finishing, the DOM might not have a pending slot for it if they didn't use the Add Set button
-      // But if they clicked "Add set", the pending slot is there. Let's make sure it exists.
       let pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       if (!pendingSetItem) {
-        this.targetSets = Math.max(this.targetSets, setIndex + 1)
         completedSets.appendChild(this.renderSetItem({ set: emptySet(preset), index: setIndex, isCompleted: false }))
         pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       }
@@ -408,67 +359,46 @@ class ExerciseCard {
       renderSetFields(pendingSetItem.querySelector('.set-fields') as HTMLDivElement, completedSet)
       pendingSetItem.dataset.set = JSON.stringify(completedSet)
 
-      if (setIndex + 1 >= this.targetSets) {
+      // The form keeps the set just logged as the next one's values, which are no longer last time's max.
+      clearSetNotes(nextSetFields)
+
+      const isExerciseCompleted = exercise.sets.length >= this.targetSets
+      if (isExerciseCompleted) {
         detailsAnimation.close()
         cardDiv.classList.add('card-success')
         nextSetDiv.classList.add('hidden')
       }
 
-      if (updated.status === 'completed') {
-        throwConfetti('Workout done!')
+      // openSession celebrates the set that finishes the workout.
+      if (updated.status === 'completed') return
 
-        if (!getCloudBackupConfig()) {
-          try {
-            await exportIndexedDbToJson()
-          } catch (error) {
-            console.error('Error exporting database:', error)
-            Toasts.show({ message: 'Could not download the JSON export.', type: 'error' })
-          }
-        }
-      } else {
-        const isExerciseCompleted = this.targetSets === setIndex + 1
+      if (isExerciseCompleted) {
+        navigator.vibrate?.([50, 30, 50, 30, 70])
+        BreakTimerDialog.closeDialog()
+        throwConfetti('Exercise done!')
+        return
+      }
 
-        if (isExerciseCompleted) {
-          navigator.vibrate?.([50, 30, 50, 30, 70])
-          BreakTimerDialog.closeDialog()
-          throwConfetti('Exercise done!')
-        } else {
-          let nextExercise
-          if (updated && currentIndex >= 0) {
-            for (let i = 1; i < this.programExerciseIds.length; i++) {
-              const checkIndex = (currentIndex + i) % this.programExerciseIds.length
-              const checkId = this.programExerciseIds[checkIndex]
-
-              if (checkId === this.exerciseId) continue
-
-              const sessionExercise = updated.exercises.find(({ exerciseId }) => exerciseId === checkId)
-              const catalogEx = sessionExercise ? undefined : await exercisesStore.getById(checkId)
-              const target = sessionExercise ?? (catalogEx && snapshotFromExercise(catalogEx))
-              if (!target) continue
-
-              if ((sessionExercise?.sets.length ?? 0) < target.targetSets) {
-                nextExercise = target
-                break
-              }
-            }
-          }
-
-          const breakTimeSeconds = getBreakTimeSeconds()
-
-          if (breakTimerEnabled(preset)) {
-            BreakTimerDialog.startTimer({
-              minutes: Math.floor(breakTimeSeconds / 60),
-              seconds: breakTimeSeconds % 60,
-              setsDone: setIndex + 1,
-              setsTotal: this.targetSets,
-              nextExercise: nextExercise?.name,
-              currentExercise: { id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind }
-            })
-          }
-        }
+      if (breakTimerEnabled(preset)) {
+        const breakTimeSeconds = getBreakTimeSeconds()
+        BreakTimerDialog.startTimer({
+          minutes: Math.floor(breakTimeSeconds / 60),
+          seconds: breakTimeSeconds % 60,
+          setsDone: setIndex + 1,
+          setsTotal: this.targetSets,
+          nextExercise: nextUnfinished(updated, this.exerciseId)?.name,
+          currentExercise: { id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind }
+        })
       }
     })
   }
+}
+
+// The first exercise after this one, wrapping round, that still has sets to do.
+const nextUnfinished = (session: WorkoutSession, exerciseId: string) => {
+  const index = session.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId)
+  const after = [...session.exercises.slice(index + 1), ...session.exercises.slice(0, index)]
+  return after.find((exercise) => exercise.sets.length < exercise.targetSets)
 }
 
 export default ExerciseCard
