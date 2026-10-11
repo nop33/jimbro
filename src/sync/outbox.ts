@@ -170,4 +170,7 @@ const webLock =
     return locks.request(name, task).then((settled) => settled)
   }
 
-export const outbox = createOutbox({ storage, lock: webLock('jimbro:sync-push') })
+// The Web Lock every page takes for each chunk it pushes.
+export const pushLock = webLock('jimbro:sync-push')
+
+export const outbox = createOutbox({ storage, lock: pushLock })

@@ -236,7 +236,9 @@ src/
     cloudBackup.ts     Credentials and authenticated requests to the worker
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
-    syncClient.ts      sync(), which pushes the outbox and pulls by cursor
+    syncClient.ts      The app's sync(), wired to the worker and the open page
+    syncEngine.ts      createSync: first sync, steady sync and reruns, behind a server port
+    server.ts          The server port, and httpServer, its adapter for the worker's API
     queue.ts           Outbox entries and meta, and queueRows, which writeRows calls in its transaction
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
     pull.ts            The first-sync commit and the commit of each pulled page
