@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test'
 import { rereadsFinished, trackRereads } from './gymtimeRereads'
+import { seedDatabase } from './seed'
 
 const USER = { userId: 'gymtime-sync', token: 'gymtime-sync-token' }
 
@@ -162,9 +163,7 @@ const syncSettledAfterWrite = (page: Page) =>
   })
 
 const startSyncedWorkout = async (page: Page) => {
-  await page.goto('/workouts/')
-  await page.getByRole('button', { name: 'Seed Database' }).click()
-  await expect(page.locator('.workout-week').first()).toBeVisible()
+  await seedDatabase(page)
 
   await page.goto('/settings/')
   await page.getByText('Cloud Backup').click()
@@ -232,7 +231,7 @@ test.describe('gymtime with cloud sync', () => {
     await push.reached
     push.release()
     await syncSettledAfterWrite(page)
-    // A pull that announces the open session starts a reread before the sync settles, and a rebuild lands after.
+    // A pull that announces the open session starts a reread before the sync settles, and the cards update after.
     await rereadsFinished(page)
 
     expect(worker.rows('sets')).toHaveLength(1)

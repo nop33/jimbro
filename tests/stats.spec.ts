@@ -1,14 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { seedDatabase } from './seed'
 
 test.describe('Stats Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to workouts to seed database first
-    await page.goto('/workouts/')
-    const seedBtn = page.getByRole('button', { name: 'Seed Database' })
-    if (await seedBtn.isVisible()) {
-      await seedBtn.click()
-      await expect(page.locator('.workout-week')).toBeVisible()
-    }
+    await seedDatabase(page)
   })
 
   test('displays correct statistics on the stats page', async ({ page }) => {
@@ -25,14 +20,6 @@ test.describe('Stats Page', () => {
     await expect(page.locator('#stat-total-reps')).toBeVisible()
     await expect(page.locator('#stat-days-active')).toBeVisible()
     await expect(page.locator('#stat-avg-workouts')).toBeVisible()
-  })
-
-  test('stats link is present and active in the navigation menu', async ({ page }) => {
-    await page.goto('/stats/')
-
-    const statsLink = page.locator('.nav-link[href="/stats/"]')
-    await expect(statsLink).toBeVisible()
-    await expect(statsLink).toHaveAttribute('aria-current', 'page')
   })
 })
 

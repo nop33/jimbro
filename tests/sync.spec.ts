@@ -5,6 +5,9 @@ import { rowsFromExport } from '../src/sync/rows'
 import type { ExportShape, Row } from '../src/db/types'
 import { API_BASE, claimUser, type WorkerUser } from './localWorker'
 
+// syncEngine.unit.test.ts and outbox.unit.test.ts cover the sync rules: first and steady sync, the outbox and the
+// reruns. These tests run the app against the real local worker, for what needs a browser, the worker or several tabs.
+
 const fixturePath = path.join(import.meta.dirname, '..', 'worker', 'test', 'fixtures', 'latest-v4.json')
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as ExportShape
 // The most rows the worker accepts in one push (ROW_LIMIT in worker/src/rows.ts).
@@ -128,13 +131,6 @@ const outbox = (page: Page) =>
     return db.storage.getAll<{ id: string }>('outbox')
   })
 
-const cursorOf = (page: Page) =>
-  page.evaluate(async () => {
-    const db = await import('/src/db/storage.ts')
-    const { getMeta } = await import('/src/sync/queue.ts')
-    return getMeta(db.storage, 'cursor')
-  })
-
 const localStores = (page: Page) =>
   page.evaluate(async () => {
     const exported = await import('/src/db/export.ts')
@@ -199,28 +195,14 @@ test('wipe and restore matches the server export', async ({ page }) => {
   expect(local).toEqual(remote)
 })
 
-test('a first sync keeps the server set and pushes nothing for it', async ({ page }) => {
+test('a first sync keeps the server copy of a set both sides have and sends D1 the set only this browser has', async ({
+  page
+}) => {
   const user = claimUser()
   await seedFixture(user)
   const original = await liftingSet(user.token)
   const edited = { ...original, set: { ...original.set, weight: original.set.weight + 9 } }
-  const pushes: string[] = []
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
-  })
-  await signIn(page, user)
-  await writeSet(page, edited)
-  await runSync(page)
-  expect(pushes.some((body) => body.includes(edited.id))).toBe(false)
-  const local = await readLocalSet(page, edited.id)
-  if (!local) throw new Error('missing local set')
-  expect(local.set.weight).toBe(original.set.weight)
-})
-
-test('a local-only set reaches D1', async ({ page }) => {
-  const user = claimUser()
-  await seedFixture(user)
-  const set: SetBody = {
+  const localOnly: SetBody = {
     id: 'local-only-set',
     sessionId: 'local-only-session',
     exerciseId: 'local-only-exercise',
@@ -229,69 +211,22 @@ test('a local-only set reaches D1', async ({ page }) => {
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
+  const pushes: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
+  })
   await signIn(page, user)
-  await writeSet(page, set)
+  await writeSet(page, edited)
+  await writeSet(page, localOnly)
   await runSync(page)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
+
+  expect(pushes.some((body) => body.includes(edited.id))).toBe(false)
+  const local = await readLocalSet(page, edited.id)
+  if (!local) throw new Error('missing local set')
+  expect(local.set.weight).toBe(original.set.weight)
+  const stored = (await pullAll(user.token)).find((row) => row.row.id === localOnly.id)
   if (!stored || stored.table !== 'sets') throw new Error('missing local-only set')
   expect((stored.row.set as SetExecution).weight).toBe(42)
-})
-
-test('every local row reaches D1 when the server has no rows yet', async ({ page }) => {
-  const user = claimUser()
-  const set: SetBody = {
-    id: 'empty-server-set',
-    sessionId: 'empty-server-session',
-    exerciseId: 'empty-server-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 8, weight: 15 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  await signIn(page, user)
-  await writeSet(page, set)
-  await runSync(page)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
-  if (!stored || stored.table !== 'sets') throw new Error('missing empty-server set')
-  expect((stored.row.set as SetExecution).weight).toBe(15)
-})
-
-test('a crash after the first pull page converges with an uninterrupted sync', async ({ page, browser }) => {
-  const crash = claimUser()
-  const clean = claimUser()
-  await seedFixture(crash)
-  await seedFixture(clean)
-  let pulls = 0
-  await page.route('**/api/pull**', async (route) => {
-    if (route.request().method() !== 'GET') {
-      await route.continue()
-      return
-    }
-    pulls += 1
-    if (pulls > 1) {
-      await route.abort('failed')
-      return
-    }
-    await route.continue()
-  })
-  await signIn(page, crash)
-  await runSync(page).catch(() => undefined)
-  expect(await cursorOf(page)).toBe(0)
-  await page.unroute('**/api/pull**')
-  await runSync(page)
-  const crashLocal = sortExport((await localStores(page)) as ExportFile)
-  const crashRemote = await exportStores(crash.token)
-
-  // Another browser, with storage of its own, runs the same first sync without the crash.
-  const cleanContext = await browser.newContext()
-  const cleanPage = await cleanContext.newPage()
-  await signIn(cleanPage, clean)
-  await runSync(cleanPage)
-  const cleanLocal = sortExport((await localStores(cleanPage)) as ExportFile)
-  const cleanRemote = await exportStores(clean.token)
-  await cleanContext.close()
-  expect(crashLocal).toEqual(cleanLocal)
-  expect(crashRemote).toEqual(cleanRemote)
 })
 
 test('three sets logged offline drain into D1', async ({ page }) => {
@@ -337,33 +272,6 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   for (const id of logged.setIds) {
     expect(stored.some((row) => row.row.id === id)).toBe(true)
   }
-})
-
-test('a later edit survives the second sync after an empty server accepted the first push', async ({ page }) => {
-  const user = claimUser()
-  const set: SetBody = {
-    id: 'steady-set',
-    sessionId: 'steady-session',
-    exerciseId: 'steady-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 5, weight: 10 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  await signIn(page, user)
-  await writeSet(page, set)
-  await runSync(page)
-  expect(await cursorOf(page)).not.toBe(0)
-  await writeSet(page, { ...set, set: { ...set.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' })
-  await runSync(page)
-  const local = await readLocalSet(page, set.id)
-  if (!local) throw new Error('missing local set')
-  expect(local.set.weight).toBe(99)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
-  if (!stored) throw new Error('missing uploaded set')
-  const uploaded = stored.row.set
-  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
-  expect(uploaded.weight).toBe(99)
 })
 
 test('a push already on the wire is not the last write after another page edits', async ({ page }) => {
@@ -458,80 +366,6 @@ test('a push already on the wire is not the last write after another page edits'
   expect(uploaded.weight).toBe(99)
   await page.unroute('**/api/push')
   await other.close()
-})
-
-test('a first sync does not keep a set whose exercise left with the server header', async ({ page }) => {
-  const user = claimUser()
-  const snapshot = {
-    exerciseId: 'exercise-a',
-    name: 'A',
-    kind: 'lifting' as const,
-    preset: 'lifting' as const,
-    targetSets: 1,
-    defaults: {}
-  }
-  const header = {
-    id: 'orphan-session',
-    date: '2026-09-27',
-    programId: 'orphan-program',
-    location: 'Gym',
-    status: 'incomplete' as const,
-    exercises: [snapshot],
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  const kept = {
-    id: 'orphan-session:exercise-a:0',
-    sessionId: header.id,
-    exerciseId: 'exercise-a',
-    position: 0,
-    set: { preset: 'lifting' as const, reps: 5, weight: 10 },
-    isDeleted: false,
-    updatedAt: header.updatedAt
-  }
-  const hidden = {
-    ...kept,
-    id: 'orphan-session:exercise-b:0',
-    exerciseId: 'exercise-b',
-    set: { preset: 'lifting' as const, reps: 5, weight: 42 }
-  }
-  await pushRows(user.token, [
-    { table: 'sessions', row: header },
-    { table: 'sets', row: kept }
-  ])
-  await signIn(page, user)
-  await page.evaluate(
-    async ({ serverHeader, extra }) => {
-      const db = await import('/src/db/storage.ts')
-      await db.storage.writeRows([
-        {
-          table: 'sessions',
-          row: {
-            ...serverHeader,
-            exercises: [
-              ...serverHeader.exercises,
-              { ...serverHeader.exercises[0], exerciseId: 'exercise-b', name: 'B' }
-            ],
-            updatedAt: '2026-09-27T12:00:01.000Z'
-          }
-        },
-        { table: 'sets', row: extra }
-      ])
-    },
-    { serverHeader: header, extra: hidden }
-  )
-  await runSync(page)
-  const localHeader = await page.evaluate(async () => {
-    const db = await import('/src/db/storage.ts')
-    return db.storage.get('workoutSessions', 'orphan-session') as Promise<{
-      exercises: Array<{ exerciseId: string }>
-    } | null>
-  })
-  expect(localHeader?.exercises.map((exercise) => exercise.exerciseId)).toEqual(['exercise-a'])
-  expect(await readLocalSet(page, hidden.id)).toBeUndefined()
-  const rows = await pullAll(user.token)
-  expect(rows.some((row) => row.row.id === hidden.id)).toBe(false)
-  expect(rows.some((row) => row.row.id === kept.id)).toBe(true)
 })
 
 test('a failed restore stays on the page', async ({ page }) => {

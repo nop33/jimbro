@@ -1,11 +1,10 @@
 import { test, expect, type Page } from '@playwright/test'
+import { seedDatabase } from './seed'
 
 // Seeds the programs, then one bench press workout per gym, a few days apart, oldest first, with the sets given for
 // each gym, one by default.
 const seedWorkoutsAt = async (page: Page, gyms: Array<string>, sets: Array<number> = []) => {
-  await page.goto('/workouts/')
-  await page.getByRole('button', { name: 'Seed Database' }).click()
-  await expect(page.locator('.workout-week')).toBeVisible()
+  await seedDatabase(page)
   return page.evaluate(
     async ({ gyms, sets }) => {
       const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')

@@ -1,23 +1,24 @@
 import { test, expect } from '@playwright/test'
+import { seedDatabase } from './seed'
 
 test.describe('Workouts Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Reset database to ensure clean state
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: 'Reset Database' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
-
-    // Go to workouts
+    // Each test's browser context starts with an empty database.
     await page.goto('/workouts/')
   })
 
-  test('Greets a new user with the onboarding intro', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+  test('Greets a new user with the onboarding intro, and seeds the sample programs', async ({ page }) => {
+    const seedBtn = page.getByRole('button', { name: 'Seed Database' })
+    await expect(seedBtn).toBeVisible()
     await expect(page.locator('#intro')).toHaveText(
       "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"
     )
+
+    await seedBtn.click()
+
+    // The page reloads into the workout calendar.
+    await expect(page.locator('.workout-week')).toBeVisible()
+    await expect(seedBtn).not.toBeVisible()
   })
 
   test('Offers the cloud backup to a signed-in user with an empty database', async ({ page }) => {
@@ -78,8 +79,7 @@ test.describe('Workouts Page', () => {
   })
 
   test('Asks for a program again once every program is deleted', async ({ page }) => {
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await seedDatabase(page)
 
     await page.goto('/programs/')
     const programCards = page.locator('#programs-grid > .card')
@@ -116,22 +116,8 @@ test.describe('Workouts Page', () => {
     await expect(page.locator('#intro')).toHaveText("Let's start by defining your exercises and programs!")
   })
 
-  test('Seed Database functionality works', async ({ page }) => {
-    // We should see the seed database button when the DB is empty
-    const seedBtn = page.getByRole('button', { name: 'Seed Database' })
-    await expect(seedBtn).toBeVisible()
-
-    await seedBtn.click()
-
-    // The page should reload and we should see a workout calendar layout
-    await expect(page.locator('.workout-week')).toBeVisible()
-    await expect(seedBtn).not.toBeVisible()
-  })
-
   test('Shows correct weekly view and start new workout dialog', async ({ page }) => {
-    // Seed db
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await seedDatabase(page)
 
     // Check new workout dialog
     await page.getByRole('button', { name: 'New' }).click()
@@ -156,9 +142,7 @@ test.describe('Workouts Page', () => {
   })
 
   test('Updates status correctly when navigating back from an incomplete workout', async ({ page }) => {
-    // Seed db
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await seedDatabase(page)
 
     // Check initial status, there should be pending workouts
     const pendingWorkouts = page.locator('.card-pending')
