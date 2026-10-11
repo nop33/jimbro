@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Exercise } from '../src/db/stores/exercisesStore'
 import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import { nextSetValues, planExercise, prefillIsMaxWeight } from '../src/pages/gymtime/exercisePlan'
+import { keptLastTimes, nextSetValues, planExercise, prefillIsMaxWeight } from '../src/pages/gymtime/exercisePlan'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())
@@ -107,6 +107,26 @@ describe('planExercise', () => {
 
     const done = await workoutSessionsStore.addSet(today, 'curl', lift(10))
     expect((await planExercise(done.exercises[0], done)).progress).toEqual({ logged: 2, target: 2, done: true })
+  })
+})
+
+describe('keptLastTimes', () => {
+  it('keeps last time for a workout until forgotten, and reads it again for another day or gym', async () => {
+    const raise = exercise('raise')
+    await workout(raise, '2026-10-01', 'Zurich', [10])
+    const today = await workout(raise, '2026-10-08', 'Zurich', [])
+    const lastTimes = keptLastTimes()
+    const plan = () => planExercise(today.exercises[0], today, lastTimes.read)
+
+    expect((await plan()).lastTime?.sets).toEqual([lift(10)])
+    await workout(raise, '2026-10-05', 'Zurich', [12])
+    expect((await plan()).lastTime?.sets).toEqual([lift(10)])
+    expect(
+      (await planExercise(today.exercises[0], { ...today, location: 'Athens' }, lastTimes.read)).lastTime?.sets
+    ).toEqual([lift(12)])
+
+    lastTimes.forget()
+    expect((await plan()).lastTime?.sets).toEqual([lift(12)])
   })
 })
 

@@ -11,8 +11,7 @@ import {
   nextUnfinished,
   progressOf,
   workoutSessionsStore,
-  type ExerciseProgress,
-  type PlannedSession
+  type ExerciseProgress
 } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
@@ -25,73 +24,169 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
-import { planExercise, type ExercisePlan } from './exercisePlan'
+import type { ExercisePlan } from './exercisePlan'
 import { clearSetNotes, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 // Room the actions menu needs below its button: four 48px items and a margin.
 const MENU_ROOM = 220
 
-export interface ExerciseCardConfig {
-  snapshot: ExerciseSnapshot
-  // Where the workout will be done, for a card shown before it starts.
-  planned: PlannedSession
-  onExerciseDeleted: () => void
+// One row of the card's set list: a logged set, or a slot still to do.
+interface SetRow {
+  set: ExerciseSetExecution
+  logged: boolean
 }
 
+// One exercise's card. The card list builds it once per exercise and calls show with each session the page shows, so
+// the card keeps what the user is doing in it: open or closed, its menu, and a value typed into the next set's form.
+// Its buttons only write to the open session, which then reaches every card through show.
 class ExerciseCard {
+  readonly element: HTMLDivElement
   private snapshot: ExerciseSnapshot
-  private planned: PlannedSession
-  private onExerciseDeleted: () => void
+  private plan: ExercisePlan | undefined
+  private readonly details: HTMLDetailsElement
+  private readonly detailsAnimation: AnimateDetailsHandle
+  private readonly completedSets: HTMLDivElement
+  private readonly nextSetDiv: HTMLDivElement
+  private readonly nextSetForm: HTMLFormElement
+  private readonly nextSetFields: HTMLDivElement
+  private readonly submitButton: HTMLButtonElement
+  private readonly actionsBtn: HTMLButtonElement
+  private readonly viewHistoryBtn: HTMLButtonElement
+  private readonly viewLastSetBtn: HTMLButtonElement
+  // What the next set's inputs were last filled with, and whether the user has typed in them since.
+  private filledWith = ''
+  private typedIn = false
 
-  constructor(config: ExerciseCardConfig) {
-    this.snapshot = config.snapshot
-    this.planned = config.planned
-    this.onExerciseDeleted = config.onExerciseDeleted
+  constructor(snapshot: ExerciseSnapshot) {
+    this.snapshot = snapshot
+    const template = nodeFromTemplate('#workout-exercise-item-template')
+    this.element = template.querySelector('div') as HTMLDivElement
+    this.details = this.element.querySelector('.exercise-details') as HTMLDetailsElement
+    this.completedSets = this.details.querySelector('.completed-sets') as HTMLDivElement
+    this.nextSetDiv = this.element.querySelector('.next-set') as HTMLDivElement
+    this.nextSetForm = this.nextSetDiv.querySelector('.next-set-form') as HTMLFormElement
+    this.nextSetFields = this.nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
+    this.submitButton = this.nextSetForm.querySelector('button[type="submit"]') as HTMLButtonElement
+    this.actionsBtn = this.element.querySelector('.exercise-actions-btn') as HTMLButtonElement
+    this.viewHistoryBtn = this.element.querySelector('.view-history-btn') as HTMLButtonElement
+    this.viewLastSetBtn = this.element.querySelector('.view-last-set-btn') as HTMLButtonElement
+
+    this.element.setAttribute('data-exercise-id', this.exerciseId)
+    this.detailsAnimation = animateDetails(
+      this.details,
+      this.details.querySelector('.exercise-details-content') as HTMLDivElement,
+      { accordionSelector: '.exercise-details' }
+    )
+
+    this.setUpActionsMenu()
+    this.setUpNextSetForm()
+
+    this.viewHistoryBtn.addEventListener('click', () => {
+      void ExerciseHistoryChart.openDialog({ id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind })
+    })
+    this.viewLastSetBtn.addEventListener('click', () => {
+      const lastTime = this.plan?.lastTime
+      if (lastTime) void LastSetDialog.openDialog(lastTime.sets, lastTime.date, lastTime.location)
+    })
   }
 
   private get exerciseId(): string {
     return this.snapshot.exerciseId
   }
 
+  // Shows the exercise as the session holds it, or before a session starts, as the start will store it. It changes
+  // only what differs from what the card shows, and leaves the next set's inputs alone while the user is on them.
+  show(snapshot: ExerciseSnapshot, session: WorkoutSession | undefined, plan: ExercisePlan): void {
+    const presetChanged = snapshot.preset !== this.snapshot.preset
+    this.snapshot = snapshot
+    this.plan = plan
+    const { kind, muscle, preset } = snapshot
+    const kindLabel = EXERCISE_KIND_LABELS[kind]
+
+    setTextContent('.exercise-name', snapshot.name, this.element)
+    setTextContent('.exercise-muscle', muscle ? muscleGroupLabel(muscle) : kindLabel, this.element)
+    const kindBadge = this.element.querySelector('.exercise-kind') as HTMLSpanElement
+    kindBadge.textContent = kindLabel
+    kindBadge.classList.toggle('hidden', !muscle || kind === 'lifting')
+    this.actionsBtn.setAttribute('aria-label', `Actions for ${snapshot.name}`)
+
+    const { progress } = plan
+    this.element.classList.toggle('card-success', progress.done)
+    this.nextSetDiv.classList.toggle('hidden', progress.done)
+    this.submitButton.classList.toggle('hidden', !session)
+    this.viewHistoryBtn.classList.toggle('hidden', !historyChartEnabled(kind))
+    this.viewLastSetBtn.classList.toggle('hidden', !plan.lastTime)
+
+    configureSetRowGrid(this.completedSets, preset)
+    const logged = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets ?? []
+    this.showSetRows(
+      Array.from({ length: progress.target }, (_, index) =>
+        index < logged.length ? { set: logged[index], logged: true } : { set: emptySet(preset), logged: false }
+      )
+    )
+
+    const notes = plan.prefillIsMax ? { weight: 'Max last time' } : {}
+    const fillWith = JSON.stringify([preset, plan.prefill, notes])
+    const onInputs = this.typedIn || this.nextSetForm.contains(document.activeElement)
+    if (presetChanged || (fillWith !== this.filledWith && !onInputs)) {
+      renderSetInputs(this.nextSetFields, preset, plan.prefill, notes)
+      this.filledWith = fillWith
+      this.typedIn = false
+    }
+  }
+
+  // Keeps each row that still shows the same set, so only a changed row is drawn again.
+  private showSetRows(rows: Array<SetRow>) {
+    rows.forEach((row, index) => {
+      const key = JSON.stringify(row)
+      const shown = this.completedSets.children.item(index) as HTMLDivElement | null
+      if (shown?.dataset.row === key) return
+      const item = this.renderSetItem(row, index)
+      item.dataset.row = key
+      if (shown) shown.replaceWith(item)
+      else this.completedSets.append(item)
+    })
+    while (this.completedSets.children.length > rows.length) this.completedSets.lastElementChild?.remove()
+  }
+
+  private renderSetItem({ set, logged }: SetRow, index: number): HTMLDivElement {
+    const template = nodeFromTemplate('#completed-set-item-template')
+    const div = template.querySelector('div') as HTMLDivElement
+    const setNumber = (index + 1).toString()
+
+    setTextContent('.set-number', setNumber, template)
+    renderSetFields(template.querySelector('.set-fields') as HTMLDivElement, set)
+
+    div.classList.add(logged ? 'isCompleted' : 'isPending')
+    div.setAttribute('data-set-number', setNumber)
+
+    if (logged) {
+      div.addEventListener('click', () => {
+        if (!openSession.current) throw new Error('No existing workout session found')
+        EditSetDialog.openDialog({ set, exerciseId: this.exerciseId, index })
+      })
+    }
+
+    return div
+  }
+
   // The exercise's progress in the session, which the store's status and the card both go by.
-  private progressIn(session: WorkoutSession | undefined): ExerciseProgress | undefined {
-    const exercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
+  private progressIn(session: WorkoutSession): ExerciseProgress | undefined {
+    const exercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
     return exercise && progressOf(exercise)
   }
 
-  async render(): Promise<DocumentFragment> {
-    const template = nodeFromTemplate('#workout-exercise-item-template')
-    const exerciseDetails = template.querySelector('.exercise-details') as HTMLDetailsElement
-    const detailsContent = exerciseDetails.querySelector('.exercise-details-content') as HTMLDivElement
-    const completedSets = exerciseDetails.querySelector('.completed-sets') as HTMLDivElement
-    const cardDiv = template.querySelector('div') as HTMLDivElement
-    const nextSetDiv = template.querySelector('.next-set') as HTMLDivElement
-    const submitButton = nextSetDiv.querySelector('button[type="submit"]') as HTMLButtonElement
-    const deleteBtn = template.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
-    const swapBtn = template.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
-    const moveUpBtn = template.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
-    const moveDownBtn = template.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
-    const actionsBtn = template.querySelector('.exercise-actions-btn') as HTMLButtonElement
-    const viewHistoryBtn = template.querySelector('.view-history-btn') as HTMLButtonElement
-    const viewLastSetBtn = template.querySelector('.view-last-set-btn') as HTMLButtonElement
-
-    cardDiv.setAttribute('data-exercise-id', this.exerciseId)
-
-    const detailsAnimation = animateDetails(exerciseDetails, detailsContent, {
-      accordionSelector: '.exercise-details'
-    })
-
-    const session = openSession.current
-    const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-
-    const plan = await planExercise(this.snapshot, session ?? this.planned)
-    const { progress } = plan
+  private setUpActionsMenu() {
+    const { actionsBtn } = this
+    const actionsMenu = this.element.querySelector('.exercise-actions-menu') as HTMLDivElement
+    const deleteBtn = actionsMenu.querySelector('.delete-workout-session-exercise-btn') as HTMLButtonElement
+    const swapBtn = actionsMenu.querySelector('.swap-workout-session-exercise-btn') as HTMLButtonElement
+    const moveUpBtn = actionsMenu.querySelector('.move-up-workout-session-exercise-btn') as HTMLButtonElement
+    const moveDownBtn = actionsMenu.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
 
     // A popover gives light dismiss (outside tap, Esc) and the button's aria-expanded for free.
     // Script places it, since CSS anchor positioning is missing from older iOS versions.
-    const actionsMenu = template.querySelector('.exercise-actions-menu') as HTMLDivElement
     actionsBtn.popoverTargetElement = actionsMenu
-    actionsBtn.setAttribute('aria-label', `Actions for ${this.snapshot.name}`)
 
     // Under the button, or above it when the menu's four items wouldn't fit below.
     const placeMenu = () => {
@@ -107,11 +202,12 @@ class ExerciseCard {
       if (event.newState !== 'open') return
 
       // A finished exercise keeps its sets: it can move, but not be swapped or deleted.
-      const completed = this.progressIn(openSession.current)?.done ?? false
+      const session = openSession.current
+      const completed = (session && this.progressIn(session)?.done) ?? false
       swapBtn.classList.toggle('hidden', completed)
       deleteBtn.classList.toggle('hidden', completed)
 
-      const exercises = openSession.current?.exercises ?? []
+      const exercises = session?.exercises ?? []
       const exerciseIndex = exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
       moveUpBtn.classList.toggle('hidden', exerciseIndex <= 0)
       moveDownBtn.classList.toggle('hidden', exerciseIndex === -1 || exerciseIndex === exercises.length - 1)
@@ -126,7 +222,7 @@ class ExerciseCard {
 
       followScroll = new AbortController()
       const { signal } = followScroll
-      // A card rebuild removes the menu without a toggle event, so the listener drops itself then.
+      // Removing the card removes the menu without a toggle event, so the listener drops itself then.
       const follow = () => (actionsMenu.isConnected ? placeMenu() : followScroll?.abort())
       document.addEventListener('scroll', follow, { capture: true, passive: true, signal })
     })
@@ -138,190 +234,71 @@ class ExerciseCard {
     moveUpBtn.addEventListener('click', async () => {
       if (!openSession.current) return
       await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
-      this.onExerciseDeleted()
     })
 
     moveDownBtn.addEventListener('click', async () => {
       if (!openSession.current) return
       await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
-      this.onExerciseDeleted()
     })
 
     deleteBtn.addEventListener('click', async () => {
-      if (!openSession.current) {
+      const session = openSession.current
+      if (!session) {
         alert('Start a workout session first')
         return
       }
 
-      const session = openSession.current
-      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-
-      if (existingExercise && existingExercise.sets.length > 0) {
-        if (
-          !confirm('This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?')
-        )
-          return
-      } else {
-        if (!confirm('Are you sure you want to delete this exercise from the workout session?')) return
-      }
+      const hasSets = (this.progressIn(session)?.logged ?? 0) > 0
+      const question = hasSets
+        ? 'This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?'
+        : 'Are you sure you want to delete this exercise from the workout session?'
+      if (!confirm(question)) return
 
       await openSession.apply((session) => workoutSessionsStore.removeExercise(session, this.exerciseId))
-      this.onExerciseDeleted()
     })
 
     swapBtn.addEventListener('click', () => {
-      if (!openSession.current) {
+      const session = openSession.current
+      if (!session) {
         alert('Start a workout session first')
         return
       }
 
-      const session = openSession.current
-      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-
-      if (existingExercise && existingExercise.sets.length > 0) {
-        if (
-          !confirm(
-            'This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?'
-          )
+      if (
+        (this.progressIn(session)?.logged ?? 0) > 0 &&
+        !confirm(
+          'This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?'
         )
-          return
-      }
+      )
+        return
 
       AddExerciseDialog.openDialog({
         title: 'Swap exercise',
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exerciseId || alertIfInSession(newExercise.id)) return
-
           await openSession.apply((session) => workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise))
-          this.onExerciseDeleted()
         }
       })
     })
-
-    const { kind, muscle } = this.snapshot
-    const kindLabel = EXERCISE_KIND_LABELS[kind]
-
-    setTextContent('.exercise-name', this.snapshot.name, template)
-    setTextContent('.exercise-muscle', muscle ? muscleGroupLabel(muscle) : kindLabel, template)
-
-    const kindBadge = template.querySelector('.exercise-kind') as HTMLSpanElement | null
-    if (kindBadge && muscle && kind !== 'lifting') {
-      kindBadge.textContent = kindLabel
-      kindBadge.classList.remove('hidden')
-    }
-
-    const placeholder = () => emptySet(this.snapshot.preset)
-
-    configureSetRowGrid(completedSets, this.snapshot.preset)
-
-    if (progress.done) cardDiv.classList.add('card-success')
-
-    for (const [index, set] of (existingExercise?.sets ?? []).entries()) {
-      completedSets.appendChild(this.renderSetItem({ set, index }))
-    }
-
-    for (let i = progress.logged; i < progress.target; i++) {
-      completedSets.appendChild(this.renderSetItem({ set: placeholder(), index: i, isCompleted: false }))
-    }
-
-    if (!session) {
-      submitButton.classList.add('hidden')
-    } else {
-      submitButton.classList.remove('hidden')
-    }
-
-    this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv, plan)
-
-    if (progress.done) nextSetDiv.classList.add('hidden')
-
-    if (historyChartEnabled(this.snapshot.kind)) {
-      viewHistoryBtn.addEventListener('click', () => {
-        void ExerciseHistoryChart.openDialog({
-          id: this.exerciseId,
-          name: this.snapshot.name,
-          kind: this.snapshot.kind
-        })
-      })
-    } else {
-      viewHistoryBtn.classList.add('hidden')
-    }
-
-    const { lastTime } = plan
-    if (lastTime) {
-      viewLastSetBtn.addEventListener('click', () => {
-        void LastSetDialog.openDialog(lastTime.sets, lastTime.date, lastTime.location)
-      })
-    } else {
-      viewLastSetBtn.classList.add('hidden')
-    }
-
-    return template
   }
 
-  private renderSetItem({
-    set,
-    index,
-    isCompleted = true
-  }: {
-    set: ExerciseSetExecution
-    index: number
-    isCompleted?: boolean
-  }) {
-    const template = nodeFromTemplate('#completed-set-item-template')
-    const div = template.querySelector('div') as HTMLDivElement
-    const setNumber = (index + 1).toString()
+  private setUpNextSetForm() {
+    const { nextSetForm } = this
+    const addExtraSetBtn = this.element.querySelector('.add-extra-set-btn') as HTMLButtonElement
 
-    setTextContent('.set-number', setNumber, template)
-    renderSetFields(template.querySelector('.set-fields') as HTMLDivElement, set)
-
-    div.classList.add(isCompleted ? 'isCompleted' : 'isPending')
-    div.setAttribute('data-set-number', setNumber)
-    div.dataset.set = JSON.stringify(set)
-
-    div.addEventListener('click', () => {
-      if (!div.classList.contains('isCompleted')) return
-      if (!openSession.current) throw new Error('No existing workout session found')
-
-      EditSetDialog.openDialog({
-        set: JSON.parse(div.dataset.set as string) as ExerciseSetExecution,
-        exerciseId: this.exerciseId,
-        index
-      })
+    nextSetForm.addEventListener('input', () => {
+      this.typedIn = true
     })
-
-    return template
-  }
-
-  private setupNextSetForm(
-    template: DocumentFragment,
-    completedSets: HTMLDivElement,
-    detailsAnimation: AnimateDetailsHandle,
-    cardDiv: HTMLDivElement,
-    nextSetDiv: HTMLDivElement,
-    plan: ExercisePlan
-  ) {
-    const { preset } = this.snapshot
-    const nextSetForm = template.querySelector('.next-set-form') as HTMLFormElement
-    const nextSetFields = nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
-    const addExtraSetBtn = template.querySelector('.add-extra-set-btn') as HTMLButtonElement
-
-    renderSetInputs(nextSetFields, preset, plan.prefill, plan.prefillIsMax ? { weight: 'Max last time' } : {})
 
     // The session stores the extra set, so the workout is not done until it is logged.
     addExtraSetBtn.addEventListener('click', async () => {
       if (!openSession.current) return
-      const updated = await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
-      const progress = this.progressIn(updated)
-      if (!progress) return
-      cardDiv.classList.remove('card-success')
-      nextSetDiv.classList.remove('hidden')
-      completedSets.appendChild(
-        this.renderSetItem({ set: emptySet(preset), index: progress.target - 1, isCompleted: false })
-      )
+      await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
     })
 
     nextSetForm.addEventListener('submit', async (event) => {
       event.preventDefault()
+      const { preset } = this.snapshot
       const completedSet = readSetFromForm(nextSetForm, preset)
       const values = setValues(completedSet)
 
@@ -334,27 +311,13 @@ class ExerciseCard {
       )
       const progress = this.progressIn(updated)
       if (!progress) return
-      const setIndex = progress.logged - 1
 
-      let pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
-      if (!pendingSetItem) {
-        completedSets.appendChild(this.renderSetItem({ set: emptySet(preset), index: setIndex, isCompleted: false }))
-        pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
-      }
+      // The form keeps the set just logged as the next one's values, which are no longer last time's max, and which
+      // the next session shown may fill in again.
+      clearSetNotes(this.nextSetFields)
+      this.typedIn = false
 
-      pendingSetItem.classList.remove('isPending')
-      pendingSetItem.classList.add('isCompleted')
-      renderSetFields(pendingSetItem.querySelector('.set-fields') as HTMLDivElement, completedSet)
-      pendingSetItem.dataset.set = JSON.stringify(completedSet)
-
-      // The form keeps the set just logged as the next one's values, which are no longer last time's max.
-      clearSetNotes(nextSetFields)
-
-      if (progress.done) {
-        detailsAnimation.close()
-        cardDiv.classList.add('card-success')
-        nextSetDiv.classList.add('hidden')
-      }
+      if (progress.done) this.detailsAnimation.close()
 
       // openSession celebrates the set that finishes the workout.
       if (updated.status === 'completed') return

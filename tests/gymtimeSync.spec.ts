@@ -288,18 +288,27 @@ test.describe('gymtime with cloud sync', () => {
     await expect(loggedWeight).toHaveText('105')
   })
 
-  test('a set logged in another tab shows up in this one', async ({ page, context }) => {
+  test('a set logged in another tab shows up in this one, around the reps typed here', async ({ page, context }) => {
     await fakeWorker(context)
     await startSyncedWorkout(page)
+    const card = firstCard(page)
+    await card.locator('.exercise-details > summary').click()
+    const nextReps = card.locator('.next-set-form input[name="set-reps"]')
+    await nextReps.fill('7')
+    const before = await cardNodes(page)
     const other = await context.newPage()
     await other.goto(page.url())
     await syncSettledOnLoad(other)
 
     await logSet(other, firstCard(other), { reps: '11', weight: '50' })
 
-    const logged = firstCard(page).locator('.completed-sets .set.isCompleted')
+    const logged = card.locator('.completed-sets .set.isCompleted')
     await expect(logged).toHaveCount(1)
     await expect(logged.locator('.set-reps')).toHaveText('11')
+    // The card shows the changed session in place, so it stays open and keeps what was typed in it.
+    await expect(card.locator('.exercise-details')).toHaveJSProperty('open', true)
+    await expect(nextReps).toHaveValue('7')
+    expect(await sameCardNodes(page, before)).toBe(true)
   })
 
   test('another tab syncing leaves this tab mid-set alone', async ({ page, context }) => {

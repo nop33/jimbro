@@ -3,7 +3,7 @@ import type { Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { openSession } from './openSession'
-import { readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
+import { readSetFromForm, renderSetInputs } from './setSlots'
 
 interface EditSetData {
   set: ExerciseSetExecution
@@ -48,19 +48,9 @@ class EditSetDialog {
     const { exerciseId, index } = this.editedSetData
     await openSession.apply((session) => workoutSessionsStore.updateSet(session, exerciseId, index, updatedSet))
 
-    updateSetItem({ ...this.editedSetData, set: updatedSet })
-
     this.closeDialog()
     Toasts.show({ message: 'Set updated.' })
   }
 }
 
 export default EditSetDialog
-
-const updateSetItem = ({ set, exerciseId, index }: EditSetData) => {
-  const setItem = document.querySelector(
-    `[data-exercise-id="${exerciseId}"] [data-set-number="${index + 1}"]`
-  ) as HTMLDivElement
-  renderSetFields(setItem.querySelector('.set-fields') as HTMLDivElement, set)
-  setItem.dataset.set = JSON.stringify(set)
-}

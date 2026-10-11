@@ -97,7 +97,7 @@ The page you keep open during a workout.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
 - A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, throws "Workout done!" instead, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
 - "Delete" in the header deletes the workout after a confirmation.
-- A re-render keeps the scroll position and the open card, and changes to this workout from a sync or another tab show up without a reload.
+- Changes to this workout from a sync or another tab show up without a reload. Whatever changed the workout, the cards update in place, so they keep the scroll position, the open card and a value typed into the next set's form.
 
 ### Exercises (`/exercises/`)
 

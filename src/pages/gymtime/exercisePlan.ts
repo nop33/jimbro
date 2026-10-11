@@ -19,14 +19,44 @@ export interface ExercisePlan {
   lastTime: LastTime | undefined
 }
 
+export type ReadLastTime = (
+  exerciseId: ExerciseSnapshot['exerciseId'],
+  session: PlannedSession & { id?: WorkoutSession['id'] }
+) => Promise<LastTime | undefined>
+
+const readFromStore: ReadLastTime = (exerciseId, session) => workoutSessionsStore.lastTimeOf(exerciseId, session)
+
+// A ReadLastTime that reads each exercise's last time once for a workout, day and gym, and keeps it. This page's
+// writes change only the open workout, which last time never is, so what it keeps goes stale only when a pull or
+// another tab changes an earlier workout. forget() drops it all then.
+export const keptLastTimes = (): { read: ReadLastTime; forget: () => void } => {
+  const kept = new Map<string, Promise<LastTime | undefined>>()
+  return {
+    read: (exerciseId, session) => {
+      const key = JSON.stringify([exerciseId, session.id ?? '', session.date, session.location])
+      let lastTime = kept.get(key)
+      if (!lastTime) {
+        lastTime = readFromStore(exerciseId, session)
+        kept.set(key, lastTime)
+        // A failed read is tried again next time.
+        lastTime.catch(() => kept.delete(key))
+      }
+      return lastTime
+    },
+    forget: () => kept.clear()
+  }
+}
+
 // What an exercise card shows for the exercise in the session, or in the program before a session starts on the
 // planned day at the planned gym. Every part comes from one read of last time, which never returns the session
 // itself. A planned session reads the same last time its start will, so it shows the target the start stores.
+// readLastTime stands in for the store's read, such as one that keeps what it read.
 export async function planExercise(
   snapshot: ExerciseSnapshot,
-  session: WorkoutSession | PlannedSession
+  session: WorkoutSession | PlannedSession,
+  readLastTime: ReadLastTime = readFromStore
 ): Promise<ExercisePlan> {
-  const lastTime = await workoutSessionsStore.lastTimeOf(snapshot.exerciseId, session)
+  const lastTime = await readLastTime(snapshot.exerciseId, session)
   const exercise: Pick<ExerciseExecution, 'targetSets' | 'sets'> = ('exercises' in session
     ? session.exercises.find(({ exerciseId }) => exerciseId === snapshot.exerciseId)
     : undefined) ?? { targetSets: startingTargetSets(snapshot, lastTime), sets: [] }

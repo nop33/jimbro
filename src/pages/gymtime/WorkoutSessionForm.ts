@@ -7,6 +7,7 @@ import {
   workoutSessionsStore,
   type PlannedSession
 } from '../../db/stores/workoutSessionsStore'
+import type { WorkoutSession } from '../../db/types'
 import Toasts from '../../features/toasts'
 import { openSession } from './openSession'
 
@@ -21,14 +22,14 @@ class WorkoutSessionForm {
   private static programId: Program['id']
   private static onSessionSaved: () => void | Promise<void>
 
+  // session is the workout the page opened, if any.
   static async init(
     programId: Program['id'],
+    session: WorkoutSession | undefined,
     { onSessionSaved, onPlanChanged }: { onSessionSaved: () => void | Promise<void>; onPlanChanged: () => void }
   ) {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
-
-    const session = openSession.current
 
     const today = getSimpleDate(new Date())
 
@@ -96,7 +97,7 @@ class WorkoutSessionForm {
         })
       )
 
-      openSession.show(
+      await openSession.show(
         await workoutSessionsStore.create({ programId: this.programId, date, location, exercises, notes })
       )
     }
