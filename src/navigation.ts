@@ -22,7 +22,7 @@ export function initNavigation() {
   // changed meanwhile, the page loads fresh instead.
   const showOrReload = () =>
     void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
-  // A prerendered page waits for the tap before it syncs, so only the page on screen pushes and pulls.
+  // A prerendered page waits for the tap before it syncs, so only the page on screen syncs.
   if (document.prerendering) document.addEventListener('prerenderingchange', showOrReload, { once: true })
   else startSync()
   window.addEventListener('pageshow', (event) => {
@@ -32,9 +32,8 @@ export function initNavigation() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') startSync()
   })
-  // The tabs share one outbox, so only the tab that wrote schedules a push.
-  onPageNotice((notice, source) => {
-    if (notice !== 'rows-written' || source !== 'this-tab') return
+  onPageNotice((notice) => {
+    if (notice !== 'rows-written') return
     window.clearTimeout(rowsWrittenTimer)
     rowsWrittenTimer = window.setTimeout(startSync, 2000)
   })

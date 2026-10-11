@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { rereadsFinished, trackRereads } from './gymtimeRereads'
+import { seedDatabase } from './seed'
 
 test('missing program shows the load error', async ({ page }) => {
   await page.goto('/gymtime/?programId=non-existent')
@@ -11,16 +11,7 @@ test('missing program shows the load error', async ({ page }) => {
 
 test.describe('Gymtime Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: 'Reset Database' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
-
-    await page.goto('/workouts/')
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
-
+    await seedDatabase(page)
     await page.getByRole('button', { name: 'New' }).click()
     const dialog = page.locator('dialog#new-workout-dialog')
     await expect(dialog).toBeVisible()
@@ -181,6 +172,41 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
   })
 
+  test('a set logged from a minimized break starts a fresh break that the last one cannot close', async ({ page }) => {
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    await page.clock.install()
+
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    const logSet = async () => {
+      await form.locator('input[name="set-reps"]').fill('10')
+      await form.locator('input[name="set-weight"]').fill('100')
+      await form.getByRole('button', { name: 'Finished set' }).click()
+    }
+    const breakTimer = page.locator('#break-countdown-dialog')
+    const countdown = breakTimer.locator('#countdown')
+    await card.locator('.exercise-details > summary').click()
+    await logSet()
+    await expect(breakTimer).toBeVisible()
+
+    // The break reaches 0:00 and is about to close itself, 1.5 s later. The clock stops there until the test runs it.
+    const now = await page.evaluate(() => Date.now())
+    await page.clock.pauseAt(now + 150_000)
+    await expect(countdown).toHaveText('0:00')
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    // The next set starts the next break before then, and that break outlives the last one's close.
+    await logSet()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(breakTimer.locator('#sets-done')).toHaveText('2 / 4')
+    await expect(countdown).toHaveText('2:30')
+    await page.clock.runFor(2_500)
+    await expect(breakTimer).toBeVisible()
+    await expect(countdown).toHaveText('2:28')
+  })
+
   test("moves an exercise from its card's actions menu", async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
@@ -222,106 +248,76 @@ test.describe('Gymtime Page', () => {
     await expect(chartDialog).toBeHidden()
   })
 
-  test('a card opened while the cards re-render stays open', async ({ page }) => {
-    const firstExercise = page.locator('details.exercise-details').first()
-    await expect(firstExercise).toBeVisible()
-    // Hold the re-render that starting the workout triggers at its first lookup, after it has begun. The lookups
-    // that set the starting targets come before the session exists, so they have no session id and pass.
-    await page.evaluate(async () => {
-      const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-      const lookup = workoutSessionsStore.lastTimeOf.bind(workoutSessionsStore)
-      let release = () => {}
-      const gate = new Promise<void>((resolve) => {
-        release = resolve
-      })
-      Reflect.set(window, '__releaseRender', release)
-      workoutSessionsStore.lastTimeOf = async (...args) => {
-        if (args[1].id) {
-          Reflect.set(window, '__renderHeld', true)
-          await gate
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    test(`the set that finishes an exercise closes its card, form and all (reduced motion: ${reducedMotion})`, async ({
+      page
+    }) => {
+      // animateDetails reads the preference when a card is built, so the page loads again with it. The reload waits
+      // for the first load to finish its database reads: in WebKit, a reload during them could leave the new page's
+      // form disabled.
+      const start = page.getByRole('button', { name: 'Save & start workout' })
+      await expect(start).toBeEnabled()
+      await page.emulateMedia({ reducedMotion })
+      await page.reload()
+      await start.click()
+      await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+      const card = page.locator('#exercises-list > .card').first()
+      const details = card.locator('.exercise-details')
+      const form = card.locator('.next-set-form')
+      const pending = card.locator('.completed-sets .set.isPending')
+      const breakTimer = page.locator('#break-countdown-dialog')
+      const logSet = async () => {
+        await form.locator('input[name="set-reps"]').fill('10')
+        await form.locator('input[name="set-weight"]').fill('100')
+        await form.getByRole('button', { name: 'Finished set' }).click()
+      }
+
+      await details.locator('summary').click()
+      await expect(form).toBeVisible()
+      for (let left = await pending.count(); left > 1; left--) {
+        await logSet()
+        await expect(pending).toHaveCount(left - 1)
+        await breakTimer.getByRole('button', { name: 'Skip' }).click()
+        await expect(breakTimer).toBeHidden()
+      }
+
+      // Records each card's close animation as it starts: the height it starts from, and whether the card still shows
+      // the next set's form then.
+      await page.evaluate(() => {
+        const closes: Array<{ from: number; formShown: boolean }> = []
+        Reflect.set(window, '__closes', closes)
+        const animate = Element.prototype.animate
+        Element.prototype.animate = function (this: Element, ...args: Parameters<Element['animate']>) {
+          const frames = Array.isArray(args[0]) ? args[0] : []
+          if (this.matches('.exercise-details-content') && frames.at(-1)?.height === '0px') {
+            closes.push({
+              from: parseFloat(String(frames[0]?.height)),
+              formShown: !this.querySelector('.next-set')?.classList.contains('hidden')
+            })
+          }
+          return animate.apply(this, args)
         }
-        return lookup(...args)
+      })
+      const fullHeight = await card
+        .locator('.exercise-details-content')
+        .evaluate((content) => content.getBoundingClientRect().height)
+
+      await logSet()
+      await expect(details).toHaveJSProperty('open', false)
+      await expect(card).toHaveClass(/card-success/)
+      await expect(card.locator('.next-set')).toHaveClass(/hidden/)
+      const closes = (await page.evaluate(() => Reflect.get(window, '__closes'))) as Array<{
+        from: number
+        formShown: boolean
+      }>
+      if (reducedMotion === 'reduce') {
+        expect(closes).toEqual([])
+      } else {
+        expect(closes).toEqual([{ from: expect.closeTo(fullHeight, 0), formShown: true }])
       }
     })
-
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await page.waitForFunction(() => Reflect.get(window, '__renderHeld') === true)
-    await firstExercise.locator('summary').click()
-    await page.evaluate(() => (Reflect.get(window, '__releaseRender') as () => void)())
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-
-    await expect(firstExercise).toHaveJSProperty('open', true)
-    await expect(firstExercise.locator('.next-set-form')).toBeVisible()
-  })
-
-  test('a set logged while the page rereads its session stays on screen', async ({ page }) => {
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-    const card = page.locator('#exercises-list > .card').first()
-    await card.locator('.exercise-details > summary').click()
-    const form = card.locator('.next-set-form')
-    await form.locator('input[name="set-reps"]').fill('10')
-    await form.locator('input[name="set-weight"]').fill('100')
-
-    // Hold the reread once its read is done, and park the set's write behind a busy transaction, so the tap
-    // changes the session in memory after the read and before the write lands.
-    await page.evaluate(async () => {
-      const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-      const { storage } = await import('/src/db/storage.ts')
-      const read = workoutSessionsStore.getById.bind(workoutSessionsStore)
-      let releaseRead = () => {}
-      const readHeld = new Promise<void>((resolve) => {
-        releaseRead = resolve
-      })
-      workoutSessionsStore.getById = async (id) => {
-        const session = await read(id)
-        Reflect.set(window, '__readDone', true)
-        await readHeld
-        return session
-      }
-      Reflect.set(window, '__releaseRead', async () => {
-        releaseRead()
-        // Resolves once the reread has compared what it read.
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      })
-      const db = await storage.connection()
-      Reflect.set(window, '__holdWrites', () => {
-        const tx = db.transaction(['workoutSessions', 'sets', 'setGroups', 'outbox', 'meta'], 'readwrite')
-        const meta = tx.objectStore('meta')
-        let held = true
-        const spin = () => {
-          if (held) meta.get('cursor').onsuccess = spin
-        }
-        spin()
-        Reflect.set(window, '__releaseWrites', () => {
-          held = false
-        })
-      })
-    })
-
-    await trackRereads(page)
-    // Another tab's notice makes the page reread its session.
-    await page.evaluate(() => new BroadcastChannel('jimbro').postMessage('sync-settled'))
-    await page.waitForFunction(() => Reflect.get(window, '__readDone') === true)
-    const before = await page.locator('#exercises-list > .card').elementHandles()
-    await page.evaluate(() => (Reflect.get(window, '__holdWrites') as () => void)())
-    await form.getByRole('button', { name: 'Finished set' }).click()
-    await page.evaluate(() => (Reflect.get(window, '__releaseRead') as () => Promise<void>)())
-    await page.evaluate(() => (Reflect.get(window, '__releaseWrites') as () => void)())
-
-    const breakTimer = page.locator('#break-countdown-dialog')
-    await expect(breakTimer).toBeVisible()
-    await breakTimer.getByRole('button', { name: 'Skip' }).click()
-    // Compare the cards only once the reread and any rebuild have ended.
-    await rereadsFinished(page, { atLeast: 1 })
-
-    await expect(card.locator('.completed-sets .set.isCompleted')).toHaveCount(1)
-    const sameCards = await page.evaluate((nodes) => {
-      const now = [...document.querySelectorAll('#exercises-list > .card')]
-      return now.length === nodes.length && now.every((node, index) => node === nodes[index])
-    }, before)
-    expect(sameCards).toBe(true)
-  })
+  }
 
   test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
     await page.locator('input[name="location"]').fill('Memorial Gym')
@@ -342,15 +338,7 @@ test.describe('Gymtime Page', () => {
 
 test.describe('Gymtime Page: non-lifting presets', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: 'Reset Database' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
-
-    await page.goto('/workouts/')
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await seedDatabase(page)
   })
 
   async function startSessionWith(page: Page, exerciseName: string) {

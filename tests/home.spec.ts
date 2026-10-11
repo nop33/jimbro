@@ -1,13 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
+import { seedDatabase } from './seed'
 
 // Friday 9 October 2026, so this week runs from Monday the 5th.
 const NOW = new Date(2026, 9, 9, 10, 0)
-
-const seed = async (page: Page) => {
-  await page.goto('/workouts/')
-  await page.getByRole('button', { name: 'Seed Database' }).click()
-  await expect(page.locator('.workout-week')).toBeVisible()
-}
 
 // Starts a workout of the program at `index` on `date`, finished when `finished` is true. Resolves to the program.
 const logWorkout = (page: Page, index: number, date: string, finished: boolean) =>
@@ -62,7 +57,7 @@ test.describe('Home Page', () => {
   })
 
   test('tracks the week and starts the suggested program', async ({ page }) => {
-    await seed(page)
+    await seedDatabase(page)
     const done = await logWorkout(page, 0, '2026-10-06', true)
 
     await page.goto('/')
@@ -84,7 +79,7 @@ test.describe('Home Page', () => {
   })
 
   test('offers to continue a workout started this week', async ({ page }) => {
-    await seed(page)
+    await seedDatabase(page)
     const started = await logWorkout(page, 1, '2026-10-08', false)
 
     await page.goto('/')

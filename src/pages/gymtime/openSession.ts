@@ -1,11 +1,13 @@
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { exportIndexedDbToJson } from '../../db/export'
-import { hasExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { hasExercise } from '../../db/stores/workoutSessionsStore'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import type { WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
-import { canonical } from '../../sync/rows'
+import { getBreakTimeSeconds } from '../../settings'
+import BreakTimerDialog from './BreakTimerDialog'
+import { outcomeOf, type Outcome } from './outcome'
 
 // Shows the open session on screen, and resolves once the screen shows it or a later one.
 type View = (session: WorkoutSession | undefined) => void | Promise<void>
@@ -14,7 +16,7 @@ type View = (session: WorkoutSession | undefined) => void | Promise<void>
 let open: WorkoutSession | undefined
 const views = new Set<View>()
 
-// Rereads, writes and the views showing their result, still running. The region is aria-busy while any is.
+// Writes and the views showing their result, still running. The region is aria-busy while any is.
 let running = 0
 let busyRegion: HTMLElement | undefined
 
@@ -44,7 +46,7 @@ export const openSession = {
     return () => views.delete(view)
   },
 
-  // While a reread or a change is on its way to the screen, region carries aria-busy, so assistive technology waits
+  // While a change is on its way to the screen, region carries aria-busy, so assistive technology waits
   // for it, and so can the specs.
   busyOn(region: HTMLElement): void {
     busyRegion = region
@@ -56,10 +58,13 @@ export const openSession = {
     await whileBusy(() => showNow(session))
   },
 
-  // Runs a workoutSessionsStore write on the open session and resolves once the screen shows the session it stored.
-  // Nothing changes on screen before the write lands. A write that takes the workout from incomplete to completed
-  // celebrates it, every time: an exercise or set added afterwards makes it incomplete again.
-  async apply(write: (session: WorkoutSession) => Promise<WorkoutSession>): Promise<WorkoutSession> {
+  // Runs a workoutSessionsStore write on the open session and resolves once the screen shows the session it stored
+  // and the lifter has heard what the change means. Nothing changes on screen before the write lands. loggedFor names
+  // the exercise when the write logs a set from its card, the only change that ends an exercise or starts a break.
+  async apply(
+    write: (session: WorkoutSession) => Promise<WorkoutSession>,
+    { loggedFor }: { loggedFor?: Exercise['id'] } = {}
+  ): Promise<WorkoutSession> {
     const session = open
     if (!session) throw new Error('No workout session is open')
     const next = await whileBusy(async () => {
@@ -67,24 +72,8 @@ export const openSession = {
       await showNow(next)
       return next
     })
-    if (session.status === 'incomplete' && next.status === 'completed') await celebrateWorkout()
+    await actOn(outcomeOf(session, next, loggedFor, getBreakTimeSeconds()))
     return next
-  },
-
-  // Reads the open session again, after a pull or another tab may have changed it, and shows it when it changed.
-  async reread(): Promise<void> {
-    await whileBusy(async () => {
-      for (;;) {
-        if (!open) return
-        const shown = canonical(open)
-        const session = await workoutSessionsStore.getById(open.id)
-        // A change this page stored while the read ran, such as a logged set, may be missing from what it read,
-        // so it reads again.
-        if (canonical(open) !== shown) continue
-        if (canonical(session) !== shown) await showNow(session)
-        return
-      }
-    })
   }
 }
 
@@ -95,14 +84,37 @@ export const alertIfInSession = (exerciseId: Exercise['id']): boolean => {
   return true
 }
 
-// Without cloud backup, a finished workout also downloads a JSON export, the only copy outside this browser.
-const celebrateWorkout = async (): Promise<void> => {
-  throwConfetti('Workout done!')
-  if (getCloudBackupConfig()) return
-  try {
-    await exportIndexedDbToJson()
-  } catch (error) {
-    console.error('Error exporting database:', error)
-    Toasts.show({ message: 'Could not download the JSON export.', type: 'error' })
+// A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or set
+// added afterwards makes it incomplete again. Without cloud backup, a finished workout also downloads a JSON export,
+// the only copy outside this browser.
+// Vibration patterns, in ms of buzz and pause: a short triple for an exercise, and a "ta-da-da-daaa" fanfare for the
+// workout. Safari has no Vibration API, so both are silent there.
+const EXERCISE_DONE_VIBRATION = [50, 30, 50, 30, 70]
+const WORKOUT_DONE_VIBRATION = [60, 40, 60, 40, 60, 80, 400]
+
+const actOn = async (outcome: Outcome): Promise<void> => {
+  switch (outcome.kind) {
+    case 'workout-done':
+      navigator.vibrate?.(WORKOUT_DONE_VIBRATION)
+      BreakTimerDialog.closeDialog()
+      throwConfetti('Workout done!')
+      if (getCloudBackupConfig()) return
+      try {
+        await exportIndexedDbToJson()
+      } catch (error) {
+        console.error('Error exporting database:', error)
+        Toasts.show({ message: 'Could not download the JSON export.', type: 'error' })
+      }
+      return
+    case 'exercise-done':
+      navigator.vibrate?.(EXERCISE_DONE_VIBRATION)
+      BreakTimerDialog.closeDialog()
+      throwConfetti('Exercise done!')
+      return
+    case 'rest':
+      BreakTimerDialog.start(outcome)
+      return
+    case 'none':
+      return
   }
 }

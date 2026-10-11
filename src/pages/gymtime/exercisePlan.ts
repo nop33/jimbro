@@ -27,23 +27,20 @@ export type ReadLastTime = (
 const readFromStore: ReadLastTime = (exerciseId, session) => workoutSessionsStore.lastTimeOf(exerciseId, session)
 
 // A ReadLastTime that reads each exercise's last time once for a workout, day and gym, and keeps it. This page's
-// writes change only the open workout, which last time never is, so what it keeps goes stale only when a pull or
-// another tab changes an earlier workout. forget() drops it all then.
-export const keptLastTimes = (): { read: ReadLastTime; forget: () => void } => {
+// writes change only the open workout, which last time never is, and nothing else writes while the page is open, so
+// what it keeps stays right.
+export const keptLastTimes = (): ReadLastTime => {
   const kept = new Map<string, Promise<LastTime | undefined>>()
-  return {
-    read: (exerciseId, session) => {
-      const key = JSON.stringify([exerciseId, session.id ?? '', session.date, session.location])
-      let lastTime = kept.get(key)
-      if (!lastTime) {
-        lastTime = readFromStore(exerciseId, session)
-        kept.set(key, lastTime)
-        // A failed read is tried again next time.
-        lastTime.catch(() => kept.delete(key))
-      }
-      return lastTime
-    },
-    forget: () => kept.clear()
+  return (exerciseId, session) => {
+    const key = JSON.stringify([exerciseId, session.id ?? '', session.date, session.location])
+    let lastTime = kept.get(key)
+    if (!lastTime) {
+      lastTime = readFromStore(exerciseId, session)
+      kept.set(key, lastTime)
+      // A failed read is tried again next time.
+      lastTime.catch(() => kept.delete(key))
+    }
+    return lastTime
   }
 }
 

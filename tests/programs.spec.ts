@@ -2,14 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Programs Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Reset database to ensure clean state
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: 'Reset Database' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
-
-    // Create a mock exercise to add to our program
+    // Each test's browser context starts with an empty database. Create an exercise to add to the program.
     await page.goto('/exercises/')
     await page.getByRole('button', { name: 'New' }).click()
     await page.getByLabel('Name').fill('Squat')

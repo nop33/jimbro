@@ -17,7 +17,7 @@ export const memoryServer = (options: { pageSize?: number } = {}) => {
   const pulls: number[] = []
   let revision = 0
   let reachable = true
-  // Stores the rows as another device's push would, and resolves to the revision a push answers with.
+  // Stores the rows as an earlier install's push would, and resolves to the revision a push answers with.
   const seed = (batch: Row[]) => {
     for (const row of batch) {
       const stored = rows.get(rowKey(row))
@@ -72,13 +72,12 @@ export const sharedLock = () => {
   return { lock, requests: () => requests }
 }
 
-// The page a sync runs on, showing the session openSessionId, recording what the sync tells it.
-export const testPage = (openSessionId: string | null = null) => {
+// The page a sync runs on, recording what the sync tells it.
+export const testPage = () => {
   const notices: string[] = []
   const synced: string[] = []
   let leaving = false
   const page: SyncPage = {
-    openSessionId: () => openSessionId,
     announce: (notice) => {
       notices.push(notice)
     },

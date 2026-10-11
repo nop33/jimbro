@@ -1,16 +1,17 @@
 import { test, expect, type Page } from '@playwright/test'
+import type { ExerciseSnapshot, SessionHeader, SetRow } from '../src/db/types'
+import { seedDatabase } from './seed'
 
 /**
  * These tests verify that the workout session status stays in sync with the
  * actual completion state of its exercises, even when the user mutates the
  * exercise list (delete / add) rather than logging a last set.
  *
- * Setup uses direct IndexedDB writes (via page.evaluate) to skip the slow path
- * of logging every set through the UI. The operation under test still goes
- * through the real UI -> state layer -> IDB path, which is what we care about.
+ * Setup stores the session straight through storage.writeRows (via
+ * page.evaluate), status included, to skip the slow path of logging every set
+ * through the UI. The operation under test still goes through the real UI ->
+ * state layer -> IDB path, which is what we care about.
  */
-
-const DB_NAME = 'gymbro-database'
 
 // Push day program ID from src/db/stores/seed-programs.json
 const PUSH_DAY_PROGRAM_ID = '07c50b23-d3ad-4c30-a4a9-d8bdf58a2300'
@@ -22,187 +23,80 @@ const EXERCISE_NOT_IN_PUSH_DAY = {
   name: 'Pull down machine'
 }
 
-interface SeedSessionExercise {
-  exerciseId: string
-  name: string
-  kind: string
-  preset: string
-  muscle: string
-  targetSets: number
-  defaults: { reps?: number }
-  sets: Array<{ preset: string; reps: number; weight: number }>
-}
+type SeedSessionExercise = ExerciseSnapshot & { sets: Array<SetRow['set']> }
 
 interface SeedSessionInput {
   id: string
   programId: string
-  status: 'completed' | 'incomplete'
+  status: SessionHeader['status']
   exercises: Array<SeedSessionExercise>
 }
 
-async function writeSessionToIdb(page: Page, session: SeedSessionInput): Promise<void> {
-  await page.evaluate(
-    async ({ dbName, s }) => {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(dbName)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-      })
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const updatedAt = new Date().toISOString()
-          const tx = db.transaction(['workoutSessions', 'sets'], 'readwrite')
-          tx.objectStore('workoutSessions').put({
-            id: s.id,
-            date: new Date().toISOString().slice(0, 10),
-            programId: s.programId,
-            exercises: s.exercises.map(({ sets: _sets, ...snapshot }) => snapshot),
-            location: '',
-            status: s.status,
-            notes: '',
+// Stores the session dated today as given, its status included, so a test can start from a stale one.
+const writeSession = (page: Page, session: SeedSessionInput) =>
+  page.evaluate(async ({ id, programId, status, exercises }) => {
+    const { storage } = await import('/src/db/storage.ts')
+    const { getSimpleDate } = await import('/src/dateUtils.ts')
+    const updatedAt = new Date().toISOString()
+    await storage.writeRows([
+      {
+        table: 'sessions',
+        row: {
+          id,
+          date: getSimpleDate(new Date()),
+          programId,
+          location: '',
+          status,
+          notes: '',
+          exercises: exercises.map(({ sets: _sets, ...snapshot }) => snapshot),
+          isDeleted: false,
+          updatedAt
+        }
+      },
+      ...exercises.flatMap(({ exerciseId, sets }) =>
+        sets.map((set, position) => ({
+          table: 'sets' as const,
+          row: {
+            id: `${id}:${exerciseId}:${position}`,
+            sessionId: id,
+            exerciseId,
+            position,
+            set,
             isDeleted: false,
             updatedAt
-          })
-          for (const exercise of s.exercises) {
-            exercise.sets.forEach((set, position) => {
-              tx.objectStore('sets').put({
-                id: `${s.id}:${exercise.exerciseId}:${position}`,
-                sessionId: s.id,
-                exerciseId: exercise.exerciseId,
-                position,
-                set,
-                isDeleted: false,
-                updatedAt
-              })
-            })
           }
-          tx.oncomplete = () => resolve()
-          tx.onerror = () => reject(tx.error)
-        })
-      } finally {
-        db.close()
-      }
-    },
-    { dbName: DB_NAME, s: session }
-  )
-}
+        }))
+      )
+    ])
+  }, session)
 
-async function readProgramExerciseIds(page: Page, programId: string): Promise<string[]> {
-  return await page.evaluate(
-    async ({ dbName, id }) => {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(dbName)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
+const readSessionStatus = (page: Page, sessionId: string) =>
+  page.evaluate(async (id) => {
+    const { storage } = await import('/src/db/storage.ts')
+    return (await storage.get<SessionHeader>('workoutSessions', id))?.status
+  }, sessionId)
+
+// The program's exercises as a session snapshots them, each with its target sets logged.
+const buildCompletedExercisesFor = (page: Page, programId: string): Promise<Array<SeedSessionExercise>> =>
+  page.evaluate(async (id) => {
+    const { programsStore } = await import('/src/db/stores/programsStore.ts')
+    const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+    const { snapshotFromExercise } = await import('/src/db/stores/workoutSessionsStore.ts')
+    const program = await programsStore.getById(id)
+    if (!program) throw new Error(`Program ${id} missing from seeded DB`)
+    return Promise.all(
+      program.exercises.map(async (exerciseId) => {
+        const exercise = await exercisesStore.getById(exerciseId)
+        if (!exercise) throw new Error(`Exercise ${exerciseId} missing from seeded DB`)
+        const set = { preset: 'lifting' as const, reps: exercise.defaults.reps ?? 8, weight: 50 }
+        return { ...snapshotFromExercise(exercise), sets: Array.from({ length: exercise.targetSets }, () => set) }
       })
-      try {
-        return await new Promise<string[]>((resolve, reject) => {
-          const tx = db.transaction('programs', 'readonly')
-          const req = tx.objectStore('programs').get(id)
-          req.onsuccess = () => {
-            const program = req.result as { exercises: string[] } | undefined
-            resolve(program?.exercises ?? [])
-          }
-          req.onerror = () => reject(req.error)
-        })
-      } finally {
-        db.close()
-      }
-    },
-    { dbName: DB_NAME, id: programId }
-  )
-}
-
-interface SeedExerciseDef {
-  name: string
-  kind: string
-  preset: string
-  muscle: string
-  targetSets: number
-  defaults: { reps?: number }
-}
-
-async function readExerciseDef(page: Page, exerciseId: string): Promise<SeedExerciseDef | undefined> {
-  return await page.evaluate(
-    async ({ dbName, id }) => {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(dbName)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-      })
-      try {
-        return await new Promise<SeedExerciseDef | undefined>((resolve, reject) => {
-          const tx = db.transaction('exercises', 'readonly')
-          const req = tx.objectStore('exercises').get(id)
-          req.onsuccess = () => resolve(req.result as SeedExerciseDef | undefined)
-          req.onerror = () => reject(req.error)
-        })
-      } finally {
-        db.close()
-      }
-    },
-    { dbName: DB_NAME, id: exerciseId }
-  )
-}
-
-async function readSessionStatus(page: Page, sessionId: string): Promise<string | undefined> {
-  return await page.evaluate(
-    async ({ dbName, id }) => {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open(dbName)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-      })
-      try {
-        return await new Promise<string | undefined>((resolve, reject) => {
-          const tx = db.transaction('workoutSessions', 'readonly')
-          const req = tx.objectStore('workoutSessions').get(id)
-          req.onsuccess = () => resolve((req.result as { status?: string } | undefined)?.status)
-          req.onerror = () => reject(req.error)
-        })
-      } finally {
-        db.close()
-      }
-    },
-    { dbName: DB_NAME, id: sessionId }
-  )
-}
-
-async function buildCompletedExercisesFor(page: Page, programId: string) {
-  const ids = await readProgramExerciseIds(page, programId)
-  const result: Array<SeedSessionExercise> = []
-  for (const exId of ids) {
-    const def = await readExerciseDef(page, exId)
-    if (!def) throw new Error(`Exercise ${exId} missing from seeded DB`)
-    result.push({
-      exerciseId: exId,
-      name: def.name,
-      kind: def.kind,
-      preset: def.preset,
-      muscle: def.muscle,
-      targetSets: def.targetSets,
-      defaults: def.defaults,
-      sets: Array.from({ length: def.targetSets }, () => ({
-        preset: def.preset,
-        reps: def.defaults.reps ?? 8,
-        weight: 50
-      }))
-    })
-  }
-  return result
-}
+    )
+  }, programId)
 
 test.describe('Workout session status reconciliation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: 'Reset Database' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
-
-    await page.goto('/workouts/')
-    await page.getByRole('button', { name: 'Seed Database' }).click()
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await seedDatabase(page)
   })
 
   test('deleting the last incomplete exercise transitions the session to completed', async ({ page }) => {
@@ -213,7 +107,7 @@ test.describe('Workout session status reconciliation', () => {
     const lastExerciseId = exercises[exercises.length - 1].exerciseId
     exercises[exercises.length - 1].sets = []
 
-    await writeSessionToIdb(page, {
+    await writeSession(page, {
       id: sessionId,
       programId: PUSH_DAY_PROGRAM_ID,
       status: 'incomplete',
@@ -245,7 +139,7 @@ test.describe('Workout session status reconciliation', () => {
     const sessionId = crypto.randomUUID()
     const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
 
-    await writeSessionToIdb(page, {
+    await writeSession(page, {
       id: sessionId,
       programId: PUSH_DAY_PROGRAM_ID,
       status: 'completed',
@@ -280,7 +174,7 @@ test.describe('Workout session status reconciliation', () => {
     const last = exercises[exercises.length - 1]
     last.sets = last.sets.slice(1)
 
-    await writeSessionToIdb(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
     await page.goto(`/gymtime/?id=${sessionId}`)
     await page.evaluate(() => {
       Reflect.set(window, '__workoutsDone', 0)
@@ -312,13 +206,53 @@ test.describe('Workout session status reconciliation', () => {
     await expect.poll(workoutsDone).toBe(2)
   })
 
+  test('the set that finishes the workout ends a minimized break', async ({ page }) => {
+    const sessionId = crypto.randomUUID()
+    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
+    const last = exercises[exercises.length - 1]
+    last.sets = last.sets.slice(2)
+
+    await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    // Records the vibration patterns, which the haptic feedback on every tap also sends as a bare number.
+    await page.addInitScript(() => {
+      const patterns: Array<number | Array<number>> = []
+      Object.assign(window, { vibrations: patterns })
+      Object.defineProperty(navigator, 'vibrate', {
+        value: (pattern: number | Array<number>) => patterns.push(pattern) > 0
+      })
+    })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+
+    const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
+    const finishedSet = lastCard.getByRole('button', { name: 'Finished set' })
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await lastCard.scrollIntoViewIfNeeded()
+    await lastCard.locator('.exercise-details > summary').click()
+    await finishedSet.click()
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    // Completing the workout without cloud backup downloads a JSON export, which the test waits for.
+    const exportDownload = page.waitForEvent('download')
+    await finishedSet.click()
+    await expect(page.locator('.confetti-text')).toHaveText('Workout done!')
+    await expect(breakTimer).toBeHidden()
+    await exportDownload
+    // Finishing the workout vibrates with its own longer pattern.
+    const patterns = await page.evaluate(
+      () => (window as unknown as { vibrations: Array<number | Array<number>> }).vibrations
+    )
+    expect(patterns.filter(Array.isArray)).toEqual([[60, 40, 60, 40, 60, 80, 400]])
+  })
+
   test('saving the session form heals a session whose stored status is stale', async ({ page }) => {
     // Simulate a session that was bugged before the fix: all exercises fully
     // logged but status stored as 'incomplete'. Saving the form should heal it.
     const sessionId = crypto.randomUUID()
     const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
 
-    await writeSessionToIdb(page, {
+    await writeSession(page, {
       id: sessionId,
       programId: PUSH_DAY_PROGRAM_ID,
       status: 'incomplete',

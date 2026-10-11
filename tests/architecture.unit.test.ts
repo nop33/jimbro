@@ -104,29 +104,37 @@ describe('architecture', () => {
     expect(found).toEqual([])
   })
 
-  it('leaves page notices to pageChannel and custom events to EventEmitter', () => {
-    // A jimbro: window event reaches only its own tab. Settings and gymtime each heard only those and missed the
-    // other tabs' writes and syncs, until 3e600d6 and 5317946. A second jimbro channel would hear this tab's notices as
-    // if another tab had sent them. A custom event between modules, like the exercise-clicked event that
-    // ExerciseList's callback replaced, reaches its listeners untyped.
+  it('leaves page notices to pageChannel, custom events to EventEmitter, and opens no BroadcastChannel', () => {
+    // A notice sent or heard as a bare jimbro: window event skips announce and onPageNotice, and its listener gets no
+    // typed notice. A custom event between modules, like the exercise-clicked event that ExerciseList's callback
+    // replaced, reaches its listeners untyped. A BroadcastChannel carried notices to other tabs until each user ran
+    // the app in one tab on one device. An open channel also cost every Back a full reload, because the back/forward
+    // cache evicts a page whose channel gets a message.
     const channelFile = path.normalize('src/sync/pageChannel.ts')
     const emitterFile = path.normalize('src/eventEmitter.ts')
-    const pageNotice = /(?:EventListener|Event)\s*(?:<.*?>)?\(\s*['"`]jimbro:|BroadcastChannel\s*\(\s*['"`]jimbro['"`]/
+    const pageNotice = /(?:EventListener|Event)\s*(?:<.*?>)?\(\s*['"`]jimbro:/
     const customEvent = /new\s+(?:window\.)?CustomEvent\s*(?:<.*?>)?\((?!\s*['"`]jimbro:)/
-    const files = sourceFiles('src').filter((file) => file !== channelFile)
+    const broadcastChannel = /\bBroadcastChannel\b/
+    const files = sourceFiles('src')
     const read = (file: string) => readFileSync(path.join(root, file), 'utf8')
     const found = [
       ...files
-        .filter((file) => pageNotice.test(read(file)))
+        .filter((file) => file !== channelFile && pageNotice.test(read(file)))
         .map(
           (file) =>
-            `${file} sends or hears a notice outside pageChannel. A jimbro: window event reaches only this tab, and a second jimbro channel hears this tab's notices as if another tab sent them. Use announce and onPageNotice from src/sync/pageChannel.ts, which reach every tab and say which tab sent each notice.`
+            `${file} sends or hears a notice outside pageChannel. Use announce and onPageNotice from src/sync/pageChannel.ts, which keep the notices typed in one place.`
         ),
       ...files
         .filter((file) => file !== emitterFile && customEvent.test(read(file)))
         .map(
           (file) =>
             `${file} creates a CustomEvent, which its listeners must cast to read. Give the other module a typed callback, or use EventEmitter from src/eventEmitter.ts.`
+        ),
+      ...files
+        .filter((file) => broadcastChannel.test(read(file)))
+        .map(
+          (file) =>
+            `${file} uses a BroadcastChannel. The app runs in one tab, so notices stay in the page: use announce and onPageNotice from src/sync/pageChannel.ts.`
         )
     ]
     expect(found).toEqual([])

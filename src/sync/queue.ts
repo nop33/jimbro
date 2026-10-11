@@ -15,8 +15,8 @@ export interface OutboxEntry {
   inflightCanonical?: string
 }
 
-// The sync's bookkeeping: seq is the last outbox seq handed out, cursor the highest server revision pulled, and
-// bootstrapped marks a first sync that finished with nothing on either side.
+// The sync's bookkeeping: seq is the last outbox seq handed out, cursor the highest server revision the first sync
+// reached, and bootstrapped marks a first sync that finished with nothing on either side.
 export interface MetaRecord {
   name: 'cursor' | 'seq' | 'bootstrapped'
   value: number

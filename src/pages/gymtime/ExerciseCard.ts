@@ -1,5 +1,4 @@
 import {
-  breakTimerEnabled,
   emptySet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
@@ -7,18 +6,10 @@ import {
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
-import {
-  nextUnfinished,
-  progressOf,
-  workoutSessionsStore,
-  type ExerciseProgress
-} from '../../db/stores/workoutSessionsStore'
+import { progressOf, workoutSessionsStore, type ExerciseProgress } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
-import { throwConfetti } from '../../features/confetti'
-import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
-import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
@@ -56,6 +47,9 @@ class ExerciseCard {
   // What the next set's inputs were last filled with, and whether the user has typed in them since.
   private filledWith = ''
   private typedIn = false
+  // Set while a set logged from this card's form is on its way to the screen: the card closes when it finishes the
+  // exercise.
+  private closeWhenDone = false
 
   constructor(snapshot: ExerciseSnapshot) {
     this.snapshot = snapshot
@@ -112,7 +106,6 @@ class ExerciseCard {
 
     const { progress } = plan
     this.element.classList.toggle('card-success', progress.done)
-    this.nextSetDiv.classList.toggle('hidden', progress.done)
     this.submitButton.classList.toggle('hidden', !session)
     this.viewHistoryBtn.classList.toggle('hidden', !historyChartEnabled(kind))
     this.viewLastSetBtn.classList.toggle('hidden', !plan.lastTime)
@@ -133,6 +126,11 @@ class ExerciseCard {
       this.filledWith = fillWith
       this.typedIn = false
     }
+
+    // The card starts closing as it shows the set that finished the exercise, and keeps the next set's form until the
+    // close ends, so it closes from its full height.
+    if (progress.done && this.closeWhenDone) this.detailsAnimation.close()
+    this.detailsAnimation.afterClose(() => this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done))
   }
 
   // Keeps each row that still shows the same set, so only a changed row is drawn again.
@@ -306,40 +304,19 @@ class ExerciseCard {
         if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
       }
 
-      const updated = await openSession.apply((session) =>
-        workoutSessionsStore.addSet(session, this.exerciseId, completedSet)
-      )
-      const progress = this.progressIn(updated)
-      if (!progress) return
+      this.closeWhenDone = true
+      try {
+        await openSession.apply((session) => workoutSessionsStore.addSet(session, this.exerciseId, completedSet), {
+          loggedFor: this.exerciseId
+        })
+      } finally {
+        this.closeWhenDone = false
+      }
 
       // The form keeps the set just logged as the next one's values, which are no longer last time's max, and which
       // the next session shown may fill in again.
       clearSetNotes(this.nextSetFields)
       this.typedIn = false
-
-      if (progress.done) this.detailsAnimation.close()
-
-      // openSession celebrates the set that finishes the workout.
-      if (updated.status === 'completed') return
-
-      if (progress.done) {
-        navigator.vibrate?.([50, 30, 50, 30, 70])
-        BreakTimerDialog.closeDialog()
-        throwConfetti('Exercise done!')
-        return
-      }
-
-      if (breakTimerEnabled(preset)) {
-        const breakTimeSeconds = getBreakTimeSeconds()
-        BreakTimerDialog.startTimer({
-          minutes: Math.floor(breakTimeSeconds / 60),
-          seconds: breakTimeSeconds % 60,
-          setsDone: progress.logged,
-          setsTotal: progress.target,
-          nextExercise: nextUnfinished(updated, this.exerciseId)?.name,
-          currentExercise: { id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind }
-        })
-      }
     })
   }
 }
