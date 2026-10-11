@@ -1,33 +1,39 @@
 import { test, expect, type Page } from '@playwright/test'
 
-// Seeds the programs, then one finished bench press workout per gym, a few days apart, oldest first.
-const seedWorkoutsAt = async (page: Page, gyms: Array<string>) => {
+// Seeds the programs, then one bench press workout per gym, a few days apart, oldest first, with the sets given for
+// each gym, one by default.
+const seedWorkoutsAt = async (page: Page, gyms: Array<string>, sets: Array<number> = []) => {
   await page.goto('/workouts/')
   await page.getByRole('button', { name: 'Seed Database' }).click()
   await expect(page.locator('.workout-week')).toBeVisible()
-  return page.evaluate(async (gyms) => {
-    const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
-    const { programsStore } = await import('/src/db/stores/programsStore.ts')
-    const { workoutSessionsStore, snapshotFromExercise } = await import('/src/db/stores/workoutSessionsStore.ts')
-    await exercisesStore.load()
-    await programsStore.load()
-    const program = programsStore.all[0]
-    const exercise = exercisesStore.find(program.exercises[0])
-    if (!exercise) throw new Error('seeded program has no exercise')
-    let id = ''
-    for (const [index, location] of gyms.entries()) {
-      let session = await workoutSessionsStore.create({
-        date: `2026-09-${String(index + 10).padStart(2, '0')}`,
-        programId: program.id,
-        location,
-        notes: '',
-        exercises: [snapshotFromExercise(exercise)]
-      })
-      session = await workoutSessionsStore.addSet(session, exercise.id, { preset: 'lifting', reps: 5, weight: 40 })
-      id = session.id
-    }
-    return { programId: program.id, sessionId: id }
-  }, gyms)
+  return page.evaluate(
+    async ({ gyms, sets }) => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      const { programsStore } = await import('/src/db/stores/programsStore.ts')
+      const { workoutSessionsStore, snapshotFromExercise } = await import('/src/db/stores/workoutSessionsStore.ts')
+      await exercisesStore.load()
+      await programsStore.load()
+      const program = programsStore.all[0]
+      const exercise = exercisesStore.find(program.exercises[0])
+      if (!exercise) throw new Error('seeded program has no exercise')
+      let id = ''
+      for (const [index, location] of gyms.entries()) {
+        let session = await workoutSessionsStore.create({
+          date: `2026-09-${String(index + 10).padStart(2, '0')}`,
+          programId: program.id,
+          location,
+          notes: '',
+          exercises: [snapshotFromExercise(exercise)]
+        })
+        for (let set = 0; set < (sets[index] ?? 1); set++) {
+          session = await workoutSessionsStore.addSet(session, exercise.id, { preset: 'lifting', reps: 5, weight: 40 })
+        }
+        id = session.id
+      }
+      return { programId: program.id, sessionId: id }
+    },
+    { gyms, sets }
+  )
 }
 
 test('suggests the gyms already used, and clears the field to show them all', async ({ page }) => {
@@ -42,6 +48,26 @@ test('suggests the gyms already used, and clears the field to show them all', as
   await expect(gym).toHaveValue('')
   await expect(gym).toBeFocused()
   await expect(page.getByRole('button', { name: 'Clear gym' })).toBeHidden()
+})
+
+test('the cards before the start show the set slots the start stores for the gym in the form', async ({ page }) => {
+  // Bench press asks for 4 sets. Last time at the hotel gym had 6.
+  const { programId } = await seedWorkoutsAt(page, ['Hotel gym', 'Athens'], [6, 1])
+
+  await page.goto(`/gymtime/?programId=${programId}`)
+  const gym = page.locator('input[name="location"]')
+  await expect(gym).toHaveValue('Athens')
+  const slots = page.locator('#exercises-list > .card').first().locator('.completed-sets > .isPending')
+  await expect(slots).toHaveCount(4)
+
+  await gym.fill('Hotel gym')
+  await gym.blur()
+  await expect(slots).toHaveCount(6)
+
+  await page.getByRole('button', { name: 'Save & start workout' }).click()
+  await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+  await expect(page).toHaveURL(/\?id=/)
+  await expect(slots).toHaveCount(6)
 })
 
 test('renames a gym on every workout, merging it into another', async ({ page }) => {

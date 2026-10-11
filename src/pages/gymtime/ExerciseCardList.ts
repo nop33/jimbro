@@ -1,5 +1,5 @@
 import { exercisesStore } from '../../db/stores/exercisesStore'
-import { snapshotFromExercise } from '../../db/stores/workoutSessionsStore'
+import { snapshotFromExercise, type PlannedSession } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot } from '../../db/types'
 import ExerciseCard from './ExerciseCard'
 import { openSession } from './openSession'
@@ -7,11 +7,14 @@ import { openSession } from './openSession'
 class ExerciseCardList {
   private static exercisesList: HTMLDivElement
   private static programExerciseIds: string[]
+  private static planned: () => PlannedSession
   private static renderGeneration = 0
 
-  static init(programExerciseIds: string[]) {
+  // planned tells where the workout will be done, for the cards shown before it starts.
+  static init(programExerciseIds: string[], planned: () => PlannedSession) {
     this.exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
     this.programExerciseIds = programExerciseIds
+    this.planned = planned
   }
 
   static setProgramExerciseIds(programExerciseIds: string[]) {
@@ -22,6 +25,7 @@ class ExerciseCardList {
     const generation = ++this.renderGeneration
     const session = openSession.current
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
+    const planned = this.planned()
     const cards: DocumentFragment[] = []
 
     for (const exerciseId of exerciseIds) {
@@ -40,6 +44,7 @@ class ExerciseCardList {
       cards.push(
         await new ExerciseCard({
           snapshot,
+          planned,
           onExerciseDeleted: () => {
             void this.render()
           }

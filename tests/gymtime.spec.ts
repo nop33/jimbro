@@ -225,7 +225,8 @@ test.describe('Gymtime Page', () => {
   test('a card opened while the cards re-render stays open', async ({ page }) => {
     const firstExercise = page.locator('details.exercise-details').first()
     await expect(firstExercise).toBeVisible()
-    // Hold the re-render that starting the workout triggers at its first lookup, after it has begun.
+    // Hold the re-render that starting the workout triggers at its first lookup, after it has begun. The lookups
+    // that set the starting targets come before the session exists, so they have no session id and pass.
     await page.evaluate(async () => {
       const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
       const lookup = workoutSessionsStore.lastTimeOf.bind(workoutSessionsStore)
@@ -235,8 +236,10 @@ test.describe('Gymtime Page', () => {
       })
       Reflect.set(window, '__releaseRender', release)
       workoutSessionsStore.lastTimeOf = async (...args) => {
-        Reflect.set(window, '__renderHeld', true)
-        await gate
+        if (args[1].id) {
+          Reflect.set(window, '__renderHeld', true)
+          await gate
+        }
         return lookup(...args)
       }
     })

@@ -228,9 +228,13 @@ test.describe('Workout session status reconciliation', () => {
 
     page.once('dialog', (dialog) => dialog.accept())
     await lastCard.locator('.exercise-actions-btn').click()
+    // Completing the workout without cloud backup downloads a JSON export. Leaving the page before it starts can
+    // stall the next navigation in WebKit, so the test waits for it.
+    const exportDownload = page.waitForEvent('download')
     await lastCard.locator('.delete-workout-session-exercise-btn').click()
 
     await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
+    await exportDownload
 
     await page.goto('/workouts/')
     const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()

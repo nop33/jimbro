@@ -7,7 +7,13 @@ import {
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
-import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import {
+  nextUnfinished,
+  progressOf,
+  workoutSessionsStore,
+  type ExerciseProgress,
+  type PlannedSession
+} from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
 import { getBreakTimeSeconds } from '../../settings'
@@ -19,7 +25,7 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
-import { planExercise, startingTargetSets, type ExercisePlan } from './exercisePlan'
+import { planExercise, type ExercisePlan } from './exercisePlan'
 import { clearSetNotes, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 // Room the actions menu needs below its button: four 48px items and a margin.
@@ -27,22 +33,30 @@ const MENU_ROOM = 220
 
 export interface ExerciseCardConfig {
   snapshot: ExerciseSnapshot
+  // Where the workout will be done, for a card shown before it starts.
+  planned: PlannedSession
   onExerciseDeleted: () => void
 }
 
 class ExerciseCard {
   private snapshot: ExerciseSnapshot
+  private planned: PlannedSession
   private onExerciseDeleted: () => void
-  private targetSets: number
 
   constructor(config: ExerciseCardConfig) {
     this.snapshot = config.snapshot
+    this.planned = config.planned
     this.onExerciseDeleted = config.onExerciseDeleted
-    this.targetSets = config.snapshot.targetSets
   }
 
   private get exerciseId(): string {
     return this.snapshot.exerciseId
+  }
+
+  // The exercise's progress in the session, which the store's status and the card both go by.
+  private progressIn(session: WorkoutSession | undefined): ExerciseProgress | undefined {
+    const exercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
+    return exercise && progressOf(exercise)
   }
 
   async render(): Promise<DocumentFragment> {
@@ -70,15 +84,8 @@ class ExerciseCard {
     const session = openSession.current
     const existingExercise = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
 
-    const plan = await planExercise(this.snapshot, session)
-    this.targetSets = plan.targetSets
-
-    const isExerciseCompleted = () => {
-      const session = openSession.current
-      if (!session) return false
-      const existingExercise = session.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-      return existingExercise && existingExercise.sets.length >= this.targetSets
-    }
+    const plan = await planExercise(this.snapshot, session ?? this.planned)
+    const { progress } = plan
 
     // A popover gives light dismiss (outside tap, Esc) and the button's aria-expanded for free.
     // Script places it, since CSS anchor positioning is missing from older iOS versions.
@@ -100,7 +107,7 @@ class ExerciseCard {
       if (event.newState !== 'open') return
 
       // A finished exercise keeps its sets: it can move, but not be swapped or deleted.
-      const completed = isExerciseCompleted()
+      const completed = this.progressIn(openSession.current)?.done ?? false
       swapBtn.classList.toggle('hidden', completed)
       deleteBtn.classList.toggle('hidden', completed)
 
@@ -185,14 +192,7 @@ class ExerciseCard {
         onExerciseClicked: async (newExercise) => {
           if (newExercise.id === this.exerciseId || alertIfInSession(newExercise.id)) return
 
-          await openSession.apply(async (session) =>
-            workoutSessionsStore.swapExercise(
-              session,
-              this.exerciseId,
-              newExercise,
-              await startingTargetSets(snapshotFromExercise(newExercise), session)
-            )
-          )
+          await openSession.apply((session) => workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise))
           this.onExerciseDeleted()
         }
       })
@@ -214,22 +214,14 @@ class ExerciseCard {
 
     configureSetRowGrid(completedSets, this.snapshot.preset)
 
-    if (existingExercise) {
-      if (existingExercise.sets.length >= this.targetSets) {
-        cardDiv.classList.add('card-success')
-      }
+    if (progress.done) cardDiv.classList.add('card-success')
 
-      for (const [index, set] of existingExercise.sets.entries()) {
-        completedSets.appendChild(this.renderSetItem({ set, index }))
-      }
+    for (const [index, set] of (existingExercise?.sets ?? []).entries()) {
+      completedSets.appendChild(this.renderSetItem({ set, index }))
+    }
 
-      for (let i = existingExercise.sets.length; i < this.targetSets; i++) {
-        completedSets.appendChild(this.renderSetItem({ set: placeholder(), index: i, isCompleted: false }))
-      }
-    } else {
-      for (let i = 0; i < this.targetSets; i++) {
-        completedSets.appendChild(this.renderSetItem({ set: placeholder(), index: i, isCompleted: false }))
-      }
+    for (let i = progress.logged; i < progress.target; i++) {
+      completedSets.appendChild(this.renderSetItem({ set: placeholder(), index: i, isCompleted: false }))
     }
 
     if (!session) {
@@ -240,9 +232,7 @@ class ExerciseCard {
 
     this.setupNextSetForm(template, completedSets, detailsAnimation, cardDiv, nextSetDiv, plan)
 
-    if (existingExercise && existingExercise.sets.length >= this.targetSets) {
-      nextSetDiv.classList.add('hidden')
-    }
+    if (progress.done) nextSetDiv.classList.add('hidden')
 
     if (historyChartEnabled(this.snapshot.kind)) {
       viewHistoryBtn.addEventListener('click', () => {
@@ -321,13 +311,12 @@ class ExerciseCard {
     addExtraSetBtn.addEventListener('click', async () => {
       if (!openSession.current) return
       const updated = await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
-      const exercise = updated.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-      if (!exercise) return
-      this.targetSets = exercise.targetSets
+      const progress = this.progressIn(updated)
+      if (!progress) return
       cardDiv.classList.remove('card-success')
       nextSetDiv.classList.remove('hidden')
       completedSets.appendChild(
-        this.renderSetItem({ set: emptySet(preset), index: this.targetSets - 1, isCompleted: false })
+        this.renderSetItem({ set: emptySet(preset), index: progress.target - 1, isCompleted: false })
       )
     })
 
@@ -343,10 +332,9 @@ class ExerciseCard {
       const updated = await openSession.apply((session) =>
         workoutSessionsStore.addSet(session, this.exerciseId, completedSet)
       )
-      const exercise = updated.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)
-      if (!exercise) return
-      const setIndex = exercise.sets.length - 1
-      this.targetSets = Math.max(exercise.targetSets, exercise.sets.length)
+      const progress = this.progressIn(updated)
+      if (!progress) return
+      const setIndex = progress.logged - 1
 
       let pendingSetItem = completedSets.querySelector(`[data-set-number="${setIndex + 1}"]`) as HTMLDivElement
       if (!pendingSetItem) {
@@ -362,8 +350,7 @@ class ExerciseCard {
       // The form keeps the set just logged as the next one's values, which are no longer last time's max.
       clearSetNotes(nextSetFields)
 
-      const isExerciseCompleted = exercise.sets.length >= this.targetSets
-      if (isExerciseCompleted) {
+      if (progress.done) {
         detailsAnimation.close()
         cardDiv.classList.add('card-success')
         nextSetDiv.classList.add('hidden')
@@ -372,7 +359,7 @@ class ExerciseCard {
       // openSession celebrates the set that finishes the workout.
       if (updated.status === 'completed') return
 
-      if (isExerciseCompleted) {
+      if (progress.done) {
         navigator.vibrate?.([50, 30, 50, 30, 70])
         BreakTimerDialog.closeDialog()
         throwConfetti('Exercise done!')
@@ -384,21 +371,14 @@ class ExerciseCard {
         BreakTimerDialog.startTimer({
           minutes: Math.floor(breakTimeSeconds / 60),
           seconds: breakTimeSeconds % 60,
-          setsDone: setIndex + 1,
-          setsTotal: this.targetSets,
+          setsDone: progress.logged,
+          setsTotal: progress.target,
           nextExercise: nextUnfinished(updated, this.exerciseId)?.name,
           currentExercise: { id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind }
         })
       }
     })
   }
-}
-
-// The first exercise after this one, wrapping round, that still has sets to do.
-const nextUnfinished = (session: WorkoutSession, exerciseId: string) => {
-  const index = session.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId)
-  const after = [...session.exercises.slice(index + 1), ...session.exercises.slice(0, index)]
-  return after.find((exercise) => exercise.sets.length < exercise.targetSets)
 }
 
 export default ExerciseCard

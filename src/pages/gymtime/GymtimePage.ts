@@ -1,4 +1,4 @@
-import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { onPageNotice } from '../../sync/pageChannel'
@@ -7,7 +7,6 @@ import { setTextContent } from '../../utils'
 import AddExerciseDialog from './AddExerciseDialog'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import ExerciseCardList from './ExerciseCardList'
-import { startingTargetSets } from './exercisePlan'
 import { alertIfInSession, openSession } from './openSession'
 import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
@@ -40,26 +39,26 @@ class GymtimePage {
       this.workoutDetailsAnimation.close()
     }
 
-    ExerciseCardList.init(program.exercises)
+    ExerciseCardList.init(program.exercises, () => WorkoutSessionForm.planned())
     AddExerciseDialog.init(async (exercise) => {
       if (!openSession.current || alertIfInSession(exercise.id)) return
 
-      await openSession.apply(async (session) =>
-        workoutSessionsStore.addExercise(
-          session,
-          exercise,
-          await startingTargetSets(snapshotFromExercise(exercise), session)
-        )
-      )
+      await openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
       await ExerciseCardList.render()
     })
 
-    await WorkoutSessionForm.init(program.id, async () => {
-      const session = openSession.current
-      if (session) window.history.replaceState({}, '', `?id=${session.id}`)
-      await ExerciseCardList.render()
-      this.updateDeleteBtnVisibility()
-      this.workoutDetailsAnimation?.close()
+    await WorkoutSessionForm.init(program.id, {
+      onSessionSaved: async () => {
+        const session = openSession.current
+        if (session) window.history.replaceState({}, '', `?id=${session.id}`)
+        await ExerciseCardList.render()
+        this.updateDeleteBtnVisibility()
+        this.workoutDetailsAnimation?.close()
+      },
+      // The cards before the start show what it will store for the new day or gym.
+      onPlanChanged: () => {
+        if (!openSession.current) void ExerciseCardList.render()
+      }
     })
 
     this.deleteWorkoutSessionBtn.addEventListener('click', async () => {

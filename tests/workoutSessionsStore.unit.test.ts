@@ -2,7 +2,12 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import type { Exercise } from '../src/db/stores/exercisesStore'
-import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
+import {
+  nextUnfinished,
+  progressOf,
+  snapshotFromExercise,
+  workoutSessionsStore
+} from '../src/db/stores/workoutSessionsStore'
 import { storage } from '../src/db/storage'
 import type { SessionHeader, WorkoutSession } from '../src/db/types'
 
@@ -130,5 +135,63 @@ describe('workoutSessionsStore', () => {
 
     session = await workoutSessionsStore.addSet(session, 'pull', lift(10))
     expect(session.status).toBe('completed')
+  })
+
+  it("starts each exercise at its target, or last time's set count at the gym when more", async () => {
+    // Last time: four sets of each at Geneva, then one at Basel.
+    for (const [date, location, sets] of [
+      ['2026-09-01', 'Geneva', 4],
+      ['2026-09-05', 'Basel', 1]
+    ] as const) {
+      let earlier = await workoutSessionsStore.create({
+        date,
+        programId: 'program',
+        location,
+        exercises: ['fly', 'dip', 'lunge'].map((id) => snapshotFromExercise(exercise(id, 2)))
+      })
+      for (const id of ['fly', 'dip', 'lunge']) {
+        for (let set = 0; set < sets; set++) earlier = await workoutSessionsStore.addSet(earlier, id, lift(20))
+      }
+    }
+
+    const targets = (session: WorkoutSession) =>
+      session.exercises.map(({ exerciseId, targetSets }) => [exerciseId, targetSets])
+    const at = (location: string) =>
+      workoutSessionsStore.create({
+        date: '2026-09-10',
+        programId: 'program',
+        location,
+        exercises: [snapshotFromExercise(exercise('fly', 2)), snapshotFromExercise(exercise('curl', 3))]
+      })
+
+    const inGeneva = await at('Geneva')
+    expect(targets(inGeneva)).toEqual([
+      ['fly', 4],
+      ['curl', 3]
+    ])
+    expect(targets(await at('Basel'))).toEqual([
+      ['fly', 2],
+      ['curl', 3]
+    ])
+
+    const added = await workoutSessionsStore.addExercise(inGeneva, exercise('dip', 2))
+    const swapped = await workoutSessionsStore.swapExercise(added, 'curl', exercise('lunge', 5))
+    expect(targets(swapped)).toEqual([
+      ['fly', 4],
+      ['lunge', 5],
+      ['dip', 4]
+    ])
+    expect(await workoutSessionsStore.getById(swapped.id)).toEqual(swapped)
+  })
+
+  it('goes on to the next exercise with sets to do, wrapping round', async () => {
+    let session = await start(exercise('press', 1), exercise('shrug', 1), exercise('crunch', 1))
+    session = await workoutSessionsStore.addSet(session, 'shrug', lift(30))
+    expect(progressOf(session.exercises[1])).toEqual({ logged: 1, target: 1, done: true })
+    expect(nextUnfinished(session, 'press')?.exerciseId).toBe('crunch')
+    expect(nextUnfinished(session, 'crunch')?.exerciseId).toBe('press')
+
+    session = await workoutSessionsStore.addSet(session, 'press', lift(30))
+    expect(nextUnfinished(session, 'crunch')).toBeUndefined()
   })
 })
