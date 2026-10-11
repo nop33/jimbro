@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Exercise } from '../src/db/stores/exercisesStore'
 import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import { nextSetValues, planExercise, prefillIsMaxWeight, startingTargetSets } from '../src/pages/gymtime/exercisePlan'
+import { nextSetValues, planExercise, prefillIsMaxWeight } from '../src/pages/gymtime/exercisePlan'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())
@@ -77,28 +77,36 @@ describe('planExercise', () => {
     await workout(press, '2026-10-01', 'Zurich', [30])
     await workout(press, '2026-10-03', 'Zurich', [])
 
-    const plan = await planExercise(snapshotFromExercise(press), undefined)
+    const plan = await planExercise(snapshotFromExercise(press), { date: '2026-10-08', location: 'Zurich' })
     expect(plan.lastTime?.date).toBe('2026-10-01')
   })
 
-  it("aims for the session's own target, or the sets it holds when more", async () => {
-    const curl = exercise('curl', 2)
-    await workout(curl, '2026-10-01', 'Zurich', [10, 10, 10, 10])
-    expect((await planExercise(snapshotFromExercise(curl), undefined)).targetSets).toBe(4)
-
-    const today = await workout(curl, '2026-10-08', 'Zurich', [10, 10, 12])
-    expect((await planExercise(today.exercises[0], today)).targetSets).toBe(3)
-  })
-})
-
-describe('startingTargetSets', () => {
-  it("raises the exercise's target to last time's set count at the gym", async () => {
+  it('shows before the start the target the start stores at the planned gym', async () => {
     const dip = exercise('dip', 3)
     await workout(dip, '2026-10-01', 'Zurich', [0, 0, 0, 0, 0])
     await workout(dip, '2026-10-05', 'Athens', [0, 0])
 
-    expect(await startingTargetSets(snapshotFromExercise(dip), { date: '2026-10-08', location: 'Zurich' })).toBe(5)
-    expect(await startingTargetSets(snapshotFromExercise(dip), { date: '2026-10-08', location: 'Athens' })).toBe(3)
+    for (const [location, target] of [
+      ['Zurich', 5],
+      ['Athens', 3]
+    ] as const) {
+      const planned = { date: '2026-10-08', location }
+      const preview = await planExercise(snapshotFromExercise(dip), planned)
+      expect(preview.progress).toEqual({ logged: 0, target, done: false })
+
+      const started = await workout(dip, planned.date, location, [])
+      expect(started.exercises[0].targetSets).toBe(target)
+      expect((await planExercise(started.exercises[0], started)).progress).toEqual(preview.progress)
+    }
+  })
+
+  it("follows the session's progress once it starts", async () => {
+    const curl = exercise('curl', 2)
+    const today = await workout(curl, '2026-10-08', 'Zurich', [10])
+    expect((await planExercise(today.exercises[0], today)).progress).toEqual({ logged: 1, target: 2, done: false })
+
+    const done = await workoutSessionsStore.addSet(today, 'curl', lift(10))
+    expect((await planExercise(done.exercises[0], done)).progress).toEqual({ logged: 2, target: 2, done: true })
   })
 })
 

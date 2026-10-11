@@ -1,9 +1,13 @@
 import { getSimpleDate } from '../../dateUtils'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
-import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import {
+  placeholderSnapshot,
+  snapshotFromExercise,
+  workoutSessionsStore,
+  type PlannedSession
+} from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
-import { startingTargetSets } from './exercisePlan'
 import { openSession } from './openSession'
 
 class WorkoutSessionForm {
@@ -17,7 +21,10 @@ class WorkoutSessionForm {
   private static programId: Program['id']
   private static onSessionSaved: () => void | Promise<void>
 
-  static async init(programId: Program['id'], onSessionSaved: () => void | Promise<void>) {
+  static async init(
+    programId: Program['id'],
+    { onSessionSaved, onPlanChanged }: { onSessionSaved: () => void | Promise<void>; onPlanChanged: () => void }
+  ) {
     this.programId = programId
     this.onSessionSaved = onSessionSaved
 
@@ -53,8 +60,15 @@ class WorkoutSessionForm {
       this.submitButton.textContent = 'Save & continue workout'
     }
 
+    this.dateInput.addEventListener('change', onPlanChanged)
+    this.locationInput.addEventListener('change', onPlanChanged)
     this.form.addEventListener('submit', (e) => this.onSubmit(e))
     this.submitButton.disabled = false
+  }
+
+  // The day and gym the form starts the workout with.
+  static planned(): PlannedSession {
+    return { date: this.dateInput.value, location: this.locationInput.value }
   }
 
   // The field's suggestions: a <datalist>, which Chrome shows as a dropdown and Safari above the keyboard.
@@ -78,9 +92,7 @@ class WorkoutSessionForm {
       const exercises = await Promise.all(
         program.exercises.map(async (exerciseId) => {
           const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
-          if (!exercise) return placeholderSnapshot(exerciseId)
-          const snapshot = snapshotFromExercise(exercise)
-          return { ...snapshot, targetSets: await startingTargetSets(snapshot, { date, location }) }
+          return exercise ? snapshotFromExercise(exercise) : placeholderSnapshot(exerciseId)
         })
       )
 
