@@ -206,6 +206,33 @@ test.describe('Workout session status reconciliation', () => {
     await expect.poll(workoutsDone).toBe(2)
   })
 
+  test('the set that finishes the workout ends a minimized break', async ({ page }) => {
+    const sessionId = crypto.randomUUID()
+    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
+    const last = exercises[exercises.length - 1]
+    last.sets = last.sets.slice(2)
+
+    await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+
+    const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
+    const finishedSet = lastCard.getByRole('button', { name: 'Finished set' })
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await lastCard.scrollIntoViewIfNeeded()
+    await lastCard.locator('.exercise-details > summary').click()
+    await finishedSet.click()
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    // Completing the workout without cloud backup downloads a JSON export, which the test waits for.
+    const exportDownload = page.waitForEvent('download')
+    await finishedSet.click()
+    await expect(page.locator('.confetti-text')).toHaveText('Workout done!')
+    await expect(breakTimer).toBeHidden()
+    await exportDownload
+  })
+
   test('saving the session form heals a session whose stored status is stale', async ({ page }) => {
     // Simulate a session that was bugged before the fix: all exercises fully
     // logged but status stored as 'incomplete'. Saving the form should heal it.

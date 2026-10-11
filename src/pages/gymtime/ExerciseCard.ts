@@ -1,5 +1,4 @@
 import {
-  breakTimerEnabled,
   emptySet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
@@ -7,18 +6,10 @@ import {
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
-import {
-  nextUnfinished,
-  progressOf,
-  workoutSessionsStore,
-  type ExerciseProgress
-} from '../../db/stores/workoutSessionsStore'
+import { progressOf, workoutSessionsStore, type ExerciseProgress } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
-import { throwConfetti } from '../../features/confetti'
-import { getBreakTimeSeconds } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
-import BreakTimerDialog from './BreakTimerDialog'
 import EditSetDialog from './EditSetDialog'
 import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
@@ -314,43 +305,18 @@ class ExerciseCard {
       }
 
       this.closeWhenDone = true
-      let updated: WorkoutSession
       try {
-        updated = await openSession.apply((session) =>
-          workoutSessionsStore.addSet(session, this.exerciseId, completedSet)
-        )
+        await openSession.apply((session) => workoutSessionsStore.addSet(session, this.exerciseId, completedSet), {
+          loggedFor: this.exerciseId
+        })
       } finally {
         this.closeWhenDone = false
       }
-      const progress = this.progressIn(updated)
-      if (!progress) return
 
       // The form keeps the set just logged as the next one's values, which are no longer last time's max, and which
       // the next session shown may fill in again.
       clearSetNotes(this.nextSetFields)
       this.typedIn = false
-
-      // openSession celebrates the set that finishes the workout.
-      if (updated.status === 'completed') return
-
-      if (progress.done) {
-        navigator.vibrate?.([50, 30, 50, 30, 70])
-        BreakTimerDialog.closeDialog()
-        throwConfetti('Exercise done!')
-        return
-      }
-
-      if (breakTimerEnabled(preset)) {
-        const breakTimeSeconds = getBreakTimeSeconds()
-        BreakTimerDialog.startTimer({
-          minutes: Math.floor(breakTimeSeconds / 60),
-          seconds: breakTimeSeconds % 60,
-          setsDone: progress.logged,
-          setsTotal: progress.target,
-          nextExercise: nextUnfinished(updated, this.exerciseId)?.name,
-          currentExercise: { id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind }
-        })
-      }
     })
   }
 }

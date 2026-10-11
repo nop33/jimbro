@@ -1,5 +1,6 @@
 import { historyChartEnabled } from '../../db/exerciseLogging'
 import ExerciseHistoryChart, { type ExerciseHistoryTarget } from './ExerciseHistoryChart'
+import type { Rest } from './outcome'
 import { playDingSound } from './sound'
 
 class BreakTimerDialog {
@@ -86,28 +87,13 @@ class BreakTimerDialog {
     }
   }
 
-  static startTimer({
-    minutes,
-    seconds,
-    setsDone,
-    setsTotal,
-    nextExercise,
-    currentExercise
-  }: {
-    minutes: number
-    seconds: number
-    setsDone: number
-    setsTotal: number
-    nextExercise?: string
-    currentExercise: ExerciseHistoryTarget
-  }) {
-    this.currentExercise = currentExercise
-    this.viewHistoryButton.classList.toggle('hidden', !historyChartEnabled(currentExercise.kind))
+  // Starts a break, in place of any break still running.
+  static start({ seconds, setsDone, setsTotal, next, exercise }: Rest) {
+    this.stopCountdown()
+    this.currentExercise = exercise
+    this.viewHistoryButton.classList.toggle('hidden', !historyChartEnabled(exercise.kind))
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
-    this.hasPlayedSound = false
-
-    const totalMs = (minutes * 60 + seconds) * 1000
-    this.targetTime = Date.now() + totalMs
+    this.targetTime = Date.now() + seconds * 1000
 
     this.updateTimerDisplay()
 
@@ -115,9 +101,9 @@ class BreakTimerDialog {
       this.updateTimerDisplay()
     }, 1000)
 
-    if (nextExercise) {
+    if (next) {
       this.nextExerciseMessageEl.classList.remove('hidden')
-      this.nextExerciseNameEl.textContent = nextExercise
+      this.nextExerciseNameEl.textContent = next
     } else {
       this.nextExerciseMessageEl.classList.add('hidden')
     }
@@ -135,7 +121,8 @@ class BreakTimerDialog {
     this.dialog.showModal()
   }
 
-  static closeDialog() {
+  // Stops the countdown, its ding and its pending auto-close, and forgets the break.
+  private static stopCountdown() {
     if (this.autoCloseTimeout !== null) {
       clearTimeout(this.autoCloseTimeout)
       this.autoCloseTimeout = null
@@ -147,6 +134,10 @@ class BreakTimerDialog {
     this.targetTime = null
     this.hasPlayedSound = false
     this.currentExercise = null
+  }
+
+  static closeDialog() {
+    this.stopCountdown()
     this.isMinimized = false
     this.dialog.classList.remove('dialog-full-screen')
     this.dialog.classList.remove('dialog-minimized')
