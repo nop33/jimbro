@@ -22,6 +22,12 @@ const closers = new WeakMap<HTMLDetailsElement, () => void>()
 export interface AnimateDetailsHandle {
   /** Animate the <details> closed. No-op if already closed or closing. */
   close: () => void
+  /**
+   * Runs `callback` once no close is running: right away, or when the running
+   * close ends or turns back into an open. A change that would shorten the
+   * content waits here, so a close always starts from the full height.
+   */
+  afterClose: (callback: () => void) => void
 }
 
 export function animateDetails(
@@ -32,6 +38,19 @@ export function animateDetails(
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
   let currentAnimation: Animation | null = null
   let isClosing = false
+  let waitingForClose: Array<() => void> = []
+
+  const endClose = () => {
+    isClosing = false
+    const callbacks = waitingForClose
+    waitingForClose = []
+    callbacks.forEach((callback) => callback())
+  }
+
+  const afterClose = (callback: () => void) => {
+    if (isClosing) waitingForClose.push(callback)
+    else callback()
+  }
 
   const runAnimation = (fromHeight: number, toHeight: number, onFinish?: () => void) => {
     currentAnimation?.cancel()
@@ -68,7 +87,7 @@ export function animateDetails(
       // Reverse an in-flight close. The <details> is still [open] at this
       // point — we only remove the attribute at the end of a close animation.
       const currentHeight = content.getBoundingClientRect().height
-      isClosing = false
+      endClose()
       if (reducedMotion) return
       const targetHeight = content.scrollHeight
       runAnimation(currentHeight, targetHeight)
@@ -94,12 +113,12 @@ export function animateDetails(
     isClosing = true
     runAnimation(startHeight, 0, () => {
       details.removeAttribute('open')
-      isClosing = false
+      endClose()
     })
   }
 
   const summary = details.querySelector('summary')
-  if (!summary) return { close }
+  if (!summary) return { close, afterClose }
 
   summary.addEventListener('click', (e) => {
     e.preventDefault()
@@ -117,5 +136,5 @@ export function animateDetails(
 
   closers.set(details, close)
 
-  return { close }
+  return { close, afterClose }
 }

@@ -254,6 +254,73 @@ test.describe('Gymtime Page', () => {
     await expect(firstExercise.locator('.next-set-form')).toBeVisible()
   })
 
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    test(`the set that finishes an exercise closes its card, form and all (reduced motion: ${reducedMotion})`, async ({
+      page
+    }) => {
+      // animateDetails reads the preference when a card is built, so the page loads again with it.
+      await page.emulateMedia({ reducedMotion })
+      await page.reload()
+      await page.getByRole('button', { name: 'Save & start workout' }).click()
+      await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+
+      const card = page.locator('#exercises-list > .card').first()
+      const details = card.locator('.exercise-details')
+      const form = card.locator('.next-set-form')
+      const pending = card.locator('.completed-sets .set.isPending')
+      const breakTimer = page.locator('#break-countdown-dialog')
+      const logSet = async () => {
+        await form.locator('input[name="set-reps"]').fill('10')
+        await form.locator('input[name="set-weight"]').fill('100')
+        await form.getByRole('button', { name: 'Finished set' }).click()
+      }
+
+      await details.locator('summary').click()
+      await expect(form).toBeVisible()
+      for (let left = await pending.count(); left > 1; left--) {
+        await logSet()
+        await expect(pending).toHaveCount(left - 1)
+        await breakTimer.getByRole('button', { name: 'Skip' }).click()
+        await expect(breakTimer).toBeHidden()
+      }
+
+      // Records each card's close animation as it starts: the height it starts from, and whether the card still shows
+      // the next set's form then.
+      await page.evaluate(() => {
+        const closes: Array<{ from: number; formShown: boolean }> = []
+        Reflect.set(window, '__closes', closes)
+        const animate = Element.prototype.animate
+        Element.prototype.animate = function (this: Element, ...args: Parameters<Element['animate']>) {
+          const frames = Array.isArray(args[0]) ? args[0] : []
+          if (this.matches('.exercise-details-content') && frames.at(-1)?.height === '0px') {
+            closes.push({
+              from: parseFloat(String(frames[0]?.height)),
+              formShown: !this.querySelector('.next-set')?.classList.contains('hidden')
+            })
+          }
+          return animate.apply(this, args)
+        }
+      })
+      const fullHeight = await card
+        .locator('.exercise-details-content')
+        .evaluate((content) => content.getBoundingClientRect().height)
+
+      await logSet()
+      await expect(details).toHaveJSProperty('open', false)
+      await expect(card).toHaveClass(/card-success/)
+      await expect(card.locator('.next-set')).toHaveClass(/hidden/)
+      const closes = (await page.evaluate(() => Reflect.get(window, '__closes'))) as Array<{
+        from: number
+        formShown: boolean
+      }>
+      if (reducedMotion === 'reduce') {
+        expect(closes).toEqual([])
+      } else {
+        expect(closes).toEqual([{ from: expect.closeTo(fullHeight, 0), formShown: true }])
+      }
+    })
+  }
+
   test('a set logged while the page rereads its session stays on screen', async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
