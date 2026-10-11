@@ -217,10 +217,14 @@ test.describe('Gymtime Page', () => {
     test(`the set that finishes an exercise closes its card, form and all (reduced motion: ${reducedMotion})`, async ({
       page
     }) => {
-      // animateDetails reads the preference when a card is built, so the page loads again with it.
+      // animateDetails reads the preference when a card is built, so the page loads again with it. The reload waits
+      // for the first load to finish its database reads: in WebKit, a reload during them could leave the new page's
+      // form disabled.
+      const start = page.getByRole('button', { name: 'Save & start workout' })
+      await expect(start).toBeEnabled()
       await page.emulateMedia({ reducedMotion })
       await page.reload()
-      await page.getByRole('button', { name: 'Save & start workout' }).click()
+      await start.click()
       await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
       const card = page.locator('#exercises-list > .card').first()
