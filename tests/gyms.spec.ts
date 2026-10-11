@@ -111,21 +111,24 @@ test('the history chart draws its lines at once, without animating, under reduce
   await card.locator('.view-history-btn').click()
   await expect(page.locator('#exercise-history-dialog')).toBeVisible()
 
-  // An animated chart paints its lines a little further on every frame for a second, so the first painted frame and
-  // the ones after it differ. A chart that does not animate paints the same pixels on every frame.
-  const framesDiffer = await page.evaluate(async () => {
+  // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
+  // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
+  // Frames at another size come before the chart fits its dialog, and WebKit can resize it a few frames late.
+  const frames = await page.evaluate(async () => {
     const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
     if (!canvas) throw new Error('no chart canvas')
     const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
     while (!canvas.hasAttribute('style')) await nextFrame()
-    await nextFrame()
-    const first = canvas.toDataURL()
-    const later = []
-    for (let frame = 0; frame < 10; frame++) {
+    const seen: Array<{ size: string; pixels: string }> = []
+    const start = performance.now()
+    while (performance.now() - start < 1500) {
       await nextFrame()
-      later.push(canvas.toDataURL())
+      seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
     }
-    return later.some((pixels) => pixels !== first)
+    return seen
   })
-  expect(framesDiffer).toBe(false)
+  const last = frames[frames.length - 1]
+  const atFinalSize = frames.filter((frame) => frame.size === last.size)
+  expect(atFinalSize.length).toBeGreaterThan(10)
+  expect(atFinalSize.filter((frame) => frame.pixels !== last.pixels)).toHaveLength(0)
 })
