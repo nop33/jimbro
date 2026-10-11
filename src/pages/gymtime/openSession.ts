@@ -1,11 +1,10 @@
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { exportIndexedDbToJson } from '../../db/export'
-import { hasExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { hasExercise } from '../../db/stores/workoutSessionsStore'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import type { WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
-import { canonical } from '../../sync/rows'
 
 // Shows the open session on screen, and resolves once the screen shows it or a later one.
 type View = (session: WorkoutSession | undefined) => void | Promise<void>
@@ -14,7 +13,7 @@ type View = (session: WorkoutSession | undefined) => void | Promise<void>
 let open: WorkoutSession | undefined
 const views = new Set<View>()
 
-// Rereads, writes and the views showing their result, still running. The region is aria-busy while any is.
+// Writes and the views showing their result, still running. The region is aria-busy while any is.
 let running = 0
 let busyRegion: HTMLElement | undefined
 
@@ -44,7 +43,7 @@ export const openSession = {
     return () => views.delete(view)
   },
 
-  // While a reread or a change is on its way to the screen, region carries aria-busy, so assistive technology waits
+  // While a change is on its way to the screen, region carries aria-busy, so assistive technology waits
   // for it, and so can the specs.
   busyOn(region: HTMLElement): void {
     busyRegion = region
@@ -69,22 +68,6 @@ export const openSession = {
     })
     if (session.status === 'incomplete' && next.status === 'completed') await celebrateWorkout()
     return next
-  },
-
-  // Reads the open session again, after a pull or another tab may have changed it, and shows it when it changed.
-  async reread(): Promise<void> {
-    await whileBusy(async () => {
-      for (;;) {
-        if (!open) return
-        const shown = canonical(open)
-        const session = await workoutSessionsStore.getById(open.id)
-        // A change this page stored while the read ran, such as a logged set, may be missing from what it read,
-        // so it reads again.
-        if (canonical(open) !== shown) continue
-        if (canonical(session) !== shown) await showNow(session)
-        return
-      }
-    })
   }
 }
 

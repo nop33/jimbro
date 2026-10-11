@@ -111,22 +111,19 @@ describe('planExercise', () => {
 })
 
 describe('keptLastTimes', () => {
-  it('keeps last time for a workout until forgotten, and reads it again for another day or gym', async () => {
+  it('keeps last time for a workout, and reads it again for another day or gym', async () => {
     const raise = exercise('raise')
     await workout(raise, '2026-10-01', 'Zurich', [10])
     const today = await workout(raise, '2026-10-08', 'Zurich', [])
     const lastTimes = keptLastTimes()
-    const plan = () => planExercise(today.exercises[0], today, lastTimes.read)
+    const plan = () => planExercise(today.exercises[0], today, lastTimes)
 
     expect((await plan()).lastTime?.sets).toEqual([lift(10)])
     await workout(raise, '2026-10-05', 'Zurich', [12])
     expect((await plan()).lastTime?.sets).toEqual([lift(10)])
     expect(
-      (await planExercise(today.exercises[0], { ...today, location: 'Athens' }, lastTimes.read)).lastTime?.sets
+      (await planExercise(today.exercises[0], { ...today, location: 'Athens' }, lastTimes)).lastTime?.sets
     ).toEqual([lift(12)])
-
-    lastTimes.forget()
-    expect((await plan()).lastTime?.sets).toEqual([lift(12)])
   })
 })
 

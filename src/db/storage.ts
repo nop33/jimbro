@@ -20,7 +20,7 @@ export const putRow = (tx: IDBTransaction, row: Row) => {
 
 // setGroups caches each session's set rows, so the history reads one record per session. Every transaction that
 // writes set rows updates it.
-export const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
+const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
   if (sets.length === 0) return
   const bySession = new Map<string, Array<SetRow>>()
   for (const set of sets) {
