@@ -176,14 +176,14 @@ describe('first sync', () => {
     expect(await getMeta(device, 'bootstrapped')).toBe(0)
   })
 
-  it('marks an empty database on an empty server bootstrapped, so the next sync pushes before it pulls', async () => {
+  it('marks an empty database on an empty server bootstrapped, so the next sync only pushes', async () => {
     const server = memoryServer()
     const sync = syncFor(device, server)
     await sync.sync()
     expect(await getMeta(device, 'bootstrapped')).toBe(1)
     expect(await getMeta(device, 'cursor')).toBe(0)
 
-    // A first sync would keep the server's copy. A steady sync pushes this device's edit first.
+    // A first sync would keep the server's copy. A later sync pushes this device's edit and pulls nothing.
     server.seed([exercise('squat', 'Server squat')])
     await device.writeRows([exercise('squat', 'Phone squat', LATER)])
     await sync.sync()
@@ -212,14 +212,6 @@ describe('first sync', () => {
     expect(local.setGroups).toEqual([{ sessionId: 'session', sets: local.sets }])
     expect([...server.rows.keys()].sort()).toEqual(['sessions:session', 'sets:session:a:0'])
     expect(await outboxOf(device)).toEqual([])
-  })
-
-  it('announces open-session-pulled when it pulls the open session', async () => {
-    const server = memoryServer()
-    server.seed([header('open', ['a'])])
-    const page = testPage('open')
-    await syncFor(device, server, page).sync()
-    expect(page.notices).toEqual(['open-session-pulled', 'sync-settled'])
   })
 
   it('converges after a pull fails part way with a first sync that never failed', async () => {
@@ -262,12 +254,11 @@ describe('first sync', () => {
   })
 })
 
-describe('steady sync', () => {
-  it('pushes the outbox, then pulls pages from the cursor', async () => {
-    const server = memoryServer({ pageSize: 2 })
-    server.seed([exercise('squat', 'Squat')])
+describe('a synced database', () => {
+  // Counts each request the sync sends, in order.
+  const logged = (server: ReturnType<typeof memoryServer>) => {
     const calls: string[] = []
-    const logged: SyncServer = {
+    const counted: SyncServer = {
       ...server,
       async push(rows) {
         calls.push('push')
@@ -278,65 +269,79 @@ describe('steady sync', () => {
         return server.pull(cursor)
       }
     }
-    const sync = syncFor(device, logged)
+    return { counted, calls }
+  }
+
+  it('pushes the outbox and never pulls', async () => {
+    const server = memoryServer({ pageSize: 2 })
+    server.seed([exercise('squat', 'Squat')])
+    const { counted, calls } = logged(server)
+    const page = testPage()
+    const sync = syncFor(device, counted, page)
     await sync.sync()
+    expect(calls).toEqual(['pull 0'])
     calls.length = 0
 
     server.seed([exercise('a', 'A'), exercise('b', 'B'), exercise('c', 'C')])
     await device.writeRows([exercise('bench', 'Bench')])
     await sync.sync()
-    expect(calls).toEqual(['push', 'pull 1', 'pull 3'])
+    expect(calls).toEqual(['push'])
+    expect(nameOf(server.rows.get('exercises:bench'))).toBe('Bench')
+    expect(await outboxOf(device)).toEqual([])
+    // Rows another device pushed stay on the server. A second device is not supported, and this one never pulls them.
     expect(byId(await device.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES)).map((row) => row.id)).toEqual([
-      'a',
-      'b',
       'bench',
-      'c',
       'squat'
     ])
-    expect(await getMeta(device, 'cursor')).toBe(5)
+    expect(await getMeta(device, 'cursor')).toBe(1)
+    expect(page.notices).toEqual(['sync-settled', 'sync-settled'])
+    expect(page.synced).toHaveLength(2)
   })
 
-  it('does not pull over a row edited while it pulls, and pushes the edit next', async () => {
+  it('sends no request when nothing is queued, and still settles', async () => {
     const server = memoryServer()
     server.seed([exercise('squat', 'Squat')])
-    await syncFor(device, server).sync()
+    const { counted, calls } = logged(server)
+    const page = testPage()
+    const sync = syncFor(device, counted, page)
+    await sync.sync()
+    calls.length = 0
 
     server.seed([exercise('squat', 'Server squat', LATER)])
-    const editing = beforeFirstPull(server, () =>
-      device.writeRows([exercise('squat', 'Phone squat', '2026-10-01T12:00:02.000Z')])
-    )
-    await syncFor(device, editing).sync()
-    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Phone squat')
-    expect((await outboxOf(device)).map((entry) => entry.key)).toEqual(['exercises:squat'])
-
-    await syncFor(device, server).sync()
-    expect(nameOf(server.rows.get('exercises:squat'))).toBe('Phone squat')
-    expect(await outboxOf(device)).toEqual([])
+    await sync.sync()
+    expect(calls).toEqual([])
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
+    expect(page.notices).toEqual(['sync-settled', 'sync-settled'])
+    expect(page.synced).toHaveLength(2)
   })
 
-  it('announces open-session-pulled only for a pulled change to the open session', async () => {
+  it('never pulls once bootstrapped on an empty server', async () => {
     const server = memoryServer()
-    const page = testPage('open')
-    const sync = syncFor(device, server, page)
+    const { counted, calls } = logged(server)
+    const sync = syncFor(device, counted)
+    await sync.sync()
+    expect(await getMeta(device, 'bootstrapped')).toBe(1)
+    calls.length = 0
+
+    server.seed([exercise('squat', 'Squat')])
+    await device.writeRows([exercise('bench', 'Bench')])
+    await sync.sync()
+    await sync.sync()
+    expect(calls).toEqual(['push'])
+    expect(await device.get(OBJECT_STORES.EXERCISES, 'squat')).toBeUndefined()
+  })
+
+  it('pushes over the server copy of a row it edits', async () => {
+    const server = memoryServer()
+    server.seed([exercise('squat', 'Squat')])
+    const sync = syncFor(device, server)
     await sync.sync()
 
-    const noticesOf = async (run: () => Promise<void>) => {
-      page.notices.length = 0
-      await run()
-      await sync.sync()
-      return [...page.notices]
-    }
-    expect(await noticesOf(async () => void server.seed([set('other', 'a', 10)]))).toEqual(['sync-settled'])
-    expect(await noticesOf(async () => void server.seed([set('open', 'a', 10)]))).toEqual([
-      'open-session-pulled',
-      'sync-settled'
-    ])
-    expect(await noticesOf(async () => void server.seed([header('open', ['a'])]))).toEqual([
-      'open-session-pulled',
-      'sync-settled'
-    ])
-    // The pull brings back the set this device just pushed, equal to the stored copy.
-    expect(await noticesOf(() => device.writeRows([set('open', 'a', 20, LATER)]))).toEqual(['sync-settled'])
+    server.seed([exercise('squat', 'Server squat', LATER)])
+    await device.writeRows([exercise('squat', 'Phone squat', '2026-10-01T12:00:02.000Z')])
+    await sync.sync()
+    expect(nameOf(server.rows.get('exercises:squat'))).toBe('Phone squat')
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Phone squat')
   })
 })
 
@@ -379,7 +384,9 @@ describe('sync()', () => {
     // A third run would start in the microtask after the second one settles.
     await new Promise((resolve) => setTimeout(resolve))
     expect(checks).toBe(4)
-    expect(server.pulls).toEqual([0, 0])
+    // The second run finds the database synced, so it only pushes, and nothing is queued.
+    expect(server.pulls).toEqual([0])
+    expect(page.synced).toHaveLength(2)
   })
 
   it('queues no further run for a call that passes again: false', async () => {

@@ -1,7 +1,6 @@
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
-import { onPageNotice } from '../../sync/pageChannel'
 import { setTextContent } from '../../utils'
 import AddExerciseDialog from './AddExerciseDialog'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -23,13 +22,6 @@ class GymtimePage {
     const { program, workoutSession } = await parseUrlParams()
     this.program = program
 
-    // This tab's writes show through openSession, and its pulls announce open-session-pulled when they change this
-    // workout. Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
-    onPageNotice((notice, source) => {
-      if (notice !== 'open-session-pulled' && source !== 'other-tab') return
-      ExerciseCardList.forgetLastTimes()
-      void openSession.reread()
-    })
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement

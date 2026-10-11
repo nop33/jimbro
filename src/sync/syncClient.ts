@@ -15,13 +15,12 @@ window.addEventListener('pageshow', () => {
   leaving = false
 })
 
-// The app's sync: the worker over HTTP, and the session in the page's ?id=, which only gymtime sets.
+// The app's sync: the worker over HTTP, for the page that runs it.
 export const { sync } = createSync({
   storage,
   server: httpServer,
   lock: pushLock,
   page: {
-    openSessionId: () => new URLSearchParams(window.location.search).get('id'),
     announce,
     synced: setLastSyncAt,
     leaving: () => leaving

@@ -34,11 +34,6 @@ class ExerciseCardList {
     if (!openSession.current) await this.show(undefined)
   }
 
-  // A pull or another tab may have changed an earlier workout, so the cards read last time again.
-  static forgetLastTimes() {
-    this.lastTimes.forget()
-  }
-
   // Resolves once the cards show the session, or a later one.
   private static show(session: WorkoutSession | undefined): Promise<void> {
     const shown = this.draw(session, ++this.generation)
@@ -55,7 +50,7 @@ class ExerciseCardList {
         const snapshot =
           session?.exercises.find((e) => e.exerciseId === exerciseId) ?? (await catalogSnapshot(exerciseId))
         if (!snapshot) return undefined
-        return [snapshot, await planExercise(snapshot, session ?? planned, this.lastTimes.read)]
+        return [snapshot, await planExercise(snapshot, session ?? planned, this.lastTimes)]
       })
     )
 

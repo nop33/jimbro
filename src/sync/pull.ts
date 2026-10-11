@@ -1,9 +1,9 @@
 import { OBJECT_STORES } from '../db/constants'
-import { STORE_FOR_TABLE, cloneForIdb, mergeSetGroups, putRow, type Storage } from '../db/storage'
+import { cloneForIdb, putRow, type Storage } from '../db/storage'
 import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../db/types'
-import { rowKey, splitRowKey, type BootstrapAction } from './bootstrap'
+import { splitRowKey, type BootstrapAction } from './bootstrap'
 import type { MetaRecord, OutboxEntry } from './queue'
-import { canonical, rowsEqual } from './rows'
+import { canonical } from './rows'
 
 // A pulled entry without its revision.
 export const rowFromWire = (entry: Row & { rev: number }): Row => {
@@ -169,54 +169,4 @@ export async function commitFirstSync(
       }
     }
   })
-}
-
-// Resolves to the rows it stored. A steady sync pulls back the rows it just pushed, and another
-// tab's rows are already in this shared database, so a row equal to the stored one is skipped.
-export async function commitPullPage(
-  storage: Storage,
-  page: Array<Row & { rev: number }>,
-  cursor: number
-): Promise<Row[]> {
-  const db = await storage.connection()
-  const written: Row[] = []
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(
-      [
-        OBJECT_STORES.EXERCISES,
-        OBJECT_STORES.PROGRAMS,
-        OBJECT_STORES.WORKOUT_SESSIONS,
-        OBJECT_STORES.SETS,
-        OBJECT_STORES.SET_GROUPS,
-        OBJECT_STORES.OUTBOX,
-        OBJECT_STORES.META
-      ],
-      'readwrite'
-    )
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('commitPullPage failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('commitPullPage aborted'))
-    const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
-    const pendingRequest = outbox.getAll()
-    pendingRequest.onsuccess = () => {
-      const pending = new Set((pendingRequest.result as OutboxEntry[]).map((entry) => entry.key))
-      const incoming = page.map(rowFromWire).filter((row) => !pending.has(rowKey(row)))
-      const sets: SetRow[] = []
-      let unread = incoming.length
-      for (const row of incoming) {
-        const storedRequest = tx.objectStore(STORE_FOR_TABLE[row.table]).get(row.row.id)
-        storedRequest.onsuccess = () => {
-          if (!rowsEqual(storedRequest.result, row.row)) {
-            putRow(tx, row)
-            written.push(row)
-            if (row.table === 'sets') sets.push(row.row)
-          }
-          unread -= 1
-          if (unread === 0) mergeSetGroups(tx, sets)
-        }
-      }
-      tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: cursor })
-    }
-  })
-  return written
 }

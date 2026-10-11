@@ -5,8 +5,8 @@ import { rowsFromExport } from '../src/sync/rows'
 import type { ExportShape, Row } from '../src/db/types'
 import { API_BASE, claimUser, type WorkerUser } from './localWorker'
 
-// syncEngine.unit.test.ts and outbox.unit.test.ts cover the sync rules: first and steady sync, the outbox and the
-// reruns. These tests run the app against the real local worker, for what needs a browser, the worker or several tabs.
+// syncEngine.unit.test.ts and outbox.unit.test.ts cover the sync rules: the first sync, which restores, the push, the
+// outbox and the reruns. These tests run the app against the real local worker, for what needs a browser or the worker.
 
 const fixturePath = path.join(import.meta.dirname, '..', 'worker', 'test', 'fixtures', 'latest-v4.json')
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as ExportShape
@@ -274,7 +274,7 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   }
 })
 
-test('a push already on the wire is not the last write after another page edits', async ({ page }) => {
+test('a push already on the wire is not the last write after an edit made during it', async ({ page }) => {
   const user = claimUser()
   const set: SetBody = {
     id: 'wire-set',
@@ -285,12 +285,8 @@ test('a push already on the wire is not the last write after another page edits'
     isDeleted: false,
     updatedAt: '2026-09-27T12:00:00.000Z'
   }
-  const other = await page.context().newPage()
-  await other.addInitScript(() => {
-    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
-  })
   await signIn(page, user)
-  await signIn(other, user)
+  // The first sync, so the next one only pushes.
   await page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
@@ -319,33 +315,22 @@ test('a push already on the wire is not the last write after another page edits'
   const syncing = page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
-    await db.storage.writeRows([{ table: 'sets', row }])
+    await db.storage.writeRows([
+      { table: 'sets', row: { ...row, set: { ...row.set, weight: 50 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+    ])
     await client.sync()
   }, set)
   await pushed
-  const otherSync = other.evaluate(async (row) => {
-    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
-    const locks = navigator.locks
-    const original = locks.request.bind(locks) as (
-      name: string,
-      options?: unknown,
-      callback?: unknown
-    ) => Promise<unknown>
-    locks.request = ((name: string, options?: unknown, callback?: unknown) => {
-      if (name === 'jimbro:sync-push') Reflect.set(window, '__wireWaiting', true)
-      if (typeof options === 'function') return original(name, options)
-      return original(name, options, callback)
-    }) as typeof locks.request
+  // While weight 50 is on the wire, the page edits the set again and asks for a sync, which joins the running one
+  // and queues one more run.
+  await page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     const client = await import('/src/sync/syncClient.ts')
     await db.storage.writeRows([
-      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
+      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:02.000Z' } }
     ])
-    await client.sync()
-    Reflect.set(window, '__wireDone', true)
+    void client.sync().catch(() => undefined)
   }, set)
-  await other.waitForFunction(() => Reflect.get(window, '__wireWaiting') === true)
-  expect(await other.evaluate(() => Reflect.get(window, '__wireDone') === true)).toBe(false)
   const during = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   const duringSet = during?.row.set
   if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
@@ -354,18 +339,17 @@ test('a push already on the wire is not the last write after another page edits'
   expect(duringSet.weight).toBe(40)
   release?.()
   await syncing
-  await otherSync
   const local = await readLocalSet(page, set.id)
   if (!local) throw new Error('missing local set')
   expect(local.set.weight).toBe(99)
-  expect(await outbox(page)).toHaveLength(0)
+  // The rerun pushes the edit that the ack of weight 50 left queued.
+  await expect.poll(async () => (await outbox(page)).length).toBe(0)
   const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
   if (!stored) throw new Error('missing uploaded set')
   const uploaded = stored.row.set
   if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
   expect(uploaded.weight).toBe(99)
   await page.unroute('**/api/push')
-  await other.close()
 })
 
 test('a failed restore stays on the page', async ({ page }) => {
@@ -380,9 +364,9 @@ test('a failed restore stays on the page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
 })
 
-test('reset succeeds while another tab holds the database', async ({ page }) => {
-  // Another tab, a page Chromium prerendered or a page in the back/forward cache all hold a connection, and each
-  // closes it when the reset asks.
+test('reset succeeds while another page holds the database', async ({ page }) => {
+  // A page Chromium prerendered or a page in the back/forward cache holds a connection, and closes it when the reset
+  // asks. A second page in the same context stands in for them.
   const other = await page.context().newPage()
   await other.goto('/workouts/')
   await other.evaluate(async () => {
@@ -394,7 +378,7 @@ test('reset succeeds while another tab holds the database', async ({ page }) => 
   page.once('dialog', (dialog) => dialog.accept())
   await page.locator('#reset-database').click()
   await expect(page.locator('.toast-message-popup')).toHaveText('Database reset.')
-  // The other tab opens a new connection on its next read.
+  // The other page opens a new connection on its next read.
   const exerciseCount = await other.evaluate(async () => {
     const db = await import('/src/db/storage.ts')
     return db.storage.count('exercises')
@@ -451,30 +435,4 @@ test('an open settings page shows the outbox count after an offline write', asyn
   await page.context().setOffline(true)
   await writeSet(page, set)
   await expect(page.locator('#cloud-summary-status')).toHaveText('1 pending')
-})
-
-test('a write on another page moves the open settings count while offline', async ({ page }) => {
-  const user = claimUser()
-  const set: SetBody = {
-    id: 'count-other-set',
-    sessionId: 'count-other-session',
-    exerciseId: 'count-other-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 5, weight: 20 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  await signIn(page, user)
-  await page.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('jimbro:rows-written'))
-  })
-  await expect(page.locator('#cloud-summary-status')).toHaveText('0 pending')
-  const workout = await page.context().newPage()
-  await workout.goto('/workouts/')
-  await workout.evaluate(async () => {
-    await import('/src/db/storage.ts')
-  })
-  await page.context().setOffline(true)
-  await writeSet(workout, set)
-  await expect(page.locator('#cloud-summary-status')).not.toHaveText('0 pending')
 })

@@ -97,7 +97,7 @@ The page you keep open during a workout.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself.
 - A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, throws "Workout done!" instead, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
 - "Delete" in the header deletes the workout after a confirmation.
-- Changes to this workout from a sync or another tab show up without a reload. Whatever changed the workout, the cards update in place, so they keep the scroll position, the open card and a value typed into the next set's form.
+- Each change to the workout updates the cards in place, so they keep the scroll position, the open card and a value typed into the next set's form.
 
 ### Exercises (`/exercises/`)
 
@@ -126,14 +126,14 @@ Totals over completed workouts: the first workout's date and how long ago it was
 
 ## Cloud sync
 
-Sync is optional. Without credentials the app sends nothing to the worker.
+Sync is optional. Without credentials the app sends nothing to the worker. With them, the worker keeps a backup of the device's data and restores it onto a new install.
 
+- Each user runs the app on one device, as the installed PWA. Two devices on one account are not supported: neither sees the other's changes, and each push overwrites the server's copy of the rows it changed. Nor are two tabs: a page hears only its own notices, so another tab's changes show only after a reload.
 - Every write lands in IndexedDB first, in one transaction with an outbox entry for each changed row. Nothing waits for the network.
-- A sync runs on every page load, when the browser comes back online, when the tab becomes visible, 2 seconds after the last write, and on "Sync now". Offline, it does nothing.
-- A sync pushes the outbox to the worker in chunks of 500 rows. Then it pulls pages of up to 1000 rows above the device's cursor, which is the highest server revision the device has seen. A pulled row never replaces a row that still has changes waiting in the outbox.
-- The worker gives each changed row the next revision number of that user, so a pull returns only what changed.
-- A database that has never synced, after a fresh install or a reset, runs a first sync instead. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs.
-- Tabs share one database. Each tab announces its writes, finished syncs and pulled workout changes to the others over a BroadcastChannel, and a Web Lock lets one tab push at a time.
+- A sync runs on every page load, when the browser comes back online, when the app becomes visible, 2 seconds after the last write, and on "Sync now". Offline, it does nothing.
+- A sync pushes the outbox to the worker in chunks of 500 rows, and pulls nothing. With nothing queued it sends no request.
+- A database that has never synced, after a fresh install or a reset, runs a first sync instead, which restores the backup. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs. The seed exercises have fixed IDs, so a device that seeded before saving credentials keeps the server's copies of them.
+- A Web Lock keeps one push at a time, and an edit made while its row is on the wire stays queued for the next push.
 
 ## Worker API
 
@@ -213,7 +213,7 @@ The database is `gymbro-database`, version 9.
 | `outbox`          | `key`       |                           | One entry per row waiting to be pushed, keyed `table:id`            |
 | `meta`            | `name`      |                           | Sync state: `cursor`, `seq` and `bootstrapped`                      |
 
-- `cursor` is the highest server revision this device has pulled.
+- `cursor` is the highest server revision the first sync reached, by its pull or its push. Only the first sync moves it.
 - `seq` numbers the outbox entries, so a push can tell whether a row changed again while the push was running.
 - `bootstrapped` marks a first sync that finished with `cursor` still at 0, because neither side had any rows.
 
@@ -237,14 +237,14 @@ src/
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
     syncClient.ts      The app's sync(), wired to the worker and the open page
-    syncEngine.ts      createSync: first sync, steady sync and reruns, behind a server port
+    syncEngine.ts      createSync: the first sync (restore), the push and reruns, behind a server port
     server.ts          The server port, and httpServer, its adapter for the worker's API
     queue.ts           Outbox entries and meta, and queueRows, which writeRows calls in its transaction
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
-    pull.ts            The first-sync commit and the commit of each pulled page
+    pull.ts            The first sync's commit of what it pulled
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
-    pageChannel.ts     Page notices for this tab and, over a BroadcastChannel, the other tabs
+    pageChannel.ts     Page notices, as jimbro: window events
     freshness.ts       Whether the database changed since this page rendered it
     status.ts          Last sync time
   pages/               One folder per route
