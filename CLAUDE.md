@@ -67,6 +67,8 @@ Pages read and write through the stores in `db/`, which own all IndexedDB access
 
 **Dates are stored as strings**, not `Date` objects. Timestamps such as `updatedAt` are full ISO strings. A session's `date` is a calendar day, `YYYY-MM-DD`, in the user's time zone: `getSimpleDate` in `src/dateUtils.ts` makes one and `parseSimpleDate` reads one, since `toISOString()` and `new Date('2026-03-15')` both work in UTC and land on the wrong day away from it. Deletes are soft: all four row types carry `isDeleted`, and a deletion syncs like any other change. The stores' lists leave deleted rows out, while import and export read every row through `storage.getAll`.
 
+Weeks come from `src/weeks.ts`, which the home page and the workouts calendar share. `weekOf(date)` gives a day's Monday, which keys its week, and its ISO 8601 number and year. `trainingWeeks(sessions, programs, settings, today)` lists the weeks from the first session to today with their sessions, and gives the weekly goal and each program's latest workout this week and last completed date.
+
 ### Sync (`src/sync/`)
 
 - `rows.ts` holds `canonical`, `rowsEqual` and the conversions between rows, sessions and export files. The worker imports it and `db/types.ts`, so both stay free of browser APIs.

@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test'
-import {
-  formatShortDate,
-  getSimpleDate,
-  getWeekOfYear,
-  getWeeksKeysFromDateToNow,
-  parseSimpleDate
-} from '../src/dateUtils'
+import { formatShortDate, getSimpleDate, parseSimpleDate } from '../src/dateUtils'
 
 const withTimezone = <T>(timezone: string, callback: () => T): T => {
   const originalTimezone = process.env.TZ
@@ -22,101 +16,6 @@ const withTimezone = <T>(timezone: string, callback: () => T): T => {
   }
 }
 
-describe('getWeekOfYear', () => {
-  it('returns correctly formatted week string for early January', () => {
-    // Jan 1, 2024 is Monday. Since Jan 1 is 1st day, it should be week 1.
-    // oneJan.getDay() for 2024 is 1. numberOfDays is 0.
-    // weekNumber = Math.ceil((1 + 0) / 7) = Math.ceil(1/7) = 1.
-    const date = new Date(2024, 0, 1) // Jan 1, 2024
-    expect(getWeekOfYear(date)).toBe('2024-W1')
-  })
-
-  it('handles regular dates in the middle of the year', () => {
-    // For June 15, 2024
-    const date = new Date(2024, 5, 15) // June 15, 2024
-    expect(getWeekOfYear(date)).toBe('2024-W24')
-  })
-
-  it('handles leap years correctly', () => {
-    // 2024 is a leap year. Feb 29, 2024
-    const date = new Date(2024, 1, 29)
-    // Jan has 31 days + 28 days of Feb = 59.
-    // Jan 1, 2024 was Monday (day 1).
-    // numberOfDays = 59.
-    // Math.ceil((1 + 59) / 7) = Math.ceil(60 / 7) = Math.ceil(8.57) = 9.
-    expect(getWeekOfYear(date)).toBe('2024-W9')
-  })
-
-  it('handles week 53 rollover logic', () => {
-    // The current implementation of `getWeekOfYear`:
-    // weekNumber === 53 ? { year: year + 1, week: 1 } : { year, week: weekNumber }
-
-    // Let's find a date that hits week 53.
-    // Dec 31, 2023. Jan 1, 2023 was Sunday (0).
-    // numberOfDays = 364.
-    // Math.ceil((0 + 364) / 7) = Math.ceil(364 / 7) = 52.
-    // Dec 31, 2022. Jan 1, 2022 was Saturday (6).
-    // numberOfDays = 364.
-    // Math.ceil((6 + 364) / 7) = Math.ceil(370 / 7) = Math.ceil(52.85) = 53.
-
-    const date = new Date(2022, 11, 31) // Dec 31, 2022
-    // It should hit week 53 and roll over to 2023-W1
-    expect(getWeekOfYear(date)).toBe('2023-W1')
-  })
-
-  it('returns correctly for December 31 on non-week-53 years', () => {
-    // Dec 31, 2023.
-    const date = new Date(2023, 11, 31)
-    expect(getWeekOfYear(date)).toBe('2023-W52')
-  })
-
-  it('calculates the correct week across Daylight Saving Time boundaries', () => {
-    withTimezone('Europe/London', () => {
-      // In Europe/London, BST (UTC+1) starts in late March.
-      // So Jan 1 is UTC+0, but May 25 is UTC+1.
-      // The fractional day difference caused by `Math.floor` would cause May 25th 2026 to be incorrectly calculated as Week 21 instead of Week 22.
-      const date = new Date(2026, 4, 25) // May 25, 2026
-      expect(getWeekOfYear(date)).toBe('2026-W22')
-    })
-  })
-
-  it('calculates the correct week across Daylight Saving Time boundaries in another timezone', () => {
-    withTimezone('America/New_York', () => {
-      const date = new Date(2026, 4, 25) // May 25, 2026
-      expect(getWeekOfYear(date)).toBe('2026-W22')
-    })
-  })
-
-  it('calculates the correct week regardless of the time of day', () => {
-    const morningDate = new Date(2026, 4, 24, 8, 0, 0)
-    const afternoonDate = new Date(2026, 4, 24, 15, 0, 0)
-    const eveningDate = new Date(2026, 4, 24, 23, 59, 59)
-
-    expect(getWeekOfYear(morningDate)).toBe('2026-W21')
-    expect(getWeekOfYear(afternoonDate)).toBe('2026-W21')
-    expect(getWeekOfYear(eveningDate)).toBe('2026-W21')
-  })
-})
-
-describe('getWeeksKeysFromDateToNow', () => {
-  it('includes the current week even when the first date is later in the week', () => {
-    const firstWorkoutDate = new Date(2026, 4, 12) // Tuesday, Week 20
-    const today = new Date(2026, 4, 18) // Monday, Week 21
-
-    expect(getWeeksKeysFromDateToNow(firstWorkoutDate, today)).toEqual(['2026-W20', '2026-W21'])
-  })
-
-  it('includes the current week before 8am in UTC+8', () => {
-    withTimezone('Asia/Singapore', () => {
-      const earlyMorning = new Date(2026, 4, 18, 0, 30)
-      const today = getSimpleDate(earlyMorning)
-
-      expect(earlyMorning.toISOString().startsWith('2026-05-17')).toBe(true)
-      expect(getWeeksKeysFromDateToNow(parseSimpleDate(today), earlyMorning)).toEqual(['2026-W21'])
-    })
-  })
-})
-
 describe('getSimpleDate', () => {
   it('formats dates using the local calendar day', () => {
     expect(getSimpleDate(new Date(2026, 4, 18, 0, 30))).toBe('2026-05-18')
@@ -128,7 +27,6 @@ describe('getSimpleDate', () => {
 
       expect(earlyMorning.toISOString().startsWith('2026-05-17')).toBe(true)
       expect(getSimpleDate(earlyMorning)).toBe('2026-05-18')
-      expect(getWeekOfYear(earlyMorning)).toBe('2026-W21')
     })
   })
 })

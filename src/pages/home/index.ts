@@ -4,7 +4,7 @@ import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { getWorkoutModeSettings } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { reloadWhenStale } from '../reloadWhenStale'
-import { buildWeekOverview, daysBetween, type ProgramPick, type WeekOverview } from './weekOverview'
+import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
 
 const today = getSimpleDate(new Date())
 
@@ -17,9 +17,9 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 
 const formatDay = (date: string) => dayFormat.format(parseSimpleDate(date))
 
-const lastDoneText = (date: string | undefined) => {
-  if (!date) return 'Not done yet'
-  const days = daysBetween(date, today)
+const lastDoneText = (lastCompleted: ProgramPick['lastCompleted']) => {
+  if (!lastCompleted) return 'Not done yet'
+  const days = lastCompleted.daysAgo
   if (days === 0) return 'Last done today'
   if (days === 1) return 'Last done yesterday'
   return `Last done ${days} days ago`
@@ -79,10 +79,10 @@ const renderHighlights = ({ streak, volume, personalRecords }: WeekOverview) => 
   ;(document.getElementById('highlights') as HTMLUListElement).hidden = false
 }
 
-const pickMeta = ({ thisWeek, lastCompletedDate }: ProgramPick) => {
+const pickMeta = ({ thisWeek, lastCompleted }: ProgramPick) => {
   if (thisWeek?.status === 'completed') return `Done ${formatDay(thisWeek.date)}`
   if (thisWeek?.status === 'incomplete') return `Started ${formatDay(thisWeek.date)}`
-  return lastDoneText(lastCompletedDate)
+  return lastDoneText(lastCompleted)
 }
 
 const renderPicks = ({ picks }: WeekOverview) => {

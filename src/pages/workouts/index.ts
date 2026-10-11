@@ -7,25 +7,20 @@ import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import {
-  extractWeekKeyNumbers,
-  getSimpleDate,
-  getWeekOfYear,
-  getWeeksKeysFromDateToNow,
-  parseSimpleDate
-} from '../../dateUtils'
+import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
 import { reloadWhenStale } from '../reloadWhenStale'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
-import { getWorkoutModeSettings, getEffectiveWorkoutsPerWeek } from '../../settings'
+import { getWorkoutModeSettings } from '../../settings'
+import { trainingWeeks } from '../../weeks'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
-const workoutWeeks = await workoutSessionsStore.getAllGroupedByWeek()
-const programNames = await programsStore.getNameMap()
+const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
+const programNames = Object.fromEntries(programs.map((program) => [program.id, program.name]))
 const _isDbEmpty = await isDbEmpty()
 const canRestore =
   _isDbEmpty &&
@@ -33,18 +28,16 @@ const canRestore =
   (await getMeta(storage, 'cursor')) === 0 &&
   (await getMeta(storage, 'bootstrapped')) === 0
 const settings = getWorkoutModeSettings()
-const programCount = Object.keys(programNames).length
-const workoutsPerWeek = getEffectiveWorkoutsPerWeek(programCount)
+const today = getSimpleDate(new Date())
+const { goal, weeks, programs: programStatuses } = trainingWeeks(sessions, programs, settings, today)
+const [thisWeek] = weeks
 
-await IntroText.render(workoutWeeks, canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none')
-NewWorkoutDialog.init(workoutWeeks)
+await IntroText.render(
+  { completed: thisWeek.completed, goal, programCount: programs.length },
+  canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none'
+)
+NewWorkoutDialog.init(programStatuses)
 WorkoutModeDialog.init()
-
-const todayDate = new Date()
-const today = getSimpleDate(todayDate)
-const currentWeekKey = getWeekOfYear(todayDate)
-const dateOfFirstWorkoutSession = (await workoutSessionsStore.getDateOfFirst()) ?? today
-const weeksKeys = getWeeksKeysFromDateToNow(parseSimpleDate(dateOfFirstWorkoutSession)).reverse()
 
 const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
   const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
@@ -132,10 +125,10 @@ if (_isDbEmpty) {
     workoutWeeksContainer.appendChild(seedDbButton)
   }
 } else {
-  weeksKeys.forEach((weekKey) => {
-    const workoutsOfThisWeek = workoutWeeks[weekKey] ?? []
+  weeks.forEach(({ week, sessions: workoutsOfThisWeek }) => {
+    const isThisWeek = week.monday === thisWeek.week.monday
 
-    if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && weekKey !== currentWeekKey) {
+    if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && !isThisWeek) {
       return
     }
 
@@ -143,23 +136,22 @@ if (_isDbEmpty) {
     const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('.workout-week-list') as HTMLUListElement
     workoutsOfThisWeekList.style.gridTemplateColumns = `repeat(3, minmax(0, 1fr))`
 
-    const { year, week } = extractWeekKeyNumbers(weekKey)
-    setTextContent('.workout-week-week', `Week ${week}`, workoutWeekTemplate)
-    setTextContent('.workout-week-year', `of ${year}`, workoutWeekTemplate)
+    setTextContent('.workout-week-week', `Week ${week.number}`, workoutWeekTemplate)
+    setTextContent('.workout-week-year', `of ${week.year}`, workoutWeekTemplate)
 
     workoutsOfThisWeek.forEach((workout) => {
       const workoutItem = renderWorkoutSession(workout)
       workoutsOfThisWeekList.appendChild(workoutItem)
     })
 
-    if (settings.mode === 'rotation' && workoutsOfThisWeek.length < workoutsPerWeek) {
+    if (settings.mode === 'rotation' && workoutsOfThisWeek.length < goal) {
       const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
       const missingProgramsIds = Object.keys(programNames).filter(
         (programId) => !recordedWorkoutPrograms.includes(programId)
       )
 
       missingProgramsIds.forEach((missingProgramId) => {
-        const status = weekKey === currentWeekKey ? 'pending' : 'skipped'
+        const status = isThisWeek ? 'pending' : 'skipped'
         const workoutItem = renderWorkoutSession({
           programId: missingProgramId,
           status: status,
