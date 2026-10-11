@@ -101,3 +101,31 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
   await volume.click()
   await expect(volume).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('the history chart draws its lines at once, without animating, under reduced motion', async ({ page }) => {
+  const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto(`/gymtime/?id=${sessionId}`)
+  const card = page.locator('details.exercise-details').first()
+  await card.locator('summary').click()
+  await card.locator('.view-history-btn').click()
+  await expect(page.locator('#exercise-history-dialog')).toBeVisible()
+
+  // An animated chart paints its lines a little further on every frame for a second, so the first painted frame and
+  // the ones after it differ. A chart that does not animate paints the same pixels on every frame.
+  const framesDiffer = await page.evaluate(async () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
+    if (!canvas) throw new Error('no chart canvas')
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+    while (!canvas.hasAttribute('style')) await nextFrame()
+    await nextFrame()
+    const first = canvas.toDataURL()
+    const later = []
+    for (let frame = 0; frame < 10; frame++) {
+      await nextFrame()
+      later.push(canvas.toDataURL())
+    }
+    return later.some((pixels) => pixels !== first)
+  })
+  expect(framesDiffer).toBe(false)
+})

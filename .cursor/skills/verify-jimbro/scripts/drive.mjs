@@ -69,19 +69,20 @@ async function withPage(device, fn) {
 const see = (locator) => locator.first().waitFor({ state: 'visible' })
 const gone = (locator) => locator.first().waitFor({ state: 'hidden' })
 
-// Waits until a canvas paints the same pixels on two frames in a row, so a chart has finished drawing.
+// Waits until a canvas keeps its size and pixels for five frames in a row, so a chart has finished drawing and
+// resizing. A canvas resized but not yet redrawn shows its old drawing stretched for a frame.
 const stillCanvas = (locator) =>
   locator.evaluate(
     (canvas) =>
       new Promise((resolve) => {
         let last = ''
+        let same = 0
         const check = () => {
-          const now = canvas.toDataURL()
-          if (now === last && now.length > 2000) resolve()
-          else {
-            last = now
-            requestAnimationFrame(check)
-          }
+          const now = `${canvas.width}x${canvas.height} ${canvas.clientWidth}x${canvas.clientHeight} ${canvas.toDataURL()}`
+          same = now === last && now.length > 2000 ? same + 1 : 0
+          last = now
+          if (same >= 5) resolve(undefined)
+          else requestAnimationFrame(check)
         }
         requestAnimationFrame(check)
       })
