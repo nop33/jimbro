@@ -27,10 +27,9 @@ Usage: control-jimbro <command>
   url        Print the verification origin
   snapshot <route> --out <dir>
              Screenshot + ARIA of one route
-  drive <feature|all>
-             Run a mapped feature (home, workouts, gymtime, exercises,
-             programs) or all of them, and write artifacts.
-             JIMBRO_VERIFY_DEVICE=iphone13 (default) or pixel8pro
+  tour [--device iphone13|pixel8pro] [--only <slug part>]
+             Screenshot every mapped screen and dialog on both phones
+             (or one), and write artifacts/tour/index.html
   cleanup    Kill only the pid this launch started
 EOF
 }
@@ -262,8 +261,8 @@ case "${cmd:-}" in
     out=$2
     run_drive snapshot "$route" "$out"
     ;;
-  drive)
-    run_drive drive "${1:-}"
+  tour)
+    run_drive tour "$@"
     ;;
   -h|--help|help|"") usage ;;
   *)

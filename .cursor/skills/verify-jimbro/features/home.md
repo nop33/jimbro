@@ -4,38 +4,31 @@ Home is `/`. It greets the user, shows this week's workouts and highlights, and 
 
 ## Sub-features
 
-- `home-heading` shows `Hey, gymbro.` and title `Jimbro`.
-- `home-empty` shows `Let's set up your first workout.` and a `Get started` link to `/workouts/` when no programs exist.
-- `home-week` shows seven `.week-day` cells, today's with `aria-current="date"`, and `#week-count` such as `1 of 3 workouts`.
-- `home-highlights` shows streak, volume and records tiles in `#highlights` once a workout exists. They are hidden on an empty database.
-- `home-picks` lists one `.program-pick` per program under `Pick your workout`. The suggested one has `data-suggested` and reads `Start ›`, or `Continue ›` with an `?id=` link when a workout of it started this week.
-- `home-settings` opens Settings from the header link.
-- `home-nav` shows the bottom nav with the current page's link marked `aria-current="page"`.
+- `home-heading` shows `Hey, gymbro.`, title `Jimbro`, and a `Settings` link.
+- `home-empty` shows `Let's set up your first workout.` and a `Get started` link to `/workouts/` when no programs exist. `#week-count` reads `0 workouts`.
+- `home-week` shows `#week-count` (`N of M workouts`, M being the program count in rotation mode or the weekly goal in freestyle), the `#week-goal` bar, and seven `.week-day` cells with `data-status`. Today's cell has `aria-current="date"`.
+- `home-highlights` shows streak, volume (with `▲/▼/= N% vs last week`) and records tiles in `#highlights`. They appear once any workout session exists, not when programs merely exist.
+- `home-picks` lists one `.program-pick` per program under `Pick your workout`, each with a meta line (`Not done yet`, `Last done …`, `Done …`, `Started …`). The suggested pick has `data-suggested` and reads `Start ›` (link to `?programId=`), or `Continue ›` (link to `?id=`) for a workout of it started and unfinished this week. Others read `›`. When the week's goal is met and nothing is unfinished, no pick is suggested.
+- `home-install` shows `Install Jimbro for quick access` with an `Install` button in a browser tab, hidden when running installed. Without a captured `beforeinstallprompt` (iOS, Playwright), Install shows an alert about `Add to Home Screen`.
+- `home-nav` shows the bottom nav (Home, Workouts, Exercises, Programs, Stats) with the current page's link marked `aria-current="page"`.
 
 ## How to get to it (user POV)
 
-- Open `/` in the browser.
+- Open `/` in the browser, or the installed app.
 - Choose `Home` in the bottom nav from any other page.
-- Install the PWA and open it from the home screen.
 
 ## Driving it with control-jimbro
 
-Preconditions:
+Preconditions: `control-jimbro doctor` passes.
 
-- `control-jimbro doctor` passes.
-- The drive starts from an empty database, as every `drive` does.
-
-- **Run it.** `control-jimbro drive home`. It writes `artifacts/<device>/home/`.
-- **Empty home.** Chromium loads `/`. The heading is `Hey, gymbro.` and `Let's set up your first workout.` is visible. Evidence: `home-empty.png` and `.aria.yml`.
-- **Get started.** It clicks `getByRole('link', { name: 'Get started' })`. The URL is `/workouts/`, the heading is `Workouts`, and `.nav-link[aria-current="page"][href="/workouts/"]` is visible.
-- **Seeded home.** It clicks `Seed Database`, then `getByRole('link', { name: 'Home' })` in the nav. `.week-day[aria-current="date"]` and `.program-pick[data-suggested]` are visible. Evidence: `home-seeded.png`.
-- **Start the suggested program.** It clicks the suggested pick. The URL matches `/gymtime/?programId=`. Evidence: `gymtime-from-pick.png`.
-- **Settings entry.** By hand: from `/`, click `getByRole('link', { name: 'Settings', exact: true })`. The URL is `/settings/` and the heading is `Settings`.
-- **Proof.** `proof.txt` lists both headings, the suggested pick's text and the URL after the pick.
+- **Tour stops.** `01-home-empty` shows the empty home. `04-home` shows the week, highlights and a suggested `Start ›` pick after the tour imports a year of history ending last Sunday.
+- **By hand: start the suggested program.** Click `.program-pick[data-suggested]`. The URL matches `/gymtime/?programId=`. Save the workout there, return Home, and the same pick reads `Continue ›` with an `?id=` link.
+- **By hand: Settings.** Click `getByRole('link', { name: 'Settings', exact: true })`. The URL is `/settings/`.
+- **By hand: Install.** Register `page.once('dialog', …)` first, then click `getByRole('button', { name: 'Install' })`. The alert mentions `Add to Home Screen`.
 
 ## Gotchas
 
-- The week, the streak and `Start` versus `Continue` depend on today's date. `tests/home.spec.ts` fixes the clock with `page.clock.setFixedTime`. A drive uses the real clock, so check the counts against today rather than hard-coding them.
-- Highlights and picks stay hidden until a program exists. An empty home that shows them is a bug, not a leftover.
+- The week, the streak and `Start` versus `Continue` follow today's date in Athens (the tour's time zone). `tests/home.spec.ts` fixes the clock with `page.clock.setFixedTime`; a by-hand drive uses the real clock, so check counts against today.
+- Seeding adds programs but no sessions, so after `Seed Database` the picks show and highlights stay hidden.
+- Home reloads itself when it becomes visible again after the day, the workout mode or the database changed (`src/pages/reloadWhenStale.ts`), so a tab switch mid-drive can reload it.
 - The Settings link uses `exact: true` because other copy can include the word Settings.
-- Driving `/` on port 5173 is not this feature. Origin must be the verification URL.
