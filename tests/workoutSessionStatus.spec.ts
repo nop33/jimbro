@@ -213,6 +213,14 @@ test.describe('Workout session status reconciliation', () => {
     last.sets = last.sets.slice(2)
 
     await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    // Records the vibration patterns, which the haptic feedback on every tap also sends as a bare number.
+    await page.addInitScript(() => {
+      const patterns: Array<number | Array<number>> = []
+      Object.assign(window, { vibrations: patterns })
+      Object.defineProperty(navigator, 'vibrate', {
+        value: (pattern: number | Array<number>) => patterns.push(pattern) > 0
+      })
+    })
     await page.goto(`/gymtime/?id=${sessionId}`)
 
     const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
@@ -231,6 +239,11 @@ test.describe('Workout session status reconciliation', () => {
     await expect(page.locator('.confetti-text')).toHaveText('Workout done!')
     await expect(breakTimer).toBeHidden()
     await exportDownload
+    // Finishing the workout vibrates with its own longer pattern.
+    const patterns = await page.evaluate(
+      () => (window as unknown as { vibrations: Array<number | Array<number>> }).vibrations
+    )
+    expect(patterns.filter(Array.isArray)).toEqual([[60, 40, 60, 40, 60, 80, 400]])
   })
 
   test('saving the session form heals a session whose stored status is stale', async ({ page }) => {

@@ -87,9 +87,15 @@ export const alertIfInSession = (exerciseId: Exercise['id']): boolean => {
 // A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or set
 // added afterwards makes it incomplete again. Without cloud backup, a finished workout also downloads a JSON export,
 // the only copy outside this browser.
+// Vibration patterns, in ms of buzz and pause: a short triple for an exercise, and a "ta-da-da-daaa" fanfare for the
+// workout. Safari has no Vibration API, so both are silent there.
+const EXERCISE_DONE_VIBRATION = [50, 30, 50, 30, 70]
+const WORKOUT_DONE_VIBRATION = [60, 40, 60, 40, 60, 80, 400]
+
 const actOn = async (outcome: Outcome): Promise<void> => {
   switch (outcome.kind) {
     case 'workout-done':
+      navigator.vibrate?.(WORKOUT_DONE_VIBRATION)
       BreakTimerDialog.closeDialog()
       throwConfetti('Workout done!')
       if (getCloudBackupConfig()) return
@@ -101,7 +107,7 @@ const actOn = async (outcome: Outcome): Promise<void> => {
       }
       return
     case 'exercise-done':
-      navigator.vibrate?.([50, 30, 50, 30, 70])
+      navigator.vibrate?.(EXERCISE_DONE_VIBRATION)
       BreakTimerDialog.closeDialog()
       throwConfetti('Exercise done!')
       return
