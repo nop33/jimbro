@@ -190,7 +190,7 @@ export class WorkoutSessionsStore {
   // a set of the exercise, preferring one at the same gym. Without a session, the latest at any gym.
   async lastTimeOf(
     exerciseId: Exercise['id'],
-    session?: Pick<WorkoutSession, 'id' | 'date' | 'location'>
+    session?: Pick<WorkoutSession, 'date' | 'location'> & { id?: WorkoutSession['id'] }
   ): Promise<LastTime | undefined> {
     const earlier = (header: SessionHeader) =>
       hasExercise(header, exerciseId) && (!session || (header.id !== session.id && header.date <= session.date))
@@ -278,9 +278,25 @@ export class WorkoutSessionsStore {
     return this.save(withExerciseAt(session, index, { ...exercise, sets }), [{ ...stored, set, updatedAt }], updatedAt)
   }
 
-  async addExercise(session: WorkoutSession, exercise: Exercise): Promise<WorkoutSession> {
+  // targetSets defaults to the exercise's own.
+  async addExercise(
+    session: WorkoutSession,
+    exercise: Exercise,
+    targetSets = exercise.targetSets
+  ): Promise<WorkoutSession> {
     if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
-    return this.save({ ...session, exercises: [...session.exercises, { ...snapshotFromExercise(exercise), sets: [] }] })
+    return this.save({
+      ...session,
+      exercises: [...session.exercises, { ...snapshotFromExercise(exercise), targetSets, sets: [] }]
+    })
+  }
+
+  // One more set to do for the exercise today, which leaves the session incomplete until it is logged.
+  async addSetSlot(session: WorkoutSession, exerciseId: Exercise['id']): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const exercise = session.exercises[index]
+    const targetSets = Math.max(exercise.targetSets, exercise.sets.length) + 1
+    return this.save(withExerciseAt(session, index, { ...exercise, targetSets }))
   }
 
   // Soft-deletes the exercise's sets with it.
@@ -295,14 +311,15 @@ export class WorkoutSessionsStore {
   async swapExercise(
     session: WorkoutSession,
     oldExerciseId: Exercise['id'],
-    exercise: Exercise
+    exercise: Exercise,
+    targetSets = exercise.targetSets
   ): Promise<WorkoutSession> {
     if (hasExercise(session, exercise.id)) throw new Error('Exercise already exists in workout session')
     const index = indexOfExercise(session, oldExerciseId)
     const updatedAt = nowIso()
     const removed = tombstones(liveSets(await this.setsOf(session.id), oldExerciseId), updatedAt)
     return this.save(
-      withExerciseAt(session, index, { ...snapshotFromExercise(exercise), sets: [] }),
+      withExerciseAt(session, index, { ...snapshotFromExercise(exercise), targetSets, sets: [] }),
       removed,
       updatedAt
     )

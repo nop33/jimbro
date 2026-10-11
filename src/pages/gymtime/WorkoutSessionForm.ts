@@ -3,6 +3,7 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import { placeholderSnapshot, snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import Toasts from '../../features/toasts'
+import { startingTargetSets } from './exercisePlan'
 import { openSession } from './openSession'
 
 class WorkoutSessionForm {
@@ -77,7 +78,9 @@ class WorkoutSessionForm {
       const exercises = await Promise.all(
         program.exercises.map(async (exerciseId) => {
           const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
-          return exercise ? snapshotFromExercise(exercise) : placeholderSnapshot(exerciseId)
+          if (!exercise) return placeholderSnapshot(exerciseId)
+          const snapshot = snapshotFromExercise(exercise)
+          return { ...snapshot, targetSets: await startingTargetSets(snapshot, { date, location }) }
         })
       )
 

@@ -1,4 +1,4 @@
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
+import { snapshotFromExercise, workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { onPageNotice } from '../../sync/pageChannel'
@@ -7,6 +7,7 @@ import { setTextContent } from '../../utils'
 import AddExerciseDialog from './AddExerciseDialog'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import ExerciseCardList from './ExerciseCardList'
+import { startingTargetSets } from './exercisePlan'
 import { alertIfInSession, openSession } from './openSession'
 import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
@@ -43,7 +44,13 @@ class GymtimePage {
     AddExerciseDialog.init(async (exercise) => {
       if (!openSession.current || alertIfInSession(exercise.id)) return
 
-      await openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
+      await openSession.apply(async (session) =>
+        workoutSessionsStore.addExercise(
+          session,
+          exercise,
+          await startingTargetSets(snapshotFromExercise(exercise), session)
+        )
+      )
       await ExerciseCardList.render()
     })
 

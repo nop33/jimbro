@@ -219,9 +219,11 @@ test.describe('gymtime with cloud sync', () => {
     const push = worker.holdPushes()
     await logSet(page, card, { reps: '10', weight: '100' })
 
-    await card.getByRole('button', { name: 'Add set' }).click()
     const slots = card.locator('.completed-sets .set')
-    const slotCount = await slots.count()
+    const slotCount = (await slots.count()) + 1
+    // Add set stores the extra set in the session, and the slot shows once that write lands.
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(slots).toHaveCount(slotCount)
     const nextReps = card.locator('.next-set-form input[name="set-reps"]')
     await nextReps.fill('7')
     const before = await cardNodes(page)
@@ -305,9 +307,11 @@ test.describe('gymtime with cloud sync', () => {
     await startSyncedWorkout(page)
     const card = firstCard(page)
     await logSet(page, card, { reps: '10', weight: '100' })
-    await card.getByRole('button', { name: 'Add set' }).click()
     const slots = card.locator('.completed-sets .set')
-    const slotCount = await slots.count()
+    const slotCount = (await slots.count()) + 1
+    // Add set stores the extra set in the session, and the slot shows once that write lands.
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(slots).toHaveCount(slotCount)
     const nextReps = card.locator('.next-set-form input[name="set-reps"]')
     await nextReps.fill('7')
     const before = await cardNodes(page)

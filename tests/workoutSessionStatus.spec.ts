@@ -270,6 +270,44 @@ test.describe('Workout session status reconciliation', () => {
     await expect(sessionCard).toHaveClass(/card-warning/)
   })
 
+  test('the workout celebrates each time it goes from incomplete to completed', async ({ page }) => {
+    const sessionId = crypto.randomUUID()
+    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
+    const last = exercises[exercises.length - 1]
+    last.sets = last.sets.slice(1)
+
+    await writeSessionToIdb(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+    await page.evaluate(() => {
+      Reflect.set(window, '__workoutsDone', 0)
+      new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node instanceof HTMLElement && node.querySelector('.confetti-text')?.textContent === 'Workout done!') {
+              Reflect.set(window, '__workoutsDone', (Reflect.get(window, '__workoutsDone') as number) + 1)
+            }
+          }
+        }
+      }).observe(document.body, { childList: true })
+    })
+    const workoutsDone = () => page.evaluate(() => Reflect.get(window, '__workoutsDone') as number)
+
+    const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
+    await lastCard.scrollIntoViewIfNeeded()
+    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.getByRole('button', { name: 'Finished set' }).click()
+    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
+    await expect.poll(workoutsDone).toBe(1)
+
+    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.getByRole('button', { name: 'Add set' }).click()
+    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('incomplete')
+
+    await lastCard.getByRole('button', { name: 'Finished set' }).click()
+    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
+    await expect.poll(workoutsDone).toBe(2)
+  })
+
   test('saving the session form heals a session whose stored status is stale', async ({ page }) => {
     // Simulate a session that was bugged before the fix: all exercises fully
     // logged but status stored as 'incomplete'. Saving the form should heal it.

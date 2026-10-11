@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Exercise } from '../src/db/stores/exercisesStore'
 import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import { planExercise } from '../src/pages/gymtime/exercisePlan'
+import { nextSetValues, planExercise, startingTargetSets } from '../src/pages/gymtime/exercisePlan'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())
@@ -37,7 +37,7 @@ describe('planExercise', () => {
   it('takes last time from an earlier workout, never from the open one', async () => {
     const bench = exercise('bench')
     await workout(bench, '2026-10-01', 'Zurich', [40, 45, 50, 50, 50])
-    const today = await workout(bench, '2026-10-08', 'Zurich', [55])
+    const today = await workout(bench, '2026-10-08', 'Zurich', [40])
 
     const plan = await planExercise(snapshotFromExercise(bench), today)
 
@@ -45,8 +45,7 @@ describe('planExercise', () => {
       date: '2026-10-01',
       sets: [lift(40), lift(45), lift(50), lift(50), lift(50)]
     })
-    expect(plan.targetSets).toBe(5)
-    expect(plan.prefill).toEqual({ reps: 5, weight: 55 })
+    expect(plan.prefill).toEqual({ reps: 5, weight: 45 })
   })
 
   it('prefers last time at the same gym, and falls back to any gym', async () => {
@@ -69,7 +68,6 @@ describe('planExercise', () => {
 
     const plan = await planExercise(snapshotFromExercise(squat), past)
     expect(plan.lastTime?.date).toBe('2026-08-25')
-    expect(plan.targetSets).toBe(3)
     expect(plan.prefill).toEqual({ reps: 5, weight: 80 })
   })
 
@@ -82,13 +80,47 @@ describe('planExercise', () => {
     expect(plan.lastTime?.date).toBe('2026-10-01')
   })
 
-  it('aims for at least the sets the open workout already holds', async () => {
+  it("aims for the session's own target, or the sets it holds when more", async () => {
     const curl = exercise('curl', 2)
-    const today = await workout(curl, '2026-10-08', 'Zurich', [10, 10, 12])
+    await workout(curl, '2026-10-01', 'Zurich', [10, 10, 10, 10])
+    expect((await planExercise(snapshotFromExercise(curl), undefined)).targetSets).toBe(4)
 
-    const plan = await planExercise(snapshotFromExercise(curl), today)
-    expect(plan.lastTime).toBeUndefined()
-    expect(plan.targetSets).toBe(3)
-    expect(plan.prefill).toEqual({ reps: 5, weight: 12 })
+    const today = await workout(curl, '2026-10-08', 'Zurich', [10, 10, 12])
+    expect((await planExercise(today.exercises[0], today)).targetSets).toBe(3)
+  })
+})
+
+describe('startingTargetSets', () => {
+  it("raises the exercise's target to last time's set count at the gym", async () => {
+    const dip = exercise('dip', 3)
+    await workout(dip, '2026-10-01', 'Zurich', [0, 0, 0, 0, 0])
+    await workout(dip, '2026-10-05', 'Athens', [0, 0])
+
+    expect(await startingTargetSets(snapshotFromExercise(dip), { date: '2026-10-08', location: 'Zurich' })).toBe(5)
+    expect(await startingTargetSets(snapshotFromExercise(dip), { date: '2026-10-08', location: 'Athens' })).toBe(3)
+  })
+})
+
+describe('nextSetValues', () => {
+  const snapshot = snapshotFromExercise(exercise('fly'))
+  const lastTime = { date: '2026-10-01', location: 'Zurich', sets: [lift(40), lift(45), lift(50)] }
+
+  it('starts from last time, set by set', () => {
+    expect(nextSetValues(snapshot, [], lastTime)).toEqual({ reps: 5, weight: 40 })
+    expect(nextSetValues(snapshot, [lift(40)], lastTime)).toEqual({ reps: 5, weight: 45 })
+  })
+
+  it("carries today's weight change into the sets after it", () => {
+    expect(nextSetValues(snapshot, [lift(42.5)], lastTime)).toEqual({ reps: 5, weight: 47.5 })
+    expect(nextSetValues(snapshot, [lift(42.5), lift(45)], lastTime)).toEqual({ reps: 5, weight: 50 })
+  })
+
+  it("repeats today's latest set past last time's sets, and uses the defaults with no last time", () => {
+    expect(nextSetValues(snapshot, [lift(40), lift(45), lift(52.5)], lastTime)).toEqual({ reps: 5, weight: 52.5 })
+    expect(nextSetValues(snapshot, [], undefined)).toEqual({ reps: 5 })
+    expect(nextSetValues(snapshot, [{ preset: 'lifting', reps: 8, weight: 20 }], undefined)).toEqual({
+      reps: 8,
+      weight: 20
+    })
   })
 })
