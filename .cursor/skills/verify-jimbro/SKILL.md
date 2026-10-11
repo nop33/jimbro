@@ -5,7 +5,7 @@ description: Drive the Jimbro workout-tracking PWA in a real browser. Use when p
 
 # Verify Jimbro
 
-Jimbro is a vanilla TypeScript PWA. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login. Pages are full HTML loads, not an SPA.
+Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login; cloud sync takes a user ID and token in Settings. Pages are full HTML loads, not an SPA.
 
 This skill is for agents. Follow the feature map under `features/`. Do not invent selectors. Do not call product code or IndexedDB from the console as a substitute for the user path.
 
@@ -19,7 +19,7 @@ From the repo root:
 .cursor/skills/verify-jimbro/scripts/control-jimbro launch
 ```
 
-That starts `vp run dev --host 127.0.0.1 --port 5174 --strictPort` (override with `JIMBRO_VERIFY_PORT`) and writes pid/url under `.cursor/skills/verify-jimbro/.run/`. Ready means `GET $JIMBRO_VERIFY_URL/` returns HTML whose `<title>` is `Jimbro`.
+That starts `vp run dev --host 127.0.0.1 --port 5174 --strictPort` (override with `JIMBRO_VERIFY_PORT`) with `VITE_API_BASE` pointed at a dead local address (override with `JIMBRO_VERIFY_API_BASE`), so a run can never sync with the production worker. It uses the repo's own `vp` when none is on PATH. It and writes pid/url under `.cursor/skills/verify-jimbro/.run/`. Ready means `GET $JIMBRO_VERIFY_URL/` returns HTML whose `<title>` is `Jimbro`.
 
 Two instances can run side by side on different ports. Different ports are different origins, so they do not share IndexedDB.
 
@@ -54,22 +54,29 @@ Print the URL:
 Prefer Playwright through the helper. Each Playwright context gets an empty IndexedDB, which is the isolated data dir for this app.
 
 ```bash
-.cursor/skills/verify-jimbro/scripts/control-jimbro drive home
+.cursor/skills/verify-jimbro/scripts/control-jimbro drive gymtime
+.cursor/skills/verify-jimbro/scripts/control-jimbro drive all
+JIMBRO_VERIFY_DEVICE=pixel8pro .cursor/skills/verify-jimbro/scripts/control-jimbro drive all
 .cursor/skills/verify-jimbro/scripts/control-jimbro snapshot / --out .cursor/skills/verify-jimbro/artifacts/scratch
 ```
 
-`drive` and `snapshot` launch Chromium, hit `$JIMBRO_VERIFY_URL`, and write PNG + ARIA YAML. They do not reuse a human browser profile.
+`drive <feature>` runs that feature's recipe from `features/` (home, workouts, gymtime, exercises, programs) in a fresh Chromium context and fails on the first step the app does not show, or on any uncaught page error. `drive all` runs every one. `snapshot` captures one route. Both write PNG + ARIA YAML and do not reuse a human browser profile.
 
-Cursor browser tools are allowed only against the verification URL from `control-jimbro url`. IndexedDB then persists in that browser profile. Before a mutating drive, reset via Settings as in `features/README.md`. If a human tab is already on that same verification origin, refuse and ask them to close it.
+`JIMBRO_VERIFY_DEVICE` picks the phone: `iphone13` (default, 390×844) or `pixel8pro` (448×998). They are Jimbro's two real devices, so prove a UI change on both. Chromium emulates the iPhone's viewport and touch, not WebKit; the repo's WebKit specs run on CI.
+
+For a check no drive covers, write a throwaway Playwright script against `$JIMBRO_VERIFY_URL` that follows the feature map, or add a drive when the check will matter again.
+
+Browser tools (Cursor's, or Claude in Chrome) are allowed only against the verification URL from `control-jimbro url`. IndexedDB then persists in that browser profile. Before a mutating drive, reset via Settings as in `features/README.md`. If a human tab is already on that same verification origin, refuse and ask them to close it.
 
 Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locators. Match them. Stable handles used across pages:
 
 | Control | Handle |
 | --- | --- |
 | Home heading | `getByRole('heading', { name: 'Hey, gymbro.' })` |
-| Start workout | `getByRole('link', { name: 'Start workout' })` |
+| Get started (empty home) | `getByRole('link', { name: 'Get started' })` |
+| Suggested program (home) | `.program-pick[data-suggested]` |
 | Settings (home) | `getByRole('link', { name: 'Settings', exact: true })` |
-| Bottom nav | `.nav-link` with href `/`, `/workouts/`, `/exercises/`, `/programs/`, `/stats/` |
+| Bottom nav | `getByRole('link', { name: 'Workouts' })` etc.; the current page's `.nav-link` has `aria-current="page"` |
 | New (exercises/programs) | `getByRole('button', { name: 'New' })` |
 | New workout | `getByRole('button', { name: 'New' })` (accessible name is `Add new workout`) |
 | Close dialog | `getByRole('button', { name: 'Close dialog' })` |
@@ -90,9 +97,10 @@ Standards:
 - Exercise the real user path. Do not `indexedDB.deleteDatabase` or call `exercisesStore.seed()` from the console as the proof.
 - Capture the action and the resulting state. A final screenshot without the click that produced it is incomplete.
 - After a mutation, reopen the record from a list or another page. A toast alone is not persistence.
-- Record the feature ID, URL, and entry point in `proof.txt` next to the PNG/ARIA files.
+- Record the feature ID, URL, device and entry point in `proof.txt` next to the PNG/ARIA files. `drive` does this.
+- Wait for what the app shows or stores, never a fixed time, and never force a click. Both rules come from the repo's specs.
 - UI proof is an ARIA snapshot plus a screenshot that shows the Jimbro heading or bottom nav.
-- Side effects to check: IndexedDB rows visible after reload, downloaded `jimbro-export-*.json` for export, workout URL changing from `?programId=` to `?id=` after save.
+- Side effects to check: IndexedDB rows visible after reload and read back read-only (the gymtime drive writes `db.json`), downloaded `jimbro-export-*.json` for export, workout URL changing from `?programId=` to `?id=` after save.
 
 Mocks: none for the PWA itself. Cloud Backup talks to an external worker. Do not enter real tokens. Skip cloud restore unless using disposable credentials the user provided.
 
@@ -106,7 +114,7 @@ Kills the pid this run started. Leaves `artifacts/` in place. After a failed ite
 
 Do not `pkill -f vite` or kill by process name. That can take down the user's 5173 server.
 
-Playwright contexts die with the Node process. Cursor browser tabs you opened should be closed, not left on `/settings/` with a reset in progress.
+Playwright contexts die with the Node process. Browser tabs you opened should be closed, not left on `/settings/` with a reset in progress.
 
 ## Helpers
 
@@ -117,7 +125,7 @@ All commands are run from the repo root. The script is executable.
 .cursor/skills/verify-jimbro/scripts/control-jimbro doctor
 .cursor/skills/verify-jimbro/scripts/control-jimbro url
 .cursor/skills/verify-jimbro/scripts/control-jimbro snapshot /workouts/ --out .cursor/skills/verify-jimbro/artifacts/scratch
-.cursor/skills/verify-jimbro/scripts/control-jimbro drive home
+.cursor/skills/verify-jimbro/scripts/control-jimbro drive <feature|all>
 .cursor/skills/verify-jimbro/scripts/control-jimbro cleanup
 ```
 
@@ -125,4 +133,4 @@ All commands are run from the repo root. The script is executable.
 
 Repo Playwright suite (`pnpm test` / `playwright test`) auto-starts `vp run dev` on 5173 and is a regression net, not this skill's isolated proof. Use it when you need the full spec file. Use this skill when you need a disposable origin, artifacts, and a user-path drive mid-task.
 
-First machine: `vp exec playwright install chromium` so `drive` and `snapshot` can launch Chromium.
+First machine: `vp exec playwright install chromium` so `drive` and `snapshot` can launch Chromium. When Playwright's own build is missing, `drive.mjs` falls back to `JIMBRO_CHROMIUM`, then `/opt/pw-browsers/chromium`, the image's Chromium in Claude Code cloud sessions.
