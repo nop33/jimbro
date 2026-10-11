@@ -146,8 +146,6 @@ describe('first sync', () => {
     expect(page.synced).toHaveLength(1)
   })
 
-  // With the next two, the unit form of sync.spec.ts 'a first sync keeps the server set and pushes nothing for it',
-  // 'a local-only set reaches D1' and 'every local row reaches D1 when the server has no rows yet'.
   it('keeps the server copy of a row both sides have and pushes nothing for it', async () => {
     const server = memoryServer()
     server.seed([exercise('squat', 'Squat')])
@@ -203,7 +201,6 @@ describe('first sync', () => {
     expect(await outboxOf(device)).toEqual([])
   })
 
-  // The unit form of sync.spec.ts 'a first sync does not keep a set whose exercise left with the server header'.
   it('drops a local set whose exercise left with the server header', async () => {
     const server = memoryServer()
     server.seed([header('session', ['a']), set('session', 'a', 10)])
@@ -225,7 +222,6 @@ describe('first sync', () => {
     expect(page.notices).toEqual(['open-session-pulled', 'sync-settled'])
   })
 
-  // The unit form of sync.spec.ts 'a crash after the first pull page converges with an uninterrupted sync'.
   it('converges after a pull fails part way with a first sync that never failed', async () => {
     const serverRows = [
       exercise('both', 'Server name'),
