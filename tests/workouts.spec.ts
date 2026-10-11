@@ -146,6 +146,7 @@ test.describe('Workouts Page', () => {
 
     const firstProgramLink = dialog.locator('a.program-link').first()
     await expect(firstProgramLink).toBeVisible()
+    await expect(firstProgramLink.locator('.last-completed-date')).toHaveText('Not completed yet')
 
     // Click on a program option
     await firstProgramLink.click()

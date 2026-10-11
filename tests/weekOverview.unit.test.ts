@@ -81,7 +81,7 @@ describe('buildWeekOverview', () => {
       ['pull', false],
       ['push', false]
     ])
-    expect(picks[0].lastCompletedDate).toBe('2026-09-20')
+    expect(picks[0].lastCompleted).toEqual({ date: '2026-09-20', daysAgo: 19 })
   })
 
   it('suggests a program never done before any other', () => {

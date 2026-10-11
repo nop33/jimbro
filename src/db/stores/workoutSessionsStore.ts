@@ -13,7 +13,6 @@ import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { storage } from '../storage'
 import type { Exercise } from './exercisesStore'
-import type { Program } from './programsStore'
 
 // What starting a workout provides. The store adds the id, the status and updatedAt, and sets each exercise's
 // starting target.
@@ -142,32 +141,6 @@ export class WorkoutSessionsStore {
       .map((header) => sessionFromRows(header, bySession.get(header.id) ?? []))
   }
 
-  // The sessions without their sets, by week of the year, each week in date order.
-  async getAllGroupedByWeek(): Promise<Record<string, Array<WorkoutSession>>> {
-    const { getWeekOfYear, parseSimpleDate } = await import('../../dateUtils')
-    const headers = await storage.getAll<SessionHeader>(this.storeName)
-    const workoutSessions = headers.filter((header) => !header.isDeleted).map((header) => sessionFromRows(header, []))
-
-    const grouped = workoutSessions.reduce(
-      (acc, workoutSession) => {
-        const week = getWeekOfYear(parseSimpleDate(workoutSession.date))
-        if (acc[week]) {
-          acc[week].push(workoutSession)
-        } else {
-          acc[week] = [workoutSession]
-        }
-        return acc
-      },
-      {} as Record<string, Array<WorkoutSession>>
-    )
-
-    for (const week in grouped) {
-      grouped[week].sort((a, b) => parseSimpleDate(a.date).getTime() - parseSimpleDate(b.date).getTime())
-    }
-
-    return grouped
-  }
-
   // The gyms named on live sessions, each with its session count, the most recently used first.
   async getGyms(): Promise<Array<{ name: string; sessions: number }>> {
     const headers = await storage.getAll<SessionHeader>(this.storeName)
@@ -205,16 +178,6 @@ export class WorkoutSessionsStore {
     )
     if (!header) return undefined
     return this.assemble(header)
-  }
-
-  async getLatestCompletedOfProgram(programId: Program['id']): Promise<WorkoutSession | undefined> {
-    const { parseSimpleDate } = await import('../../dateUtils')
-    const headers = await storage.getAllByIndex<SessionHeader>(this.storeName, 'programId', programId)
-    const latest = headers
-      .filter((header) => !header.isDeleted && header.status === 'completed')
-      .sort((left, right) => parseSimpleDate(right.date).getTime() - parseSimpleDate(left.date).getTime())[0]
-    if (!latest) return undefined
-    return this.assemble(latest)
   }
 
   // The exercise's sets the last time it was done before the session: the latest other session up to its date with

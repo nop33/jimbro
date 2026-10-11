@@ -1,8 +1,13 @@
-import { daysAgo, formatShortDate, getWeekOfYear, parseSimpleDate } from '../../dateUtils'
-import { programsStore } from '../../db/stores/programsStore'
-import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
-import type { WorkoutSession } from '../../db/types'
+import { formatShortDate, parseSimpleDate } from '../../dateUtils'
 import { nodeFromTemplate, setTextContent } from '../../utils'
+import type { ProgramStatus } from '../../weeks'
+
+const lastCompletedText = (lastCompleted: ProgramStatus['lastCompleted']) => {
+  if (!lastCompleted) return 'Not completed yet'
+  const { date, daysAgo } = lastCompleted
+  const when = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`
+  return `Latest completed ${when} (on: ${formatShortDate(parseSimpleDate(date))})`
+}
 
 class NewWorkoutDialog {
   private static newWorkoutDialog = document.querySelector('#new-workout-dialog') as HTMLDialogElement
@@ -10,7 +15,7 @@ class NewWorkoutDialog {
   private static newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
 
-  static init(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
+  static init(programs: Array<ProgramStatus>) {
     this.newWorkoutButton.addEventListener('click', () => {
       this.openDialog()
     })
@@ -23,52 +28,30 @@ class NewWorkoutDialog {
       this.closeDialog()
     })
 
-    // The page doesn't wait for the program list. A tap on New before it fills shows the programs read so far.
-    void this.render(workoutSessionsByWeek)
+    this.render(programs)
   }
 
-  private static async render(workoutSessionsByWeek: Record<string, Array<WorkoutSession>>) {
-    const programs = await programsStore.load()
-    const thisWeekWorkoutSessions = workoutSessionsByWeek[getWeekOfYear(new Date())] ?? []
-
-    for (const program of programs) {
-      const lastCompletedWorkoutSession = await workoutSessionsStore.getLatestCompletedOfProgram(program.id)
+  private static render(programs: Array<ProgramStatus>) {
+    for (const { program, thisWeek, lastCompleted } of programs) {
       const programItem = nodeFromTemplate('#program-item-template')
       const programItemDiv = programItem.querySelector('div') as HTMLDivElement
       const programLink = programItem.querySelector('.program-link') as HTMLAnchorElement
-      const lastCompletedDate = lastCompletedWorkoutSession?.date
-        ? formatShortDate(parseSimpleDate(lastCompletedWorkoutSession.date))
-        : 'Never'
-      const daysAgoText = lastCompletedWorkoutSession?.date
-        ? daysAgo(parseSimpleDate(lastCompletedWorkoutSession.date))
-        : 0
 
       setTextContent('.program-name', program.name, programItem)
 
-      const isProgramInThisWeek = thisWeekWorkoutSessions.find(
-        (workoutSession) => workoutSession.programId === program.id
-      )
-      if (isProgramInThisWeek) {
-        if (isProgramInThisWeek.status === 'completed') {
-          programItemDiv.classList.add('card-success')
-          setTextContent('.this-week-status', 'You have already completed this program for this week!', programItem)
-        } else if (isProgramInThisWeek.status === 'incomplete') {
-          programItemDiv.classList.add('card-warning')
-          setTextContent(
-            '.this-week-status',
-            'You have an incomplete workout session for this program this week.',
-            programItem
-          )
-        }
-      }
-
-      if (lastCompletedDate) {
+      if (thisWeek?.status === 'completed') {
+        programItemDiv.classList.add('card-success')
+        setTextContent('.this-week-status', 'You have already completed this program for this week!', programItem)
+      } else if (thisWeek?.status === 'incomplete') {
+        programItemDiv.classList.add('card-warning')
         setTextContent(
-          '.last-completed-date',
-          `Latest completed ${daysAgoText} days ago (on: ${lastCompletedDate})`,
+          '.this-week-status',
+          'You have an incomplete workout session for this program this week.',
           programItem
         )
       }
+
+      setTextContent('.last-completed-date', lastCompletedText(lastCompleted), programItem)
       programLink.href = `/gymtime/?programId=${program.id}`
       this.programsList.appendChild(programItem)
     }

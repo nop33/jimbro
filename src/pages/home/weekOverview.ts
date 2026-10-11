@@ -1,10 +1,11 @@
-import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
+import { getSimpleDate } from '../../dateUtils'
 import { isRepsSet } from '../../db/exerciseLogging'
 import type { ProgramRow, SessionStatus, WorkoutSession } from '../../db/types'
 import type { WorkoutModeSettings } from '../../settings'
+import { addDays, trainingWeeks, type ProgramStatus, type WeekOfSessions } from '../../weeks'
 
-// What the home page shows: this week's days and goal, three highlights, and the programs to pick from.
-// Weeks run Monday to Sunday, like the workouts calendar.
+// What the home page shows: this week's days and goal, three highlights, and the programs to pick from. The weeks
+// come from the week module, which the workouts calendar reads too.
 
 export interface WeekDay {
   date: string
@@ -13,13 +14,7 @@ export interface WeekDay {
   status?: SessionStatus
 }
 
-export interface ProgramPick {
-  program: ProgramRow
-  // This week's latest workout of the program.
-  thisWeek?: WorkoutSession
-  lastCompletedDate?: string
-  isSuggested: boolean
-}
+export type ProgramPick = ProgramStatus & { isSuggested: boolean }
 
 export interface WeekOverview {
   days: Array<WeekDay>
@@ -38,14 +33,6 @@ export interface PersonalRecord {
   reps: number
 }
 
-const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
-
-export const startOfWeek = (date: Date): Date => addDays(date, -((date.getDay() + 6) % 7))
-
-// Whole calendar days from `from` to `to`, both YYYY-MM-DD. Rounding absorbs a daylight saving hour.
-export const daysBetween = (from: string, to: string): number =>
-  Math.round((parseSimpleDate(to).getTime() - parseSimpleDate(from).getTime()) / (24 * 60 * 60 * 1000))
-
 const STATUS_RANK: Record<SessionStatus, number> = { incomplete: 1, completed: 2 }
 
 const volumeOf = (session: WorkoutSession) =>
@@ -56,15 +43,11 @@ const volumeOf = (session: WorkoutSession) =>
   )
 
 // Weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the
-// streak never drops before the week is over.
-const streakOf = (completedPerWeek: Map<string, number>, goal: number, thisMonday: Date) => {
+// streak never drops before the week is over. The weeks are newest first, this week first.
+const streakOf = ([thisWeek, ...earlier]: Array<WeekOfSessions>, goal: number) => {
   if (goal < 1) return 0
-  let streak = (completedPerWeek.get(getSimpleDate(thisMonday)) ?? 0) >= goal ? 1 : 0
-  for (let monday = addDays(thisMonday, -7); (completedPerWeek.get(getSimpleDate(monday)) ?? 0) >= goal; ) {
-    streak++
-    monday = addDays(monday, -7)
-  }
-  return streak
+  const missed = earlier.findIndex((week) => week.completed < goal)
+  return (thisWeek.completed >= goal ? 1 : 0) + (missed === -1 ? earlier.length : missed)
 }
 
 // A lifting set is a record when it beats the exercise's heaviest earlier weight, or matches it with more reps.
@@ -99,61 +82,38 @@ export const buildWeekOverview = (
   now = new Date()
 ): WeekOverview => {
   const today = getSimpleDate(now)
-  const thisMonday = startOfWeek(now)
-  const monday = getSimpleDate(thisMonday)
-  const sunday = getSimpleDate(addDays(thisMonday, 6))
-  const lastMonday = getSimpleDate(addDays(thisMonday, -7))
-  const sameDayLastWeek = getSimpleDate(addDays(now, -7))
-  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date))
-  const thisWeek = sorted.filter((session) => session.date >= monday && session.date <= sunday)
+  const { goal, weeks, programs: statuses } = trainingWeeks(sessions, programs, settings, today)
+  const [thisWeek, lastWeek] = weeks
+  const sameDayLastWeek = addDays(today, -7)
 
   const days = Array.from({ length: 7 }, (_, index): WeekDay => {
-    const date = getSimpleDate(addDays(thisMonday, index))
-    const status = thisWeek
+    const date = addDays(thisWeek.week.monday, index)
+    const status = thisWeek.sessions
       .filter((session) => session.date === date)
       .map((session) => session.status)
       .sort((a, b) => STATUS_RANK[b] - STATUS_RANK[a])[0]
     return { date, isToday: date === today, status }
   })
 
-  const completedPerWeek = new Map<string, number>()
-  for (const session of sorted) {
-    if (session.status !== 'completed') continue
-    const week = getSimpleDate(startOfWeek(parseSimpleDate(session.date)))
-    completedPerWeek.set(week, (completedPerWeek.get(week) ?? 0) + 1)
-  }
-  const goal = settings.mode === 'rotation' ? programs.length : settings.weeklyGoal
-  const completed = completedPerWeek.get(monday) ?? 0
-
   const volume = {
-    thisWeek: thisWeek.reduce((total, session) => total + volumeOf(session), 0),
-    lastWeekSoFar: sorted
-      .filter((session) => session.date >= lastMonday && session.date <= sameDayLastWeek)
+    thisWeek: thisWeek.sessions.reduce((total, session) => total + volumeOf(session), 0),
+    lastWeekSoFar: (lastWeek?.sessions ?? [])
+      .filter((session) => session.date <= sameDayLastWeek)
       .reduce((total, session) => total + volumeOf(session), 0)
   }
 
-  const records = personalRecordsOf(sorted)
+  const records = personalRecordsOf([...sessions].sort((a, b) => a.date.localeCompare(b.date)))
 
-  const lastCompleted = new Map<string, string>()
-  for (const session of sorted) if (session.status === 'completed') lastCompleted.set(session.programId, session.date)
-
-  const picks = programs.map(
-    (program): ProgramPick => ({
-      program,
-      thisWeek: thisWeek.filter((session) => session.programId === program.id).at(-1),
-      lastCompletedDate: lastCompleted.get(program.id),
-      isSuggested: false
-    })
-  )
+  const picks = statuses.map((status): ProgramPick => ({ ...status, isSuggested: false }))
 
   // A workout left unfinished this week comes first. Until the week meets its goal, the next is the program done
   // longest ago, never done first, and in rotation mode only among those not started this week.
   const oldestFirst = (a: ProgramPick, b: ProgramPick) =>
-    (a.lastCompletedDate ?? '').localeCompare(b.lastCompletedDate ?? '')
+    (a.lastCompleted?.date ?? '').localeCompare(b.lastCompleted?.date ?? '')
   const unfinished = picks.filter((pick) => pick.thisWeek?.status === 'incomplete').at(-1)
   const suggested =
     unfinished ??
-    (completed >= goal
+    (thisWeek.completed >= goal
       ? undefined
       : picks.filter((pick) => settings.mode === 'freestyle' || !pick.thisWeek).sort(oldestFirst)[0])
   if (suggested) suggested.isSuggested = true
@@ -164,11 +124,14 @@ export const buildWeekOverview = (
 
   return {
     days,
-    completed,
+    completed: thisWeek.completed,
     goal,
-    streak: streakOf(completedPerWeek, goal, thisMonday),
+    streak: streakOf(weeks, goal),
     volume,
-    personalRecords: { thisWeek: records.filter((record) => record.date >= monday), latest: records.at(-1) },
+    personalRecords: {
+      thisWeek: records.filter((record) => record.date >= thisWeek.week.monday),
+      latest: records.at(-1)
+    },
     picks
   }
 }
