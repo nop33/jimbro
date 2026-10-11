@@ -172,6 +172,41 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
   })
 
+  test('a set logged from a minimized break starts a fresh break that the last one cannot close', async ({ page }) => {
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    await page.clock.install()
+
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    const logSet = async () => {
+      await form.locator('input[name="set-reps"]').fill('10')
+      await form.locator('input[name="set-weight"]').fill('100')
+      await form.getByRole('button', { name: 'Finished set' }).click()
+    }
+    const breakTimer = page.locator('#break-countdown-dialog')
+    const countdown = breakTimer.locator('#countdown')
+    await card.locator('.exercise-details > summary').click()
+    await logSet()
+    await expect(breakTimer).toBeVisible()
+
+    // The break reaches 0:00 and is about to close itself, 1.5 s later. The clock stops there until the test runs it.
+    const now = await page.evaluate(() => Date.now())
+    await page.clock.pauseAt(now + 150_000)
+    await expect(countdown).toHaveText('0:00')
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    // The next set starts the next break before then, and that break outlives the last one's close.
+    await logSet()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(breakTimer.locator('#sets-done')).toHaveText('2 / 4')
+    await expect(countdown).toHaveText('2:30')
+    await page.clock.runFor(2_500)
+    await expect(breakTimer).toBeVisible()
+    await expect(countdown).toHaveText('2:28')
+  })
+
   test("moves an exercise from its card's actions menu", async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
