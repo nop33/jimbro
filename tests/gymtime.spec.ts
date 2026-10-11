@@ -109,6 +109,37 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('#exercises-list')).toContainText(newExerciseName)
   })
 
+  test("prefills last time's heaviest weight and says so when the weights differed", async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const exerciseId = await card.getAttribute('data-exercise-id')
+    await page.evaluate(async (id) => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      const { snapshotFromExercise, workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+      const exercise = await exercisesStore.getById(id ?? '')
+      if (!exercise) throw new Error('exercise not seeded')
+      let session = await workoutSessionsStore.create({
+        date: '2020-01-01',
+        programId: 'past',
+        location: '',
+        exercises: [snapshotFromExercise(exercise)]
+      })
+      for (const weight of [40, 50, 45]) {
+        session = await workoutSessionsStore.addSet(session, id ?? '', { preset: 'lifting', reps: 8, weight })
+      }
+    }, exerciseId)
+
+    await page.getByRole('button', { name: 'Save & start workout' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    await card.locator('.exercise-details > summary').click()
+
+    const weight = card.locator('.next-set-form input[name="set-weight"]')
+    await expect(weight).toHaveValue('50')
+    await expect(weight).toHaveAccessibleDescription('Max last time')
+
+    await weight.fill('47.5')
+    await expect(card.locator('.set-field-note')).toHaveCount(0)
+  })
+
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
     // 1. Start Workout Session
     await page.getByRole('button', { name: 'Save & start workout' }).click()

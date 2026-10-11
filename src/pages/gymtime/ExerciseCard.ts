@@ -19,8 +19,8 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
-import { nextSetValues, planExercise, startingTargetSets, type ExercisePlan } from './exercisePlan'
-import { configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
+import { planExercise, startingTargetSets, type ExercisePlan } from './exercisePlan'
+import { clearSetNotes, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 // Room the actions menu needs below its button: four 48px items and a margin.
 const MENU_ROOM = 220
@@ -315,7 +315,7 @@ class ExerciseCard {
     const nextSetFields = nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
     const addExtraSetBtn = template.querySelector('.add-extra-set-btn') as HTMLButtonElement
 
-    renderSetInputs(nextSetFields, preset, plan.prefill)
+    renderSetInputs(nextSetFields, preset, plan.prefill, plan.prefillIsMax ? { weight: 'Max last time' } : {})
 
     // The session stores the extra set, so the workout is not done until it is logged.
     addExtraSetBtn.addEventListener('click', async () => {
@@ -359,10 +359,11 @@ class ExerciseCard {
       renderSetFields(pendingSetItem.querySelector('.set-fields') as HTMLDivElement, completedSet)
       pendingSetItem.dataset.set = JSON.stringify(completedSet)
 
+      // The form keeps the set just logged as the next one's values, which are no longer last time's max.
+      clearSetNotes(nextSetFields)
+
       const isExerciseCompleted = exercise.sets.length >= this.targetSets
-      if (!isExerciseCompleted) {
-        renderSetInputs(nextSetFields, preset, nextSetValues(this.snapshot, exercise.sets, plan.lastTime))
-      } else {
+      if (isExerciseCompleted) {
         detailsAnimation.close()
         cardDiv.classList.add('card-success')
         nextSetDiv.classList.add('hidden')
