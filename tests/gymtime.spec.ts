@@ -30,7 +30,7 @@ test.describe('Gymtime Page', () => {
 
   test('logs a set, edits the weight, and adds an exercise', async ({ page }) => {
     await page.getByRole('button', { name: 'Save & start workout' }).click()
-    // The cards show before the save and are rebuilt once it lands, which resets whatever the test typed into them.
+    // The cards show before the save, but only a started workout takes a set.
     await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
     // 2. Expand first exercise

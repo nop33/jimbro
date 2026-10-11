@@ -2,7 +2,6 @@ import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { onPageNotice } from '../../sync/pageChannel'
-import { canonical } from '../../sync/rows'
 import { setTextContent } from '../../utils'
 import AddExerciseDialog from './AddExerciseDialog'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -24,40 +23,41 @@ class GymtimePage {
     const { program, workoutSession } = await parseUrlParams()
     this.program = program
 
-    openSession.show(workoutSession)
     // This tab's writes show through openSession, and its pulls announce open-session-pulled when they change this
     // workout. Other tabs share this database, so their writes and pulls never reach this page as a changed pull.
     onPageNotice((notice, source) => {
-      if (notice === 'open-session-pulled' || source === 'other-tab') void this.refreshSession()
+      if (notice !== 'open-session-pulled' && source !== 'other-tab') return
+      ExerciseCardList.forgetLastTimes()
+      void openSession.reread()
     })
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
     this.workoutDetailsAnimation = animateDetails(this.workoutDetails, workoutForm)
 
-    if (openSession.current) {
+    if (workoutSession) {
       this.workoutDetailsAnimation.close()
     }
 
     ExerciseCardList.init(program.exercises, () => WorkoutSessionForm.planned())
-    AddExerciseDialog.init(async (exercise) => {
-      if (!openSession.current || alertIfInSession(exercise.id)) return
-
-      await openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
-      await ExerciseCardList.render()
+    openSession.subscribe(() => {
+      this.updateDeleteBtnVisibility()
+      this.updateSaveToProgramBtnVisibility()
     })
 
-    await WorkoutSessionForm.init(program.id, {
-      onSessionSaved: async () => {
+    AddExerciseDialog.init(async (exercise) => {
+      if (!openSession.current || alertIfInSession(exercise.id)) return
+      await openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
+    })
+
+    await WorkoutSessionForm.init(program.id, workoutSession, {
+      onSessionSaved: () => {
         const session = openSession.current
         if (session) window.history.replaceState({}, '', `?id=${session.id}`)
-        await ExerciseCardList.render()
-        this.updateDeleteBtnVisibility()
         this.workoutDetailsAnimation?.close()
       },
-      // The cards before the start show what it will store for the new day or gym.
       onPlanChanged: () => {
-        if (!openSession.current) void ExerciseCardList.render()
+        void ExerciseCardList.replan()
       }
     })
 
@@ -67,7 +67,6 @@ class GymtimePage {
       if (!confirm('Are you sure you want to delete this workout session?')) return
 
       await workoutSessionsStore.remove(session.id)
-      openSession.show(undefined)
       Toasts.show({ message: 'Workout session deleted' })
       window.location.href = `/workouts/`
     })
@@ -87,28 +86,8 @@ class GymtimePage {
       this.updateSaveToProgramBtnVisibility()
     })
 
-    openSession.subscribe(() => {
-      this.updateSaveToProgramBtnVisibility()
-    })
-
-    await ExerciseCardList.render()
-    this.updateDeleteBtnVisibility()
-    this.updateSaveToProgramBtnVisibility()
-  }
-
-  private static async refreshSession(): Promise<void> {
-    const sessionId = new URLSearchParams(window.location.search).get('id')
-    if (!sessionId) return
-    const shown = canonical(openSession.current)
-    const session = await workoutSessionsStore.getById(sessionId)
-    // A change this page stored while the read ran, such as a logged set, may be missing from what it read,
-    // so it reads again.
-    if (canonical(openSession.current) !== shown) return this.refreshSession()
-    if (canonical(session) === shown) return
-    openSession.show(session)
-    await ExerciseCardList.render()
-    this.updateDeleteBtnVisibility()
-    this.updateSaveToProgramBtnVisibility()
+    // The first draw: the cards, and the buttons that depend on a session.
+    await openSession.show(workoutSession)
   }
 
   private static updateSaveToProgramBtnVisibility() {
