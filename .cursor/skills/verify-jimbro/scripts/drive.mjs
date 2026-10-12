@@ -129,6 +129,52 @@ function writeFixture(outDir) {
   return path
 }
 
+const base64Url = (bytes) => Buffer.from(bytes).toString('base64url')
+
+// A virtual authenticator on the page, and canned answers in place of the worker for a passkey sign-up and the sync
+// after it. The tour's API base is a dead address, so nothing else would answer.
+async function withPasskeyWorker(page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('WebAuthn.enable')
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true
+    }
+  })
+  const answers = {
+    '/auth/register/options': () => ({
+      challenge: base64Url(crypto.getRandomValues(new Uint8Array(32))),
+      rp: { id: 'localhost', name: 'Jimbro' },
+      user: { id: base64Url(Buffer.from('tour-user')), name: 'Jimbro', displayName: 'Jimbro' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+      authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'required' },
+      attestation: 'none',
+      timeout: 300_000,
+      excludeCredentials: []
+    }),
+    '/auth/register/verify': () => ({ userId: 'tour-user', token: 'tour-token' }),
+    '/api/pull': () => ({ rows: [], cursor: 0, more: false }),
+    '/api/push': () => ({ revision: 1 })
+  }
+  await page.route(
+    (url) => url.pathname in answers,
+    (route) => {
+      const headers = {
+        'Access-Control-Allow-Origin': route.request().headers().origin ?? '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+      }
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      return route.fulfill({ json: answers[new URL(route.request().url()).pathname](), headers })
+    }
+  )
+}
+
 // Each stop puts one screen or dialog on the phone and waits for what proves it is there. The tour runs
 // them in order in one context, so a stop may rely on the state the stops before it left.
 /** @type {Array<[string, (page: import('@playwright/test').Page, context: { fixture: string }) => Promise<void>]>} */
@@ -140,6 +186,7 @@ const STOPS = [
   ['workouts-empty', async (page) => {
     await page.getByRole('link', { name: 'Get started' }).click()
     await see(page.getByRole('button', { name: 'Seed Database' }))
+    await see(page.getByRole('button', { name: 'Sign in with passkey' }))
   }],
   ['settings-import', async (page, { fixture }) => {
     await page.goto('/settings/')
@@ -208,8 +255,14 @@ const STOPS = [
   }],
   ['settings-expanded', async (page) => {
     await page.locator('#workout-settings-details summary').click()
-    await page.locator('#cloud-backup-details summary').click()
+    await page.locator('#cloud-backup-details > summary').click()
+    await see(page.getByRole('button', { name: 'Create passkey' }))
+  }],
+  ['settings-token', async (page) => {
+    await page.locator('#cloud-token-details > summary').click()
     await see(page.locator('#cloud-userid'))
+    // The bottom nav covers the end of the page, so the section scrolls to the top.
+    await page.locator('#passkey-offer').evaluate((offer) => offer.scrollIntoView({ block: 'start' }))
   }],
   ['settings-gyms', async (page) => {
     await page.locator('#gyms-details summary').click()
@@ -281,6 +334,56 @@ const STOPS = [
     await page.keyboard.press('Escape')
     await page.locator('#add-exercise-card').click()
     await see(page.locator('#add-exercise-dialog'))
+  }],
+  ['gymtime-passkey-offer', async (page) => {
+    await page.keyboard.press('Escape')
+    await gone(page.locator('#add-exercise-dialog'))
+    // Leaves only the first exercise, then logs its sets until the workout is done.
+    const cards = page.locator('#exercises-list > [data-exercise-id]')
+    for (let count = await cards.count(); count > 1; count = await cards.count()) {
+      const card = cards.nth(1)
+      await card.locator('.exercise-actions-btn').click()
+      await card.locator('.delete-workout-session-exercise-btn').click()
+      await page.waitForFunction(
+        (before) => document.querySelectorAll('#exercises-list > [data-exercise-id]').length < before,
+        count
+      )
+    }
+    const card = cards.first()
+    const pending = card.locator('.completed-sets .set.isPending')
+    const breakTimer = page.locator('#break-countdown-dialog')
+    for (let left = await pending.count(); left > 0; left = await pending.count()) {
+      if ((await card.locator('.exercise-details').getAttribute('open')) === null) {
+        await card.locator('.exercise-details > summary').click()
+      }
+      await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
+      await page.waitForFunction(
+        ([id, before]) =>
+          document.querySelectorAll(`[data-exercise-id="${id}"] .completed-sets .set.isPending`).length < before,
+        [await card.getAttribute('data-exercise-id'), left]
+      )
+      if (await breakTimer.isVisible()) {
+        await page.locator('#skip-break').click()
+        await gone(breakTimer)
+      }
+    }
+    const offer = page.getByRole('region', { name: 'Back up your workouts' })
+    await see(offer)
+    // The "Workout done!" confetti covers the card for a few seconds.
+    await page.waitForFunction(() => !document.querySelector('[id^="confetti-"]'))
+    await offer.scrollIntoViewIfNeeded()
+  }],
+  ['settings-passkey', async (page) => {
+    // WebAuthn takes no IP address as the RP ID, so this stop runs on localhost, an origin of its own with an empty
+    // database. Chromium's virtual authenticator stands in for the phone's password manager, and canned answers for
+    // the worker, which a tour never reaches.
+    await withPasskeyWorker(page)
+    await page.goto(base.replace('127.0.0.1', 'localhost') + '/settings/')
+    await page.locator('#cloud-backup-details > summary').click()
+    await page.getByRole('button', { name: 'Create passkey' }).click()
+    await see(page.getByText('Your workouts are backed up with a passkey.'))
+    await see(page.getByRole('button', { name: 'Sign out' }))
+    await gone(page.locator('.toast-message-popup'))
   }],
   ['gymtime-error', async (page) => {
     await page.goto('/gymtime/?programId=missing')
