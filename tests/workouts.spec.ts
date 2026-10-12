@@ -11,7 +11,7 @@ test.describe('Workouts Page', () => {
     const seedBtn = page.getByRole('button', { name: 'Seed Database' })
     await expect(seedBtn).toBeVisible()
     // A returning user on a new phone signs in with their passkey instead, where the browser has passkeys.
-    const supported = await page.evaluate(() => typeof window.PublicKeyCredential === 'function')
+    const supported = await page.evaluate(async () => (await import('/src/sync/passkeys.ts')).passkeysSupported())
     await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toHaveCount(supported ? 1 : 0)
     await expect(page.locator('#intro')).toHaveText(
       "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"

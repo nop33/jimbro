@@ -1,16 +1,25 @@
 import { formatShortDate } from '../../dateUtils'
-import { getCloudBackupConfig, storeCloudBackupConfig } from '../../db/cloudBackup'
+import { getCloudBackupConfig, storeCloudBackupConfig, wasSignedOut } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 import { outbox } from '../../sync/outbox'
-import { addPasskey, createPasskeyAccount, passkeysSupported, signInWithPasskey, signOut } from '../../sync/passkeys'
+import {
+  addPasskey,
+  backUpBeforeSignOut,
+  createPasskeyAccount,
+  passkeysSupported,
+  preparePasskey,
+  signInWithPasskey,
+  signOut
+} from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
-import { getLastSyncAt } from '../../sync/status'
-import { showPasskeyFailure } from '../passkeyFailure'
+import { getLastSyncAt, getSyncProblem } from '../../sync/status'
+import { confirmReplaceWithAccount, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
 
 // Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
 // user ID and token under "Use a token" for local runs, tests and MCP.
 class CloudBackup {
+  private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
   private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
   private static offer = document.querySelector('#passkey-offer') as HTMLElement
   private static unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
@@ -39,15 +48,28 @@ class CloudBackup {
       void this.updateSummaryStatus()
     })
 
-    this.createBtn.addEventListener('click', () => void this.runPasskeyStep(createPasskeyAccount, 'Passkey created.'))
-    this.signInBtn.addEventListener('click', () => void this.runPasskeyStep(signInWithPasskey, 'Signed in.'))
+    // The passkey buttons show once the section opens, so that is when their options are fetched.
+    this.details.addEventListener('toggle', () => this.prepare())
+    this.createBtn.addEventListener('click', () => void this.handleCreate())
+    this.signInBtn.addEventListener('click', () => void this.handleSignIn())
     this.addBtn.addEventListener('click', () => void this.handleAddPasskey())
     this.signOutBtn.addEventListener('click', () => void this.handleSignOut())
     this.saveBtn.addEventListener('click', () => this.handleSave())
     this.syncNowBtn.addEventListener('click', () => void this.handleSync())
   }
 
-  // Shows what fits the saved credentials: the account for a passkey, else the offer and the token form.
+  private static prepare() {
+    if (!this.details.open || !passkeysSupported()) return
+    if (getCloudBackupConfig()?.method === 'passkey') {
+      preparePasskey('add')
+      return
+    }
+    preparePasskey('register')
+    preparePasskey('signin')
+  }
+
+  // Shows what fits the saved credentials: the account for a passkey, else the offer and the token form. A device that
+  // signed out offers signing in first.
   private static showState() {
     const config = getCloudBackupConfig()
     const passkey = config?.method === 'passkey'
@@ -59,6 +81,14 @@ class CloudBackup {
     this.addBtn.hidden = !supported
     this.tokenDetails.hidden = passkey
     this.syncNowBtn.hidden = config === null
+
+    const signInFirst = wasSignedOut()
+    this.signInBtn.classList.toggle('btn-primary', signInFirst)
+    this.signInBtn.classList.toggle('btn-secondary', !signInFirst)
+    this.createBtn.classList.toggle('btn-primary', !signInFirst)
+    this.createBtn.classList.toggle('btn-secondary', signInFirst)
+    if (signInFirst) this.createBtn.before(this.signInBtn)
+    else this.signInBtn.before(this.createBtn)
   }
 
   private static async updateSummaryStatus() {
@@ -69,6 +99,10 @@ class CloudBackup {
     }
 
     const pending = await outbox.pending()
+    if (getSyncProblem() === 'row_limit') {
+      this.summaryStatus.textContent = `Backup full · ${pending} pending`
+      return
+    }
     const lastSync = getLastSyncAt()
     if (!lastSync) {
       this.summaryStatus.textContent = `${pending} pending`
@@ -81,12 +115,13 @@ class CloudBackup {
     this.summaryStatus.textContent = `${pending} pending · ${formatted}`
   }
 
-  // Signs up or signs in, then syncs, which backs this device up to the account and restores the account's rows.
-  private static async runPasskeyStep(step: () => Promise<void>, done: string) {
+  // Runs a sign-up or sign-in, then syncs, which backs this device up to the account and restores the account's rows.
+  // Resolves to false when it did not switch the account.
+  private static async runPasskeyStep(step: () => Promise<boolean>, done: string) {
     this.createBtn.disabled = true
     this.signInBtn.disabled = true
     try {
-      await step()
+      if (!(await step())) return
     } catch (error) {
       showPasskeyFailure(error)
       return
@@ -96,7 +131,19 @@ class CloudBackup {
     }
     Toasts.show({ message: done })
     this.showState()
+    this.prepare()
     await this.handleSync()
+  }
+
+  private static handleCreate() {
+    return this.runPasskeyStep(async () => {
+      await createPasskeyAccount()
+      return true
+    }, 'Passkey created.')
+  }
+
+  private static handleSignIn() {
+    return this.runPasskeyStep(() => signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }), 'Signed in.')
   }
 
   private static async handleAddPasskey() {
@@ -111,17 +158,25 @@ class CloudBackup {
     }
   }
 
+  // Backs up what waits first, and warns when some of it could not go.
   private static async handleSignOut() {
-    if (!confirm('Sign out? Your workouts stay on this phone, and stop backing up.')) return
+    this.signOutBtn.disabled = true
+    this.summaryStatus.textContent = 'Syncing...'
     try {
+      const pending = await backUpBeforeSignOut()
+      await this.updateSummaryStatus()
+      if (!confirmSignOut(pending)) return
       await signOut()
     } catch (error) {
       console.error('sign out failed', error)
       Toasts.show({ message: 'Could not sign out. Try again when online.', type: 'error' })
       return
+    } finally {
+      this.signOutBtn.disabled = false
     }
     Toasts.show({ message: 'Signed out.' })
     this.showState()
+    this.prepare()
     await this.updateSummaryStatus()
   }
 
@@ -151,7 +206,11 @@ class CloudBackup {
       await sync()
       await this.updateSummaryStatus()
     } catch (error) {
-      Toasts.show({ message: 'Sync failed.', type: 'error' })
+      const full = getSyncProblem() === 'row_limit'
+      Toasts.show({
+        message: full ? 'Your cloud backup is full. New changes stay on this phone.' : 'Sync failed.',
+        type: 'error'
+      })
       await this.updateSummaryStatus()
       console.error('sync failed', error)
     }

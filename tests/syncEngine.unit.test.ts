@@ -534,4 +534,67 @@ describe('restartFirstSync', () => {
     await syncFor(device, account).sync()
     expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
   })
+
+  // Signing in on a phone that holds rows: the account's copy wins for every row both sides have, as in any first
+  // sync. Local winning would let a seeded new phone, whose sample rows all wait in the outbox, overwrite the account's
+  // edited exercises. So the page asks before signing in on a phone with data.
+  it('keeps the account copy of rows a signed-out phone edited, and the rows only the phone has', async () => {
+    await device.writeRows([
+      exercise('squat', 'My squat', LATER),
+      exercise('bench', 'Bench'),
+      header('shared-session', ['squat', 'bench'], LATER),
+      set('shared-session', 'bench', 40)
+    ])
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('squat', 'Back squat'), header('shared-session', ['squat'])])
+    await syncFor(device, account).sync()
+
+    const local = await localState(device)
+    expect(local.exercises.map((row) => [row.id, row.name])).toEqual([
+      ['bench', 'Bench'],
+      ['squat', 'Back squat']
+    ])
+    // The header reverts to the account's, so the phone's set of an exercise the account's header lacks goes too.
+    expect(local.sessions.map((row) => row.exercises.map((snapshot) => snapshot.exerciseId))).toEqual([['squat']])
+    expect(local.sets).toEqual([])
+    expect(nameOf(account.rows.get('exercises:squat'))).toBe('Back squat')
+    expect(nameOf(account.rows.get('exercises:bench'))).toBe('Bench')
+    expect(await outboxOf(device)).toEqual([])
+  })
+
+  // Signing out with rows still queued, then back in: the first sync keeps the backup's copy, so the queued edit is
+  // gone. That is why sign-out pushes first and warns about what is still pending.
+  it('replaces an edit that never reached the account when the phone signs in again', async () => {
+    const account = memoryServer()
+    await device.writeRows([exercise('squat', 'Squat')])
+    await syncFor(device, account).sync()
+    await device.writeRows([exercise('squat', 'Front squat', LATER)])
+    expect(await outboxOf(device)).toHaveLength(1)
+
+    await restartFirstSync(device)
+    await syncFor(device, account).sync()
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
+    expect(nameOf(account.rows.get('exercises:squat'))).toBe('Squat')
+    expect(await outboxOf(device)).toEqual([])
+  })
+})
+
+describe('a failed sync', () => {
+  it('tells the page why, so it can say a full backup is full', async () => {
+    const server = memoryServer()
+    const full = new Error('row_limit')
+    const refusing: SyncServer = {
+      ...server,
+      push: async () => {
+        throw full
+      }
+    }
+    await device.writeRows([exercise('squat', 'Squat')])
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const page = testPage()
+    await expect(syncFor(device, refusing, page).sync()).rejects.toThrow('row_limit')
+    expect(page.failures).toEqual([full])
+    expect(page.notices).toEqual(['sync-settled'])
+  })
 })

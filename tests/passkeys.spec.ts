@@ -155,11 +155,19 @@ test.describe('passkeys with a virtual authenticator', () => {
     await seedDatabase(page)
     await assertLocalWorker(page)
 
+    // Opening the section fetches the options, so the tap goes straight to the passkey sheet, as Safari needs.
+    const prefetched = page.waitForResponse((response) => response.url().endsWith('/auth/register/options'))
     await openCloudBackup(page)
+    await prefetched
+    const fetchedOnTap: string[] = []
+    page.on('request', (request) => {
+      if (request.url().endsWith('/auth/register/options')) fetchedOnTap.push(request.url())
+    })
     await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
     await expect(page.getByRole('heading', { name: 'Back up your workouts' })).toBeVisible()
     await page.getByRole('button', { name: 'Create passkey' }).click()
     await expect(page.locator('.toast-message-popup').first()).toHaveText('Passkey created.')
+    expect(fetchedOnTap).toEqual([])
     await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
     await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create passkey' })).toBeHidden()
@@ -245,14 +253,145 @@ test.describe('passkeys with a virtual authenticator', () => {
     const { credentials } = await other.cdp.send('WebAuthn.getCredentials', { authenticatorId: other.authenticatorId })
     expect(credentials).toHaveLength(1)
 
-    page.once('dialog', (dialog) => dialog.accept())
+    // A change that cannot back up first makes sign-out warn, and staying keeps the account.
+    await page.context().setOffline(true)
+    await page.evaluate(async () => {
+      const { storage } = await import('/src/db/storage.ts')
+      await storage.writeRows([
+        {
+          table: 'exercises',
+          row: {
+            id: 'offline-exercise',
+            name: 'Offline squat',
+            kind: 'lifting',
+            preset: 'lifting',
+            muscle: 'quads',
+            targetSets: 3,
+            defaults: { reps: 5 },
+            isDeleted: false,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      ])
+    })
+    const warning = page.waitForEvent('dialog')
     await page.getByRole('button', { name: 'Sign out' }).click()
+    const warned = await warning
+    expect(warned.message()).toContain("1 change on this phone hasn't backed up yet")
+    await warned.dismiss()
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled()
+    expect((await credentialsOf(page))?.method).toBe('passkey')
+
+    // Online, sign-out pushes the change first, and asks plainly.
+    await page.context().setOffline(false)
+    const asked = page.waitForEvent('dialog')
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    const plain = await asked
+    expect(plain.message()).toBe('Sign out? Your workouts stay on this phone, and stop backing up.')
+    expect((await pullAll(created?.token ?? '')).some((row) => row.row.id === 'offline-exercise')).toBe(true)
+    await plain.accept()
     await expect(page.locator('.toast-message-popup', { hasText: 'Signed out.' })).toBeVisible()
     await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
-    await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible()
+    // A phone that signed out offers signing in first.
+    const offerButtons = page.locator('#passkey-offer button')
+    await expect(offerButtons.first()).toHaveText('Sign in with passkey')
+    await expect(offerButtons.first()).toHaveClass(/btn-primary/)
+    await expect(page.getByRole('button', { name: 'Create passkey' })).toHaveClass(/btn-secondary/)
     expect(await credentialsOf(page)).toBeNull()
     const ping = await fetch(`${API_BASE}/api/ping`, { headers: { Authorization: `Bearer ${created?.token}` } })
     expect(ping.status).toBe(401)
+  })
+
+  test('asks before signing in over a phone with data, and keeps the rows only on the phone', async ({
+    page,
+    browser
+  }) => {
+    const { cdp, authenticatorId } = await authenticatorOn(page)
+    await seedDatabase(page)
+    await assertLocalWorker(page)
+    await openCloudBackup(page)
+    await page.getByRole('button', { name: 'Create passkey' }).click()
+    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    const created = await credentialsOf(page)
+    const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
+
+    const otherPhone = await browser.newContext()
+    try {
+      const phone = await otherPhone.newPage()
+      const authenticator = await authenticatorOn(phone)
+      await authenticator.cdp.send('WebAuthn.addCredential', {
+        authenticatorId: authenticator.authenticatorId,
+        credential: credentials[0]
+      })
+      await seedDatabase(phone)
+      await phone.evaluate(async () => {
+        const { storage } = await import('/src/db/storage.ts')
+        await storage.writeRows([
+          {
+            table: 'exercises',
+            row: {
+              id: 'phone-only',
+              name: 'Phone only',
+              kind: 'lifting',
+              preset: 'lifting',
+              muscle: 'quads',
+              targetSets: 3,
+              defaults: { reps: 5 },
+              isDeleted: false,
+              updatedAt: new Date().toISOString()
+            }
+          }
+        ])
+      })
+      await openCloudBackup(phone)
+
+      // Saying no leaves the phone as it was.
+      const first = phone.waitForEvent('dialog')
+      await phone.getByRole('button', { name: 'Sign in with passkey' }).click()
+      const declined = await first
+      expect(declined.message()).toContain("replaces this phone's copy")
+      await declined.dismiss()
+      await expect(phone.getByRole('button', { name: 'Sign in with passkey' })).toBeEnabled()
+      expect(await credentialsOf(phone)).toBeNull()
+
+      phone.once('dialog', (dialog) => dialog.accept())
+      await phone.getByRole('button', { name: 'Sign in with passkey' }).click()
+      await expect(phone.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+      await expect(phone.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
+      const signedIn = await credentialsOf(phone)
+      expect(signedIn?.userId).toBe(created?.userId)
+      const rows = await pullAll(signedIn?.token ?? '')
+      expect(rows.some((row) => row.row.id === 'phone-only')).toBe(true)
+      expect(tablesOf(rows)).toEqual({ exercises: 22, programs: 3 })
+    } finally {
+      await otherPhone.close()
+    }
+  })
+
+  test('signs in from the gymtime offer and loads the page again', async ({ page }) => {
+    await authenticatorOn(page)
+    await seedDatabase(page)
+    await assertLocalWorker(page)
+    await openCloudBackup(page)
+    await page.getByRole('button', { name: 'Create passkey' }).click()
+    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    const created = await credentialsOf(page)
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page.locator('.toast-message-popup', { hasText: 'Signed out.' })).toBeVisible()
+
+    const { lastCard } = await openAlmostDoneWorkout(page)
+    await finishWorkout(page, lastCard, true)
+    const offer = page.getByRole('region', { name: 'Back up your workouts' })
+    await expect(offer).toBeVisible()
+    page.once('dialog', (dialog) => dialog.accept())
+    const reloaded = page.waitForEvent('framenavigated')
+    await offer.getByRole('button', { name: 'Already have a passkey? Sign in' }).click()
+    await reloaded
+    await expect(offer).toBeHidden()
+    const signedIn = await credentialsOf(page)
+    expect(signedIn?.method).toBe('passkey')
+    expect(signedIn?.userId).toBe(created?.userId)
   })
 
   test('offers a passkey after a finished workout, and backs up from the offer', async ({ page }) => {
@@ -279,7 +418,7 @@ test.describe('passkeys with a virtual authenticator', () => {
 
 test('a finished workout offers a passkey until "Not now", where the browser has passkeys', async ({ page }) => {
   await seedDatabase(page)
-  const supported = await page.evaluate(() => typeof window.PublicKeyCredential === 'function')
+  const supported = await page.evaluate(async () => (await import('/src/sync/passkeys.ts')).passkeysSupported())
   const { lastCard } = await openAlmostDoneWorkout(page)
   const offer = page.getByRole('region', { name: 'Back up your workouts' })
 

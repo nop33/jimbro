@@ -3,12 +3,15 @@ import {
   clearCloudBackupConfig,
   fetchJimbroApi,
   getCloudBackupConfig,
+  markSignedOut,
   storeCloudBackupConfig
 } from '../db/cloudBackup'
+import { OBJECT_STORES } from '../db/constants'
 import { storage } from '../db/storage'
-import { pushLock } from './outbox'
+import { fromBase64Url, toBase64Url } from './base64url'
+import { outbox, pushLock } from './outbox'
 import { restartFirstSync } from './queue'
-import { clearLastSyncAt } from './status'
+import { clearLastSyncAt, setSyncProblem } from './status'
 import { sync } from './syncClient'
 
 // A passkey is the account: signing up makes one on the worker, and the phone's password manager (iCloud Keychain,
@@ -16,24 +19,18 @@ import { sync } from './syncClient'
 // browser's own WebAuthn API does the ceremony, and the worker checks it. Every function throws when the browser, the
 // user or the worker says no, and the page decides what to tell the user.
 
-// Whether this browser can make and use passkeys. Pages hide every passkey button where it cannot.
-export const passkeysSupported = () =>
-  typeof window.PublicKeyCredential === 'function' && typeof navigator.credentials?.create === 'function'
-
-const toBase64Url = (buffer: ArrayBuffer) => {
-  let binary = ''
-  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-const fromBase64Url = (text: string) => {
-  const binary = atob(
-    text
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(text.length / 4) * 4, '=')
+// Whether this browser can make and use passkeys, and report a new one's public key, which the worker needs since it
+// parses no attestation. Pages hide every passkey button where it cannot.
+export const passkeysSupported = () => {
+  if (typeof window.PublicKeyCredential !== 'function' || typeof navigator.credentials?.create !== 'function') {
+    return false
+  }
+  const attestation = window.AuthenticatorAttestationResponse?.prototype
+  return (
+    typeof attestation?.getPublicKey === 'function' &&
+    typeof attestation.getPublicKeyAlgorithm === 'function' &&
+    typeof attestation.getAuthenticatorData === 'function'
   )
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0))
 }
 
 // The error the worker answered with, such as invalid_challenge, or the status.
@@ -58,14 +55,17 @@ const answer = async (response: Response) => {
   throw new PasskeyServerError(code)
 }
 
-const postPublic = async (path: string, body?: unknown) =>
-  answer(
-    await fetch(`${API_BASE}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body ?? {})
-    })
-  )
+const post = (path: string, body: unknown, token?: string) => {
+  const init = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {})
+  }
+  if (token === undefined) return fetch(`${API_BASE}${path}`, init)
+  return fetch(`${API_BASE}${path}`, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } })
+}
+
+const postPublic = async (path: string, body?: unknown) => answer(await post(path, body))
 
 const postSignedIn = async (path: string, body?: unknown) =>
   answer(
@@ -75,6 +75,76 @@ const postSignedIn = async (path: string, body?: unknown) =>
       body: JSON.stringify(body ?? {})
     })
   )
+
+// A passkey ceremony: signing up, signing in, or adding a passkey to the signed-in account.
+export type Ceremony = 'register' | 'signin' | 'add'
+
+const fetchOptions = (ceremony: Ceremony) => {
+  if (ceremony === 'register') return postPublic('/auth/register/options')
+  if (ceremony === 'signin') return postPublic('/auth/signin/options')
+  return postSignedIn('/api/passkeys/options')
+}
+
+// Safari lets a page call navigator.credentials only shortly after the tap, and a fetch on a slow network can outlast
+// that. So a page asks for a ceremony's options as it shows the button, and the tap goes straight to the browser's
+// passkey sheet. The worker keeps a challenge for 5 minutes, so options count as fresh for 4, and a page that keeps the
+// button up fetches new ones before then.
+const FRESH_MS = 4 * 60_000
+
+interface Prefetched {
+  at: number
+  options: Promise<unknown>
+  refresh: number
+}
+
+const prefetched = new Map<Ceremony, Prefetched>()
+
+// Fetches the ceremony's options now, for a tap to come.
+export const preparePasskey = (ceremony: Ceremony) => {
+  const previous = prefetched.get(ceremony)
+  if (previous) window.clearTimeout(previous.refresh)
+  const options = fetchOptions(ceremony)
+  const entry: Prefetched = {
+    at: Date.now(),
+    options,
+    refresh: window.setTimeout(() => preparePasskey(ceremony), FRESH_MS)
+  }
+  // A failed prefetch leaves the tap to fetch.
+  options.catch(() => {
+    if (prefetched.get(ceremony) !== entry) return
+    window.clearTimeout(entry.refresh)
+    prefetched.delete(ceremony)
+  })
+  prefetched.set(ceremony, entry)
+}
+
+// The options for this tap: the prefetched ones while fresh, else fetched now. A challenge is good once, so either way
+// they are used up.
+const takeOptions = async (ceremony: Ceremony) => {
+  const entry = prefetched.get(ceremony)
+  prefetched.delete(ceremony)
+  if (entry) {
+    window.clearTimeout(entry.refresh)
+    if (Date.now() - entry.at < FRESH_MS) {
+      try {
+        return await entry.options
+      } catch {
+        // The prefetch failed, so the tap fetches.
+      }
+    }
+  }
+  return fetchOptions(ceremony)
+}
+
+// Runs a ceremony on its options, and prepares new ones when it fails, since the challenge is used up.
+const withOptions = async <T>(ceremony: Ceremony, run: (options: unknown) => Promise<T>) => {
+  try {
+    return await run(await takeOptions(ceremony))
+  } catch (error) {
+    preparePasskey(ceremony)
+    throw error
+  }
+}
 
 interface CreationOptionsJson {
   challenge: string
@@ -107,17 +177,23 @@ const isAccount = (value: unknown): value is Account =>
   typeof value.userId === 'string' &&
   typeof value.token === 'string'
 
+const bytes = (text: string) => {
+  const decoded = fromBase64Url(text)
+  if (!decoded) throw new PasskeyServerError('invalid_options')
+  return decoded
+}
+
 // Makes a passkey for the options the worker gave, and resolves to the registration the worker checks. Attestation is
 // 'none', so the worker reads the public key from getPublicKey() and needs no CBOR.
 const register = async (options: CreationOptionsJson) => {
   const credential = await navigator.credentials.create({
     publicKey: {
       ...options,
-      challenge: fromBase64Url(options.challenge),
-      user: { ...options.user, id: fromBase64Url(options.user.id) },
+      challenge: bytes(options.challenge),
+      user: { ...options.user, id: bytes(options.user.id) },
       excludeCredentials: options.excludeCredentials.map((excluded) => ({
         type: excluded.type,
-        id: fromBase64Url(excluded.id)
+        id: bytes(excluded.id)
       }))
     }
   })
@@ -137,52 +213,80 @@ const register = async (options: CreationOptionsJson) => {
 // Saves the account's credentials and has the next sync run a first sync with it, which restores the account's rows
 // and pushes every row only this device has. A device that synced with another account, through a token or another
 // passkey, leaves that account's backup behind. A sync running with the old credentials finishes first, and the
-// switch holds the push lock, so no chunk is on its way to the old account while the credentials change.
+// switch holds the push lock, so no chunk is on its way to the old account while the credentials change. The sync
+// state resets before the credentials change, so a switch that stops half way leaves a first sync to run with the old
+// account, which only merges again, never a device that skips the first sync with the new one.
 const switchTo = async (account: Account) => {
   await sync({ again: false }).catch(() => undefined)
   await pushLock(async () => {
-    storeCloudBackupConfig({ ...account, method: 'passkey' })
-    clearLastSyncAt()
     await restartFirstSync(storage)
+    storeCloudBackupConfig({ ...account, method: 'passkey' })
+    markSignedOut(false)
+    clearLastSyncAt()
+    setSyncProblem(null)
   })
 }
 
-// Signs up: makes a new account with a new passkey and backs this device up to it.
+// Signs up: makes a new account with a new passkey and backs this device up to it. A new account has no rows, so
+// nothing on this device is replaced.
 export const createPasskeyAccount = async () => {
-  const options = (await postPublic('/auth/register/options')) as CreationOptionsJson
-  const account = await postPublic('/auth/register/verify', await register(options))
+  const account = await withOptions('register', async (options) =>
+    postPublic('/auth/register/verify', await register(options as CreationOptionsJson))
+  )
   if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
   await switchTo(account)
+}
+
+// Whether this device holds any exercise, program or workout, which signing in can replace with the account's copy.
+export const hasLocalRows = async () => {
+  for (const store of [OBJECT_STORES.EXERCISES, OBJECT_STORES.PROGRAMS, OBJECT_STORES.WORKOUT_SESSIONS]) {
+    if ((await storage.count(store)) > 0) return true
+  }
+  return false
 }
 
 // Signs in with any passkey this phone has for Jimbro, which the browser lets the user pick, and restores its account.
-export const signInWithPasskey = async () => {
-  const options = (await postPublic('/auth/signin/options')) as RequestOptionsJson
-  const credential = await navigator.credentials.get({
-    publicKey: {
-      challenge: fromBase64Url(options.challenge),
-      rpId: options.rpId,
-      allowCredentials: [],
-      userVerification: options.userVerification,
-      timeout: options.timeout
-    }
-  })
-  if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser used no passkey')
-  const response = credential.response as AuthenticatorAssertionResponse
-  const account = await postPublic('/auth/signin/verify', {
-    id: credential.id,
-    clientDataJSON: toBase64Url(response.clientDataJSON),
-    authenticatorData: toBase64Url(response.authenticatorData),
-    signature: toBase64Url(response.signature)
+// The first sync with the account keeps the account's copy of every row both sides have, so where this device holds
+// rows, confirmReplace asks first, after the passkey sheet, so the sheet still opens right on the tap. Resolves to
+// false when the user said no, and then the device stays as it was and the worker forgets the new token.
+export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: () => boolean | Promise<boolean> }) => {
+  const account = await withOptions('signin', async (options) => {
+    const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
+    const credential = await navigator.credentials.get({
+      publicKey: { challenge: bytes(challenge), rpId, allowCredentials: [], userVerification, timeout }
+    })
+    if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser used no passkey')
+    const response = credential.response as AuthenticatorAssertionResponse
+    return postPublic('/auth/signin/verify', {
+      id: credential.id,
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+      authenticatorData: toBase64Url(response.authenticatorData),
+      signature: toBase64Url(response.signature)
+    })
   })
   if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
+  if ((await hasLocalRows()) && !(await confirmReplace())) {
+    await post('/api/signout', {}, account.token).catch(() => undefined)
+    preparePasskey('signin')
+    return false
+  }
   await switchTo(account)
+  return true
 }
 
 // Adds one more passkey to the signed-in account, such as one in another password manager.
 export const addPasskey = async () => {
-  const options = (await postSignedIn('/api/passkeys/options')) as CreationOptionsJson
-  await postSignedIn('/api/passkeys/verify', await register(options))
+  await withOptions('add', async (options) =>
+    postSignedIn('/api/passkeys/verify', await register(options as CreationOptionsJson))
+  )
+  preparePasskey('add')
+}
+
+// Before a sign-out: pushes what waits, and resolves to the rows still not backed up, which a sign-out would leave out
+// of the backup. Signing in again later keeps the backup's copy of each of them.
+export const backUpBeforeSignOut = async () => {
+  await sync({ again: false }).catch(() => undefined)
+  return outbox.pending()
 }
 
 // Signs out: the worker forgets this device's token, and the device stops syncing. Its data stays on the device.
@@ -196,5 +300,7 @@ export const signOut = async () => {
     }
   }
   clearCloudBackupConfig()
+  markSignedOut(true)
   clearLastSyncAt()
+  setSyncProblem(null)
 }

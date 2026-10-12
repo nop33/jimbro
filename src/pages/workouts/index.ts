@@ -3,7 +3,7 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { getMeta } from '../../sync/queue'
-import { passkeysSupported, signInWithPasskey } from '../../sync/passkeys'
+import { passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
@@ -17,7 +17,7 @@ import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
-import { showPasskeyFailure } from '../passkeyFailure'
+import { confirmReplaceWithAccount, showPasskeyFailure } from '../passkeyPrompts'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
@@ -132,9 +132,11 @@ if (_isDbEmpty) {
       const signInButton = document.createElement('button')
       signInButton.classList.add('btn-secondary', 'mx-auto', '-mt-3')
       signInButton.textContent = 'Sign in with passkey'
+      // The tap goes straight to the passkey sheet, with options fetched as the button shows.
+      preparePasskey('signin')
       signInButton.addEventListener('click', async () => {
         try {
-          await signInWithPasskey()
+          if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return
         } catch (error) {
           showPasskeyFailure(error)
           return

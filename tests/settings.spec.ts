@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { seedDatabase } from './seed'
 
 test.describe('Settings Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -41,7 +42,7 @@ test.describe('Settings Page', () => {
   })
 
   test('cloud backup offers a passkey, and keeps the token form under "Use a token"', async ({ page }) => {
-    const supported = await page.evaluate(() => typeof window.PublicKeyCredential === 'function')
+    const supported = await page.evaluate(async () => (await import('/src/sync/passkeys.ts')).passkeysSupported())
     await page.locator('#cloud-backup-details > summary').click()
     await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
     if (supported) {
@@ -68,5 +69,21 @@ test.describe('Settings Page', () => {
       token: 'secret',
       method: 'token'
     })
+  })
+
+  test('a full backup says so instead of failing quietly', async ({ page }) => {
+    await page.route('**/api/pull**', (route) => route.fulfill({ json: { rows: [], cursor: 0, more: false } }))
+    await page.route('**/api/push', (route) => route.fulfill({ status: 413, json: { error: 'row_limit', cap: 50000 } }))
+    await seedDatabase(page)
+    await page.evaluate(() => {
+      localStorage.setItem('jimbro.cloudBackup', JSON.stringify({ userId: 'someone', token: 'secret' }))
+    })
+
+    // The page's own sync on load runs into the full backup and says so.
+    await page.goto('/settings/')
+    await expect(page.locator('.toast-message-popup')).toHaveText(
+      'Your cloud backup is full. New changes stay on this phone.'
+    )
+    await expect(page.locator('#cloud-summary-status')).toHaveText(/^Backup full · \d+ pending$/)
   })
 })

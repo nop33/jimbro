@@ -34,8 +34,26 @@ export const clearCloudBackupConfig = () => {
   localStorage.removeItem(STORAGE_KEY)
 }
 
-// Whether a passkey set up the backup. Anyone else, with no backup or a typed token, gets the passkey offer.
-export const hasPasskeySync = () => getCloudBackupConfig()?.method === 'passkey'
+const SIGNED_OUT_KEY = 'jimbro.cloudBackup.signedOut'
+
+// Whether this device signed out of a passkey account, so Settings offers signing in first. Like the rest of the
+// credentials it lives in localStorage, and a storage that throws only loses the hint.
+export const markSignedOut = (signedOut: boolean) => {
+  try {
+    if (signedOut) localStorage.setItem(SIGNED_OUT_KEY, '1')
+    else localStorage.removeItem(SIGNED_OUT_KEY)
+  } catch {
+    // Settings then offers creating a passkey first, as on a new device.
+  }
+}
+
+export const wasSignedOut = () => {
+  try {
+    return localStorage.getItem(SIGNED_OUT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export const fetchJimbroApi = async (path: string, options: RequestInit = {}) => {
   const config = getCloudBackupConfig()
