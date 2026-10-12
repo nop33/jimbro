@@ -11,7 +11,7 @@ import {
   signOut
 } from './passkeys'
 import { exportFromRows } from '../../src/sync/rows'
-import { countStatements, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_LIMIT } from './rows'
+import { countStatements, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_CAP, ROW_LIMIT } from './rows'
 
 const withCors = (request: Request, response: Response, env: Env) => {
   const origin = request.headers.get('Origin')
@@ -29,13 +29,26 @@ interface Env extends AuthEnv, OriginEnv {
   jimbro: D1Database
   // Limits the public passkey routes per client address. See wrangler.jsonc.
   AUTH_LIMITER: RateLimit
+  // Limits each user's pushes. See wrangler.jsonc.
+  PUSH_LIMITER: RateLimit
+  // 'off' skips AUTH_LIMITER. Only the Playwright run's local worker sets it, since all its browsers share one address.
+  AUTH_RATE_LIMIT?: string
+  // The most rows a user may store, when not ROW_CAP. Tests lower it.
+  ROW_CAP?: string
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env)
 
-    const response = await handleRequest(request, env)
+    let response: Response
+    try {
+      response = await handleRequest(request, env)
+    } catch (error) {
+      // A failure still answers with the CORS headers, so the app reads the status instead of a network error.
+      console.error('request failed', error)
+      response = Response.json({ error: 'internal' }, { status: 500 })
+    }
     return withCors(request, response, env)
   }
 } satisfies ExportedHandler<Env>
@@ -91,9 +104,11 @@ const handlePublicAuth = async (
   handle: (request: Request, env: Env) => Promise<Response>
 ) => {
   if (request.method !== 'POST') return Response.json({ error: 'method not allowed' }, { status: 405 })
-  const client = request.headers.get('CF-Connecting-IP') ?? 'unknown'
-  const { success } = await env.AUTH_LIMITER.limit({ key: `auth:${client}` })
-  if (!success) return Response.json({ error: 'rate_limited' }, { status: 429 })
+  if (env.AUTH_RATE_LIMIT !== 'off') {
+    const client = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+    const { success } = await env.AUTH_LIMITER.limit({ key: `auth:${client}` })
+    if (!success) return Response.json({ error: 'rate_limited' }, { status: 429 })
+  }
   return handle(request, env)
 }
 
@@ -131,6 +146,9 @@ const handleRequest = async (request: Request, env: Env) => {
 }
 
 const handlePush = async (request: Request, env: Env, userId: string) => {
+  const { success } = await env.PUSH_LIMITER.limit({ key: `push:${userId}` })
+  if (!success) return json(request, { error: 'rate_limited' }, 429)
+
   let data: unknown
   try {
     data = await request.json()
@@ -145,7 +163,9 @@ const handlePush = async (request: Request, env: Env, userId: string) => {
   }
 
   const counted = countStatements(env.jimbro)
-  const revision = await upsertRows(counted.db, userId, parsed.rows)
+  const cap = env.ROW_CAP ? Number(env.ROW_CAP) : ROW_CAP
+  const revision = await upsertRows(counted.db, userId, parsed.rows, cap)
+  if (revision === null) return json(request, { error: 'row_limit', cap }, 413, countedHeaders(counted))
   return json(request, { revision }, 200, countedHeaders(counted))
 }
 

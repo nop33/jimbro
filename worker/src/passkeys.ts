@@ -1,13 +1,12 @@
 import { bearerToken, hashToken } from './auth'
 import { isAllowedOrigin, type OriginEnv } from './origins'
+import { fromBase64Url, toBase64Url } from '../../src/sync/base64url'
 import {
   ALGORITHMS,
   checkAuthenticatorData,
-  fromBase64Url,
   importPublicKey,
   randomBase64Url,
   readClientData,
-  toBase64Url,
   verifyAssertion
 } from './webauthn'
 
@@ -81,11 +80,20 @@ const readBody = async (request: Request, fields: string[]) => {
   return { record, decoded }
 }
 
+// The name a password manager lists the passkey under, from the day the account was made, so two accounts on one
+// phone read apart: "Jimbro · 12 Oct 2026".
+export const accountName = (createdAt: Date) =>
+  `Jimbro · ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(createdAt)}`
+
 // What the browser's navigator.credentials.create() takes, with every buffer as base64url.
-const creationOptions = (challenge: string, rpId: string, userId: string, exclude: string[]) => ({
+const creationOptions = (challenge: string, rpId: string, userId: string, createdAt: Date, exclude: string[]) => ({
   challenge,
   rp: { id: rpId, name: 'Jimbro' },
-  user: { id: toBase64Url(new TextEncoder().encode(userId)), name: 'Jimbro', displayName: 'Jimbro' },
+  user: {
+    id: toBase64Url(new TextEncoder().encode(userId)),
+    name: accountName(createdAt),
+    displayName: accountName(createdAt)
+  },
   pubKeyCredParams: ALGORITHMS.map((alg) => ({ type: 'public-key', alg })),
   authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'required' },
   attestation: 'none',
@@ -109,6 +117,7 @@ const verifyRegistration = async (request: Request, env: PasskeyEnv, purpose: 'r
   if (!challenge?.userId) return reject('invalid_challenge')
   if (clientData.type !== 'webauthn.create') return reject('wrong_type')
   if (clientData.origin !== rp.origin) return reject('wrong_origin')
+  if (clientData.crossOrigin) return reject('cross_origin')
   const checked = await checkAuthenticatorData(body.decoded.authenticatorData, rp.rpId, body.decoded.id)
   if (!checked.ok) return reject(checked.error)
   if (typeof alg !== 'number' || !(await importPublicKey(body.decoded.publicKey, alg))) {
@@ -119,6 +128,7 @@ const verifyRegistration = async (request: Request, env: PasskeyEnv, purpose: 'r
     userId: challenge.userId,
     passkey: {
       id: toBase64Url(body.decoded.id),
+      rpId: rp.rpId,
       publicKey: toBase64Url(body.decoded.publicKey),
       alg,
       signCount: checked.data.signCount
@@ -131,12 +141,24 @@ type Passkey = Extract<Awaited<ReturnType<typeof verifyRegistration>>, { ok: tru
 const insertPasskey = (db: D1Database, userId: string, passkey: Passkey, now: string) =>
   db
     .prepare(
-      'INSERT INTO passkeys (id, user_id, public_key, alg, sign_count, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'
+      'INSERT INTO passkeys (id, user_id, rp_id, public_key, alg, sign_count, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'
     )
-    .bind(passkey.id, userId, passkey.publicKey, passkey.alg, passkey.signCount, now)
+    .bind(passkey.id, userId, passkey.rpId, passkey.publicKey, passkey.alg, passkey.signCount, now)
 
-const passkeyExists = async (db: D1Database, id: string) =>
-  (await db.prepare('SELECT 1 AS found FROM passkeys WHERE id = ?1').bind(id).first()) !== null
+// A credential ID registered already breaks the passkeys primary key, and the whole batch rolls back.
+const isConflict = (error: unknown) =>
+  error instanceof Error && /UNIQUE constraint failed|SQLITE_CONSTRAINT/.test(error.message)
+
+// Runs the writes that store a passkey, and answers 409 when the credential is registered already.
+const storePasskey = async (db: D1Database, statements: D1PreparedStatement[]) => {
+  try {
+    await db.batch(statements)
+    return null
+  } catch (error) {
+    if (isConflict(error)) return fail('credential_exists', 409)
+    throw error
+  }
+}
 
 // POST /auth/register/options: a challenge for a new account's first passkey.
 export const registerOptions = async (request: Request, env: PasskeyEnv) => {
@@ -144,21 +166,21 @@ export const registerOptions = async (request: Request, env: PasskeyEnv) => {
   if (!rp) return fail('origin_not_allowed', 403)
   const userId = crypto.randomUUID()
   const challenge = await newChallenge(env.jimbro, 'register', userId)
-  return Response.json(creationOptions(challenge, rp.rpId, userId, []))
+  return Response.json(creationOptions(challenge, rp.rpId, userId, new Date(), []))
 }
 
 // POST /auth/register/verify: stores the account and its passkey, and signs it in.
 export const registerVerify = async (request: Request, env: PasskeyEnv) => {
   const verified = await verifyRegistration(request, env, 'register')
   if (!verified.ok) return fail(verified.error)
-  if (await passkeyExists(env.jimbro, verified.passkey.id)) return fail('credential_exists', 409)
   const now = new Date().toISOString()
   const { token, statement } = await newToken(env.jimbro, verified.userId, now)
-  await env.jimbro.batch([
+  const conflict = await storePasskey(env.jimbro, [
     env.jimbro.prepare('INSERT INTO users (id, created_at) VALUES (?1, ?2)').bind(verified.userId, now),
     insertPasskey(env.jimbro, verified.userId, verified.passkey, now),
     statement
   ])
+  if (conflict) return conflict
   return Response.json({ userId: verified.userId, token })
 }
 
@@ -188,14 +210,17 @@ export const signInVerify = async (request: Request, env: PasskeyEnv) => {
   if (!(await takeChallenge(env.jimbro, clientData.challenge, 'signin'))) return fail('invalid_challenge')
   if (clientData.type !== 'webauthn.get') return fail('wrong_type')
   if (clientData.origin !== rp.origin) return fail('wrong_origin')
+  if (clientData.crossOrigin) return fail('cross_origin')
   const checked = await checkAuthenticatorData(authenticatorData, rp.rpId)
   if (!checked.ok) return fail(checked.error)
 
   const stored = await env.jimbro
-    .prepare('SELECT user_id, public_key, alg, sign_count FROM passkeys WHERE id = ?1')
+    .prepare('SELECT user_id, rp_id, public_key, alg, sign_count FROM passkeys WHERE id = ?1')
     .bind(toBase64Url(id))
-    .first<{ user_id: string; public_key: string; alg: number; sign_count: number }>()
+    .first<{ user_id: string; rp_id: string; public_key: string; alg: number; sign_count: number }>()
   if (!stored) return fail('unknown_credential', 401)
+  // A passkey works only for the RP ID it was made for.
+  if (stored.rp_id !== rp.rpId) return fail('wrong_rp')
   const spki = fromBase64Url(stored.public_key)
   const key = spki && (await importPublicKey(spki, stored.alg))
   if (!key || !(await verifyAssertion(key, stored.alg, signature, authenticatorData, clientDataJSON))) {
@@ -217,19 +242,15 @@ export const signInVerify = async (request: Request, env: PasskeyEnv) => {
 export const addPasskeyOptions = async (request: Request, env: PasskeyEnv, userId: string) => {
   const rp = relyingParty(request, env)
   if (!rp) return fail('origin_not_allowed', 403)
-  const existing = await env.jimbro
-    .prepare('SELECT id FROM passkeys WHERE user_id = ?1')
-    .bind(userId)
-    .all<{ id: string }>()
+  const [existing, account] = await env.jimbro.batch<{ id?: string; created_at?: string }>([
+    env.jimbro.prepare('SELECT id FROM passkeys WHERE user_id = ?1').bind(userId),
+    env.jimbro.prepare('SELECT created_at FROM users WHERE id = ?1').bind(userId)
+  ])
   const challenge = await newChallenge(env.jimbro, 'add', userId)
-  return Response.json(
-    creationOptions(
-      challenge,
-      rp.rpId,
-      userId,
-      existing.results.map((row) => row.id)
-    )
-  )
+  // AUTH_TOKENS users have no users row, so their passkeys are named after today.
+  const createdAt = account.results[0]?.created_at
+  const ids = existing.results.flatMap((row) => (row.id ? [row.id] : []))
+  return Response.json(creationOptions(challenge, rp.rpId, userId, createdAt ? new Date(createdAt) : new Date(), ids))
 }
 
 // POST /api/passkeys/verify: stores the passkey on the account that asked for the challenge.
@@ -237,8 +258,10 @@ export const addPasskeyVerify = async (request: Request, env: PasskeyEnv, userId
   const verified = await verifyRegistration(request, env, 'add')
   if (!verified.ok) return fail(verified.error)
   if (verified.userId !== userId) return fail('invalid_challenge')
-  if (await passkeyExists(env.jimbro, verified.passkey.id)) return fail('credential_exists', 409)
-  await insertPasskey(env.jimbro, userId, verified.passkey, new Date().toISOString()).run()
+  const conflict = await storePasskey(env.jimbro, [
+    insertPasskey(env.jimbro, userId, verified.passkey, new Date().toISOString())
+  ])
+  if (conflict) return conflict
   return Response.json({ ok: true })
 }
 

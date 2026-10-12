@@ -4,11 +4,13 @@ CREATE TABLE users (
   created_at TEXT NOT NULL
 );
 
--- One row per passkey. id is the credential ID, base64url. public_key is the SPKI the browser reported at
--- registration, base64url, and alg its COSE algorithm: -7 (ES256) or -257 (RS256).
+-- One row per passkey. id is the credential ID, base64url. rp_id is the RP ID it was made for, which a sign-in must
+-- match. public_key is the SPKI the browser reported at registration, base64url, and alg its COSE algorithm: -7 (ES256)
+-- or -257 (RS256).
 CREATE TABLE passkeys (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
+  rp_id TEXT NOT NULL,
   public_key TEXT NOT NULL,
   alg INTEGER NOT NULL,
   sign_count INTEGER NOT NULL,

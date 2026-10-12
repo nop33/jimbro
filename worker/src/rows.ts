@@ -14,6 +14,10 @@ import {
 
 export const ROW_LIMIT = 1000
 
+// The most rows one user may store, across the four tables, deleted ones included. Anyone can sign up with a passkey,
+// so the cap keeps one account from filling D1. A year of four workouts a week is about 4,000 rows.
+export const ROW_CAP = 50_000
+
 const MAX_REV = `SELECT COALESCE(MAX(rev), 0) AS rev FROM (
   SELECT MAX(rev) AS rev FROM exercises WHERE user_id = ?1
   UNION ALL
@@ -24,13 +28,30 @@ const MAX_REV = `SELECT COALESCE(MAX(rev), 0) AS rev FROM (
   SELECT MAX(rev) AS rev FROM sets WHERE user_id = ?1
 )`
 
-// WHERE 1 stops SQLite from parsing ON CONFLICT as a join condition.
+// Whether the push keeps the user within the row cap (?8): the rows stored, plus the push's ?7 distinct rows, less those
+// already stored, whose IDs ?3 to ?6 list per table. Each statement of a push's batch reads it again, and gets the same
+// answer, since a row the batch stores moves from new to stored. So a push over the cap stores nothing.
+const WITHIN_CAP = `SELECT (
+  (SELECT COUNT(*) FROM exercises WHERE user_id = ?1)
+  + (SELECT COUNT(*) FROM programs WHERE user_id = ?1)
+  + (SELECT COUNT(*) FROM sessions WHERE user_id = ?1)
+  + (SELECT COUNT(*) FROM sets WHERE user_id = ?1)
+  + ?7
+  - (SELECT COUNT(*) FROM exercises WHERE user_id = ?1 AND id IN (SELECT value FROM json_each(?3)))
+  - (SELECT COUNT(*) FROM programs WHERE user_id = ?1 AND id IN (SELECT value FROM json_each(?4)))
+  - (SELECT COUNT(*) FROM sessions WHERE user_id = ?1 AND id IN (SELECT value FROM json_each(?5)))
+  - (SELECT COUNT(*) FROM sets WHERE user_id = ?1 AND id IN (SELECT value FROM json_each(?6)))
+) <= ?8`
+
+// WHERE (cap) also stops SQLite from parsing ON CONFLICT as a join condition.
 const insertSql = (table: RowTable, columns: string, selected: string, update: string) => `WITH base AS (${MAX_REV})
 INSERT INTO ${table} (${columns})
 SELECT ${selected}
 FROM json_each(?2) AS j
-WHERE 1
+WHERE (${WITHIN_CAP})
 ON CONFLICT(user_id, id) DO UPDATE SET ${update}`
+
+const RESULT_SQL = `SELECT (${MAX_REV}) AS rev, (${WITHIN_CAP}) AS ok`
 
 const revExpr = '(SELECT rev FROM base) + CAST(j.key AS INTEGER) + 1'
 
@@ -230,19 +251,25 @@ const chunksOf = (rows: Row[]) => {
   return chunks
 }
 
-const revisionFrom = (results: D1Result<unknown>[]) => {
-  const rev = results.at(-1)?.results?.[0]
-  if (!rev || typeof rev !== 'object' || !('rev' in rev)) return 0
-  return typeof rev.rev === 'number' ? rev.rev : 0
+const resultFrom = (results: D1Result<unknown>[]) => {
+  const result = results.at(-1)?.results?.[0]
+  if (!result || typeof result !== 'object' || !('rev' in result) || !('ok' in result)) return { rev: 0, ok: false }
+  return { rev: typeof result.rev === 'number' ? result.rev : 0, ok: result.ok === 1 }
 }
 
-export const upsertRows = async (db: RowDatabase, userId: string, rows: Row[]): Promise<number> => {
+// Stores the rows in one batch and resolves to the user's latest revision, or to null when they would take the user
+// past cap rows, and then nothing is stored.
+export const upsertRows = async (db: RowDatabase, userId: string, rows: Row[], cap = ROW_CAP) => {
+  const ids = (table: RowTable) =>
+    JSON.stringify(rows.filter((entry) => entry.table === table).map((entry) => entry.row.id))
+  const pushed = new Set(rows.map((entry) => `${entry.table}:${entry.row.id}`)).size
+  const capParams = [ids('exercises'), ids('programs'), ids('sessions'), ids('sets'), pushed, cap]
   const statements = chunksOf(rows).map((chunk) =>
-    db.prepare(INSERT_SQL[chunk.table]).bind(userId, JSON.stringify(chunk.rows))
+    db.prepare(INSERT_SQL[chunk.table]).bind(userId, JSON.stringify(chunk.rows), ...capParams)
   )
-  statements.push(db.prepare(MAX_REV).bind(userId))
-  const results = await db.batch(statements)
-  return revisionFrom(results)
+  statements.push(db.prepare(RESULT_SQL).bind(userId, null, ...capParams))
+  const result = resultFrom(await db.batch(statements))
+  return result.ok ? result.rev : null
 }
 
 interface StoredPull {

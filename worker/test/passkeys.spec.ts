@@ -1,7 +1,8 @@
 import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import type { Row } from '../../src/db/types'
-import { fromBase64Url, toBase64Url } from '../src/webauthn'
+import { fromBase64Url, toBase64Url } from '../../src/sync/base64url'
+import worker from '../src/index'
 
 // A software authenticator: it makes the same bytes a phone's passkey would, with a key generated here, so these tests
 // run the worker's checks on real signatures.
@@ -87,10 +88,15 @@ const newAuthenticator = async (algorithm: Algorithm = 'ES256') => {
     // What the app sends after navigator.credentials.create().
     async register(
       challenge: string,
-      options: { type?: string; origin?: string; rpId?: string; flags?: number } = {}
+      options: { type?: string; origin?: string; rpId?: string; flags?: number; crossOrigin?: boolean } = {}
     ): Promise<Record<string, unknown>> {
       const clientData = utf8(
-        JSON.stringify({ type: options.type ?? 'webauthn.create', challenge, origin: options.origin ?? APP_ORIGIN })
+        JSON.stringify({
+          type: options.type ?? 'webauthn.create',
+          challenge,
+          origin: options.origin ?? APP_ORIGIN,
+          crossOrigin: options.crossOrigin ?? false
+        })
       )
       return {
         id: toBase64Url(credentialId),
@@ -112,11 +118,17 @@ const newAuthenticator = async (algorithm: Algorithm = 'ES256') => {
         flags?: number
         signCount?: number
         tamper?: boolean
+        crossOrigin?: boolean
       } = {}
     ): Promise<Record<string, unknown>> {
       counter = options.signCount ?? counter
       const clientData = utf8(
-        JSON.stringify({ type: options.type ?? 'webauthn.get', challenge, origin: options.origin ?? APP_ORIGIN })
+        JSON.stringify({
+          type: options.type ?? 'webauthn.get',
+          challenge,
+          origin: options.origin ?? APP_ORIGIN,
+          crossOrigin: options.crossOrigin ?? false
+        })
       )
       const authData = await authenticatorData({ rpId: options.rpId, flags: options.flags })
       const signature = await sign(concat(authData, await sha256(clientData)))
@@ -146,7 +158,7 @@ const newClient = () => {
 interface CreationOptions {
   challenge: string
   rp: { id: string; name: string }
-  user: { id: string }
+  user: { id: string; name: string; displayName: string }
   authenticatorSelection: { residentKey: string; userVerification: string }
   excludeCredentials: Array<{ id: string }>
 }
@@ -188,6 +200,9 @@ describe('passkey sign-up and sign-in', () => {
     expect(options.rp).toEqual({ id: RP_ID, name: 'Jimbro' })
     expect(options.authenticatorSelection).toMatchObject({ residentKey: 'required', userVerification: 'required' })
     expect(options.excludeCredentials).toEqual([])
+    // Each account's passkey carries the day it was made, so two accounts read apart in a password manager.
+    expect(options.user.name).toMatch(/^Jimbro · \d{1,2} [A-Z][a-z]{2} \d{4}$/)
+    expect(options.user.displayName).toBe(options.user.name)
 
     const passkey = await newAuthenticator()
     const registered = await client.call('/auth/register/verify', await passkey.register(options.challenge))
@@ -243,11 +258,26 @@ describe('passkey sign-up and sign-in', () => {
     expect(one.session.userId).not.toBe(two.session.userId)
   })
 
-  it('refuses a credential that is already registered', async () => {
-    const { client, passkey } = await signUp()
+  it('refuses a credential that is already registered, with CORS headers', async () => {
+    const { client, passkey, session } = await signUp()
     const options = (await (await client.call('/auth/register/options')).json()) as CreationOptions
     const response = await client.call('/auth/register/verify', await passkey.register(options.challenge))
     expect(response.status).toBe(409)
+    expect(await errorOf(response)).toBe('credential_exists')
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(APP_ORIGIN)
+    // The batch rolled back, so the refused sign-up left no account behind.
+    const users = await env.jimbro.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>()
+    const owners = await env.jimbro
+      .prepare('SELECT user_id FROM passkeys WHERE id = ?1')
+      .bind(passkey.credentialId)
+      .all<{ user_id: string }>()
+    expect(owners.results).toEqual([{ user_id: session.userId }])
+    expect(users?.n).toBeGreaterThan(0)
+
+    const auth = { Authorization: `Bearer ${session.token}` }
+    const add = (await (await client.call('/api/passkeys/options', undefined, auth)).json()) as CreationOptions
+    const again = await client.call('/api/passkeys/verify', await passkey.register(add.challenge), auth)
+    expect(again.status).toBe(409)
   })
 
   it('adds another passkey to the signed-in account, and signs out', async () => {
@@ -317,6 +347,31 @@ describe('passkey checks', () => {
       await registered.assert(await signInChallenge(client), { origin: 'https://evil.example' })
     )
     expect(await errorOf(signIn)).toBe('wrong_origin')
+  })
+
+  it('rejects a ceremony embedded in another origin', async () => {
+    const client = newClient()
+    const options = (await (await client.call('/auth/register/options')).json()) as CreationOptions
+    const registration = await (await newAuthenticator()).register(options.challenge, { crossOrigin: true })
+    expect(await errorOf(await client.call('/auth/register/verify', registration))).toBe('cross_origin')
+
+    const { passkey } = await signUp(client)
+    const response = await client.call(
+      '/auth/signin/verify',
+      await passkey.assert(await signInChallenge(client), { crossOrigin: true })
+    )
+    expect(await errorOf(response)).toBe('cross_origin')
+  })
+
+  it('signs in only on the RP ID the passkey was made for', async () => {
+    const { client, passkey } = await signUp()
+    const local = { Origin: 'http://localhost:5199' }
+    const options = (await (await client.call('/auth/signin/options', undefined, local)).json()) as {
+      challenge: string
+    }
+    const body = await passkey.assert(options.challenge, { origin: 'http://localhost:5199', rpId: 'localhost' })
+    const response = await client.call('/auth/signin/verify', body, local)
+    expect(await errorOf(response)).toBe('wrong_rp')
   })
 
   it('rejects a reused challenge', async () => {
@@ -454,5 +509,44 @@ describe('passkey checks', () => {
     for (let call = 0; call < 21; call++) statuses.push((await client.call('/auth/signin/options')).status)
     expect(statuses.slice(0, 20).every((status) => status === 200)).toBe(true)
     expect(statuses[20]).toBe(429)
+  })
+})
+
+describe('abuse limits', () => {
+  const pushAs = (token: string, rows: unknown[], target = (request: Request) => SELF.fetch(request)) =>
+    target(
+      new Request('https://example.com/api/push', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows })
+      })
+    )
+
+  const named = (id: string) => ({ table: 'exercises', row: { ...exercise, id } })
+
+  it('caps the rows one user stores, and still takes edits of stored rows at the cap', async () => {
+    const { session } = await signUp()
+    const capped = (request: Request) => worker.fetch(request, { ...env, AUTH_TOKENS: '{}', ROW_CAP: '3' })
+    expect((await pushAs(session.token, [named('a'), named('b')], capped)).status).toBe(200)
+    expect((await pushAs(session.token, [named('a'), named('c')], capped)).status).toBe(200)
+
+    const full = await pushAs(session.token, [named('d')], capped)
+    expect(full.status).toBe(413)
+    expect(await full.json()).toEqual({ error: 'row_limit', cap: 3 })
+
+    const edit = await pushAs(
+      session.token,
+      [{ table: 'exercises', row: { ...exercise, id: 'b', name: 'Front squat' } }],
+      capped
+    )
+    expect(edit.status).toBe(200)
+  })
+
+  it('limits the pushes each user makes a minute', async () => {
+    const { session } = await signUp()
+    const statuses: number[] = []
+    for (let call = 0; call < 61; call++) statuses.push((await pushAs(session.token, [])).status)
+    expect(statuses.slice(0, 60).every((status) => status === 200)).toBe(true)
+    expect(statuses[60]).toBe(429)
   })
 })

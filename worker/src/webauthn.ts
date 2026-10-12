@@ -1,3 +1,5 @@
+import { toBase64Url } from '../../src/sync/base64url'
+
 // The parts of WebAuthn the worker checks, on WebCrypto alone. Registrations use attestation 'none' and the browser's
 // getPublicKey(), so no CBOR parser is needed: the worker reads the public key as SPKI, and only the fixed-layout
 // prefix of the authenticator data.
@@ -9,25 +11,6 @@ export const ALGORITHMS = [ES256, RS256] as const
 const FLAG_USER_PRESENT = 0x01
 const FLAG_USER_VERIFIED = 0x04
 const FLAG_ATTESTED_CREDENTIAL = 0x40
-
-export const toBase64Url = (bytes: Uint8Array) => {
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-export const fromBase64Url = (text: string): Uint8Array<ArrayBuffer> | null => {
-  if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null
-  const binary = atob(
-    text
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(text.length / 4) * 4, '=')
-  )
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
-  return bytes
-}
 
 export const randomBase64Url = (length: number) => toBase64Url(crypto.getRandomValues(new Uint8Array(length)))
 
@@ -41,6 +24,8 @@ export interface ClientData {
   type: string
   challenge: string
   origin: string
+  // True when a page of another origin embedded the ceremony in an iframe.
+  crossOrigin: boolean
 }
 
 // The browser's clientDataJSON, or null when it is not one.
@@ -48,9 +33,9 @@ export const readClientData = (bytes: Uint8Array): ClientData | null => {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes))
     if (!parsed || typeof parsed !== 'object') return null
-    const { type, challenge, origin } = parsed as Record<string, unknown>
+    const { type, challenge, origin, crossOrigin } = parsed as Record<string, unknown>
     if (typeof type !== 'string' || typeof challenge !== 'string' || typeof origin !== 'string') return null
-    return { type, challenge, origin }
+    return { type, challenge, origin, crossOrigin: crossOrigin === true }
   } catch {
     return null
   }

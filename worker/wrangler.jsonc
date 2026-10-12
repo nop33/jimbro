@@ -23,6 +23,12 @@
       "name": "AUTH_LIMITER",
       "namespace_id": "1001",
       "simple": { "limit": 20, "period": 60 }
+    },
+    // Each user may push 60 times a minute, 30,000 rows at 500 a push. The outbox retries a refused push later.
+    {
+      "name": "PUSH_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 60, "period": 60 }
     }
   ]
 }
