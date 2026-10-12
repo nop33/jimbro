@@ -44,16 +44,43 @@
                 <span id="cloud-summary-status" class="text-sm text-jim-neutral-tertiary"></span>
               </summary>
               <div class="flex flex-col gap-2 mt-4">
-                <label class="text-jim-neutral-secondary">
-                  User ID
-                  <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
-                </label>
-                <label class="text-jim-neutral-secondary">
-                  Token
-                  <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
-                </label>
-                <button id="cloud-save" class="btn-primary">Save credentials</button>
-                <button id="cloud-sync-now" class="btn-primary">Sync now</button>
+                <section id="passkey-offer" class="flex flex-col gap-2" aria-labelledby="passkey-offer-title" hidden>
+                  <h3 id="passkey-offer-title" class="text-lg font-bold">Back up your workouts</h3>
+                  <p class="text-sm text-jim-neutral-secondary">
+                    A passkey keeps a copy of your workouts in the cloud. On a new phone, sign in with it to get them
+                    back. Your phone's password manager keeps the passkey, so there is no email or password.
+                  </p>
+                  <button type="button" id="create-passkey" class="btn-primary">Create passkey</button>
+                  <button type="button" id="sign-in-passkey" class="btn-secondary">Sign in with passkey</button>
+                </section>
+                <p id="passkey-unsupported" class="text-sm text-jim-neutral-secondary" hidden>
+                  This browser can't use passkeys, so it can't back up your workouts.
+                </p>
+                <p id="passkey-account" class="text-jim-neutral-secondary" hidden>
+                  Your workouts are backed up with a passkey.
+                </p>
+                <button type="button" id="cloud-sync-now" class="btn-primary" hidden>Sync now</button>
+                <div id="passkey-account-actions" class="flex flex-col gap-2" hidden>
+                  <button type="button" id="add-passkey" class="btn-secondary">Add another passkey</button>
+                  <button type="button" id="sign-out-passkey" class="btn-secondary">Sign out</button>
+                </div>
+                <details id="cloud-token-details">
+                  <summary class="py-2 text-base text-jim-neutral-secondary">Use a token</summary>
+                  <div class="flex flex-col gap-2">
+                    <p class="text-sm text-jim-neutral-secondary">
+                      For local runs, tests and the MCP server: a user ID and token from the worker's AUTH_TOKENS.
+                    </p>
+                    <label class="text-jim-neutral-secondary">
+                      User ID
+                      <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
+                    </label>
+                    <label class="text-jim-neutral-secondary">
+                      Token
+                      <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
+                    </label>
+                    <button type="button" id="cloud-save" class="btn-primary">Save credentials</button>
+                  </div>
+                </details>
               </div>
             </details>
           </div>

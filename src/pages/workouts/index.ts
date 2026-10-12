@@ -3,6 +3,7 @@ import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
 import { getMeta } from '../../sync/queue'
+import { passkeysSupported, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
@@ -16,6 +17,7 @@ import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
+import { showPasskeyFailure } from '../passkeyFailure'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
@@ -123,6 +125,30 @@ if (_isDbEmpty) {
       }
     })
     workoutWeeksContainer.appendChild(seedDbButton)
+
+    // A returning user on a new phone signs in with the passkey the phone's password manager brought along, and the
+    // sign-in's first sync restores their workouts.
+    if (passkeysSupported()) {
+      const signInButton = document.createElement('button')
+      signInButton.classList.add('btn-secondary', 'mx-auto', '-mt-3')
+      signInButton.textContent = 'Sign in with passkey'
+      signInButton.addEventListener('click', async () => {
+        try {
+          await signInWithPasskey()
+        } catch (error) {
+          showPasskeyFailure(error)
+          return
+        }
+        try {
+          await sync({ again: false })
+          window.location.reload()
+        } catch (error) {
+          console.error('Error restoring from cloud:', error)
+          Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
+        }
+      })
+      workoutWeeksContainer.appendChild(signInButton)
+    }
   }
 } else {
   weeks.forEach(({ week, sessions: workoutsOfThisWeek }) => {

@@ -7,6 +7,7 @@ import { throwConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds } from '../../settings'
 import BreakTimerDialog from './BreakTimerDialog'
+import PasskeyOfferCard from './PasskeyOfferCard'
 import { outcomeOf, type Outcome } from './outcome'
 
 // Shows the open session on screen, and resolves once the screen shows it or a later one.
@@ -86,7 +87,7 @@ export const alertIfInSession = (exerciseId: Exercise['id']): boolean => {
 
 // A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or set
 // added afterwards makes it incomplete again. Without cloud backup, a finished workout also downloads a JSON export,
-// the only copy outside this browser.
+// the only copy outside this browser. Without a passkey backup, it also offers one.
 // Vibration patterns, in ms of buzz and pause: a short triple for an exercise, and a "ta-da-da-daaa" fanfare for the
 // workout. Safari has no Vibration API, so both are silent there.
 const EXERCISE_DONE_VIBRATION = [50, 30, 50, 30, 70]
@@ -98,6 +99,7 @@ const actOn = async (outcome: Outcome): Promise<void> => {
       navigator.vibrate?.(WORKOUT_DONE_VIBRATION)
       BreakTimerDialog.closeDialog()
       throwConfetti('Workout done!')
+      PasskeyOfferCard.offer()
       if (getCloudBackupConfig()) return
       try {
         await exportIndexedDbToJson()
