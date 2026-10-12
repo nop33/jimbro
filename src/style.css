@@ -241,8 +241,9 @@
     @apply grid grid-cols-3 gap-2;
   }
 
+  /* Each tile opens Stats, so it answers a press like the program picks below it. */
   .highlight {
-    @apply flex flex-col min-w-0 rounded-2xl px-3 py-2.5 bg-jim-dark-blue/70;
+    @apply flex flex-col h-full min-w-0 rounded-2xl px-3 py-2.5 bg-jim-dark-blue/70 border border-transparent transition-colors duration-200 hover:border-jim-accent/40 active:bg-jim-primary/20;
   }
 
   .highlight-value {
@@ -335,11 +336,23 @@
   }
 
   .nav-link {
-    @apply relative text-neutral-400 transition-all duration-200;
+    @apply relative flex flex-col items-center justify-center gap-1 flex-1 h-full text-neutral-400 transition-colors duration-200 hover:text-blue-400;
+  }
+
+  /* Line icons drawn in the link's colour. The current page's sits in a pill, as Android and iOS tab bars mark it. */
+  .nav-icon {
+    @apply box-content size-6 px-5 py-1 rounded-full fill-none stroke-current transition-colors duration-200;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .nav-link[aria-current='page'] {
     @apply text-blue-400;
+
+    .nav-icon {
+      @apply bg-blue-400/15;
+    }
   }
 
   /* Mobile-first: Ensure touch targets are at least 44x44px */

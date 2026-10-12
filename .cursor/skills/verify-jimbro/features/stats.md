@@ -9,13 +9,14 @@ Stats is `/stats/`: lifetime totals worked out from completed workouts.
 
 ## How to get to it (user POV)
 
-- Choose `Stats` in the bottom nav.
+- On Home, choose any highlight tile (streak, volume or PRs). They show once a workout exists.
+- The header's Back button (`#back-button`, `window.history.back()`) returns to Home. Stats is not in the bottom nav.
 
 ## Driving it with control-jimbro
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stop.** `15-stats`, after the tour imports a year of history.
+- **Tour stop.** `15-stats`, reached by choosing Home's volume tile after the tour imports a year of history.
 - **By hand.** On a fresh or seeded database every number reads 0. Start a workout and the workouts tile shows `+1 incomplete`. Totals change only when a workout is completed.
 
 ## Gotchas

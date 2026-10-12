@@ -7,10 +7,10 @@ Home is `/`. It greets the user, shows this week's workouts and highlights, and 
 - `home-heading` shows `Hey, gymbro.`, title `Jimbro`, and a `Settings` link.
 - `home-empty` shows `Let's set up your first workout.` and a `Get started` link to `/workouts/` when no programs exist. `#week-count` reads `0 workouts`.
 - `home-week` shows `#week-count` (`N of M workouts`, M being the program count in rotation mode or the weekly goal in freestyle), the `#week-goal` bar, and seven `.week-day` cells with `data-status`. Today's cell has `aria-current="date"`.
-- `home-highlights` shows streak, volume (with `▲/▼/= N% vs last week`) and records tiles in `#highlights`. They appear once any workout session exists, not when programs merely exist.
+- `home-highlights` shows streak, volume (with `▲/▼/= N% vs last week`) and records tiles in `#highlights`. They appear once any workout session exists, not when programs merely exist. Each tile is a link to `/stats/`.
 - `home-picks` lists one `.program-pick` per program under `Pick your workout`, each with a meta line (`Not done yet`, `Last done …`, `Done …`, `Started …`). The suggested pick has `data-suggested` and reads `Start ›` (link to `?programId=`), or `Continue ›` (link to `?id=`) for a workout of it started and unfinished this week. Others read `›`. When the week's goal is met and nothing is unfinished, no pick is suggested.
 - `home-install` shows `Install Jimbro for quick access` with an `Install` button in a browser tab, hidden when running installed. Without a captured `beforeinstallprompt` (iOS, Playwright), Install shows an alert about `Add to Home Screen`.
-- `home-nav` shows the bottom nav (Home, Workouts, Exercises, Programs, Stats) with the current page's link marked `aria-current="page"`.
+- `home-nav` shows the bottom nav (Home, Workouts, Exercises, Programs), each with a Lucide line icon, and marks the current page's link `aria-current="page"`, its icon in a pill. Stats, Settings and gymtime have no nav link.
 
 ## How to get to it (user POV)
 
