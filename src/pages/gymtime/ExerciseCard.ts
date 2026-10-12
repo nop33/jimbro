@@ -16,7 +16,7 @@ import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
 import type { ExercisePlan } from './exercisePlan'
-import { clearSetNotes, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
+import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
 // Room the actions menu needs below its button: four 48px items and a margin.
 const MENU_ROOM = 220
@@ -118,11 +118,13 @@ class ExerciseCard {
       )
     )
 
-    const notes = plan.prefillIsMax ? { weight: 'Max last time' } : {}
-    const fillWith = JSON.stringify([preset, plan.prefill, notes])
+    const badges = plan.prefillIsMax
+      ? { weight: { label: 'Max', details: `Heaviest set last time: ${plan.prefill.weight} kg` } }
+      : {}
+    const fillWith = JSON.stringify([preset, plan.prefill, badges])
     const onInputs = this.typedIn || this.nextSetForm.contains(document.activeElement)
     if (presetChanged || (fillWith !== this.filledWith && !onInputs)) {
-      renderSetInputs(this.nextSetFields, preset, plan.prefill, notes)
+      renderSetInputs(this.nextSetFields, preset, plan.prefill, badges)
       this.filledWith = fillWith
       this.typedIn = false
     }
@@ -315,7 +317,7 @@ class ExerciseCard {
 
       // The form keeps the set just logged as the next one's values, which are no longer last time's max, and which
       // the next session shown may fill in again.
-      clearSetNotes(this.nextSetFields)
+      clearSetBadges(this.nextSetFields)
       this.typedIn = false
     })
   }

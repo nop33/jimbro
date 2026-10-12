@@ -56,7 +56,8 @@ export function animateDetails(
     currentAnimation?.cancel()
     // Seed the inline style to match the starting keyframe so the first paint
     // after setAttribute('open') never shows the element at its natural height.
-    content.style.overflow = 'hidden'
+    // Clips only the height, so what sits on the content's side edges, like the Add set plus, stays whole.
+    content.style.overflowY = 'clip'
     content.style.height = `${fromHeight}px`
     content.style.opacity = fromHeight === 0 ? '0' : '1'
     const animation = content.animate(
@@ -74,7 +75,7 @@ export function animateDetails(
       // Remove the forwards fill and the seeded inline styles so the element
       // returns to its stylesheet values (or stays unrendered when closed).
       animation.cancel()
-      content.style.overflow = ''
+      content.style.overflowY = ''
       content.style.height = ''
       content.style.opacity = ''
     }
