@@ -10,7 +10,7 @@ After more than a decade in web dev, I am suffering from framework fatigue. This
 - No frameworks. Just JavaScript (well, TypeScript).
 - No dependencies (except Tailwind, and Chart.js for the progress chart)
 
-The data lives in the browser's IndexedDB. An optional cloud backup syncs it to a small Cloudflare Worker and brings it back on an empty install.
+The data lives in the browser's IndexedDB. Anyone can use the app without an account. An optional cloud backup, signed up for with a passkey, syncs it to a small Cloudflare Worker and brings it back on a new phone.
 
 ## Tech stack
 
@@ -25,15 +25,15 @@ The data lives in the browser's IndexedDB. An optional cloud backup syncs it to 
 
 ## Pages
 
-| Route         | Purpose                                                          |
-| ------------- | ---------------------------------------------------------------- |
-| `/`           | This week at a glance, highlights, and the next workout to start |
-| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode     |
-| `/gymtime/`   | The active workout: log sets, break timer, completion            |
-| `/exercises/` | Exercise library: create, edit, delete                           |
-| `/programs/`  | Programs built from exercises                                    |
-| `/stats/`     | Totals across completed workouts                                 |
-| `/settings/`  | Break time, cloud backup, JSON export and import, database reset |
+| Route         | Purpose                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| `/`           | This week at a glance, highlights, and the next workout to start   |
+| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode       |
+| `/gymtime/`   | The active workout: log sets, break timer, completion              |
+| `/exercises/` | Exercise library: create, edit, delete                             |
+| `/programs/`  | Programs built from exercises                                      |
+| `/stats/`     | Totals across completed workouts                                   |
+| `/settings/`  | Break time, passkey backup, JSON export and import, database reset |
 
 ## Data model
 
@@ -53,7 +53,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - Muscle groups are slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …). Cardio exercises have no muscle group.
 - A session is `completed` once every exercise has its target number of sets, and `incomplete` until then. `pending` and `skipped` exist only in the workouts calendar, for workouts nobody started.
 - Deletes are soft. A deleted row stays with `isDeleted: true`, so the deletion syncs like any other change.
-- Device settings live in localStorage and are neither synced nor exported: workout mode and weekly goal, break time, cloud credentials and the last sync time.
+- Device settings live in localStorage and are neither synced nor exported: workout mode and weekly goal, break time, cloud credentials with how they were set up (passkey or token), the last sync time, and when the passkey offer's "Not now" ends.
 
 ## Features
 
@@ -79,7 +79,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - Completed cards are green with a check mark, incomplete ones amber, pending ones gray and skipped ones red. Incomplete and pending cards have a dashed border.
 - "New" lists the programs with this week's status and when each was last completed, or that it never was. Picking one starts a workout.
 - The intro line counts the workouts left this week, or tells a new user what to do next, matching the button when there is one.
-- With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
+- With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split, and "Sign in with passkey" where the browser has passkeys. Signing in restores the account's workouts, so a returning user on a new phone picks up where they left off. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 
 ### Gymtime (`/gymtime/`)
 
@@ -95,7 +95,7 @@ The page you keep open during a workout.
 - "Previous sets" lists last time's sets. "View History" charts average weight, estimated 1RM and total volume per workout. The gym with the most of those workouts stays unshaded, and each other gym tints the stretch of the chart behind its workouts, with a key under the chart. The metric names in the header hide and show their lines. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
 - For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. At 0:00 it plays a ding and closes itself. A set logged during a break starts a fresh one, and finishing the exercise or the workout ends it.
-- A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, throws "Workout done!" instead, with a longer, happier vibration, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails.
+- A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise throws confetti with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, throws "Workout done!" instead, with a longer, happier vibration, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails. Without a passkey backup (no backup, or a typed token), and where the browser has passkeys, a card under the exercises offers one: "Create passkey" signs up and backs up, and "Not now" hides the offer for 14 days. The card sits in the page, not in a dialog, so it never blocks the workout.
 - "Delete" in the header deletes the workout after a confirmation.
 - Each change to the workout updates the cards in place, so they keep the scroll position, the open card and a value typed into the next set's form.
 
@@ -117,7 +117,10 @@ Totals over completed workouts: the first workout's date and how long ago it was
 ### Settings (`/settings/`)
 
 - Workout settings hold the break timer's length.
-- Cloud backup takes a user ID and a token, with "Save credentials" and "Sync now" buttons. Its status line shows how many changes wait to sync and when the last sync ran.
+- Cloud backup's status line shows how many changes wait to sync and when the last sync ran.
+  - Without a passkey backup, "Back up your workouts" explains the backup and offers "Create passkey" and "Sign in with passkey". A browser without passkeys says it can't back up.
+  - Signed in with a passkey, it says so and offers "Sync now", "Add another passkey" (for another password manager) and "Sign out", which asks first. Signing out keeps the workouts on the phone and stops the backup.
+  - "Use a token", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
 - Gyms renames a gym on every workout after a confirmation. Giving it another gym's name merges the two, which also fixes workouts saved under a city.
 - Manage local data:
   - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
@@ -128,6 +131,10 @@ Totals over completed workouts: the first workout's date and how long ago it was
 
 Sync is optional. Without credentials the app sends nothing to the worker. With them, the worker keeps a backup of the device's data and restores it onto a new install.
 
+- A passkey is the account. "Create passkey" makes a new account on the worker and a passkey for it, which the phone's password manager (iCloud Keychain, Google Password Manager) keeps and brings to a new phone. "Sign in with passkey" there restores the account. There is no email, password or recovery code: losing every passkey loses the backup, though the phone keeps its data.
+- The passkey ceremony is the browser's own WebAuthn API (`src/sync/passkeys.ts`), and the worker checks it. The worker hands back a user ID and a bearer token, which the app saves as its credentials, marked as set up by a passkey. A user ID and token typed into Settings are marked as a token, as are credentials saved before passkeys existed.
+- Creating a passkey always makes a new account. A device that synced with a token account leaves that account's server data behind.
+- Signing up or signing in switches the device to the account: it saves the credentials and resets the sync state (`restartFirstSync` in `src/sync/queue.ts`), so the next sync is a first sync with the new account. That sync pulls the account's rows and pushes every row only the device has, so a device that synced with another account backs everything up to the new one.
 - Each user runs the app on one device, as the installed PWA. Two devices on one account are not supported: neither sees the other's changes, and each push overwrites the server's copy of the rows it changed. Nor are two tabs: a page hears only its own notices, so another tab's changes show only after a reload.
 - Every write lands in IndexedDB first, in one transaction with an outbox entry for each changed row. Nothing waits for the network.
 - A sync runs on every page load, when the browser comes back online, when the app becomes visible, 2 seconds after the last write, and on "Sync now". Offline, it does nothing.
@@ -137,9 +144,27 @@ Sync is optional. Without credentials the app sends nothing to the worker. With 
 
 ## Worker API
 
-`worker/` is a Cloudflare Worker with a D1 database, which has one table per row type keyed by user and row ID (`worker/migrations/0001_rows.sql`).
+`worker/` is a Cloudflare Worker with a D1 database. `worker/migrations/0001_rows.sql` has one table per row type keyed by user and row ID, and `0002_passkeys.sql` the accounts:
 
-Every route needs an `Authorization: Bearer <token>` header. The worker's `AUTH_TOKENS` variable is a JSON object that maps each token to a user ID, and every query is scoped to that user.
+| Table             | Holds                                                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `users`           | One row per account a passkey signed up: `id`, `created_at`                                                          |
+| `passkeys`        | `id` (credential ID), `user_id`, `public_key` (SPKI), `alg` (-7 ES256 or -257 RS256), `sign_count`, `created_at`     |
+| `auth_tokens`     | `token_hash` (SHA-256 of a bearer token, hex), `user_id`, `created_at`. The token itself is never stored             |
+| `auth_challenges` | `challenge`, `purpose` (`register`, `signin` or `add`), `user_id`, `expires_at`. Each is used once, within 5 minutes |
+
+The routes under `/api/` and `/mcp` need an `Authorization: Bearer <token>` header. A token is one from the worker's `AUTH_TOKENS` variable, a JSON object that maps each token to a user ID (for tests, local runs and MCP), or one a passkey sign-up or sign-in handed out. Every query is scoped to the token's user.
+
+The passkey routes take the RP ID from the request's `Origin`, which must be an allowed origin: `jimbro.nop33.com` in production, `localhost` locally. Registrations ask for a discoverable credential with user verification and attestation `none`, and the app sends the public key from the browser's `getPublicKey()`. The worker checks the client data's type, single-use challenge and origin, the authenticator data's RP ID hash and its user present and user verified flags, and, on sign-in, the ES256 or RS256 signature and a sign count that has started counting.
+
+| Public route                  | What it does                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register/options` | Returns the options for `navigator.credentials.create()` for a new account, with every buffer as base64url  |
+| `POST /auth/register/verify`  | Takes the registration, stores the account and its passkey, and returns `{ userId, token }`                 |
+| `POST /auth/signin/options`   | Returns the options for `navigator.credentials.get()`, with no `allowCredentials`                           |
+| `POST /auth/signin/verify`    | Takes the assertion, checks it against the stored passkey, and returns `{ userId, token }` with a new token |
+
+The public routes allow each client address 20 calls a minute, through the `AUTH_LIMITER` rate limiting binding in `wrangler.jsonc`, and answer 429 past that. The limit counts per Cloudflare location and is approximate, as Cloudflare's rate limiting is.
 
 | Route                                  | What it does                                                                                                            |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -147,9 +172,16 @@ Every route needs an `Authorization: Bearer <token>` header. The worker's `AUTH_
 | `POST /api/push`                       | Takes `{ rows: [{ table, row }] }` with up to 1000 rows, validates and stores them, and returns `{ revision }`          |
 | `GET /api/pull?cursor=<rev>&limit=<n>` | Returns `{ rows, cursor, more }` with the rows above `cursor`, up to 1000 per page                                      |
 | `GET /api/export`                      | Downloads every row as a version 4 export file                                                                          |
+| `POST /api/passkeys/options`           | Returns the options to add another passkey to the signed-in account, excluding its passkeys                             |
+| `POST /api/passkeys/verify`            | Takes the registration and stores the passkey on the account                                                            |
+| `POST /api/signout`                    | Deletes the token, when a passkey handed it out, and returns `{ ok: true }`                                             |
 | `POST /mcp`                            | A read-only MCP server over JSON-RPC, with the tools `recent_sessions`, `get_session`, `exercise_history` and `catalog` |
 
 CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_ORIGIN` when a local run sets it.
+
+### Deploying
+
+Deploy the worker and its D1 migrations before an app version that needs them. For passkeys, that is `vp exec wrangler d1 migrations apply jimbro --remote`, then `vp run deploy`, both in `worker/`, then the app.
 
 ## PWA features
 
@@ -237,9 +269,10 @@ src/
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
     syncClient.ts      The app's sync(), wired to the worker and the open page
+    passkeys.ts        Passkey sign-up, sign-in, another passkey and sign-out, with the browser's WebAuthn API
     syncEngine.ts      createSync: the first sync (restore), the push and reruns, behind a server port
     server.ts          The server port, and httpServer, its adapter for the worker's API
-    queue.ts           Outbox entries and meta, and queueRows, which writeRows calls in its transaction
+    queue.ts           Outbox entries and meta, queueRows, which writeRows calls in its transaction, and restartFirstSync
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
     pull.ts            The first sync's commit of what it pulled
     bootstrap.ts       The first sync's plan for each row
@@ -309,7 +342,7 @@ In another terminal at the repo root, start the app against it:
 VITE_API_BASE=http://localhost:8787 vp dev
 ```
 
-Then save user ID `dev` and token `dev-token` under Cloud Backup in Settings, and tap "Sync now".
+Then open http://localhost:5173 (not 127.0.0.1: WebAuthn takes no IP address as the RP ID) and tap "Create passkey" under Cloud Backup in Settings, or save user ID `dev` and token `dev-token` under "Use a token" and tap "Sync now".
 
 If something else already listens on port 8787, start the worker with `vp run dev --port 8791` and put that port in `VITE_API_BASE`.
 
@@ -317,6 +350,6 @@ If something else already listens on port 8787, start the worker with `vp run de
 
 - Unit tests are `tests/*.unit.test.ts`, run by Vitest.
 - Worker tests in `worker/test/` run inside the Workers runtime with a local D1 database.
-- End-to-end tests are `tests/*.spec.ts`, run by Playwright on Chromium, WebKit and Mobile Safari (iPhone 12). Playwright starts the dev server on port 5173. For each run it also starts a fresh local worker on `WORKER_PORT`, 8790 by default, which `tests/sync.spec.ts` syncs with. If that port is busy, those tests fail with a message instead of using whatever listens there.
+- End-to-end tests are `tests/*.spec.ts`, run by Playwright on Chromium, WebKit and Mobile Safari (iPhone 12). Playwright starts the dev server on port 5173. For each run it also starts a fresh local worker on `WORKER_PORT`, 8790 by default, which `tests/sync.spec.ts` and `tests/passkeys.spec.ts` talk to. The passkey specs use Chromium's virtual authenticator, so they run on Chromium only. If that port is busy, those tests fail with a message instead of using whatever listens there.
 - Outside CI, Playwright reuses a dev server already running on port 5173, so stop your own `vp dev` before a run.
 - Options after the script name go to Playwright, for example `vp run test tests/gymtime.spec.ts --project=chromium`.
