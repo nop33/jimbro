@@ -131,8 +131,8 @@ function writeFixture(outDir) {
 
 const base64Url = (bytes) => Buffer.from(bytes).toString('base64url')
 
-// A virtual authenticator on the page, and canned answers in place of the worker for a passkey sign-up and the sync
-// after it. The tour's API base is a dead address, so nothing else would answer.
+// A virtual authenticator on the page, and canned answers in place of the worker for a passkey sign-up, the sync
+// after it and a sign-out. The tour's API base is a dead address, so nothing else would answer.
 async function withPasskeyWorker(page) {
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('WebAuthn.enable')
@@ -158,6 +158,13 @@ async function withPasskeyWorker(page) {
       excludeCredentials: []
     }),
     '/auth/register/verify': () => ({ userId: 'tour-user', token: 'tour-token' }),
+    '/auth/signin/options': () => ({
+      challenge: base64Url(crypto.getRandomValues(new Uint8Array(32))),
+      rpId: 'localhost',
+      userVerification: 'required',
+      timeout: 300_000
+    }),
+    '/api/signout': () => ({ ok: true }),
     '/api/pull': () => ({ rows: [], cursor: 0, more: false }),
     '/api/push': () => ({ revision: 1 })
   }
@@ -383,6 +390,12 @@ const STOPS = [
     await page.getByRole('button', { name: 'Create passkey' }).click()
     await see(page.getByText('Your workouts are backed up with a passkey.'))
     await see(page.getByRole('button', { name: 'Sign out' }))
+    await gone(page.locator('.toast-message-popup'))
+  }],
+  ['settings-signed-out', async (page) => {
+    // The tour accepts the sign-out confirm. A phone that signed out offers signing in first.
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await see(page.locator('#cloud-backup-details .btn-primary', { hasText: 'Sign in with passkey' }))
     await gone(page.locator('.toast-message-popup'))
   }],
   ['gymtime-error', async (page) => {

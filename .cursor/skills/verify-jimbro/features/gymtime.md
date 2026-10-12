@@ -14,7 +14,7 @@ Gymtime is the live workout. The user fills in the date and gym, starts the work
 - `gymtime-add` opens `#add-exercise-dialog` from `#add-exercise-card`, with a muscle filter. Adding an exercise already in the workout shows an alert. Swap reuses it titled `Swap exercise`.
 - `gymtime-save-to-program` shows `#save-to-program-card` when the workout's exercises differ from the program's. It saves with the toast `Saved to program`.
 - `gymtime-done` throws `Exercise done!` confetti when an exercise's last set is logged, and `Workout done!` when the workout's is, then downloads a JSON export when cloud backup is off.
-- `gymtime-passkey-offer` is the `Back up your workouts` card (`#passkey-offer`, a region, not a dialog) under the exercises after `Workout done!`, where the browser has passkeys and no passkey backs the phone up. `Create passkey` signs up and shows `Passkey created. Your workouts are backing up.`. `Not now` hides it for 14 days.
+- `gymtime-passkey-offer` is the `Back up your workouts` card (`#passkey-offer`, a region, not a dialog) under the exercises after `Workout done!`, where the browser has passkeys and no passkey backs the phone up. `Create passkey` signs up and shows `Passkey created. Your workouts are backing up.`. `Already have a passkey? Sign in` confirms when the phone holds data, signs in, shows `Signed in. Restoring your workouts.` and loads the page again after the sync. `Not now` hides it for 14 days.
 - `gymtime-delete` is the header's `Delete`, shown once the workout is saved. It confirms, shows `Workout session deleted` and returns to `/workouts/`.
 - `gymtime-error` shows `Could not load workout. The program or session may no longer exist.` and `Back to workouts` for a missing or unknown `programId` or `id`.
 
@@ -28,7 +28,7 @@ Gymtime is the live workout. The user fills in the date and gym, starts the work
 
 Preconditions: `control-jimbro doctor` passes. The tour imports a year of history first, so `Previous sets`, the history chart and gym suggestions have data.
 
-- **Tour stops.** `20-gymtime-new` (form open, target set slots), `21-gymtime-started`, `22-gymtime-card-open`, `23-break-timer`, `24-break-timer-minimized`, `25-edit-set-dialog`, `26-previous-sets-dialog`, `27-history-chart-dialog`, `28-gymtime-card-menu`, `29-add-exercise-dialog`, `30-gymtime-passkey-offer` (deletes all but the first exercise and logs its sets until `Workout done!`), `32-gymtime-error`.
+- **Tour stops.** `20-gymtime-new` (form open, target set slots), `21-gymtime-started`, `22-gymtime-card-open`, `23-break-timer`, `24-break-timer-minimized`, `25-edit-set-dialog`, `26-previous-sets-dialog`, `27-history-chart-dialog`, `28-gymtime-card-menu`, `29-add-exercise-dialog`, `30-gymtime-passkey-offer` (deletes all but the first exercise and logs its sets until `Workout done!`), `33-gymtime-error`.
 - **By hand: a logged set persists.** After logging, reload the `?id=` URL and expand the card. The `.set.isCompleted` row still shows the values.
 - **By hand: cardio and rehab.** Create a cardio or rehab exercise on `/exercises/`, add it with `#add-exercise-card`, and expand it. Cardio has `set-durationSec`, `set-speed` and `set-incline` inputs and no `View History`. A rehab set opens no break timer.
 
