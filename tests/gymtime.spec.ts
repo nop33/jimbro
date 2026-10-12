@@ -125,10 +125,17 @@ test.describe('Gymtime Page', () => {
 
     const weight = card.locator('.next-set-form input[name="set-weight"]')
     await expect(weight).toHaveValue('50')
-    await expect(weight).toHaveAccessibleDescription('Max last time')
+    await expect(weight).toHaveAccessibleDescription('Heaviest set last time: 50 kg')
+
+    const badge = card.getByRole('button', { name: 'Max' })
+    await badge.click()
+    await expect(card.getByText('Heaviest set last time: 50 kg')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(card.getByText('Heaviest set last time: 50 kg')).toBeHidden()
 
     await weight.fill('47.5')
-    await expect(card.locator('.set-field-note')).toHaveCount(0)
+    await expect(badge).toHaveCount(0)
+    await expect(weight).not.toHaveAttribute('aria-describedby')
   })
 
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {

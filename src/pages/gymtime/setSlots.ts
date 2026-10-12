@@ -21,26 +21,39 @@ const applyGrid = (container: HTMLElement, columns: number) => {
   container.classList.add(GRID_COLS[Math.min(columns, GRID_COLS.length) - 1])
 }
 
-let noteCount = 0
+// A badge on a slot's input: a short label, and the details its popover shows on tap.
+export interface SetSlotBadge {
+  label: string
+  details: string
+}
 
-// A note shows under its slot's input until the value is edited, as with "Max last time" on a prefilled weight.
+let fieldCount = 0
+
+// A badge sits on its slot's input until the value is edited, as with "Max" on a prefilled weight. It is a button
+// that opens a popover, which gives light dismiss and aria-expanded, and CSS anchor positioning puts it by the badge.
+// The input sits in a div with its own label, since a label may hold no button besides its control.
 export const renderSetInputs = (
   container: HTMLElement,
   preset: LogPreset,
   values: ExerciseDefaults,
-  notes: Partial<Record<SetSlot, string>> = {}
+  badges: Partial<Record<SetSlot, SetSlotBadge>> = {}
 ) => {
   const slots = slotsForPreset(preset)
   const display = toDisplayValues(preset, values)
 
   container.replaceChildren(
     ...slots.map((spec) => {
-      const field = document.createElement('label')
-      field.className =
-        'flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-jim-neutral-secondary'
-      field.append(inputLabel(spec))
+      const id = `set-field-${++fieldCount}`
+      const field = document.createElement('div')
+      field.className = 'flex flex-col gap-1.5'
+
+      const label = document.createElement('label')
+      label.htmlFor = id
+      label.className = 'text-xs font-semibold uppercase tracking-wider text-jim-neutral-secondary'
+      label.textContent = inputLabel(spec)
 
       const input = document.createElement('input')
+      input.id = id
       input.type = 'number'
       input.name = setFieldName(spec.slot)
       input.min = String(spec.min)
@@ -48,22 +61,37 @@ export const renderSetInputs = (
       input.required = spec.required
       input.inputMode = spec.step === 1 ? 'numeric' : 'decimal'
       input.placeholder = '0'
-      input.className = 'text-center text-2xl font-bold text-jim-accent'
+      input.className = 'w-full text-center text-2xl font-bold text-jim-accent'
 
       const value = display[spec.slot]
       if (value !== undefined) input.value = String(value)
 
-      field.append(input)
+      const box = document.createElement('div')
+      box.className = 'relative'
+      box.append(input)
+      field.append(label, box)
 
-      const note = notes[spec.slot]
-      if (note) {
-        const hint = document.createElement('span')
-        hint.id = `set-field-note-${++noteCount}`
-        hint.className = 'set-field-note text-xs font-normal normal-case tracking-normal text-center text-jim-accent'
-        hint.textContent = note
-        input.setAttribute('aria-describedby', hint.id)
-        input.addEventListener('input', () => clearSetNotes(field), { once: true })
-        field.append(hint)
+      const badge = badges[spec.slot]
+      if (badge) {
+        const details = document.createElement('div')
+        details.id = `${id}-badge`
+        details.popover = 'auto'
+        details.className = 'set-badge-details'
+        details.textContent = badge.details
+
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = 'set-badge'
+        button.style.setProperty('anchor-name', `--${id}-badge`)
+        details.style.setProperty('position-anchor', `--${id}-badge`)
+        button.popoverTargetElement = details
+        const pill = document.createElement('span')
+        pill.textContent = badge.label
+        button.append(pill)
+
+        input.setAttribute('aria-describedby', details.id)
+        input.addEventListener('input', () => clearSetBadges(field), { once: true })
+        box.append(button, details)
       }
 
       return field
@@ -116,9 +144,9 @@ export const renderSetFields = (container: HTMLElement, set: ExerciseSetExecutio
   )
 }
 
-export const clearSetNotes = (container: HTMLElement) => {
-  for (const hint of container.querySelectorAll('.set-field-note')) hint.remove()
-  for (const input of container.querySelectorAll('[aria-describedby^="set-field-note-"]')) {
+export const clearSetBadges = (container: HTMLElement) => {
+  for (const badge of container.querySelectorAll('.set-badge, .set-badge-details')) badge.remove()
+  for (const input of container.querySelectorAll('input[aria-describedby$="-badge"]')) {
     input.removeAttribute('aria-describedby')
   }
 }

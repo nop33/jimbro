@@ -445,6 +445,55 @@
     }
   }
 
+  /* The card's own background, painted around a badge or button that sits on a border, so it cuts the border. */
+  .card {
+    --card-ring: color-mix(in srgb, var(--color-jim-dark-blue) 50%, var(--color-jim-dark));
+  }
+
+  /* A small pill on an input's top-right corner, in a 44px tap target, that opens its details popover. */
+  .set-badge {
+    @apply absolute grid min-w-11 h-11 cursor-pointer place-items-center px-1.5;
+    top: 0;
+    right: -0.875rem;
+    transform: translateY(-50%);
+
+    span {
+      @apply rounded-full bg-jim-accent px-2 text-[11px] leading-4 font-semibold text-white;
+      padding-block: 2px;
+      box-shadow: 0 0 0 3px var(--card-ring);
+    }
+  }
+
+  /* Without CSS anchor positioning the popover keeps the browser's place for it, the middle of the screen. */
+  .set-badge-details {
+    @apply m-auto w-max max-w-[min(17rem,calc(100vw-2rem))] rounded-xl border border-neutral-700/60 bg-neutral-800 px-3.5 py-2.5 text-sm font-semibold text-white;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  @supports (position-area: top) {
+    .set-badge-details {
+      inset: auto;
+      margin: 0 0 6px;
+      position-area: top span-left;
+      position-try-fallbacks: flip-block;
+    }
+  }
+
+  /* Add set: a ringed plus on the set list's bottom-right corner, the last row's, in a 44px tap target. */
+  .add-extra-set-btn {
+    @apply absolute grid size-11 cursor-pointer place-items-center text-jim-accent;
+    right: -1.375rem;
+    bottom: -1.375rem;
+
+    svg {
+      @apply size-7 rounded-full p-1;
+      background: var(--color-jim-dark-blue);
+      box-shadow:
+        inset 0 0 0 1.5px var(--color-jim-accent),
+        0 0 0 3px var(--card-ring);
+    }
+  }
+
   .card-menu::backdrop {
     background: rgba(0, 0, 0, 0.3);
   }
