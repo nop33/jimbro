@@ -22,8 +22,28 @@ export interface SyncServer {
 
 const PULL_LIMIT = 1000
 
-const assertOk = (response: Response) => {
-  if (!response.ok) throw new Error(`sync request failed: ${response.status}`)
+// A request the worker refused, with the error it answered, such as row_limit or rate_limited, or the status.
+export class SyncRequestError extends Error {
+  readonly status: number
+  readonly code: string
+
+  constructor(status: number, code: string) {
+    super(`sync request failed: ${status}${code === String(status) ? '' : ` ${code}`}`)
+    this.status = status
+    this.code = code
+  }
+}
+
+const assertOk = async (response: Response) => {
+  if (response.ok) return
+  let code = String(response.status)
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    if (typeof body.error === 'string') code = body.error
+  } catch {
+    // The body was not JSON, so the status stands.
+  }
+  throw new SyncRequestError(response.status, code)
 }
 
 const revisionOf = (body: unknown) => {
@@ -41,12 +61,12 @@ export const httpServer: SyncServer = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rows })
     })
-    assertOk(response)
+    await assertOk(response)
     return revisionOf(await response.json())
   },
   async pull(cursor) {
     const response = await fetchJimbroApi(`/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`)
-    assertOk(response)
+    await assertOk(response)
     return (await response.json()) as PullPage
   }
 }
