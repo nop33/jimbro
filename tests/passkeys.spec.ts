@@ -253,7 +253,9 @@ test.describe('passkeys with a virtual authenticator', () => {
     const { credentials } = await other.cdp.send('WebAuthn.getCredentials', { authenticatorId: other.authenticatorId })
     expect(credentials).toHaveLength(1)
 
-    // A change that cannot back up first makes sign-out warn, and staying keeps the account.
+    // A change that cannot back up first makes sign-out warn, and staying keeps the account. The first sync finishes
+    // before the phone goes offline, since a request cut off on its way never answers and holds up the next sync.
+    await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
     await page.context().setOffline(true)
     await page.evaluate(async () => {
       const { storage } = await import('/src/db/storage.ts')
