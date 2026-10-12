@@ -10,7 +10,7 @@ Workouts is the calendar of training weeks. An empty database offers seeding. We
 - `workouts-restore` shows `Restore from cloud` instead of `Seed Database` when the database is empty, cloud credentials are saved and the database has never synced.
 - `workouts-weeks` shows one `.workout-week` per week (`Week N of YYYY`) with a card per program: `.card-success` completed, `.card-warning` incomplete, `.card-pending` this week and not started, `.card-danger` skipped in a past week.
 - `workouts-new` opens `dialog#new-workout-dialog` (`Select program`). Each `a.program-link` shows this week's status and `.last-completed-date`, and opens `/gymtime/?programId=`.
-- `workouts-mode` opens `dialog#workout-mode-dialog` from `#week-progress`. Freestyle shows `Weekly workout goal` (1 to 7). A change saves to localStorage and reloads the page. In freestyle the calendar drops the per-program pending and skipped cards, and this week shows an `Any program` `.open-slot` card per workout still to do toward the goal, which opens the program picker.
+- `workouts-mode` opens `dialog#workout-mode-dialog` from `#week-progress`. Freestyle shows `Weekly workout goal` (1 to 7). A change saves to localStorage and reloads the page. In freestyle the calendar drops the per-program pending and skipped cards, and this week shows an empty `.open-slot` button (`Start a workout`, a `+`, the first one also labelled `Start`) per workout still to do toward the goal, which opens the program picker.
 
 ## How to get to it (user POV)
 
@@ -25,7 +25,7 @@ Preconditions: `control-jimbro doctor` passes.
 
 - **Tour stops.** `02-workouts-empty` (Seed Database and onboarding intro), `05-workouts` (the progress card, then a week of pending cards above past completed weeks), `06-workouts-new-dialog`, `07-workouts-mode-dialog`.
 - **By hand: status after a start.** From a seeded calendar, count `.card-pending`, click the first, click `Save & start workout`, wait for the toast `Workout session saved.`, then `page.goBack()`. `.card-pending` is one fewer and `.card-warning` is visible.
-- **By hand: freestyle.** Click `#week-progress`, check `getByRole('radio', { name: 'Freestyle' })`, wait for the reload. `#workout-mode-name` reads `Freestyle` and this week shows `Any program` `.open-slot` cards up to the goal.
+- **By hand: freestyle.** Click `#week-progress`, check `getByRole('radio', { name: 'Freestyle' })`, wait for the reload. `#workout-mode-name` reads `Freestyle` and this week shows `Start a workout` `.open-slot` buttons up to the goal.
 
 ## Gotchas
 

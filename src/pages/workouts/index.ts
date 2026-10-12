@@ -95,16 +95,13 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   return workoutItemTemplate
 }
 
-// A freestyle week's workouts still to do toward the goal. Any program fills one, so the card opens the program picker.
-const renderOpenSlot = () => {
-  const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
-  setTextContent('.workout-title', 'Any program', workoutItemTemplate)
-  setTextContent('.workout-status', 'pending', workoutItemTemplate)
-  workoutItemTemplate.querySelector('.workout-date')?.remove()
-  const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
-  workoutItemDiv.classList.add('card-pending', 'open-slot')
-  workoutItemDiv.addEventListener('click', () => NewWorkoutDialog.open())
-  return workoutItemTemplate
+// A freestyle week's workouts still to do toward the goal, as empty slots. Any program fills one, so a slot opens
+// the program picker. Only the first one says "Start", so the row reads as one call to action.
+const renderOpenSlot = (isFirst: boolean) => {
+  const openSlot = nodeFromTemplate('#open-slot-template')
+  if (!isFirst) openSlot.querySelector('.open-slot-label')?.remove()
+  openSlot.querySelector('button')?.addEventListener('click', () => NewWorkoutDialog.open())
+  return openSlot
 }
 
 if (_isDbEmpty) {
@@ -160,7 +157,7 @@ if (_isDbEmpty) {
 
     if (settings.mode === 'freestyle' && isThisWeek) {
       for (let slot = workoutsOfThisWeek.length; slot < goal; slot++) {
-        workoutsOfThisWeekList.appendChild(renderOpenSlot())
+        workoutsOfThisWeekList.appendChild(renderOpenSlot(slot === workoutsOfThisWeek.length))
       }
     }
 
