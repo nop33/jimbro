@@ -205,6 +205,14 @@
     }
   }
 
+  .week-progress {
+    @apply flex flex-col gap-2.5 w-full text-left py-4 cursor-pointer;
+
+    .mode-icon {
+      @apply size-[18px] shrink-0 text-jim-accent;
+    }
+  }
+
   .week-days {
     @apply grid grid-cols-7 gap-1 text-center;
   }

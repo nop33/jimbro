@@ -11,6 +11,7 @@ import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
+import WeekProgress from './WeekProgress'
 import { reloadWhenStale } from '../reloadWhenStale'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
@@ -32,10 +33,11 @@ const today = getSimpleDate(new Date())
 const { goal, weeks, programs: programStatuses } = trainingWeeks(sessions, programs, settings, today)
 const [thisWeek] = weeks
 
-await IntroText.render(
-  { completed: thisWeek.completed, goal, programCount: programs.length },
-  canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none'
-)
+if (programs.length > 0) {
+  WeekProgress.render({ completed: thisWeek.completed, goal, settings })
+} else {
+  await IntroText.render(canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none')
+}
 NewWorkoutDialog.init(programStatuses)
 WorkoutModeDialog.init()
 
@@ -93,6 +95,18 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   return workoutItemTemplate
 }
 
+// A freestyle week's workouts still to do toward the goal. Any program fills one, so the card opens the program picker.
+const renderOpenSlot = () => {
+  const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
+  setTextContent('.workout-title', 'Any program', workoutItemTemplate)
+  setTextContent('.workout-status', 'pending', workoutItemTemplate)
+  workoutItemTemplate.querySelector('.workout-date')?.remove()
+  const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
+  workoutItemDiv.classList.add('card-pending', 'open-slot')
+  workoutItemDiv.addEventListener('click', () => NewWorkoutDialog.open())
+  return workoutItemTemplate
+}
+
 if (_isDbEmpty) {
   if (canRestore) {
     const restoreButton = document.createElement('button')
@@ -143,6 +157,12 @@ if (_isDbEmpty) {
       const workoutItem = renderWorkoutSession(workout)
       workoutsOfThisWeekList.appendChild(workoutItem)
     })
+
+    if (settings.mode === 'freestyle' && isThisWeek) {
+      for (let slot = workoutsOfThisWeek.length; slot < goal; slot++) {
+        workoutsOfThisWeekList.appendChild(renderOpenSlot())
+      }
+    }
 
     if (settings.mode === 'rotation' && workoutsOfThisWeek.length < goal) {
       const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)

@@ -73,12 +73,12 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 ### Workouts (`/workouts/`)
 
 - A weekly calendar, newest week first, with one card per workout. A card opens its workout in gymtime. Weeks run Monday to Sunday, as on the home page, and carry their ISO 8601 number ("Week N of YYYY"), so the days around New Year share one week: Monday 29 December 2025 to Sunday 4 January 2026 is week 1 of 2026.
-- The badge next to the intro opens the workout mode dialog.
+- Once a program exists, a card at the top shows the workout mode and this week's progress toward its goal ("1 of 3 programs done" with the home page's goal bar). Tapping it opens the workout mode dialog.
   - Rotation mode expects every program once a week. A program with no workout yet shows as pending this week and as skipped in past weeks. Tapping a pending card starts that program.
-  - Freestyle mode sets a weekly goal of 1 to 7 workouts and shows only the current week and weeks with workouts.
+  - Freestyle mode sets a weekly goal of 1 to 7 workouts and shows only the current week and weeks with workouts. This week shows an "Any program" pending card for each workout still to do toward the goal, which opens the program list.
 - Completed cards are green with a check mark, incomplete ones amber, pending ones gray and skipped ones red. Incomplete and pending cards have a dashed border.
 - "New" lists the programs with this week's status and when each was last completed, or that it never was. Picking one starts a workout.
-- The intro line counts the workouts left this week, or tells a new user what to do next, matching the button when there is one.
+- Until a program exists, an intro line tells a new user what to do next, matching the button when there is one.
 - With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 
 ### Gymtime (`/gymtime/`)
