@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import { Storage } from '../src/db/storage'
-import { getMeta, type OutboxEntry } from '../src/sync/queue'
+import { getMeta, restartFirstSync, type OutboxEntry } from '../src/sync/queue'
 import type { SyncServer } from '../src/sync/server'
 import { createSync } from '../src/sync/syncEngine'
 import type { ExerciseRow, Row, SessionHeader, SetRow } from '../src/db/types'
@@ -440,5 +440,98 @@ describe('sync()', () => {
     await syncFor(device, failing, page).sync()
     expect(logged).not.toHaveBeenCalled()
     expect(page.notices).toEqual(['sync-settled'])
+  })
+})
+
+describe('restartFirstSync', () => {
+  const keysOf = (server: ReturnType<typeof memoryServer>) => [...server.rows.keys()].sort()
+  const deviceRows = [
+    exercise('squat', 'Squat'),
+    exercise('bench', 'Bench'),
+    header('session', ['squat']),
+    set('session', 'squat', 60)
+  ]
+
+  it('gives a new account every row of a device that synced with another one', async () => {
+    const accountA = memoryServer()
+    await device.writeRows(deviceRows)
+    await syncFor(device, accountA).sync()
+    expect(keysOf(accountA)).toHaveLength(4)
+    expect(await outboxOf(device)).toEqual([])
+
+    // The device synced with account A, then the user creates passkey account B.
+    await restartFirstSync(device)
+    const accountB = memoryServer()
+    await syncFor(device, accountB).sync()
+
+    expect(keysOf(accountB)).toEqual(keysOf(accountA))
+    for (const [key, row] of accountA.rows) expect(accountB.rows.get(key)?.row).toEqual(row.row)
+    expect(accountA.received).toHaveLength(1)
+    expect(await outboxOf(device)).toEqual([])
+    expect(await getMeta(device, 'cursor')).toBe(4)
+  })
+
+  it('restores the account signed in to and pushes it the rows only this device has', async () => {
+    await device.writeRows(deviceRows)
+    await syncFor(device, memoryServer()).sync()
+
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('deadlift', 'Deadlift'), exercise('squat', 'Back squat')])
+    await syncFor(device, account).sync()
+
+    const local = await localState(device)
+    expect(local.exercises.map((row) => [row.id, row.name])).toEqual([
+      ['bench', 'Bench'],
+      ['deadlift', 'Deadlift'],
+      ['squat', 'Back squat']
+    ])
+    expect(keysOf(account)).toEqual([
+      'exercises:bench',
+      'exercises:deadlift',
+      'exercises:squat',
+      'sessions:session',
+      'sets:session:squat:0'
+    ])
+  })
+
+  it('keeps queued edits and drops the stamps of pushes to the account before', async () => {
+    const accountA = memoryServer()
+    await device.writeRows(deviceRows)
+    await syncFor(device, accountA).sync()
+    // A push that reached account A without an ack leaves its stamp on the entry.
+    await device.writeRows([exercise('squat', 'Front squat', LATER)])
+    const lost: SyncServer = {
+      ...accountA,
+      async push(batch) {
+        await accountA.push(batch)
+        throw new Error('connection lost')
+      }
+    }
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(syncFor(device, lost).sync()).rejects.toThrow('connection lost')
+    expect((await outboxOf(device)).map((entry) => entry.inflightSeq)).toEqual([expect.any(Number)])
+
+    await restartFirstSync(device)
+    expect(await outboxOf(device)).toEqual([{ key: 'exercises:squat', table: 'exercises', id: 'squat', seq: 5 }])
+    expect(await getMeta(device, 'cursor')).toBe(0)
+    expect(await getMeta(device, 'bootstrapped')).toBe(0)
+
+    const accountB = memoryServer()
+    await syncFor(device, accountB).sync()
+    expect(nameOf(accountB.rows.get('exercises:squat'))).toBe('Front squat')
+    expect(keysOf(accountB)).toHaveLength(4)
+    expect(await outboxOf(device)).toEqual([])
+  })
+
+  it('runs a first sync again on a database that was bootstrapped empty', async () => {
+    await syncFor(device, memoryServer()).sync()
+    expect(await getMeta(device, 'bootstrapped')).toBe(1)
+
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('squat', 'Squat')])
+    await syncFor(device, account).sync()
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
   })
 })
