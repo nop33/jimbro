@@ -179,6 +179,8 @@ class ExerciseHistoryChart {
         ]
       },
       options: {
+        // Chart.js animates in script, where src/style.css cannot stop it.
+        ...(matchMedia('(prefers-reduced-motion: reduce)').matches ? { animation: false } : {}),
         responsive: true,
         maintainAspectRatio: false,
         plugins: {

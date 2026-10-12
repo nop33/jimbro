@@ -12,6 +12,10 @@ PORT_FILE="$RUN_DIR/port"
 LOG_FILE="$RUN_DIR/dev.log"
 
 PORT="${JIMBRO_VERIFY_PORT:-5174}"
+# Never the production worker: a verification run has no business syncing real data.
+API_BASE="${JIMBRO_VERIFY_API_BASE:-http://127.0.0.1:9}"
+# The repo's own vp when the shell has none on PATH, as in Claude Code cloud sessions.
+export PATH="$PATH:$REPO_ROOT/node_modules/.bin"
 HOST="127.0.0.1"
 
 usage() {
@@ -23,8 +27,9 @@ Usage: control-jimbro <command>
   url        Print the verification origin
   snapshot <route> --out <dir>
              Screenshot + ARIA of one route
-  drive home
-             Run the mapped home feature and write artifacts
+  tour [--device iphone13|pixel8pro] [--only <slug part>]
+             Screenshot every mapped screen and dialog on both phones
+             (or one), and write artifacts/tour/index.html
   cleanup    Kill only the pid this launch started
 EOF
 }
@@ -89,7 +94,7 @@ cmd_launch() {
 
   cd "$REPO_ROOT"
   : >"$LOG_FILE"
-  python3 - "$REPO_ROOT" "$LOG_FILE" "$PID_FILE" "$HOST" "$PORT" <<'PY'
+  VITE_API_BASE="$API_BASE" python3 - "$REPO_ROOT" "$LOG_FILE" "$PID_FILE" "$HOST" "$PORT" <<'PY'
 import os, subprocess, sys
 
 repo, logfile, pidfile, host, port = sys.argv[1:6]
@@ -256,13 +261,8 @@ case "${cmd:-}" in
     out=$2
     run_drive snapshot "$route" "$out"
     ;;
-  drive)
-    feature=${1:-}
-    if [[ "$feature" != "home" ]]; then
-      echo "Usage: control-jimbro drive home" >&2
-      exit 1
-    fi
-    run_drive drive home
+  tour)
+    run_drive tour "$@"
     ;;
   -h|--help|help|"") usage ;;
   *)

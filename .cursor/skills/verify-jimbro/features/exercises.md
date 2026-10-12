@@ -1,40 +1,35 @@
 # Exercises
 
-Exercises lets a user create, edit, filter, and soft-delete exercises in the library.
+Exercises is the library. The user creates, edits, filters and deletes exercises of three kinds: lifting, rehab and cardio.
 
 ## Sub-features
 
-- `exercise-open` opens the exercise dialog from `New` and from an existing card.
-- `exercise-save` persists name, muscle group, default sets, and default reps.
-- `exercise-filter` hides cards that do not match `Filter by muscle group`.
-- `exercise-delete` removes the card after the native confirm dialog.
-- `exercise-cancel` closes the dialog without saving.
+- `exercise-list` shows one card per exercise: name, muscle badge (or `Cardio`), a `Rehab` badge for rehab, and a prescription such as `3 sets × 10 reps`, `3 sets × 30s hold` or `1 set`. An empty library is an empty grid with no message.
+- `exercise-new` opens `dialog#exercise-dialog` titled `New Exercise` with Name, Kind, Muscle group, Default sets and Default reps.
+- `exercise-kinds` changes the form by Kind: Rehab shows `Log as` (Reps or Hold, Hold asking `Default hold (sec)`). Cardio hides Muscle group and the defaults.
+- `exercise-save` saves and shows `Exercise saved!`. Empty required fields keep the dialog open with the browser's validation.
+- `exercise-edit` opens the same dialog titled `Edit Exercise`, prefilled, with a trash button `#delete-exercise-btn`.
+- `exercise-filter` filters by `Filter by muscle group`. A muscle filter hides cardio, which has no muscle.
+- `exercise-delete` confirms, soft-deletes the row and shows `Exercise deleted.`.
+- `exercise-cancel` closes the dialog with `Close dialog`, `Cancel` or Escape, saving nothing.
 
 ## How to get to it (user POV)
 
 - Choose `Exercises` in the bottom nav.
-- Open `/exercises/` directly.
 - Choose `New` in the exercises header.
 
 ## Driving it with control-jimbro
 
-Preconditions:
+Preconditions: `control-jimbro doctor` passes.
 
-- Jimbro is healthy at the verification URL.
-- IndexedDB is empty. Reset through Settings if a prior Cursor-browser session left data.
-- No card is titled `Bench Press`.
-
-- **Open library.** `page.goto('/exercises/')`. Heading is `Exercises`.
-- **Open then cancel.** Click `getByRole('button', { name: 'New' })`. `dialog#exercise-dialog` is visible. Click `getByRole('button', { name: 'Close dialog' })`. The dialog is hidden.
-- **Create.** Open `New` again. Fill `getByLabel('Name')` with `Bench Press`. Select `getByLabel('Muscle group', { exact: true })` option `Chest`. Fill `getByLabel('Default sets')` with `3` and `getByLabel('Default reps')` with `10`. Click `getByRole('button', { name: 'Save' })`. Locator `.card` with text `Bench Press` is visible and contains `Chest` and `3 sets × 10 reps`.
-- **Edit.** Click that card. The same dialog opens. Fill `Default reps` with `8`. Save. The card contains `3 sets × 8 reps`.
-- **Filter.** `getByLabel('Filter by muscle group')` set to `Back` hides the card. Set to `Chest` shows it again.
-- **Delete.** Click the card. Register `page.once('dialog', d => d.accept())`. Click `#delete-exercise-btn`. The `Bench Press` card is gone.
-- **Proof.** Screenshot and ARIA of the grid after create, then after delete. Reload `/exercises/` after create and confirm the card is still there before deleting.
+- **Tour stops.** `08-exercises` (the library), `09-exercise-dialog-edit`, `10-exercise-dialog-new-cardio`, `11-exercise-dialog-new-rehab`.
+- **By hand: create, edit, delete.** Click `New`, fill `getByLabel('Name')`, choose `getByLabel('Muscle group', { exact: true })`, fill `Default sets` and `Default reps`, Save. Wait for `Exercise saved!` and the card. Reload and click the card: the title is `Edit Exercise`. Register `page.once('dialog', d => d.accept())`, click `#delete-exercise-btn`, and wait for `Exercise deleted.`.
+- **Proof of a delete.** The grid has no empty state to wait for, so read the `exercises` store: the row has `isDeleted: true`.
 
 ## Gotchas
 
-- Muscle group uses `{ exact: true }` because the filter label also contains those words.
+- Muscle group needs `{ exact: true }` because the filter's label contains the same words.
+- The trash and the delete button have no accessible name. Use `#delete-exercise-btn`.
 - Register the confirm handler before clicking delete. A missed handler hangs the page.
-- Filter `All` is the default after reset. A leftover filter from an earlier run hides a just-created card.
-- Soft-delete hides the row. A later import of the same id can collide if you skip Settings reset.
+- The filter starts on `Select muscle group...`, which shows everything, and is not remembered across loads.
+- Seeded exercises are all lifting. Cardio and rehab need one created here.

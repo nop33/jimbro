@@ -1,40 +1,34 @@
 # Programs
 
-Programs lets a user name a workout template, attach exercises, and delete the template.
+Programs are workout templates: a name and an ordered list of exercises. The user creates, reorders, renames and deletes them.
 
 ## Sub-features
 
-- `program-open` opens the program dialog from `New` and from a card's edit control.
-- `program-save` persists a name and at least one selected exercise.
-- `program-edit` renames a saved program from the card.
-- `program-delete` removes the card after the native confirm dialog.
+- `program-list` shows one `#programs-grid > .card` per program with a pencil `.edit-program-btn` and a collapsed `Program exercises` section. Expanding it lists the exercises as condensed cards in program order, with their prescription. An empty grid shows no message.
+- `program-new` opens `dialog#program-dialog` titled `New Program`: Name, the picker `#exercises-selection` (grouped by muscle, Cardio for none) and the `Reorder program exercises` list.
+- `program-reorder` drags rows of `#selected-exercises-list` by mouse or touch. The saved order is the order the card shows.
+- `program-save` saves with `Program saved!`. Only Name is required, so a program with no exercises saves.
+- `program-edit` opens the dialog titled `Edit Program`, prefilled, with a trash button `#delete-program-btn`.
+- `program-delete` confirms, removes the card and shows `Program deleted.`.
+- `program-cancel` closes the dialog with `Close dialog`, `Cancel` or Escape.
 
 ## How to get to it (user POV)
 
 - Choose `Programs` in the bottom nav.
-- Open `/programs/` directly.
 - Choose `New` in the programs header.
 
 ## Driving it with control-jimbro
 
-Preconditions:
+Preconditions: `control-jimbro doctor` passes.
 
-- Jimbro is healthy at the verification URL.
-- IndexedDB is empty, then one exercise exists named `Squat` (Quads, 4 sets, 8 reps) created through the Exercises user path.
-- No program is titled `Leg Day`.
-
-- **Create the exercise first.** Follow `features/exercises.md` `exercise-save` with name `Squat`, muscle `Quads`, sets `4`, reps `8`. Confirm the card on `/exercises/` before leaving.
-- **Open programs.** `page.goto('/programs/')`. Heading is `Programs`.
-- **Open then cancel.** Click `getByRole('button', { name: 'New' })`. `dialog#program-dialog` is visible. Click `getByRole('button', { name: 'Close dialog' })`. The dialog is hidden.
-- **Create.** Open `New` again. Fill `getByLabel('Name', { exact: true })` with `Leg Day`. Select `#exercises-selection` option label `Squat`. Click `getByRole('button', { name: 'Save' })`. Locator `.card` with text `Leg Day` is visible and contains `Squat`.
-- **Edit.** Click `button.link-primary` on that card (pencil). Fill Name with `Mega Leg Day`. Save. The card contains `Mega Leg Day`.
-- **Delete.** Open edit again. Register `page.once('dialog', d => d.accept())`. Click `#delete-program-btn`. The card is gone.
-- **Proof.** After create, reload `/programs/` and confirm `Leg Day` still lists `Squat`. Screenshot plus ARIA of the grid.
+- **Tour stops.** `12-programs`, `13-programs-expanded`, `14-program-dialog` (an imported program in `Edit Program`, with its reorder list).
+- **By hand: create, rename, delete.** Create an exercise on `/exercises/` and wait for `Exercise saved!`. On `/programs/` click `New`, fill `getByLabel('Name', { exact: true })`, `selectOption({ label: '<exercise>' })` on `#exercises-selection`, Save, and wait for `Program saved!`. Click the card's `.edit-program-btn` to rename. To delete, register `page.once('dialog', d => d.accept())` and click `#delete-program-btn`.
+- **By hand: reorder.** With two exercises selected, drag the second row above the first, Save, reload, expand the card, and check the order of `.exercise-name`.
 
 ## Gotchas
 
-- A program cannot be proven without an exercise in the library. Seeded programs from Workouts are a different path.
-- Playwright often fails to select `<select>` options inside optgroups by value. Use `{ label: 'Squat' }` on `#exercises-selection`.
-- Name uses `{ exact: true }` because other labels exist on the page.
-- The edit control is the pencil `button.link-primary` on the card, not the card body.
-- Wait for the exercise write to finish before opening Programs. The exercises spec uses a short pause after Save if the program dialog's select is empty.
+- Match the program card with `#programs-grid > .card`. A bare `.card` also matches the condensed exercise cards inside an expanded program.
+- The pencil and trash buttons have no accessible name. Use `.edit-program-btn` and `#delete-program-btn`.
+- Select options inside optgroups by label: `{ label: 'Squat' }`.
+- The collapsed card still contains its exercises' text, so `toContainText` passes without expanding it. Expand it to prove what a user sees.
+- Wait for the `Exercise saved!` toast before opening Programs, so the picker lists the new exercise.

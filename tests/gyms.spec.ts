@@ -101,3 +101,35 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
   await volume.click()
   await expect(volume).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('the history chart draws its lines at once, without animating, under reduced motion', async ({ page }) => {
+  const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto(`/gymtime/?id=${sessionId}`)
+  const card = page.locator('details.exercise-details').first()
+  await card.locator('summary').click()
+  await card.locator('.view-history-btn').click()
+  await expect(page.locator('#exercise-history-dialog')).toBeVisible()
+
+  // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
+  // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
+  // Frames at another size come before the chart fits its dialog, and WebKit can resize it late. Reading the pixels is
+  // slow on a Mobile Safari canvas, so it may see only a few frames at the final size.
+  const frames = await page.evaluate(async () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
+    if (!canvas) throw new Error('no chart canvas')
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+    while (!canvas.hasAttribute('style')) await nextFrame()
+    const seen: Array<{ size: string; pixels: string }> = []
+    const start = performance.now()
+    while (performance.now() - start < 2000) {
+      await nextFrame()
+      seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
+    }
+    return seen
+  })
+  const last = frames[frames.length - 1]
+  const atFinalSize = frames.filter((frame) => frame.size === last.size)
+  expect(atFinalSize.length).toBeGreaterThan(1)
+  expect(atFinalSize.filter((frame) => frame.pixels !== last.pixels)).toHaveLength(0)
+})
