@@ -163,7 +163,7 @@ const STOPS = [
   ['workouts-mode-dialog', async (page) => {
     await page.locator('#new-workout-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#new-workout-dialog'))
-    await page.locator('#workout-mode-badge').click()
+    await page.locator('#week-progress').click()
     await see(page.locator('#workout-mode-dialog'))
   }],
   ['exercises', async (page) => {

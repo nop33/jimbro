@@ -17,7 +17,7 @@ class NewWorkoutDialog {
 
   static init(programs: Array<ProgramStatus>) {
     this.newWorkoutButton.addEventListener('click', () => {
-      this.openDialog()
+      this.open()
     })
 
     this.dialogCancel.addEventListener('click', () => {
@@ -57,7 +57,7 @@ class NewWorkoutDialog {
     }
   }
 
-  private static openDialog() {
+  static open() {
     this.newWorkoutDialog.showModal()
   }
 
