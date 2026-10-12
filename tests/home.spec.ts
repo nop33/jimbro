@@ -78,6 +78,24 @@ test.describe('Home Page', () => {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=/)
   })
 
+  test('opens Stats from any highlight, and Stats goes back home', async ({ page }) => {
+    await seedDatabase(page)
+    await logWorkout(page, 0, '2026-10-06', true)
+    await page.goto('/')
+
+    const tiles = page.locator('#highlights').getByRole('link')
+    await expect(tiles).toHaveCount(3)
+    for (const tile of await tiles.all()) await expect(tile).toHaveAttribute('href', '/stats/')
+
+    await page.getByRole('link', { name: /lifted this week/ }).click()
+    await expect(page).toHaveURL(/\/stats\/$/)
+    await expect(page.getByRole('heading', { name: 'Stats', exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Back' }).click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('h1')).toContainText('Hey, gymbro.')
+  })
+
   test('offers to continue a workout started this week', async ({ page }) => {
     await seedDatabase(page)
     const started = await logWorkout(page, 1, '2026-10-08', false)

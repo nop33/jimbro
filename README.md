@@ -173,8 +173,9 @@ CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_OR
 
 ## Navigation
 
-- Every page has a bottom bar with Home, Workouts, Exercises, Programs and Stats, and highlights the current page.
-- Workouts, gymtime, exercises, programs and settings have a back button that calls `window.history.back()`.
+- Every page has a bottom bar with Home, Workouts, Exercises, Programs, and highlights the current page. Its icons are inline [Lucide](https://lucide.dev) SVGs (ISC License).
+- Stats opens from any highlight tile on Home.
+- The pages outside the bottom bar (gymtime, stats and settings) have a back button that calls `window.history.back()`.
 - There is no SPA router. Every link is a full page load.
 
 ## Import and export

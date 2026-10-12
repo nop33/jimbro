@@ -49,7 +49,6 @@ test('every page opens offline from the bottom bar', async ({ page }) => {
     ['Workouts', '/workouts/', 'Workouts'],
     ['Exercises', '/exercises/', 'Exercises'],
     ['Programs', '/programs/', 'Programs'],
-    ['Stats', '/stats/', 'Stats'],
     ['Home', '/', 'Hey, gymbro.']
   ]) {
     await page.locator('.bottom-nav').getByRole('link', { name: link }).click()
@@ -59,6 +58,10 @@ test('every page opens offline from the bottom bar', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Settings' }).click()
   await expect(page.locator('.app-header-title')).toContainText('Settings')
+
+  // Stats has no nav link: Home's highlight tiles open it, and they show only once a workout exists.
+  await page.goto(`${origin}/stats/`)
+  await expect(page.locator('.app-header-title')).toContainText('Stats')
 })
 
 test('a workout started offline waits in the outbox', async ({ page }) => {

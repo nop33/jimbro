@@ -5,13 +5,14 @@ import { pagePathOf, renderPage } from '../partials/plugin'
 
 const root = path.resolve(import.meta.dirname, '..')
 
-// Each page and the nav link it marks as current. Settings and gymtime are reached from other pages and mark none.
+// Each page and the nav link it marks as current. Stats, settings and gymtime are reached from other pages and mark
+// none.
 const PAGES: Record<string, string | null> = {
   'index.html': '/',
   'workouts/index.html': '/workouts/',
   'exercises/index.html': '/exercises/',
   'programs/index.html': '/programs/',
-  'stats/index.html': '/stats/',
+  'stats/index.html': null,
   'settings/index.html': null,
   'gymtime/index.html': null
 }
@@ -54,6 +55,13 @@ describe('page shell', () => {
       const nav = /<nav class="bottom-nav[\s\S]*?<\/nav>/.exec(served(file))?.[0] ?? ''
       const marked = [...nav.matchAll(/href="([^"]+)" aria-current="page"/g)].map(([, href]) => href)
       expect(marked, file).toEqual(current ? [current] : [])
+    }
+  })
+
+  // A page in the bottom nav is reached from there, so only the pages outside it have a back button.
+  it('gives a back button to the pages outside the bottom nav only', () => {
+    for (const [file, current] of Object.entries(PAGES)) {
+      expect(sourceOf(file).includes('<!-- partial:back-button -->'), file).toBe(!current)
     }
   })
 

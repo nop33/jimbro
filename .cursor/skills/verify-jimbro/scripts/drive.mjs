@@ -199,7 +199,8 @@ const STOPS = [
     await see(page.locator('#program-dialog'))
   }],
   ['stats', async (page) => {
-    await page.goto('/stats/')
+    await page.goto('/')
+    await page.getByRole('link', { name: /lifted this week/ }).click()
     await see(page.locator('#stat-total-sets'))
   }],
   ['settings', async (page) => {
