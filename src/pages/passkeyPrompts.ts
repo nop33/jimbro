@@ -15,11 +15,10 @@ export const showPasskeyFailure = (error: unknown) => {
   Toasts.show({ message: 'Passkey failed. Try again.', type: 'error' })
 }
 
-// Asks before signing in on a phone that holds data: the account's copy wins for every row both sides have, which the
-// fixed IDs of the sample exercises and programs make likely.
+// Asks before signing in replaces rows on this device: the account's copy wins for every row both sides have.
 export const confirmReplaceWithAccount = () =>
   confirm(
-    "This phone already has workouts or exercises. Signing in replaces this phone's copy of the exercises, programs and workouts the account also has with the account's copy. Everything only on this phone stays and backs up to the account. Sign in?"
+    "Since both this device and your account have data that differs, signing in will replace this device's copy with your account's. Proceed to sign in?"
   )
 
 // Asks before a sign-out, saying what the backup misses when rows wait to sync.
