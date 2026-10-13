@@ -40,3 +40,10 @@ export const planBootstrap = (local: readonly Row[], pulled: readonly Row[]): Ma
 
   return actions
 }
+
+// Whether a first sync with these pulled rows would replace any local row: a row both sides have that differs, where
+// the account's copy wins. Rows only on one side are kept, so they replace nothing.
+export const replacesLocalRows = (local: readonly Row[], pulled: readonly Row[]) => {
+  const actions = planBootstrap(local, pulled)
+  return local.some((row) => actions.get(rowKey(row)) === 'keepServer')
+}

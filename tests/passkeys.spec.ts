@@ -302,6 +302,17 @@ test.describe('passkeys with a virtual authenticator', () => {
     expect(await credentialsOf(page)).toBeNull()
     const ping = await fetch(`${API_BASE}/api/ping`, { headers: { Authorization: `Bearer ${created?.token}` } })
     expect(ping.status).toBe(401)
+
+    // Everything here backed up before the sign-out, so signing in again replaces nothing and asks nothing.
+    const asksAgain: string[] = []
+    page.on('dialog', (dialog) => {
+      asksAgain.push(dialog.message())
+      void dialog.dismiss()
+    })
+    await page.getByRole('button', { name: 'Sign in with passkey' }).click()
+    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    expect(asksAgain).toEqual([])
+    expect((await credentialsOf(page))?.userId).toBe(created?.userId)
   })
 
   test('asks before signing in over a phone with data, and keeps the rows only on the phone', async ({
@@ -351,7 +362,7 @@ test.describe('passkeys with a virtual authenticator', () => {
       const first = phone.waitForEvent('dialog')
       await phone.getByRole('button', { name: 'Sign in with passkey' }).click()
       const declined = await first
-      expect(declined.message()).toContain("replaces this phone's copy")
+      expect(declined.message()).toContain("signing in will replace this device's copy with your account's")
       await declined.dismiss()
       await expect(phone.getByRole('button', { name: 'Sign in with passkey' })).toBeEnabled()
       expect(await credentialsOf(phone)).toBeNull()

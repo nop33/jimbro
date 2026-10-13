@@ -119,7 +119,7 @@ Totals over completed workouts: the first workout's date and how long ago it was
 - Workout settings hold the break timer's length.
 - Cloud backup's status line shows how many changes wait to sync and when the last sync ran.
   - Without a passkey backup, "Back up your workouts" explains the backup and offers "Create passkey" and "Sign in with passkey", with "Sign in with passkey" first on a phone that signed out. A browser without passkeys says it can't back up.
-  - Signing in on a phone that already has exercises, programs or workouts asks first: the account's copy replaces the phone's copy of every row both have, and rows only on the phone stay and back up.
+  - Signing in keeps the account's copy of every row both the phone and the account have, and rows only on the phone stay and back up. When that would replace a row on the phone with a different copy, it asks first. A phone that signed out after backing up signs in again without asking.
   - Signed in with a passkey, it says so and offers "Sync now", "Add another passkey" (for another password manager) and "Sign out". Sign out pushes what waits first, then asks, and warns when changes could not back up, since signing in again would replace them with the backup's copy. Signing out keeps the workouts on the phone and stops the backup.
   - When the backup holds as many rows as the worker takes, the status reads "Backup full · N pending", and each page says so once when its sync hits the limit.
   - "Use a token", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
