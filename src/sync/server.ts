@@ -20,7 +20,7 @@ export interface SyncServer {
   pull(cursor: number): Promise<PullPage>
 }
 
-const PULL_LIMIT = 1000
+export const PULL_LIMIT = 1000
 
 // A request the worker refused, with the error it answered, such as row_limit or rate_limited, or the status.
 export class SyncRequestError extends Error {

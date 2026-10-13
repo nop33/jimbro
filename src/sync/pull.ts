@@ -4,6 +4,7 @@ import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../db/
 import { splitRowKey, type BootstrapAction } from './bootstrap'
 import type { MetaRecord, OutboxEntry } from './queue'
 import { canonical } from './rows'
+import type { PullPage } from './server'
 
 // A pulled entry without its revision.
 export const rowFromWire = (entry: Row & { rev: number }): Row => {
@@ -16,6 +17,24 @@ export const rowFromWire = (entry: Row & { rev: number }): Row => {
       return { table: 'sessions', row: entry.row }
     case 'sets':
       return { table: 'sets', row: entry.row }
+  }
+}
+
+// Every row of an account, and the cursor after the last one: what a first sync restores.
+export interface PulledAccount {
+  rows: Row[]
+  cursor: number
+}
+
+// Pulls every page above cursor 0.
+export const pullAll = async (pull: (cursor: number) => Promise<PullPage>): Promise<PulledAccount> => {
+  const rows: Row[] = []
+  let cursor = 0
+  for (;;) {
+    const page = await pull(cursor)
+    for (const entry of page.rows) rows.push(rowFromWire(entry))
+    cursor = page.cursor
+    if (!page.more || page.rows.length === 0) return { rows, cursor }
   }
 }
 

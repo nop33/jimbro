@@ -94,6 +94,17 @@
     @apply bg-jim-error text-white;
   }
 
+  /* A button whose tap is still being worked on (whileBusy in src/pages/busyButton.ts). Under reduced motion the ring
+     stands still and the label alone says it is working. */
+  .btn-busy {
+    @apply inline-flex items-center justify-center gap-2 cursor-progress;
+
+    &::before {
+      content: '';
+      @apply size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent;
+    }
+  }
+
   /* Modern card styles */
   .card {
     @apply rounded-2xl p-5 py-3 border border-neutral-700/10 bg-jim-dark-blue/50;

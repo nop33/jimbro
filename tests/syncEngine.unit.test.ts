@@ -3,6 +3,7 @@ import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import { Storage } from '../src/db/storage'
+import { pullAll } from '../src/sync/pull'
 import { getMeta, restartFirstSync, type OutboxEntry } from '../src/sync/queue'
 import type { SyncServer } from '../src/sync/server'
 import { createSync } from '../src/sync/syncEngine'
@@ -144,6 +145,24 @@ describe('first sync', () => {
     expect(server.received).toEqual([])
     expect(page.notices).toEqual(['sync-settled'])
     expect(page.synced).toHaveLength(1)
+  })
+
+  it('restores rows the caller pulled already without pulling again, and ignores them once synced', async () => {
+    const server = memoryServer({ pageSize: 2 })
+    server.seed(['a', 'b', 'c'].map((id) => exercise(id, id)))
+    const restoring = await pullAll((cursor) => server.pull(cursor))
+    server.pulls.length = 0
+    await device.writeRows([exercise('phone', 'Phone only')])
+    const engine = syncFor(device, server)
+    await engine.sync({ restoring })
+    expect(server.pulls).toEqual([])
+    expect((await device.getAll(OBJECT_STORES.EXERCISES)).length).toBe(4)
+    expect(await getMeta(device, 'cursor')).toBe(3)
+    expect(server.received.flat().map((pushed) => pushed.row.id)).toEqual(['phone'])
+
+    await engine.sync({ restoring: { rows: [exercise('stale', 'Stale')], cursor: 9 } })
+    expect(await device.get(OBJECT_STORES.EXERCISES, 'stale')).toBeUndefined()
+    expect(await getMeta(device, 'cursor')).toBe(3)
   })
 
   it('keeps the server copy of a row both sides have and pushes nothing for it', async () => {

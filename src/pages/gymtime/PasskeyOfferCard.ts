@@ -2,6 +2,7 @@ import { getCloudBackupConfig } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
 import { createPasskeyAccount, passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
+import { whileBusy } from '../busyButton'
 import { confirmReplaceWithAccount, showPasskeyFailure } from '../passkeyPrompts'
 import { passkeyOfferDue, readSnoozedUntil, snoozePasskeyOffer } from './passkeyOffer'
 
@@ -38,22 +39,19 @@ class PasskeyOfferCard {
     preparePasskey('signin')
   }
 
-  private static async run(step: () => Promise<boolean>) {
-    this.createBtn.disabled = true
-    this.signInBtn.disabled = true
+  // Runs a passkey step while its button shows it is working, and resolves to whether it went through.
+  private static async run(button: HTMLButtonElement, label: string, step: () => Promise<boolean>) {
+    const beside = button === this.createBtn ? this.signInBtn : this.createBtn
     try {
-      return await step()
+      return await whileBusy(button, label, step, [beside, this.dismissBtn])
     } catch (error) {
       showPasskeyFailure(error)
       return false
-    } finally {
-      this.createBtn.disabled = false
-      this.signInBtn.disabled = false
     }
   }
 
   private static async create() {
-    const created = await this.run(async () => {
+    const created = await this.run(this.createBtn, 'Creating…', async () => {
       await createPasskeyAccount()
       return true
     })
@@ -63,14 +61,15 @@ class PasskeyOfferCard {
     void sync().catch(() => undefined)
   }
 
-  // Signing in restores the account's rows, which can replace what this page shows, so the page loads again after the
-  // sync. This workout is only on this phone, so it stays and backs up.
+  // Signing in restores the account's rows, which can replace what this page shows, so the page loads again after.
+  // This workout is only on this phone, so it stays and backs up.
   private static async signIn() {
-    if (!(await this.run(() => signInWithPasskey({ confirmReplace: confirmReplaceWithAccount })))) return
-    this.card.hidden = true
-    Toasts.show({ message: 'Signed in. Restoring your workouts.' })
-    await sync({ again: false }).catch(() => undefined)
-    window.location.reload()
+    const signedIn = await this.run(this.signInBtn, 'Signing in…', async () => {
+      if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return false
+      await sync({ again: false }).catch(() => undefined)
+      return true
+    })
+    if (signedIn) window.location.reload()
   }
 }
 

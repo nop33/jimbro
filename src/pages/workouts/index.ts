@@ -18,6 +18,7 @@ import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
+import { whileBusy } from '../busyButton'
 import { confirmReplaceWithAccount, showPasskeyFailure } from '../passkeyPrompts'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
@@ -113,7 +114,7 @@ if (_isDbEmpty) {
     restoreButton.textContent = 'Restore from cloud'
     restoreButton.addEventListener('click', async () => {
       try {
-        await sync({ again: false })
+        await whileBusy(restoreButton, 'Restoring…', () => sync({ again: false }))
         window.location.reload()
       } catch (error) {
         console.error('Error restoring from cloud:', error)
@@ -145,21 +146,29 @@ if (_isDbEmpty) {
       signInButton.textContent = 'Sign in with passkey'
       // The tap goes straight to the passkey sheet, with options fetched as the button shows.
       preparePasskey('signin')
-      signInButton.addEventListener('click', async () => {
-        try {
-          if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return
-        } catch (error) {
-          showPasskeyFailure(error)
-          return
-        }
-        try {
-          await sync({ again: false })
-          window.location.reload()
-        } catch (error) {
-          console.error('Error restoring from cloud:', error)
-          Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
-        }
-      })
+      // The sign-in restores the account before it resolves, and the sync after it pushes what only this phone has.
+      signInButton.addEventListener('click', () =>
+        whileBusy(
+          signInButton,
+          'Signing in…',
+          async () => {
+            try {
+              if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return
+            } catch (error) {
+              showPasskeyFailure(error)
+              return
+            }
+            try {
+              await sync({ again: false })
+              window.location.reload()
+            } catch (error) {
+              console.error('Error restoring from cloud:', error)
+              Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
+            }
+          },
+          [seedDbButton]
+        )
+      )
       workoutWeeksContainer.appendChild(signInButton)
     }
   }
