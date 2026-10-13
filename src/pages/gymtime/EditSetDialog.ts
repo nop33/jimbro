@@ -14,6 +14,7 @@ interface EditSetData {
 class EditSetDialog {
   private static dialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
   private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
+  private static deleteBtn = document.querySelector('#delete-set-btn') as HTMLButtonElement
   private static form = document.querySelector('#edit-set-form') as HTMLFormElement
   private static fields = document.querySelector('#edit-set-fields') as HTMLDivElement
   private static editedSetData: EditSetData | null = null
@@ -22,6 +23,7 @@ class EditSetDialog {
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.form.addEventListener('submit', (event) => this.onSubmit(event))
+    this.deleteBtn.addEventListener('click', () => this.onDelete())
   }
 
   static openDialog(data: EditSetData) {
@@ -50,6 +52,17 @@ class EditSetDialog {
 
     this.closeDialog()
     Toasts.show({ message: 'Set updated.' })
+  }
+
+  // The set's slot stays, to do again, and can be removed from its own menu.
+  private static async onDelete() {
+    if (!this.editedSetData) throw new Error('No edited set data found')
+    const { exerciseId, index } = this.editedSetData
+    if (!confirm(`Delete set ${index + 1}?`)) return
+
+    await openSession.apply((session) => workoutSessionsStore.removeSet(session, exerciseId, index))
+    this.closeDialog()
+    Toasts.show({ message: 'Set deleted.' })
   }
 }
 

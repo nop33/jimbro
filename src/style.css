@@ -479,19 +479,28 @@
     }
   }
 
-  /* Add set: a ringed plus on the set list's bottom-right corner, the last row's, in a 44px tap target. */
-  .add-extra-set-btn {
-    @apply absolute grid size-11 cursor-pointer place-items-center text-jim-accent;
-    right: -1.375rem;
-    bottom: -1.375rem;
+  /* Add set: accent text on the right of the card's "Exercise sets" row, in a 44px tall tap target. The summary is one
+     28px line, so the button's middle sits on it. */
+  .add-set-btn {
+    @apply absolute z-10 -right-2.5 -top-2 flex h-11 cursor-pointer items-center gap-1 px-2.5 font-semibold text-jim-accent;
+  }
 
-    svg {
-      @apply size-[22px] rounded-full p-[3px];
-      background: var(--color-jim-dark-blue);
-      box-shadow:
-        inset 0 0 0 1.5px var(--color-jim-accent),
-        0 0 0 3px var(--card-ring);
-    }
+  /* A set still to do opens its menu. The row it opened from stays marked while the menu is open. */
+  .set.isPending[role='button'] {
+    @apply cursor-pointer;
+  }
+
+  .set.isPending.isSelected {
+    @apply border-solid border-jim-accent opacity-100;
+  }
+
+  /* The workout details' summary: the day and gym, each with its icon. */
+  .workout-summary {
+    @apply inline-flex max-w-[calc(100%-1.5rem)] items-center gap-4 align-middle text-base text-jim-neutral-secondary;
+  }
+
+  .workout-summary-item {
+    @apply flex items-center gap-1.5;
   }
 
   .card-menu::backdrop {
@@ -623,6 +632,8 @@
 }
 
 .exercise-details {
+  position: relative;
+
   summary {
     position: relative;
   }

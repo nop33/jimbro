@@ -2,6 +2,7 @@ import { createServer, request } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { test, expect, type Page } from '@playwright/test'
 import { PREVIEW_HOST, PREVIEW_PORT } from './preview'
+import { startWorkout } from './startWorkout'
 
 // Only the build registers the service worker, so each test opens the preview server through its own proxy and
 // closes the proxy to go offline. WebKit's emulated offline mode also stops the service worker from answering, so
@@ -85,9 +86,8 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
   await page.getByRole('button', { name: 'New' }).click()
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
-  await page.getByRole('button', { name: 'Save & start workout' }).click()
-  // The exercise cards show before the save, so wait for the save itself before leaving the page.
-  await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+  // The exercise cards show before the start, so wait for the start itself before leaving the page.
+  await startWorkout(page)
 
   await page.goto(`${origin}/settings/`)
   await expect.poll(async () => parseInt((await status.textContent()) ?? '')).toBeGreaterThan(before)

@@ -1,6 +1,5 @@
 import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { exportIndexedDbToJson } from '../../db/export'
-import { hasExercise } from '../../db/stores/workoutSessionsStore'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import type { WorkoutSession } from '../../db/types'
 import { throwConfetti } from '../../features/confetti'
@@ -13,9 +12,18 @@ import { outcomeOf, type Outcome } from './outcome'
 // Shows the open session on screen, and resolves once the screen shows it or a later one.
 type View = (session: WorkoutSession | undefined) => void | Promise<void>
 
-// The workout this gymtime page shows, or undefined until the form starts one.
+// Starts the workout the page shows before one exists, and the exercises it will start with.
+export interface Starter {
+  start: () => Promise<WorkoutSession>
+  exerciseIds: () => Array<Exercise['id']>
+}
+
+// The workout this gymtime page shows, or undefined until the first change starts one.
 let open: WorkoutSession | undefined
 const views = new Set<View>()
+let starter: Starter | undefined
+// The start on its way, so changes made before it lands write to the one workout it creates.
+let starting: Promise<WorkoutSession> | undefined
 
 // Writes and the views showing their result, still running. The region is aria-busy while any is.
 let running = 0
@@ -54,33 +62,58 @@ export const openSession = {
     if (running > 0) region.setAttribute('aria-busy', 'true')
   },
 
-  // Shows the session the page loaded or started.
+  // Shows the session the page loaded.
   async show(session: WorkoutSession | undefined): Promise<void> {
     await whileBusy(() => showNow(session))
   },
 
+  // How the first change starts the workout when the page opened none.
+  startWith(next: Starter): void {
+    starter = next
+  },
+
+  // The exercises the open session holds, or the ones the start will store.
+  exerciseIds(): Array<Exercise['id']> {
+    return open ? open.exercises.map(({ exerciseId }) => exerciseId) : (starter?.exerciseIds() ?? [])
+  },
+
   // Runs a workoutSessionsStore write on the open session and resolves once the screen shows the session it stored
-  // and the lifter has heard what the change means. Nothing changes on screen before the write lands. loggedFor names
-  // the exercise when the write logs a set from its card, the only change that ends an exercise or starts a break.
+  // and the lifter has heard what the change means. Nothing changes on screen before the write lands. With no session
+  // open, the write starts the workout first, so the first thing the lifter does starts it. loggedFor names the
+  // exercise when the write logs a set from its card, the only change that ends an exercise or starts a break.
   async apply(
     write: (session: WorkoutSession) => Promise<WorkoutSession>,
     { loggedFor }: { loggedFor?: Exercise['id'] } = {}
   ): Promise<WorkoutSession> {
-    const session = open
-    if (!session) throw new Error('No workout session is open')
-    const next = await whileBusy(async () => {
+    const [session, next] = await whileBusy(async () => {
+      const session = open ?? (await started())
       const next = await write(session)
       await showNow(next)
-      return next
+      return [session, next] as const
     })
     await actOn(outcomeOf(session, next, loggedFor, getBreakTimeSeconds()))
     return next
   }
 }
 
-// Tells the user when the exercise is already in the open session, which holds each exercise once.
+// Creates the workout and shows it, once, however many changes ask for it at the same time.
+const started = (): Promise<WorkoutSession> => {
+  if (!starter) throw new Error('No workout session is open')
+  const { start } = starter
+  starting ??= (async () => {
+    const session = await start()
+    await showNow(session)
+    Toasts.show({ message: 'Workout started.' })
+    return session
+  })().finally(() => {
+    starting = undefined
+  })
+  return starting
+}
+
+// Tells the user when the exercise is already in the workout, which holds each exercise once.
 export const alertIfInSession = (exerciseId: Exercise['id']): boolean => {
-  if (!open || !hasExercise(open, exerciseId)) return false
+  if (!openSession.exerciseIds().includes(exerciseId)) return false
   alert('This exercise is already in your session.')
   return true
 }

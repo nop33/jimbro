@@ -39,6 +39,9 @@ test('suggests the gyms already used, and clears the field to show them all', as
   const { programId } = await seedWorkoutsAt(page, ['Athens', 'Holmes Place Syntagma'])
 
   await page.goto(`/gymtime/?programId=${programId}`)
+  // The summary line shows the day and gym, and opens the fields.
+  await expect(page.locator('#workout-gym-label')).toHaveText('Holmes Place Syntagma')
+  await page.locator('#workout-details > summary').click()
   const gym = page.locator('input[name="location"]')
   await expect(gym).toHaveValue('Holmes Place Syntagma')
   await expect(page.locator('#gym-options option')).toHaveText(['Holmes Place Syntagma', 'Athens'])
@@ -54,6 +57,7 @@ test('the cards before the start show the set slots the start stores for the gym
   const { programId } = await seedWorkoutsAt(page, ['Hotel gym', 'Athens'], [6, 1])
 
   await page.goto(`/gymtime/?programId=${programId}`)
+  await page.locator('#workout-details > summary').click()
   const gym = page.locator('input[name="location"]')
   await expect(gym).toHaveValue('Athens')
   const slots = page.locator('#exercises-list > .card').first().locator('.completed-sets > .isPending')
@@ -62,11 +66,16 @@ test('the cards before the start show the set slots the start stores for the gym
   await gym.fill('Hotel gym')
   await gym.blur()
   await expect(slots).toHaveCount(6)
+  await expect(page.locator('#workout-gym-label')).toHaveText('Hotel gym')
 
-  await page.getByRole('button', { name: 'Save & start workout' }).click()
-  await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+  // Logging the first set starts the workout with the targets the cards showed.
+  const card = page.locator('#exercises-list > .card').first()
+  await card.locator('.exercise-details > summary').click()
+  await card.getByRole('button', { name: 'Finished set' }).click()
+  await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
   await expect(page).toHaveURL(/\?id=/)
-  await expect(slots).toHaveCount(6)
+  await expect(slots).toHaveCount(5)
+  await expect(card.locator('.completed-sets > .isCompleted')).toHaveCount(1)
 })
 
 test('renames a gym on every workout, merging it into another', async ({ page }) => {

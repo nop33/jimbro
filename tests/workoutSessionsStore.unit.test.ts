@@ -93,6 +93,10 @@ describe('workoutSessionsStore', () => {
     const writes: Array<(session: WorkoutSession) => Promise<WorkoutSession>> = [
       (current) => workoutSessionsStore.addSet(current, 'bench', lift(40)),
       (current) => workoutSessionsStore.updateSet(current, 'bench', 0, lift(45)),
+      (current) => workoutSessionsStore.addSet(current, 'bench', lift(50)),
+      (current) => workoutSessionsStore.removeSet(current, 'bench', 1),
+      (current) => workoutSessionsStore.addSetSlot(current, 'row'),
+      (current) => workoutSessionsStore.removeSetSlot(current, 'row'),
       (current) => workoutSessionsStore.moveExercise(current, 'row', 'up'),
       (current) => workoutSessionsStore.addExercise(current, exercise('squat', 3)),
       (current) => workoutSessionsStore.swapExercise(current, 'squat', exercise('lunge', 3)),
@@ -135,6 +139,42 @@ describe('workoutSessionsStore', () => {
 
     session = await workoutSessionsStore.addSet(session, 'pull', lift(10))
     expect(session.status).toBe('completed')
+  })
+
+  it('removes a set to do, never below the sets logged or below 1', async () => {
+    let session = await workoutSessionsStore.addSet(await start(exercise('pull', 3)), 'pull', lift(10))
+    session = await workoutSessionsStore.removeSetSlot(session, 'pull')
+    expect([session.exercises[0].targetSets, session.status]).toEqual([2, 'incomplete'])
+
+    // Removing the last set to do finishes the exercise, and here the workout.
+    session = await workoutSessionsStore.removeSetSlot(session, 'pull')
+    expect([session.exercises[0].targetSets, session.status, await storedStatus(session)]).toEqual([
+      1,
+      'completed',
+      'completed'
+    ])
+    await expect(workoutSessionsStore.removeSetSlot(session, 'pull')).rejects.toThrow('No set left')
+
+    const fresh = await start(exercise('row', 1))
+    await expect(workoutSessionsStore.removeSetSlot(fresh, 'row')).rejects.toThrow('No set left')
+  })
+
+  it('removes a logged set, moving the later ones up and leaving its slot to do', async () => {
+    let session = await start(exercise('bench', 3), exercise('row', 1))
+    for (const weight of [40, 50, 60]) session = await workoutSessionsStore.addSet(session, 'bench', lift(weight))
+    session = await workoutSessionsStore.addSet(session, 'row', lift(30))
+    expect(session.status).toBe('completed')
+
+    session = await workoutSessionsStore.removeSet(session, 'bench', 0)
+    expect(session.exercises[0].sets).toEqual([lift(50), lift(60)])
+    expect([progressOf(session.exercises[0]).target, session.status]).toEqual([3, 'incomplete'])
+    expect(await workoutSessionsStore.getById(session.id)).toEqual(session)
+
+    // The next set takes the freed position again.
+    session = await workoutSessionsStore.addSet(session, 'bench', lift(70))
+    expect(session.exercises[0].sets).toEqual([lift(50), lift(60), lift(70)])
+    expect(await workoutSessionsStore.getById(session.id)).toEqual(session)
+    await expect(workoutSessionsStore.removeSet(session, 'row', 1)).rejects.toThrow('Set not found')
   })
 
   it("starts each exercise at its target, or last time's set count at the gym when more", async () => {

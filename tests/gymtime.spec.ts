@@ -1,5 +1,18 @@
 import { test, expect, type Page } from '@playwright/test'
 import { seedDatabase } from './seed'
+import { startWorkout } from './startWorkout'
+
+// The workouts stored, and the notes of the latest one.
+const storedSessions = (page: Page) =>
+  page.evaluate(async () => {
+    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+    return (await workoutSessionsStore.getAll()).length
+  })
+const storedNotes = (page: Page) =>
+  page.evaluate(async () => {
+    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+    return (await workoutSessionsStore.getLatestSaved())?.notes
+  })
 
 test('missing program shows the load error', async ({ page }) => {
   await page.goto('/gymtime/?programId=non-existent')
@@ -20,10 +33,6 @@ test.describe('Gymtime Page', () => {
   })
 
   test('logs a set, edits the weight, and adds an exercise', async ({ page }) => {
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    // The cards show before the save, but only a started workout takes a set.
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-
     // 2. Expand first exercise
     const firstExercise = page.locator('details.exercise-details').first()
     await firstExercise.locator('summary').click() // Expand the details
@@ -39,6 +48,9 @@ test.describe('Gymtime Page', () => {
     await expect(finishBtn).toBeVisible()
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
+    // The first set starts the workout.
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')
@@ -118,9 +130,9 @@ test.describe('Gymtime Page', () => {
         session = await workoutSessionsStore.addSet(session, id ?? '', { preset: 'lifting', reps: 8, weight })
       }
     }, exerciseId)
+    // The page reads last time once, so it loads again to see the workout just stored.
+    await page.reload()
 
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
     await card.locator('.exercise-details > summary').click()
 
     const weight = card.locator('.next-set-form input[name="set-weight"]')
@@ -139,10 +151,6 @@ test.describe('Gymtime Page', () => {
   })
 
   test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
-    // 1. Start Workout Session
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-
     // Install clock to manipulate time
     await page.clock.install()
 
@@ -180,8 +188,6 @@ test.describe('Gymtime Page', () => {
   })
 
   test('a set logged from a minimized break starts a fresh break that the last one cannot close', async ({ page }) => {
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
     await page.clock.install()
 
     const card = page.locator('#exercises-list > .card').first()
@@ -214,11 +220,9 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
-  test("moves an exercise from its card's actions menu", async ({ page }) => {
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-
+  test("moves an exercise from its card's actions menu, which starts the workout", async ({ page }) => {
     const names = page.locator('.exercise-name')
+    await expect(names.first()).toBeVisible()
     const [first, second] = (await names.allTextContents()).map((name) => name.trim())
 
     await page.getByRole('button', { name: `Actions for ${first}` }).click()
@@ -229,6 +233,8 @@ test.describe('Gymtime Page', () => {
     await expect(names.nth(0)).toHaveText(second)
     await expect(names.nth(1)).toHaveText(first)
     await expect(menu).toHaveCount(0)
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
 
     await page.getByRole('button', { name: `Actions for ${first}` }).click()
     await expect(menu.getByRole('button', { name: 'Move up' })).toBeVisible()
@@ -237,9 +243,6 @@ test.describe('Gymtime Page', () => {
   })
 
   test('draws the history chart, which loads Chart.js when the dialog opens', async ({ page }) => {
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
-
     const firstExercise = page.locator('details.exercise-details').first()
     await firstExercise.locator('summary').click()
     const chartDialog = page.locator('#exercise-history-dialog')
@@ -260,14 +263,11 @@ test.describe('Gymtime Page', () => {
       page
     }) => {
       // animateDetails reads the preference when a card is built, so the page loads again with it. The reload waits
-      // for the first load to finish its database reads: in WebKit, a reload during them could leave the new page's
-      // form disabled.
-      const start = page.getByRole('button', { name: 'Save & start workout' })
-      await expect(start).toBeEnabled()
+      // for the first load to show its cards and day, which come from its database reads.
+      await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
+      await expect(page.locator('#workout-date-label')).toHaveText('Today')
       await page.emulateMedia({ reducedMotion })
       await page.reload()
-      await start.click()
-      await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
       const card = page.locator('#exercises-list > .card').first()
       const details = card.locator('.exercise-details')
@@ -326,10 +326,70 @@ test.describe('Gymtime Page', () => {
     })
   }
 
+  test('opening a program saves nothing until the first change starts the workout', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const rows = card.locator('.completed-sets > .set')
+    await expect(page.locator('#workout-date-label')).toHaveText('Today')
+    await card.locator('.exercise-details > summary').click()
+    const planned = await rows.count()
+    expect(await storedSessions(page)).toBe(0)
+    await expect(page.locator('#delete-workout-session-btn')).toBeHidden()
+
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
+    await expect(rows).toHaveCount(planned + 1)
+    await expect(page.locator('#delete-workout-session-btn')).toBeVisible()
+    expect(await storedSessions(page)).toBe(1)
+
+    // After the start, the details save as they change.
+    await page.locator('#workout-details > summary').click()
+    await page.locator('textarea[name="notes"]').fill('Felt strong')
+    await page.locator('textarea[name="notes"]').blur()
+    await expect.poll(() => storedNotes(page)).toBe('Felt strong')
+  })
+
+  test('removes a set to do from its menu, and a logged set from Edit set', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const pending = card.locator('.completed-sets .set.isPending')
+    const logged = card.locator('.completed-sets .set.isCompleted')
+    await card.locator('.exercise-details > summary').click()
+    const total = await pending.count()
+
+    await card.locator('input[name="set-reps"]').fill('10')
+    await card.locator('input[name="set-weight"]').fill('100')
+    await card.getByRole('button', { name: 'Finished set' }).click()
+    await page.locator('#break-countdown-dialog').getByRole('button', { name: 'Skip' }).click()
+    await expect(logged).toHaveCount(1)
+
+    await card.getByRole('button', { name: `Set ${total}, to do` }).click()
+    await page.getByRole('button', { name: `Remove set ${total}` }).click()
+    await expect(pending).toHaveCount(total - 2)
+
+    // Removing the rest finishes the exercise.
+    for (let left = total - 2; left > 0; left--) {
+      await card
+        .getByRole('button', { name: /, to do$/ })
+        .last()
+        .click()
+      await page.getByRole('button', { name: /^Remove set/ }).click()
+      await expect(pending).toHaveCount(left - 1)
+    }
+    await expect(card).toHaveClass(/card-success/)
+
+    page.on('dialog', (dialog) => dialog.accept())
+    await logged.first().click()
+    await page.locator('#edit-set-dialog').getByRole('button', { name: 'Delete' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Set deleted')
+    await expect(logged).toHaveCount(0)
+    await expect(pending).toHaveCount(1)
+    await expect(card.getByRole('button', { name: 'Set 1, to do' })).toHaveCount(0)
+  })
+
   test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
+    await page.locator('#workout-details > summary').click()
     await page.locator('input[name="location"]').fill('Memorial Gym')
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    await startWorkout(page)
 
     await page.locator('#back-button').click()
     await expect(page).toHaveURL(/\/workouts\//)
@@ -352,9 +412,8 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     await page.goto('/workouts/')
     await page.getByRole('button', { name: 'New' }).click()
     await page.locator('dialog#new-workout-dialog a.program-link').first().click()
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
 
+    // Adding the exercise starts the workout.
     await page.locator('#add-exercise-card').click()
     const addExerciseDialog = page.locator('#add-exercise-dialog')
     await expect(addExerciseDialog).toBeVisible()

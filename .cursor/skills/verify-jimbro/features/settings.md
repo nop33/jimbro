@@ -20,7 +20,7 @@ Settings is `/settings/`: break time, the passkey cloud backup, gyms, and the lo
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history), `31-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `32-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first).
+- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history), `33-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `34-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first).
 - **By hand: reset.** Open `Manage local data`, register `page.once('dialog', d => d.accept())`, click `Reset Database`, and wait for `Database reset.`.
 - **By hand: export.** Wait for Playwright's `download` event while clicking `Export to JSON`, and read the file.
 

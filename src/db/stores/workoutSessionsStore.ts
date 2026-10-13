@@ -68,6 +68,9 @@ export const progressOf = ({ targetSets, sets }: Pick<ExerciseExecution, 'target
   return { logged: sets.length, target, done: sets.length >= target }
 }
 
+// Whether removeSetSlot can drop one of the exercise's sets: one that isn't logged, while more than one is left.
+export const canRemoveSetSlot = ({ logged, target }: ExerciseProgress): boolean => target > Math.max(logged, 1)
+
 // A session is completed when every exercise in it is done.
 export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): SessionStatus {
   if (session.exercises.length === 0) return 'incomplete'
@@ -283,6 +286,31 @@ export class WorkoutSessionsStore {
     const exercise = session.exercises[index]
     const targetSets = progressOf(exercise).target + 1
     return this.save(withExerciseAt(session, index, { ...exercise, targetSets }))
+  }
+
+  // One set fewer to do for the exercise today. The target stays at or above the sets logged, and at least 1, since
+  // removeExercise drops an exercise.
+  async removeSetSlot(session: WorkoutSession, exerciseId: Exercise['id']): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const exercise = session.exercises[index]
+    if (!canRemoveSetSlot(progressOf(exercise))) throw new Error('No set left to remove')
+    const targetSets = progressOf(exercise).target - 1
+    return this.save(withExerciseAt(session, index, { ...exercise, targetSets }))
+  }
+
+  // Takes a logged set out, so its slot is one to do again. The sets after it move up a position, keeping the row IDs
+  // in order, and the last row becomes a tombstone.
+  async removeSet(session: WorkoutSession, exerciseId: Exercise['id'], setIndex: number): Promise<WorkoutSession> {
+    const index = indexOfExercise(session, exerciseId)
+    const stored = liveSets(await this.setsOf(session.id), exerciseId)
+    if (!stored[setIndex]) throw new Error('Set not found in workout session')
+
+    const exercise = session.exercises[index]
+    const updatedAt = nowIso()
+    const sets = exercise.sets.filter((_, position) => position !== setIndex)
+    const moved = stored.slice(setIndex, -1).map((row, offset) => ({ ...row, set: sets[setIndex + offset], updatedAt }))
+    const removed = tombstones(stored.slice(-1), updatedAt)
+    return this.save(withExerciseAt(session, index, { ...exercise, sets }), [...moved, ...removed], updatedAt)
   }
 
   // Soft-deletes the exercise's sets with it.
