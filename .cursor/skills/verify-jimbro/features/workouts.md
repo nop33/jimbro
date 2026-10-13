@@ -24,7 +24,7 @@ Workouts is the calendar of training weeks. An empty database offers seeding. We
 Preconditions: `control-jimbro doctor` passes.
 
 - **Tour stops.** `02-workouts-empty` (Seed Database and onboarding intro), `05-workouts` (the progress card, then a week of pending cards above past completed weeks), `06-workouts-new-dialog`, `07-workouts-mode-dialog`.
-- **By hand: status after a start.** From a seeded calendar, count `.card-pending`, click the first, click `Save & start workout`, wait for the toast `Workout session saved.`, then `page.goBack()`. `.card-pending` is one fewer and `.card-warning` is visible.
+- **By hand: status after a start.** From a seeded calendar, count `.card-pending`, click the first, start the workout with `Add set` on the first card, wait for the toast `Workout started.`, then `page.goBack()`. `.card-pending` is one fewer and `.card-warning` is visible.
 - **By hand: freestyle.** Click `#week-progress`, check `getByRole('radio', { name: 'Freestyle' })`, wait for the reload. `#workout-mode-name` reads `Freestyle` and this week shows `Start a workout` `.open-slot` buttons up to the goal.
 
 ## Gotchas

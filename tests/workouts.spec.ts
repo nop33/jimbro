@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { seedDatabase } from './seed'
+import { startWorkout } from './startWorkout'
 
 test.describe('Workouts Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -183,9 +184,7 @@ test.describe('Workouts Page', () => {
     // It should navigate to /gymtime/ with programId
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
 
-    // Start workout session
-    await page.getByRole('button', { name: 'Save & start workout' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved.')
+    await startWorkout(page)
 
     // Navigate back to the workouts page
     await page.goBack()

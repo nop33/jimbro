@@ -246,9 +246,9 @@ test.describe('Workout session status reconciliation', () => {
     expect(patterns.filter(Array.isArray)).toEqual([[60, 40, 60, 40, 60, 80, 400]])
   })
 
-  test('saving the session form heals a session whose stored status is stale', async ({ page }) => {
+  test('saving the session details heals a session whose stored status is stale', async ({ page }) => {
     // Simulate a session that was bugged before the fix: all exercises fully
-    // logged but status stored as 'incomplete'. Saving the form should heal it.
+    // logged but status stored as 'incomplete'. Saving the details should heal it.
     const sessionId = crypto.randomUUID()
     const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
 
@@ -261,12 +261,12 @@ test.describe('Workout session status reconciliation', () => {
 
     await page.goto(`/gymtime/?id=${sessionId}`)
 
-    // Open the session form (it starts collapsed when a session exists) and save it
+    // Open the details (they start collapsed) and change the notes, which saves them
     const workoutDetails = page.locator('#workout-details')
     await workoutDetails.locator('summary').click()
 
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session saved')
+    await page.locator('textarea[name="notes"]').fill('Healed')
+    await page.locator('textarea[name="notes"]').blur()
 
     await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
   })

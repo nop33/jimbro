@@ -6,7 +6,12 @@ import {
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
-import { progressOf, workoutSessionsStore, type ExerciseProgress } from '../../db/stores/workoutSessionsStore'
+import {
+  canRemoveSetSlot,
+  progressOf,
+  workoutSessionsStore,
+  type ExerciseProgress
+} from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
@@ -18,13 +23,50 @@ import { alertIfInSession, openSession } from './openSession'
 import type { ExercisePlan } from './exercisePlan'
 import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
-// Room the actions menu needs below its button: four 48px items and a margin.
+// Room a menu needs below what it opens from: the actions menu's four 48px items and a margin, or the set menu's one.
 const MENU_ROOM = 220
+const SET_MENU_ROOM = 70
 
-// One row of the card's set list: a logged set, or a slot still to do.
+// One row of the card's set list: a logged set, or a slot still to do, which can be removed while more than one is
+// left to do.
 interface SetRow {
   set: ExerciseSetExecution
   logged: boolean
+  removable?: boolean
+}
+
+// Places a popover menu under what it opens from, right edges lined up, or above it when room wouldn't fit below,
+// and keeps it there while the page scrolls. Script places it, since CSS anchor positioning is missing from older iOS
+// versions. anchor gives what the menu opens from each time it opens.
+const anchorMenu = (menu: HTMLElement, anchor: () => Element, room: number) => {
+  const place = () => {
+    const box = anchor().getBoundingClientRect()
+    const opensUp = window.innerHeight - box.bottom < room
+    menu.style.top = opensUp ? 'auto' : `${box.bottom + 4}px`
+    menu.style.bottom = opensUp ? `${window.innerHeight - box.top + 4}px` : 'auto'
+    menu.style.right = `${document.documentElement.clientWidth - box.right}px`
+  }
+
+  menu.addEventListener('beforetoggle', (event) => {
+    if (event.newState === 'open') place()
+  })
+
+  // Capture catches a scroll in any container.
+  let followScroll: AbortController | undefined
+  menu.addEventListener('toggle', (event) => {
+    followScroll?.abort()
+    if (event.newState !== 'open') return
+
+    followScroll = new AbortController()
+    const { signal } = followScroll
+    // Removing the card removes the menu without a toggle event, so the listener drops itself then.
+    const follow = () => {
+      if (!menu.isConnected) followScroll?.abort()
+      else if (!anchor().isConnected) menu.hidePopover()
+      else place()
+    }
+    document.addEventListener('scroll', follow, { capture: true, passive: true, signal })
+  })
 }
 
 // One exercise's card. The card list builds it once per exercise and calls show with each session the page shows, so
@@ -40,10 +82,12 @@ class ExerciseCard {
   private readonly nextSetDiv: HTMLDivElement
   private readonly nextSetForm: HTMLFormElement
   private readonly nextSetFields: HTMLDivElement
-  private readonly submitButton: HTMLButtonElement
   private readonly actionsBtn: HTMLButtonElement
   private readonly viewHistoryBtn: HTMLButtonElement
   private readonly viewLastSetBtn: HTMLButtonElement
+  private readonly setMenu: HTMLDivElement
+  // The row of the set to do that the set menu opened from.
+  private setMenuRow: HTMLElement | undefined
   // What the next set's inputs were last filled with, and whether the user has typed in them since.
   private filledWith = ''
   private typedIn = false
@@ -60,10 +104,10 @@ class ExerciseCard {
     this.nextSetDiv = this.element.querySelector('.next-set') as HTMLDivElement
     this.nextSetForm = this.nextSetDiv.querySelector('.next-set-form') as HTMLFormElement
     this.nextSetFields = this.nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
-    this.submitButton = this.nextSetForm.querySelector('button[type="submit"]') as HTMLButtonElement
     this.actionsBtn = this.element.querySelector('.exercise-actions-btn') as HTMLButtonElement
     this.viewHistoryBtn = this.element.querySelector('.view-history-btn') as HTMLButtonElement
     this.viewLastSetBtn = this.element.querySelector('.view-last-set-btn') as HTMLButtonElement
+    this.setMenu = this.element.querySelector('.set-menu') as HTMLDivElement
 
     this.element.setAttribute('data-exercise-id', this.exerciseId)
     this.detailsAnimation = animateDetails(
@@ -73,6 +117,7 @@ class ExerciseCard {
     )
 
     this.setUpActionsMenu()
+    this.setUpSetMenu()
     this.setUpNextSetForm()
 
     this.viewHistoryBtn.addEventListener('click', () => {
@@ -106,15 +151,17 @@ class ExerciseCard {
 
     const { progress } = plan
     this.element.classList.toggle('card-success', progress.done)
-    this.submitButton.classList.toggle('hidden', !session)
     this.viewHistoryBtn.classList.toggle('hidden', !historyChartEnabled(kind))
     this.viewLastSetBtn.classList.toggle('hidden', !plan.lastTime)
 
     configureSetRowGrid(this.completedSets, preset)
     const logged = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets ?? []
+    const removable = canRemoveSetSlot(progress)
     this.showSetRows(
       Array.from({ length: progress.target }, (_, index) =>
-        index < logged.length ? { set: logged[index], logged: true } : { set: emptySet(preset), logged: false }
+        index < logged.length
+          ? { set: logged[index], logged: true }
+          : { set: emptySet(preset), logged: false, removable }
       )
     )
 
@@ -149,7 +196,7 @@ class ExerciseCard {
     while (this.completedSets.children.length > rows.length) this.completedSets.lastElementChild?.remove()
   }
 
-  private renderSetItem({ set, logged }: SetRow, index: number): HTMLDivElement {
+  private renderSetItem({ set, logged, removable }: SetRow, index: number): HTMLDivElement {
     const template = nodeFromTemplate('#completed-set-item-template')
     const div = template.querySelector('div') as HTMLDivElement
     const setNumber = (index + 1).toString()
@@ -165,9 +212,45 @@ class ExerciseCard {
         if (!openSession.current) throw new Error('No existing workout session found')
         EditSetDialog.openDialog({ set, exerciseId: this.exerciseId, index })
       })
+    } else if (removable) {
+      // A row, not a button, so it keeps the set list's grid. It takes the focus and keys a button would.
+      div.setAttribute('role', 'button')
+      div.setAttribute('tabindex', '0')
+      div.setAttribute('aria-label', `Set ${setNumber}, to do`)
+      const open = () => this.openSetMenu(div, setNumber)
+      div.addEventListener('click', open)
+      div.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        open()
+      })
     }
 
     return div
+  }
+
+  private openSetMenu(row: HTMLElement, setNumber: string) {
+    this.setMenuRow = row
+    setTextContent('.remove-set-label', `Remove set ${setNumber}`, this.setMenu)
+    this.setMenu.showPopover()
+    const removeBtn = this.setMenu.querySelector('.remove-set-slot-btn') as HTMLButtonElement
+    removeBtn.focus()
+  }
+
+  // Every set to do is the same, so removing the one tapped takes one off the end.
+  private setUpSetMenu() {
+    const { setMenu } = this
+    anchorMenu(setMenu, () => this.setMenuRow ?? this.completedSets, SET_MENU_ROOM)
+    setMenu.addEventListener('toggle', (event) => {
+      this.setMenuRow?.classList.toggle('isSelected', event.newState === 'open')
+      if (event.newState === 'closed' && this.setMenuRow?.isConnected) this.setMenuRow.focus({ preventScroll: true })
+    })
+
+    const removeBtn = setMenu.querySelector('.remove-set-slot-btn') as HTMLButtonElement
+    removeBtn.addEventListener('click', async () => {
+      setMenu.hidePopover()
+      await openSession.apply((session) => workoutSessionsStore.removeSetSlot(session, this.exerciseId))
+    })
   }
 
   // The exercise's progress in the session, which the store's status and the card both go by.
@@ -185,19 +268,9 @@ class ExerciseCard {
     const moveDownBtn = actionsMenu.querySelector('.move-down-workout-session-exercise-btn') as HTMLButtonElement
 
     // A popover gives light dismiss (outside tap, Esc) and the button's aria-expanded for free.
-    // Script places it, since CSS anchor positioning is missing from older iOS versions.
     actionsBtn.popoverTargetElement = actionsMenu
+    anchorMenu(actionsMenu, () => actionsBtn, MENU_ROOM)
 
-    // Under the button, or above it when the menu's four items wouldn't fit below.
-    const placeMenu = () => {
-      const button = actionsBtn.getBoundingClientRect()
-      const opensUp = window.innerHeight - button.bottom < MENU_ROOM
-      actionsMenu.style.top = opensUp ? 'auto' : `${button.bottom + 4}px`
-      actionsMenu.style.bottom = opensUp ? `${window.innerHeight - button.top + 4}px` : 'auto'
-      actionsMenu.style.right = `${document.documentElement.clientWidth - button.right}px`
-    }
-
-    let followScroll: AbortController | undefined
     actionsMenu.addEventListener('beforetoggle', (event) => {
       if (event.newState !== 'open') return
 
@@ -207,24 +280,10 @@ class ExerciseCard {
       swapBtn.classList.toggle('hidden', completed)
       deleteBtn.classList.toggle('hidden', completed)
 
-      const exercises = session?.exercises ?? []
-      const exerciseIndex = exercises.findIndex(({ exerciseId }) => exerciseId === this.exerciseId)
+      const exerciseIds = openSession.exerciseIds()
+      const exerciseIndex = exerciseIds.indexOf(this.exerciseId)
       moveUpBtn.classList.toggle('hidden', exerciseIndex <= 0)
-      moveDownBtn.classList.toggle('hidden', exerciseIndex === -1 || exerciseIndex === exercises.length - 1)
-
-      placeMenu()
-    })
-
-    // The menu follows its button while the page scrolls. Capture catches a scroll in any container.
-    actionsMenu.addEventListener('toggle', (event) => {
-      followScroll?.abort()
-      if (event.newState !== 'open') return
-
-      followScroll = new AbortController()
-      const { signal } = followScroll
-      // Removing the card removes the menu without a toggle event, so the listener drops itself then.
-      const follow = () => (actionsMenu.isConnected ? placeMenu() : followScroll?.abort())
-      document.addEventListener('scroll', follow, { capture: true, passive: true, signal })
+      moveDownBtn.classList.toggle('hidden', exerciseIndex === -1 || exerciseIndex === exerciseIds.length - 1)
     })
 
     for (const item of [moveUpBtn, moveDownBtn, swapBtn, deleteBtn]) {
@@ -232,23 +291,16 @@ class ExerciseCard {
     }
 
     moveUpBtn.addEventListener('click', async () => {
-      if (!openSession.current) return
       await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
     })
 
     moveDownBtn.addEventListener('click', async () => {
-      if (!openSession.current) return
       await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
     })
 
     deleteBtn.addEventListener('click', async () => {
       const session = openSession.current
-      if (!session) {
-        alert('Start a workout session first')
-        return
-      }
-
-      const hasSets = (this.progressIn(session)?.logged ?? 0) > 0
+      const hasSets = session !== undefined && (this.progressIn(session)?.logged ?? 0) > 0
       const question = hasSets
         ? 'This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?'
         : 'Are you sure you want to delete this exercise from the workout session?'
@@ -259,12 +311,8 @@ class ExerciseCard {
 
     swapBtn.addEventListener('click', () => {
       const session = openSession.current
-      if (!session) {
-        alert('Start a workout session first')
-        return
-      }
-
       if (
+        session &&
         (this.progressIn(session)?.logged ?? 0) > 0 &&
         !confirm(
           'This exercise already has completed sets. Swapping it will result in lost progress. Are you sure you want to proceed?'
@@ -284,15 +332,14 @@ class ExerciseCard {
 
   private setUpNextSetForm() {
     const { nextSetForm } = this
-    const addExtraSetBtn = this.element.querySelector('.add-extra-set-btn') as HTMLButtonElement
+    const addSetBtn = this.element.querySelector('.add-set-btn') as HTMLButtonElement
 
     nextSetForm.addEventListener('input', () => {
       this.typedIn = true
     })
 
     // The session stores the extra set, so the workout is not done until it is logged.
-    addExtraSetBtn.addEventListener('click', async () => {
-      if (!openSession.current) return
+    addSetBtn.addEventListener('click', async () => {
       await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
     })
 

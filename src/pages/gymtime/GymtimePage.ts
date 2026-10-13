@@ -3,7 +3,7 @@ import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import AddExerciseDialog from './AddExerciseDialog'
-import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
+import { animateDetails } from './animateDetails'
 import ExerciseCardList from './ExerciseCardList'
 import { alertIfInSession, openSession } from './openSession'
 import { parseUrlParams } from './parseUrlParams'
@@ -16,7 +16,6 @@ class GymtimePage {
   private static saveToProgramCard = document.querySelector('#save-to-program-card') as HTMLDivElement
   private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
   private static program: Program
-  private static workoutDetailsAnimation: AnimateDetailsHandle | null = null
 
   static async init() {
     const { program, workoutSession } = await parseUrlParams()
@@ -25,29 +24,27 @@ class GymtimePage {
     setTextContent('.app-header-title', program.name)
 
     const workoutForm = this.workoutDetails.querySelector('form') as HTMLFormElement
-    this.workoutDetailsAnimation = animateDetails(this.workoutDetails, workoutForm)
+    animateDetails(this.workoutDetails, workoutForm)
 
-    if (workoutSession) {
-      this.workoutDetailsAnimation.close()
-    }
-
+    // Until the first change starts the workout, the cards show the program's exercises, and the summary line shows
+    // the day and gym the start will store.
     ExerciseCardList.init(program.exercises, () => WorkoutSessionForm.planned())
-    openSession.subscribe(() => {
+    openSession.startWith({ start: () => WorkoutSessionForm.start(), exerciseIds: () => this.program.exercises })
+    openSession.subscribe((session) => {
+      // A started workout opens again from its own link, on a reload or from the back/forward cache.
+      if (session && new URLSearchParams(window.location.search).get('id') !== session.id) {
+        window.history.replaceState({}, '', `?id=${session.id}`)
+      }
       this.updateDeleteBtnVisibility()
       this.updateSaveToProgramBtnVisibility()
     })
 
     AddExerciseDialog.init(async (exercise) => {
-      if (!openSession.current || alertIfInSession(exercise.id)) return
+      if (alertIfInSession(exercise.id)) return
       await openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
     })
 
     await WorkoutSessionForm.init(program.id, workoutSession, {
-      onSessionSaved: () => {
-        const session = openSession.current
-        if (session) window.history.replaceState({}, '', `?id=${session.id}`)
-        this.workoutDetailsAnimation?.close()
-      },
       onPlanChanged: () => {
         void ExerciseCardList.replan()
       }

@@ -223,12 +223,17 @@ const STOPS = [
     await page.waitForURL('**/gymtime/?*')
     await see(page.locator('#exercises-list > .card'))
   }],
+  ['gymtime-details', async (page) => {
+    await page.locator('#workout-details > summary').click()
+    await see(page.locator('#workout-details input[name="date"]'))
+  }],
   ['gymtime-started', async (page) => {
-    const start = page.getByRole('button', { name: 'Save & start workout' })
-    if (await start.isVisible()) {
-      await start.click()
-      await see(page.locator('.toast-message-popup', { hasText: 'Workout session saved' }))
-    }
+    // The first change starts the workout: here, Add set on the first card.
+    await page.locator('#workout-details > summary').click()
+    const card = page.locator('details.exercise-details').first()
+    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await see(page.locator('.toast-message-popup', { hasText: 'Workout started' }))
     await page.waitForURL('**/gymtime/?id=*')
   }],
   ['gymtime-card-open', async (page) => {
@@ -237,7 +242,14 @@ const STOPS = [
     await see(card.locator('.next-set-form button[type=submit]'))
     await card.locator('.next-set-form button[type=submit]').scrollIntoViewIfNeeded()
   }],
+  ['gymtime-set-menu', async (page) => {
+    const card = page.locator('details.exercise-details').first()
+    await card.getByRole('button', { name: /, to do$/ }).last().click()
+    await see(card.locator('.set-menu'))
+  }],
   ['break-timer', async (page) => {
+    await page.keyboard.press('Escape')
+    await gone(page.locator('.set-menu:popover-open'))
     const form = page.locator('details.exercise-details').first().locator('.next-set-form')
     const reps = form.locator('input[name="set-reps"]')
     if ((await reps.count()) > 0 && (await reps.first().inputValue()) === '') await reps.first().fill('8')
