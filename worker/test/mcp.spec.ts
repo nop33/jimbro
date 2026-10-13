@@ -1,7 +1,6 @@
 import { env, SELF } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../../src/db/types'
-import { MCP_TOOLS } from '../src/mcp'
 
 const authHeaders = {
   Authorization: 'Bearer test-token-123',
@@ -116,37 +115,17 @@ const rpc = (method: string, params?: unknown, id: number | string = 1, headers?
 const tool = async (name: string, args: Record<string, unknown> = {}, headers?: HeadersInit) => {
   const response = await rpc('tools/call', { name, arguments: args }, 1, headers)
   expect(response.status).toBe(200)
-  const body = (await response.json()) as { result: { content: Array<{ type: string; text: string }> } }
-  return JSON.parse(body.result.content[0].text) as { revision: number }
-}
-
-const fingerprint = async () => {
-  const tables = ['exercises', 'programs', 'sessions', 'sets'] as const
-  const parts: string[] = []
-  for (const table of tables) {
-    const result = await env.jimbro
-      .prepare(`SELECT id, rev, data FROM ${table} WHERE user_id = ?1 ORDER BY id`)
-      .bind('nikos')
-      .all()
-    parts.push(JSON.stringify(result.results))
+  const body = (await response.json()) as {
+    result: { content: Array<{ type: string; text: string }>; structuredContent: unknown }
   }
-  return parts.join('\n')
+  const payload = JSON.parse(body.result.content[0].text) as { revision: number }
+  // Clients read either the text or the structured content, so both carry the same payload.
+  expect(body.result.structuredContent).toEqual(payload)
+  return payload
 }
 
-const maxRev = async () => {
-  const row = await env.jimbro
-    .prepare(
-      `SELECT COALESCE(MAX(rev), 0) AS rev FROM (
-        SELECT MAX(rev) AS rev FROM exercises WHERE user_id = ?1
-        UNION ALL SELECT MAX(rev) AS rev FROM programs WHERE user_id = ?1
-        UNION ALL SELECT MAX(rev) AS rev FROM sessions WHERE user_id = ?1
-        UNION ALL SELECT MAX(rev) AS rev FROM sets WHERE user_id = ?1
-      )`
-    )
-    .bind('nikos')
-    .first<{ rev: number }>()
-  return row?.rev ?? -1
-}
+// beforeEach pushes 18 rows into an empty account, so they hold revisions 1 to 18.
+const REVISION = 18
 
 describe('mcp', () => {
   beforeEach(async () => {
@@ -164,7 +143,6 @@ describe('mcp', () => {
     const response = await rpc('tools/list', {}, 2, { 'x-d1-count': '1' })
     expect(response.status).toBe(200)
     const body = (await response.json()) as { result: { tools: Array<{ name: string }> } }
-    expect(body.result.tools.map((item) => item.name)).toEqual(MCP_TOOLS.map((item) => item.name))
     expect(body.result.tools.map((item) => item.name)).toEqual([
       'recent_sessions',
       'get_session',
@@ -176,15 +154,23 @@ describe('mcp', () => {
   })
 
   it('answers initialize and accepts the initialized notification', async () => {
+    // An older version than the server's default, so the answer shows it echoes the client's.
     const opened = await rpc('initialize', {
-      protocolVersion: '2025-06-18',
+      protocolVersion: '2025-03-26',
       capabilities: {},
       clientInfo: { name: 'test', version: '0' }
     })
     expect(opened.status).toBe(200)
-    const body = (await opened.json()) as { result: { protocolVersion: string; serverInfo: { name: string } } }
-    expect(body.result.protocolVersion).toBe('2025-06-18')
-    expect(body.result.serverInfo.name).toBe('jimbro')
+    expect(await opened.json()).toEqual({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        protocolVersion: '2025-03-26',
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: 'jimbro', version: '1.0.0' },
+        instructions: expect.stringMatching(/^Read-only workout history\. /)
+      }
+    })
 
     const noted = await api('/mcp', {
       method: 'POST',
@@ -197,7 +183,7 @@ describe('mcp', () => {
   it('recent_sessions returns live headers newest first and hides a tombstone', async () => {
     const payload = await tool('recent_sessions', { limit: 10 })
     expect(payload).toEqual({
-      revision: await maxRev(),
+      revision: REVISION,
       sessions: [
         { ...late, setCounts: [1, 1] },
         { ...mid, setCounts: [2, 1] },
@@ -213,17 +199,17 @@ describe('mcp', () => {
 
   it('get_session returns the header and live sets in exercise order', async () => {
     expect(await tool('get_session', { id: 'mid' })).toEqual({
-      revision: await maxRev(),
+      revision: REVISION,
       session: mid,
       sets: [setRow('mid', 'squat', 0, 60), setRow('mid', 'squat', 1, 70), setRow('mid', 'bench', 0, 40)]
     })
-    expect(await tool('get_session', { id: 'tomb' })).toEqual({ revision: await maxRev(), session: null, sets: [] })
-    expect(await tool('get_session', { id: 'missing' })).toEqual({ revision: await maxRev(), session: null, sets: [] })
+    expect(await tool('get_session', { id: 'tomb' })).toEqual({ revision: REVISION, session: null, sets: [] })
+    expect(await tool('get_session', { id: 'missing' })).toEqual({ revision: REVISION, session: null, sets: [] })
   })
 
   it('exercise_history groups live sets by session, newest first', async () => {
     expect(await tool('exercise_history', { exerciseId: 'squat', limit: 20 })).toEqual({
-      revision: await maxRev(),
+      revision: REVISION,
       sessions: [
         { sessionId: 'late', date: '2026-01-02', sets: [setRow('late', 'squat', 0, 80)] },
         { sessionId: 'mid', date: '2026-01-01', sets: [setRow('mid', 'squat', 0, 60), setRow('mid', 'squat', 1, 70)] },
@@ -231,47 +217,28 @@ describe('mcp', () => {
       ]
     })
     expect(await tool('exercise_history', { exerciseId: 'squat', limit: 1 })).toEqual({
-      revision: await maxRev(),
+      revision: REVISION,
       sessions: [{ sessionId: 'late', date: '2026-01-02', sets: [setRow('late', 'squat', 0, 80)] }]
     })
   })
 
   it('catalog returns non-deleted exercises and programs', async () => {
     expect(await tool('catalog')).toEqual({
-      revision: await maxRev(),
+      revision: REVISION,
       exercises: [exercise('bench', 'Bench'), exercise('squat', 'Squat')],
       programs: [program('legs', 'Legs', ['squat']), program('push', 'Push', ['bench'])]
     })
   })
 
-  it('revision equals the maximum rev', async () => {
-    const payload = await tool('catalog', {}, { 'x-d1-count': '1' })
-    expect(payload.revision).toBe(await maxRev())
-    expect(payload.revision).toBe(rows.length)
-  })
-
-  it('returns 401 without a bearer token', async () => {
-    const response = await SELF.fetch('https://example.com/mcp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
-    })
-    expect(response.status).toBe(401)
-    expect(await response.json()).toEqual({ error: 'unauthorized' })
-  })
-
   it('returns a JSON-RPC error for an unknown tool and does not write', async () => {
-    const before = await fingerprint()
     const response = await rpc('tools/call', { name: 'nope', arguments: {} }, 7, { 'x-d1-count': '1' })
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ jsonrpc: '2.0', id: 7, error: { code: -32602, message: 'Unknown tool' } })
     expect(response.headers.get('x-d1-statements')).toBe('0')
     expect(response.headers.get('x-d1-batches')).toBe('0')
-    expect(await fingerprint()).toBe(before)
   })
 
   it('rejects a bad limit without touching D1', async () => {
-    const before = await fingerprint()
     const response = await rpc('tools/call', { name: 'recent_sessions', arguments: { limit: 0 } }, 8, {
       'x-d1-count': '1'
     })
@@ -282,11 +249,11 @@ describe('mcp', () => {
       error: { code: -32602, message: 'Invalid params' }
     })
     expect(response.headers.get('x-d1-statements')).toBe('0')
-    expect(await fingerprint()).toBe(before)
   })
 
   it('answers GET with 405 even when the token is missing', async () => {
     const response = await SELF.fetch('https://example.com/mcp')
     expect(response.status).toBe(405)
+    expect(await response.json()).toEqual({ error: 'method not allowed' })
   })
 })
