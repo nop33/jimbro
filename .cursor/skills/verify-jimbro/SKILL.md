@@ -5,7 +5,7 @@ description: Drive the Jimbro workout-tracking PWA in a real browser and screens
 
 # Verify Jimbro
 
-Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login; cloud sync takes a user ID and token in Settings. Pages are full HTML loads, not an SPA.
+Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login to use the app. Cloud backup signs up with a passkey in Settings (or takes a user ID and token under `Use a token`). Pages are full HTML loads, not an SPA.
 
 This skill is for agents. Follow the feature map under `features/`. Do not invent selectors. Do not call product code or IndexedDB from the console as a substitute for the user path.
 
@@ -84,6 +84,7 @@ Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locat
 | New workout | `getByRole('button', { name: 'New' })` (accessible name is `Add new workout`) |
 | Close dialog | `getByRole('button', { name: 'Close dialog' })` |
 | Seed Database | `getByRole('button', { name: 'Seed Database' })` (only when IndexedDB has no exercise or program rows) |
+| Passkey offer | `getByRole('button', { name: 'Create passkey' })`; in gymtime `getByRole('region', { name: 'Back up your workouts' })` |
 | Reset Database | open `Manage local data`, then `getByRole('button', { name: 'Reset Database' })`, accept `window.confirm` |
 | Toast | `.toast-message-popup` |
 

@@ -107,7 +107,9 @@ const assertPortFree = () =>
 const workerVars = (probe: WorkerUser, pageOrigin: string | undefined) => {
   const users = [probe, ...Array.from({ length: USER_POOL }, (_, index) => userAt(index))]
   const tokens = Object.fromEntries(users.map((user) => [user.token, user.userId]))
-  const lines = [`AUTH_TOKENS='${JSON.stringify(tokens)}'`]
+  // Every browser of the run calls the passkey routes from one address, and the app asks for passkey options whenever
+  // it shows a passkey button, so the per-address limit is off. worker/test/passkeys.spec.ts covers it.
+  const lines = [`AUTH_TOKENS='${JSON.stringify(tokens)}'`, 'AUTH_RATE_LIMIT=off']
   // The dev server may run on any port, so the worker has to accept its origin.
   if (pageOrigin) lines.push(`DEV_ORIGIN=${pageOrigin}`)
   return `${lines.join('\n')}\n`

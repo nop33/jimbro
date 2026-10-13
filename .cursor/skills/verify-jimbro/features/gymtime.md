@@ -16,6 +16,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 - `gymtime-add` opens `#add-exercise-dialog` from `#add-exercise-card`, with a muscle filter. Adding an exercise already in the workout shows an alert. Swap reuses it titled `Swap exercise`.
 - `gymtime-save-to-program` shows `#save-to-program-card` when the workout's exercises differ from the program's. It saves with the toast `Saved to program`.
 - `gymtime-done` throws `Exercise done!` confetti when an exercise's last set is logged, and `Workout done!` when the workout's is, then downloads a JSON export when cloud backup is off.
+- `gymtime-passkey-offer` is the `Back up your workouts` card (`#passkey-offer`, a region, not a dialog) under the exercises after `Workout done!`, where the browser has passkeys and no passkey backs the phone up. `Create passkey` signs up and shows `Passkey created. Your workouts are backing up.`. `Already have a passkey? Sign in` confirms when the phone holds data, signs in, shows `Signed in. Restoring your workouts.` and loads the page again after the sync. `Not now` hides it for 14 days.
 - `gymtime-delete` is the header's `Delete`, shown once the workout has started. It confirms, shows `Workout session deleted` and returns to `/workouts/`.
 - `gymtime-error` shows `Could not load workout. The program or session may no longer exist.` and `Back to workouts` for a missing or unknown `programId` or `id`.
 
@@ -29,7 +30,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 
 Preconditions: `control-jimbro doctor` passes. The tour imports a year of history first, so `Previous sets`, the history chart and gym suggestions have data.
 
-- **Tour stops.** `19-gymtime-new` (summary line, cards before the start), `20-gymtime-details` (the details open), `21-gymtime-started` (Add set started it), `22-gymtime-card-open`, `23-gymtime-set-menu`, `24-break-timer`, `25-break-timer-minimized`, `26-edit-set-dialog`, `27-previous-sets-dialog`, `28-history-chart-dialog`, `29-gymtime-card-menu`, `30-add-exercise-dialog`, `31-gymtime-error`.
+- **Tour stops.** `20-gymtime-new` (summary line, cards before the start), `21-gymtime-details` (the details open), `22-gymtime-started` (Add set started it), `23-gymtime-card-open`, `24-gymtime-set-menu`, `25-break-timer`, `26-break-timer-minimized`, `27-edit-set-dialog`, `28-previous-sets-dialog`, `29-history-chart-dialog`, `30-gymtime-card-menu`, `31-add-exercise-dialog`, `32-gymtime-passkey-offer` (deletes all but the first exercise and logs its sets until `Workout done!`), `35-gymtime-error`.
 - **By hand: a logged set persists.** After logging, reload the `?id=` URL and expand the card. The `.set.isCompleted` row still shows the values.
 - **By hand: cardio and rehab.** Create a cardio or rehab exercise on `/exercises/`, add it with `#add-exercise-card`, and expand it. Cardio has `set-durationSec`, `set-speed` and `set-incline` inputs and no `View History`. A rehab set opens no break timer.
 
@@ -39,5 +40,6 @@ Preconditions: `control-jimbro doctor` passes. The tour imports a year of histor
 - Only `.set.isCompleted` opens the edit dialog. An `.isPending` row opens the set menu, when it can be removed.
 - The break timer closes itself after its countdown, so a slow step can miss `Skip`. The tour minimizes it instead.
 - Completing every set of a workout downloads a JSON file. Handle the download, or log fewer sets.
+- The passkey offer's `Create passkey` needs a passkey the browser can make: WebAuthn refuses the IP address origin `127.0.0.1`, and the verification server's API is dead. The tour only shows the card here, and signs up on `localhost` in `33-settings-passkey`.
 - After the start, keep using the `?id=` URL. Opening the same `programId` again and changing anything starts another workout.
 - Never force a click. A click that needs force means something covers the control, which is a finding.
