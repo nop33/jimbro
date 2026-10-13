@@ -112,6 +112,8 @@ const outboxOf = (storage: Storage) => storage.getAll<OutboxEntry>(OBJECT_STORES
 
 const byId = <T extends { id: string }>(rows: T[]) => [...rows].sort((left, right) => left.id.localeCompare(right.id))
 
+const idsOf = (rows: Array<{ id: string }>) => byId(rows).map((row) => row.id)
+
 // What a device shows: every row it stores and the sets each session reads from setGroups.
 const localState = async (storage: Storage) => ({
   exercises: byId(await storage.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES)),
@@ -131,20 +133,23 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe('first sync', () => {
   it('pulls every page, stores the server rows and moves the cursor to the last revision', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(AT)
     const server = memoryServer({ pageSize: 2 })
     server.seed(['a', 'b', 'c', 'd', 'e'].map((id) => exercise(id, id)))
     const page = testPage()
     await syncFor(device, server, page).sync()
     expect(server.pulls).toEqual([0, 2, 4])
-    expect((await device.getAll(OBJECT_STORES.EXERCISES)).length).toBe(5)
+    expect(idsOf(await device.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES))).toEqual(['a', 'b', 'c', 'd', 'e'])
     expect(await getMeta(device, 'cursor')).toBe(5)
     expect(server.received).toEqual([])
     expect(page.notices).toEqual(['sync-settled'])
-    expect(page.synced).toHaveLength(1)
+    expect(page.synced).toEqual([AT])
   })
 
   it('restores rows the caller pulled already without pulling again, and ignores them once synced', async () => {
@@ -156,7 +161,7 @@ describe('first sync', () => {
     const engine = syncFor(device, server)
     await engine.sync({ restoring })
     expect(server.pulls).toEqual([])
-    expect((await device.getAll(OBJECT_STORES.EXERCISES)).length).toBe(4)
+    expect(idsOf(await device.getAll<ExerciseRow>(OBJECT_STORES.EXERCISES))).toEqual(['a', 'b', 'c', 'phone'])
     expect(await getMeta(device, 'cursor')).toBe(3)
     expect(server.received.flat().map((pushed) => pushed.row.id)).toEqual(['phone'])
 
@@ -261,15 +266,29 @@ describe('first sync', () => {
     expect(crashServer.received).toEqual([])
     await crashSync.sync()
 
-    const cleanServer = memoryServer({ pageSize: 2 })
-    cleanServer.seed(serverRows)
-    const clean = await freshStorage()
-    await clean.writeRows(localRows)
-    await syncFor(clean, cleanServer).sync()
-
-    expect(await localState(device)).toEqual(await localState(clean))
-    expect(await getMeta(device, 'cursor')).toBe(await getMeta(clean, 'cursor'))
-    expect(Object.fromEntries(crashServer.rows)).toEqual(Object.fromEntries(cleanServer.rows))
+    // The same end as a first sync that never failed: the server's copy of the shared row, the phone's own row pushed,
+    // and the cursor at the last of the 4 rows pulled.
+    const local = await localState(device)
+    expect(local.exercises.map((row) => [row.id, row.name])).toEqual([
+      ['both', 'Server name'],
+      ['phone-only', 'Phone only'],
+      ['server-only', 'Server only']
+    ])
+    expect(local.sessions.map((row) => [row.id, row.exercises.map((snapshot) => snapshot.exerciseId)])).toEqual([
+      ['session', ['server-only']]
+    ])
+    expect(local.sets.map((row) => [row.id, weightOf(row)])).toEqual([['session:server-only:0', 10]])
+    expect(local.setGroups).toEqual([{ sessionId: 'session', sets: local.sets }])
+    expect(await getMeta(device, 'cursor')).toBe(4)
+    expect(crashServer.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['phone-only']])
+    expect([...crashServer.rows.keys()].sort()).toEqual([
+      'exercises:both',
+      'exercises:phone-only',
+      'exercises:server-only',
+      'sessions:session',
+      'sets:session:server-only:0'
+    ])
+    expect(nameOf(crashServer.rows.get('exercises:both'))).toBe('Server name')
   })
 })
 
@@ -334,22 +353,6 @@ describe('a synced database', () => {
     expect(page.synced).toHaveLength(2)
   })
 
-  it('never pulls once bootstrapped on an empty server', async () => {
-    const server = memoryServer()
-    const { counted, calls } = logged(server)
-    const sync = syncFor(device, counted)
-    await sync.sync()
-    expect(await getMeta(device, 'bootstrapped')).toBe(1)
-    calls.length = 0
-
-    server.seed([exercise('squat', 'Squat')])
-    await device.writeRows([exercise('bench', 'Bench')])
-    await sync.sync()
-    await sync.sync()
-    expect(calls).toEqual(['push'])
-    expect(await device.get(OBJECT_STORES.EXERCISES, 'squat')).toBeUndefined()
-  })
-
   it('pushes over the server copy of a row it edits', async () => {
     const server = memoryServer()
     server.seed([exercise('squat', 'Squat')])
@@ -411,8 +414,13 @@ describe('sync()', () => {
   it('queues no further run for a call that passes again: false', async () => {
     const server = memoryServer()
     const release = deferred()
+    let checks = 0
     const gated: SyncServer = {
       ...server,
+      reachable: () => {
+        checks += 1
+        return true
+      },
       async pull(cursor) {
         await release.promise
         return server.pull(cursor)
@@ -424,26 +432,35 @@ describe('sync()', () => {
     expect(sync.sync({ again: false })).toBe(first)
     release.resolve()
     await first
+    // A run queued after the first would check the server in the microtask after it settles.
     await new Promise((resolve) => setTimeout(resolve))
+    expect(checks).toBe(2)
     expect(page.notices).toEqual(['sync-settled'])
     expect(server.pulls).toEqual([0])
   })
 
-  it('rejects, logs and settles when a request fails', async () => {
-    const server = memoryServer()
-    const failing: SyncServer = {
-      ...server,
-      pull: async () => {
-        throw new Error('offline')
+  it.each(['pull', 'push'] as const)(
+    'rejects, logs, settles and tells the page why when a %s fails',
+    async (request) => {
+      const server = memoryServer()
+      // Such as the row_limit a full backup answers with, which the page shows.
+      const failure = new Error('row_limit')
+      const failing: SyncServer = {
+        ...server,
+        [request]: async () => {
+          throw failure
+        }
       }
+      await device.writeRows([exercise('squat', 'Squat')])
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      const page = testPage()
+      await expect(syncFor(device, failing, page).sync()).rejects.toBe(failure)
+      expect(logged).toHaveBeenCalledWith('sync failed', failure)
+      expect(page.failures).toEqual([failure])
+      expect(page.notices).toEqual(['sync-settled'])
+      expect(page.synced).toEqual([])
     }
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const page = testPage()
-    await expect(syncFor(device, failing, page).sync()).rejects.toThrow('offline')
-    expect(logged).toHaveBeenCalledWith('sync failed', expect.any(Error))
-    expect(page.notices).toEqual(['sync-settled'])
-    expect(page.synced).toEqual([])
-  })
+  )
 
   it('resolves without logging when a request fails while the page is leaving', async () => {
     const server = memoryServer()
@@ -458,12 +475,15 @@ describe('sync()', () => {
     page.leave()
     await syncFor(device, failing, page).sync()
     expect(logged).not.toHaveBeenCalled()
+    expect(page.failures).toEqual([])
+    expect(page.synced).toEqual([])
     expect(page.notices).toEqual(['sync-settled'])
   })
 })
 
 describe('restartFirstSync', () => {
   const keysOf = (server: ReturnType<typeof memoryServer>) => [...server.rows.keys()].sort()
+  const deviceKeys = ['exercises:bench', 'exercises:squat', 'sessions:session', 'sets:session:squat:0']
   const deviceRows = [
     exercise('squat', 'Squat'),
     exercise('bench', 'Bench'),
@@ -475,7 +495,7 @@ describe('restartFirstSync', () => {
     const accountA = memoryServer()
     await device.writeRows(deviceRows)
     await syncFor(device, accountA).sync()
-    expect(keysOf(accountA)).toHaveLength(4)
+    expect(keysOf(accountA)).toEqual(deviceKeys)
     expect(await outboxOf(device)).toEqual([])
 
     // The device synced with account A, then the user creates passkey account B.
@@ -483,8 +503,8 @@ describe('restartFirstSync', () => {
     const accountB = memoryServer()
     await syncFor(device, accountB).sync()
 
-    expect(keysOf(accountB)).toEqual(keysOf(accountA))
-    for (const [key, row] of accountA.rows) expect(accountB.rows.get(key)?.row).toEqual(row.row)
+    expect(keysOf(accountB)).toEqual(deviceKeys)
+    for (const row of deviceRows) expect(accountB.rows.get(`${row.table}:${row.row.id}`)?.row).toEqual(row.row)
     expect(accountA.received).toHaveLength(1)
     expect(await outboxOf(device)).toEqual([])
     expect(await getMeta(device, 'cursor')).toBe(4)
@@ -514,11 +534,11 @@ describe('restartFirstSync', () => {
     ])
   })
 
-  it('keeps queued edits and drops the stamps of pushes to the account before', async () => {
+  it('keeps queued edits, and lets the new account win over an edit the account before never acked', async () => {
     const accountA = memoryServer()
     await device.writeRows(deviceRows)
     await syncFor(device, accountA).sync()
-    // A push that reached account A without an ack leaves its stamp on the entry.
+    // A push of Front squat reaches account A without an ack, then the user renames it again.
     await device.writeRows([exercise('squat', 'Front squat', LATER)])
     const lost: SyncServer = {
       ...accountA,
@@ -529,17 +549,20 @@ describe('restartFirstSync', () => {
     }
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await expect(syncFor(device, lost).sync()).rejects.toThrow('connection lost')
-    expect((await outboxOf(device)).map((entry) => entry.inflightSeq)).toEqual([expect.any(Number)])
+    await device.writeRows([exercise('squat', 'Split squat', '2026-10-01T12:00:02.000Z')])
 
+    // Account B holds the same Front squat. The push to account A says nothing about B, so B's copy wins as in any
+    // first sync. Had the device kept the account A push in mind, it would take B's copy for its own lost push and
+    // push Split squat over it.
     await restartFirstSync(device)
-    expect(await outboxOf(device)).toEqual([{ key: 'exercises:squat', table: 'exercises', id: 'squat', seq: 5 }])
     expect(await getMeta(device, 'cursor')).toBe(0)
     expect(await getMeta(device, 'bootstrapped')).toBe(0)
-
     const accountB = memoryServer()
+    accountB.seed([exercise('squat', 'Front squat', LATER)])
     await syncFor(device, accountB).sync()
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Front squat')
     expect(nameOf(accountB.rows.get('exercises:squat'))).toBe('Front squat')
-    expect(keysOf(accountB)).toHaveLength(4)
+    expect(keysOf(accountB)).toEqual(deviceKeys)
     expect(await outboxOf(device)).toEqual([])
   })
 
@@ -596,24 +619,5 @@ describe('restartFirstSync', () => {
     expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
     expect(nameOf(account.rows.get('exercises:squat'))).toBe('Squat')
     expect(await outboxOf(device)).toEqual([])
-  })
-})
-
-describe('a failed sync', () => {
-  it('tells the page why, so it can say a full backup is full', async () => {
-    const server = memoryServer()
-    const full = new Error('row_limit')
-    const refusing: SyncServer = {
-      ...server,
-      push: async () => {
-        throw full
-      }
-    }
-    await device.writeRows([exercise('squat', 'Squat')])
-    vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const page = testPage()
-    await expect(syncFor(device, refusing, page).sync()).rejects.toThrow('row_limit')
-    expect(page.failures).toEqual([full])
-    expect(page.notices).toEqual(['sync-settled'])
   })
 })

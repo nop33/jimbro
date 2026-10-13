@@ -9,7 +9,7 @@ import {
   workoutSessionsStore
 } from '../src/db/stores/workoutSessionsStore'
 import { storage } from '../src/db/storage'
-import type { SessionHeader, WorkoutSession } from '../src/db/types'
+import type { SessionHeader, SetRow, WorkoutSession } from '../src/db/types'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())
@@ -36,8 +36,7 @@ const start = (...exercises: Array<Exercise>) =>
     exercises: exercises.map(snapshotFromExercise)
   })
 
-const storedStatus = async (session: WorkoutSession) =>
-  (await storage.get<SessionHeader>(OBJECT_STORES.WORKOUT_SESSIONS, session.id))?.status
+const storedStatus = async (session: WorkoutSession) => (await workoutSessionsStore.getById(session.id))?.status
 
 // Stores a header whose status disagrees with its sets, as a session written by another device or an older
 // version can arrive.
@@ -111,9 +110,10 @@ describe('workoutSessionsStore', () => {
       expect(current).toEqual(before)
       current = next
     }
-    expect(current.exercises.map(({ exerciseId, sets }) => [exerciseId, sets.length])).toEqual([
-      ['row', 0],
-      ['bench', 1]
+    // Bench went 40, then 45, then 45 and 50, then 45 again.
+    expect(current.exercises.map(({ exerciseId, sets }) => [exerciseId, sets])).toEqual([
+      ['row', []],
+      ['bench', [lift(45)]]
     ])
     expect(await workoutSessionsStore.getById(session.id)).toEqual(current)
   })
@@ -233,5 +233,20 @@ describe('workoutSessionsStore', () => {
 
     session = await workoutSessionsStore.addSet(session, 'press', lift(30))
     expect(nextUnfinished(session, 'crunch')).toBeUndefined()
+  })
+
+  it('gives a set logged again after its exercise left and came back the id of the row it replaces', async () => {
+    // A set row's id is session:exercise:position, so the server keeps one row per slot: the deleted set comes
+    // back alive with the new values instead of a second row next to it.
+    const created = await start(exercise('bench', 3))
+    const logged = await workoutSessionsStore.addSet(created, 'bench', lift(40))
+    const removed = await workoutSessionsStore.removeExercise(logged, 'bench')
+    const readded = await workoutSessionsStore.addExercise(removed, exercise('bench', 3))
+    await workoutSessionsStore.addSet(readded, 'bench', lift(20))
+
+    const rows = (await storage.getAll<SetRow>(OBJECT_STORES.SETS)).filter((row) => row.sessionId === created.id)
+    expect(rows.map(({ id, isDeleted, set }) => ({ id, isDeleted, set }))).toEqual([
+      { id: `${created.id}:bench:0`, isDeleted: false, set: lift(20) }
+    ])
   })
 })
