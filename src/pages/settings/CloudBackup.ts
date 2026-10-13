@@ -15,6 +15,7 @@ import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
 import { getLastSyncAt, getSyncProblem } from '../../sync/status'
 import { confirmReplaceWithAccount, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
+import { whileBusy } from '../busyButton'
 
 // Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
 // user ID and token under "Use a token" for local runs, tests and MCP.
@@ -117,17 +118,18 @@ class CloudBackup {
 
   // Runs a sign-up or sign-in, then syncs, which backs this device up to the account and restores the account's rows.
   // Resolves to false when it did not switch the account.
-  private static async runPasskeyStep(step: () => Promise<boolean>, done: string) {
-    this.createBtn.disabled = true
-    this.signInBtn.disabled = true
+  private static async runPasskeyStep(
+    button: HTMLButtonElement,
+    label: string,
+    step: () => Promise<boolean>,
+    done: string
+  ) {
+    const beside = button === this.createBtn ? this.signInBtn : this.createBtn
     try {
-      if (!(await step())) return
+      if (!(await whileBusy(button, label, step, [beside]))) return
     } catch (error) {
       showPasskeyFailure(error)
       return
-    } finally {
-      this.createBtn.disabled = false
-      this.signInBtn.disabled = false
     }
     Toasts.show({ message: done })
     this.showState()
@@ -136,25 +138,33 @@ class CloudBackup {
   }
 
   private static handleCreate() {
-    return this.runPasskeyStep(async () => {
-      await createPasskeyAccount()
-      return true
-    }, 'Passkey created.')
+    return this.runPasskeyStep(
+      this.createBtn,
+      'Creating passkey…',
+      async () => {
+        await createPasskeyAccount()
+        return true
+      },
+      'Passkey created.'
+    )
   }
 
+  // The sign-in restores the account before it resolves, so the button stays busy until the workouts are back.
   private static handleSignIn() {
-    return this.runPasskeyStep(() => signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }), 'Signed in.')
+    return this.runPasskeyStep(
+      this.signInBtn,
+      'Signing in…',
+      () => signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }),
+      'Signed in.'
+    )
   }
 
   private static async handleAddPasskey() {
-    this.addBtn.disabled = true
     try {
-      await addPasskey()
+      await whileBusy(this.addBtn, 'Adding passkey…', addPasskey)
       Toasts.show({ message: 'Passkey added.' })
     } catch (error) {
       showPasskeyFailure(error)
-    } finally {
-      this.addBtn.disabled = false
     }
   }
 

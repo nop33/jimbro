@@ -1,9 +1,8 @@
 import type { Storage } from '../db/storage'
-import type { Row } from '../db/types'
 import { planBootstrap, rowKey } from './bootstrap'
 import { createOutbox, type PushLock } from './outbox'
 import type { PageNotice } from './pageChannel'
-import { commitFirstSync, readFirstSyncSnapshot, rowFromWire } from './pull'
+import { commitFirstSync, pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
 import { getMeta } from './queue'
 import type { SyncServer } from './server'
 
@@ -27,25 +26,18 @@ export interface Sync {
   // and pulls nothing.
   // Announces sync-settled each time it ends, also when the server is unreachable and it sent nothing. A call during a
   // running sync resolves with it and, unless `again` is false, queues one more run after it.
-  sync: (options?: { again?: boolean }) => Promise<void>
+  // A first sync restores `restoring` instead of pulling, when the caller pulled the account already, as a passkey
+  // sign-in does to compare it with this device. A sync that is not a first sync, or joins a running one, ignores it.
+  sync: (options?: { again?: boolean; restoring?: PulledAccount }) => Promise<void>
 }
 
 export const createSync = (deps: { storage: Storage; server: SyncServer; lock: PushLock; page: SyncPage }): Sync => {
   const { storage, server, page } = deps
   const outbox = createOutbox({ storage, lock: deps.lock })
 
-  const firstSync = async () => {
+  const firstSync = async (restoring?: PulledAccount) => {
     const snapshot = await readFirstSyncSnapshot(storage)
-    const pulled: Row[] = []
-    let cursor = 0
-    let more = true
-    while (more) {
-      const next = await server.pull(cursor)
-      for (const entry of next.rows) pulled.push(rowFromWire(entry))
-      cursor = next.cursor
-      more = next.more
-      if (next.rows.length === 0) break
-    }
+    const { rows: pulled, cursor } = restoring ?? (await pullAll((at) => server.pull(at)))
 
     const actions = planBootstrap(snapshot.rows, pulled)
     const pulledByKey = new Map(pulled.map((row) => [rowKey(row), row]))
@@ -53,10 +45,10 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
     await outbox.drain(server.push)
   }
 
-  const runSync = async () => {
+  const runSync = async (restoring?: PulledAccount) => {
     const cursor = await getMeta(storage, 'cursor')
     const bootstrapped = await getMeta(storage, 'bootstrapped')
-    if (cursor === 0 && bootstrapped === 0) await firstSync()
+    if (cursor === 0 && bootstrapped === 0) await firstSync(restoring)
     else await outbox.drain(server.push)
   }
 
@@ -76,7 +68,7 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
     running = true
     tail = (async () => {
       try {
-        await runSync()
+        await runSync(options?.restoring)
         page.synced(new Date().toISOString())
       } catch (error) {
         if (page.leaving()) return

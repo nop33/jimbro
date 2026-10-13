@@ -194,6 +194,11 @@ test.describe('passkeys with a virtual authenticator', () => {
       })
       await restoring.goto('/workouts/')
       await expect(restoring.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+      // The sign-in downloads the account once, for the comparison and the restore alike.
+      const fullPulls: string[] = []
+      restoring.on('request', (request) => {
+        if (request.url().includes('/api/pull?cursor=0')) fullPulls.push(request.url())
+      })
       const reloaded = restoring.waitForEvent('framenavigated')
       await restoring.getByRole('button', { name: 'Sign in with passkey' }).click()
       await reloaded
@@ -201,6 +206,7 @@ test.describe('passkeys with a virtual authenticator', () => {
       await expect(restoring.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
       expect(await countLocal(restoring, 'exercises')).toBe(21)
       expect(await countLocal(restoring, 'programs')).toBe(3)
+      expect(fullPulls).toHaveLength(1)
 
       const signedIn = await credentialsOf(restoring)
       expect(signedIn?.userId).toBe(created?.userId)
@@ -309,7 +315,19 @@ test.describe('passkeys with a virtual authenticator', () => {
       asksAgain.push(dialog.message())
       void dialog.dismiss()
     })
+    // While the account downloads, the button says it is signing in and takes no more taps.
+    let releasePull = () => {}
+    const pullHeld = new Promise<void>((resolve) => (releasePull = resolve))
+    await page.route('**/api/pull**', async (route) => {
+      await pullHeld
+      await route.continue()
+    })
     await page.getByRole('button', { name: 'Sign in with passkey' }).click()
+    const busy = page.getByRole('button', { name: 'Signing in…' })
+    await expect(busy).toHaveAttribute('aria-busy', 'true')
+    await expect(busy).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Create passkey' })).toBeDisabled()
+    releasePull()
     await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
     expect(asksAgain).toEqual([])
     expect((await credentialsOf(page))?.userId).toBe(created?.userId)

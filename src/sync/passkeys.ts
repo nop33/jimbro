@@ -8,13 +8,12 @@ import {
 } from '../db/cloudBackup'
 import { OBJECT_STORES } from '../db/constants'
 import { storage } from '../db/storage'
-import type { Row } from '../db/types'
 import { fromBase64Url, toBase64Url } from './base64url'
 import { replacesLocalRows } from './bootstrap'
 import { outbox, pushLock } from './outbox'
-import { readFirstSyncSnapshot, rowFromWire } from './pull'
+import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
 import { restartFirstSync } from './queue'
-import type { PullPage } from './server'
+import { PULL_LIMIT, type PullPage } from './server'
 import { clearLastSyncAt, setSyncProblem } from './status'
 import { sync } from './syncClient'
 
@@ -250,32 +249,27 @@ export const hasLocalRows = async () => {
 }
 
 // Every row of the account the token signs in to, as the first sync would pull them.
-const pullAccount = async (token: string) => {
-  const rows: Row[] = []
-  let cursor = 0
-  for (;;) {
-    const response = await fetch(`${API_BASE}/api/pull?cursor=${cursor}`, {
+const pullAccount = (token: string) =>
+  pullAll(async (cursor) => {
+    const response = await fetch(`${API_BASE}/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    const page = (await answer(response)) as PullPage
-    for (const entry of page.rows) rows.push(rowFromWire(entry))
-    cursor = page.cursor
-    if (!page.more || page.rows.length === 0) return rows
-  }
-}
+    return (await answer(response)) as PullPage
+  })
 
 // Whether signing in to the account would replace any row on this device: one both sides have, with a different copy.
 // A phone that signed out after backing up holds the account's own copies, so signing in again replaces nothing.
-const signInReplacesLocalRows = async (token: string) => {
+const signInReplacesLocalRows = async (pulled: PulledAccount) => {
   if (!(await hasLocalRows())) return false
-  const [local, pulled] = await Promise.all([readFirstSyncSnapshot(storage), pullAccount(token)])
-  return replacesLocalRows(local.rows, pulled)
+  const local = await readFirstSyncSnapshot(storage)
+  return replacesLocalRows(local.rows, pulled.rows)
 }
 
 // Signs in with any passkey this phone has for Jimbro, which the browser lets the user pick, and restores its account.
 // The first sync with the account keeps the account's copy of every row both sides have, so where that would replace a
 // row on this device, confirmReplace asks first, after the passkey sheet, so the sheet still opens right on the tap. Resolves to
-// false when the user said no, and then the device stays as it was and the worker forgets the new token.
+// false when the user said no, and then the device stays as it was and the worker forgets the new token. The account is
+// downloaded once: the comparison and the restore share the pull, so the callers' next sync only pushes.
 export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: () => boolean | Promise<boolean> }) => {
   const account = await withOptions('signin', async (options) => {
     const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
@@ -292,12 +286,15 @@ export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: ()
     })
   })
   if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
-  if ((await signInReplacesLocalRows(account.token)) && !(await confirmReplace())) {
+  const pulled = await pullAccount(account.token)
+  if ((await signInReplacesLocalRows(pulled)) && !(await confirmReplace())) {
     await post('/api/signout', {}, account.token).catch(() => undefined)
     preparePasskey('signin')
     return false
   }
   await switchTo(account)
+  // A failed restore leaves the first sync to the callers' next sync, which pulls again.
+  await sync({ again: false, restoring: pulled }).catch(() => undefined)
   return true
 }
 
