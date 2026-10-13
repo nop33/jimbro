@@ -2,18 +2,6 @@ import { test, expect, type Page } from '@playwright/test'
 import { seedDatabase } from './seed'
 import { startWorkout } from './startWorkout'
 
-// The workouts stored, and the notes of the latest one.
-const storedSessions = (page: Page) =>
-  page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    return (await workoutSessionsStore.getAll()).length
-  })
-const storedNotes = (page: Page) =>
-  page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    return (await workoutSessionsStore.getLatestSaved())?.notes
-  })
-
 test('missing program shows the load error', async ({ page }) => {
   await page.goto('/gymtime/?programId=non-existent')
   await expect(page.locator('.text-jim-error')).toHaveText(
@@ -61,9 +49,8 @@ test.describe('Gymtime Page', () => {
 
     // The list also contains pending placeholders that do not open edit dialog.
     const completedSetItem = firstExercise.locator('.completed-sets .set.isCompleted').first()
-    await expect(completedSetItem).toBeVisible()
-    await expect(completedSetItem).toContainText('10')
-    await expect(completedSetItem).toContainText('100')
+    await expect(completedSetItem.locator('.set-reps')).toHaveText('10')
+    await expect(completedSetItem.locator('.set-weight')).toHaveText('100')
     await expect(completedSetItem).toContainText('kg')
 
     // 5. Edit the completed set
@@ -84,7 +71,7 @@ test.describe('Gymtime Page', () => {
     await editSetDialog.getByRole('button', { name: 'Save' }).click()
 
     // Verify changes are saved (the weight span is inside the set)
-    await expect(completedSetItem.locator('.set-weight')).toContainText('105')
+    await expect(completedSetItem.locator('.set-weight')).toHaveText('105')
 
     // 6. Add exercise on the fly
     const addExerciseCard = page.locator('#add-exercise-card')
@@ -101,6 +88,8 @@ test.describe('Gymtime Page', () => {
     await addExerciseCard.click()
     await expect(addExerciseDialog).toBeVisible()
 
+    const cardNames = page.locator('#exercises-list > .card .exercise-name')
+    const cardsBefore = await cardNames.count()
     const dialogExercises = addExerciseDialog.locator('.card.card-hover')
     const firstDialogExercise = dialogExercises.first()
     const newExerciseName = (await firstDialogExercise.locator('.exercise-name').textContent())?.trim()
@@ -109,7 +98,8 @@ test.describe('Gymtime Page', () => {
     await firstDialogExercise.click()
 
     await expect(addExerciseDialog).not.toBeVisible()
-    await expect(page.locator('#exercises-list')).toContainText(newExerciseName)
+    await expect(cardNames).toHaveCount(cardsBefore + 1)
+    await expect(cardNames.last()).toHaveText(newExerciseName)
   })
 
   test("prefills last time's heaviest weight and says so when the weights differed", async ({ page }) => {
@@ -150,7 +140,7 @@ test.describe('Gymtime Page', () => {
     await expect(weight).not.toHaveAttribute('aria-describedby')
   })
 
-  test('Break timer displays negative time when it passes 0:00', async ({ page }) => {
+  test('the break counts on past 0:00 and closes itself 1.5 s after reaching it', async ({ page }) => {
     // Install clock to manipulate time
     await page.clock.install()
 
@@ -174,16 +164,16 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
 
-    await page.clock.fastForward(149_000)
-    await page.clock.fastForward(1_000)
-
+    // The 2:30 break reaches 0:00, counts a second below it, and closes 1.5 s after 0:00. The clock stops at each
+    // point until the test runs it on.
+    const countdown = breakTimer.locator('#countdown')
+    const now = await page.evaluate(() => Date.now())
+    await page.clock.pauseAt(now + 150_000)
+    await expect(countdown).toHaveText('0:00')
+    await page.clock.runFor(1_000)
+    await expect(countdown).toHaveText('-0:01')
     await expect(breakTimer).toBeVisible()
-    await expect(breakTimer.locator('#countdown')).toContainText('0:00')
-
-    // 7. Fast forward past the 1500ms timeout
-    await page.clock.fastForward(1600)
-
-    // 8. Verify the timer automatically closed
+    await page.clock.runFor(600)
     await expect(breakTimer).toBeHidden()
   })
 
@@ -243,8 +233,13 @@ test.describe('Gymtime Page', () => {
   })
 
   test('draws the history chart, which loads Chart.js when the dialog opens', async ({ page }) => {
+    const chartRequests: string[] = []
+    page.on('request', (request) => {
+      if (/chart(\.|_+)js/i.test(request.url())) chartRequests.push(request.url())
+    })
     const firstExercise = page.locator('details.exercise-details').first()
     await firstExercise.locator('summary').click()
+    expect(chartRequests).toEqual([])
     const chartDialog = page.locator('#exercise-history-dialog')
     const chartDrawn = page.waitForFunction(() => {
       const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
@@ -253,6 +248,7 @@ test.describe('Gymtime Page', () => {
     await firstExercise.locator('.view-history-btn').click()
     await expect(chartDialog).toBeVisible()
     await chartDrawn
+    expect(chartRequests).not.toEqual([])
 
     await chartDialog.locator('.close-dialog-btn').click()
     await expect(chartDialog).toBeHidden()
@@ -332,21 +328,28 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('#workout-date-label')).toHaveText('Today')
     await card.locator('.exercise-details > summary').click()
     const planned = await rows.count()
-    expect(await storedSessions(page)).toBe(0)
     await expect(page.locator('#delete-workout-session-btn')).toBeHidden()
+    // The workouts page, open beside it, lists a started workout as incomplete.
+    const workouts = await page.context().newPage()
+    await workouts.goto('/workouts/')
+    await expect(workouts.locator('.workout-week').first()).toBeVisible()
+    await expect(workouts.locator('.workout-week .card-warning')).toHaveCount(0)
 
     await card.getByRole('button', { name: 'Add set' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
     await expect(rows).toHaveCount(planned + 1)
     await expect(page.locator('#delete-workout-session-btn')).toBeVisible()
-    expect(await storedSessions(page)).toBe(1)
+    await workouts.reload()
+    await expect(workouts.locator('.workout-week .card-warning')).toHaveCount(1)
 
     // After the start, the details save as they change.
     await page.locator('#workout-details > summary').click()
     await page.locator('textarea[name="notes"]').fill('Felt strong')
     await page.locator('textarea[name="notes"]').blur()
-    await expect.poll(() => storedNotes(page)).toBe('Felt strong')
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+    await page.reload()
+    await expect(page.locator('textarea[name="notes"]')).toHaveValue('Felt strong')
   })
 
   test('removes a set to do from its menu, and a logged set from Edit set', async ({ page }) => {
