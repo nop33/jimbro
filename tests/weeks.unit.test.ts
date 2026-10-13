@@ -117,7 +117,7 @@ describe('trainingWeeks', () => {
 
   it('has only this week without sessions', () => {
     const { weeks } = trainingWeeks([], PROGRAMS, ROTATION, '2026-10-11')
-    expect(weeks).toEqual([{ week: weekOf('2026-10-11'), sessions: [], completed: 0 }])
+    expect(weeks).toEqual([{ week: { monday: '2026-10-05', number: 41, year: 2026 }, sessions: [], completed: 0 }])
   })
 
   it('aims for every program in rotation mode and for the weekly goal in freestyle mode', () => {

@@ -1,57 +1,48 @@
-import { describe, it, expect, vi, beforeEach } from 'vite-plus/test'
-import { WorkoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import type { SessionHeader } from '../src/db/types'
-import { storage } from '../src/db/storage'
+import 'fake-indexeddb/auto'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { Exercise } from '../src/db/stores/exercisesStore'
+import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
 
-vi.mock('../src/db/storage', () => ({
-  storage: {
-    getFirstByPredicate: vi.fn(),
-    getAllByIndex: vi.fn()
-  }
-}))
+// storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
+vi.stubGlobal('window', new EventTarget())
 
-const header = {
-  id: '1',
-  date: '2026-01-02',
-  programId: 'prog-1',
-  location: 'Zurich',
-  status: 'completed',
-  exercises: [],
+const bench: Exercise = {
+  id: 'bench',
+  name: 'Bench press',
+  kind: 'lifting',
+  preset: 'lifting',
+  muscle: 'chest',
+  targetSets: 3,
+  defaults: { reps: 5 },
   isDeleted: false,
-  updatedAt: '2026-01-02T10:24:41.458Z'
-} as SessionHeader
+  updatedAt: '2026-01-01T00:00:00.000Z'
+}
+
+const start = (date: string, location: string) =>
+  workoutSessionsStore.create({
+    date,
+    programId: 'program',
+    location,
+    notes: '',
+    exercises: [snapshotFromExercise(bench)]
+  })
 
 describe('getLatestSaved', () => {
-  const store = new WorkoutSessionsStore()
-
-  beforeEach(() => {
-    vi.mocked(storage.getFirstByPredicate).mockReset()
-    vi.mocked(storage.getAllByIndex).mockReset()
-    vi.mocked(storage.getAllByIndex).mockResolvedValue([])
+  it('finds nothing before the first workout', async () => {
+    await expect(workoutSessionsStore.getLatestSaved()).resolves.toBeUndefined()
   })
 
-  it('returns the latest persisted session by date index', async () => {
-    vi.mocked(storage.getFirstByPredicate).mockResolvedValue(header)
+  it('gives the latest workout by date that is not deleted, with its sets', async () => {
+    const zurich = await start('2026-01-02', 'Zurich')
+    await start('2026-01-01', 'Athens')
+    await workoutSessionsStore.addSet(zurich, 'bench', { preset: 'lifting', reps: 5, weight: 40 })
+    const deleted = await start('2026-01-03', 'Hotel gym')
+    await workoutSessionsStore.remove(deleted.id)
 
-    const session = await store.getLatestSaved()
-    expect(session?.id).toBe('1')
-    expect(session?.location).toBe('Zurich')
-    expect(storage.getFirstByPredicate).toHaveBeenCalledWith('workoutSessions', 'date', 'prev', expect.any(Function))
-  })
-
-  it('predicate skips tombstones and accepts completed and incomplete sessions only', async () => {
-    vi.mocked(storage.getFirstByPredicate).mockImplementation(async (_store, _index, _dir, predicate) => {
-      const completed = { status: 'completed', isDeleted: false } as SessionHeader
-      const incomplete = { status: 'incomplete', isDeleted: false } as SessionHeader
-      const deleted = { status: 'completed', isDeleted: true } as SessionHeader
-      const pending = { status: 'pending', isDeleted: false } as unknown as SessionHeader
-      expect(predicate(completed)).toBe(true)
-      expect(predicate(incomplete)).toBe(true)
-      expect(predicate(deleted)).toBe(false)
-      expect(predicate(pending)).toBe(false)
-      return undefined
-    })
-
-    await expect(store.getLatestSaved()).resolves.toBeUndefined()
+    const latest = await workoutSessionsStore.getLatestSaved()
+    expect(latest).toMatchObject({ id: zurich.id, date: '2026-01-02', location: 'Zurich', status: 'incomplete' })
+    expect(latest?.exercises.map((one) => [one.exerciseId, one.sets])).toEqual([
+      ['bench', [{ preset: 'lifting', reps: 5, weight: 40 }]]
+    ])
   })
 })

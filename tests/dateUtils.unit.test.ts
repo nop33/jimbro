@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { formatShortDate, getSimpleDate, parseSimpleDate } from '../src/dateUtils'
 
 const withTimezone = <T>(timezone: string, callback: () => T): T => {
@@ -42,11 +42,27 @@ describe('parseSimpleDate', () => {
 })
 
 describe('formatShortDate', () => {
+  // The format follows the device's locale, so the tests pin it to US English.
+  beforeEach(() => {
+    const toLocaleDateString = Date.prototype.toLocaleDateString
+    vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (
+      this: Date,
+      _locales?: Intl.LocalesArgument,
+      options?: Intl.DateTimeFormatOptions
+    ) {
+      return toLocaleDateString.call(this, 'en-US', options)
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('leaves the year out for a date in the current year', () => {
-    expect(formatShortDate(new Date(2026, 9, 1), new Date(2026, 9, 8))).not.toContain('2026')
+    expect(formatShortDate(new Date(2026, 9, 1), new Date(2026, 9, 8))).toBe('Oct 1')
   })
 
   it('keeps the year for a date in another year', () => {
-    expect(formatShortDate(new Date(2025, 11, 30), new Date(2026, 0, 2))).toContain('2025')
+    expect(formatShortDate(new Date(2025, 11, 30), new Date(2026, 0, 2))).toBe('Dec 30, 2025')
   })
 })

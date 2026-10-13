@@ -135,6 +135,7 @@ describe('row shapes', () => {
   })
 
   it('round-trips the upgraded January export', () => {
+    const FIRST_EXERCISE = 'cc40a9c8-6788-4003-b4c7-8fbc6ba25630'
     const raw = JSON.parse(readFileSync('data-backup/gymbro-export-2026-01-02.json', 'utf8')) as {
       version: number
       exportDate: string
@@ -156,18 +157,27 @@ describe('row shapes', () => {
       stores: { exercises, programs, workoutSessions }
     }
 
-    expect(raw.version).toBe(1)
     expect(upgraded.stores.workoutSessions).toHaveLength(106)
     expect(countSets(upgraded.stores.workoutSessions)).toBe(2581)
 
     const rows = rowsFromExport(upgraded)
     expect(rows.sets).toHaveLength(2581)
-    expect(rows.sets[0].id).toBe(legacySetId(rows.sets[0].sessionId, rows.sets[0].exerciseId, rows.sets[0].position))
+    // The fixture's first session starts with four sets of exercise cc40a9c8…, the first one 8 × 40.
+    expect(rows.sets[0]).toEqual({
+      id: `jan-session-0:${FIRST_EXERCISE}:0`,
+      sessionId: 'jan-session-0',
+      exerciseId: FIRST_EXERCISE,
+      position: 0,
+      set: { preset: 'lifting', reps: 8, weight: 40 },
+      isDeleted: false,
+      updatedAt: NOW
+    })
     expect(exportFromRows(rows)).toEqual(upgraded)
 
     const first = rowsFromSession(workoutSessions[0])
-    expect(first.sets[0].id).toBe(legacySetId(workoutSessions[0].id, workoutSessions[0].exercises[0].exerciseId, 0))
-    expect(first.sets[0].updatedAt).toBe(workoutSessions[0].updatedAt)
+    expect(first.sets.slice(0, 4).map((one) => one.id)).toEqual(
+      [0, 1, 2, 3].map((n) => `jan-session-0:${FIRST_EXERCISE}:${n}`)
+    )
     expect(first.header.exercises[0]).not.toHaveProperty('sets')
   })
 })

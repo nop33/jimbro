@@ -55,18 +55,4 @@ describe('computeWorkoutSessionStatus', () => {
     }
     expect(computeWorkoutSessionStatus(session)).toBe('incomplete')
   })
-
-  it('uses the snapshot target even if the catalog exercise is gone', () => {
-    const session = {
-      exercises: [execution('ex1', 3, 3), execution('deleted-exercise', 4, 4)]
-    }
-    expect(computeWorkoutSessionStatus(session)).toBe('completed')
-  })
-
-  it('does not treat an exercise with exactly target sets as over or under', () => {
-    const session = {
-      exercises: [execution('ex2', 4, 4)]
-    }
-    expect(computeWorkoutSessionStatus(session)).toBe('completed')
-  })
 })

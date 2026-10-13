@@ -157,7 +157,7 @@ describe('buildWeekOverview', () => {
     expect(personalRecords.thisWeek).toEqual([
       { exerciseName: 'Bench press', date: '2026-10-06', weight: 75, reps: 10 }
     ])
-    expect(personalRecords.latest?.date).toBe('2026-10-06')
+    expect(personalRecords.latest).toEqual({ exerciseName: 'Bench press', date: '2026-10-06', weight: 75, reps: 10 })
   })
 
   it('does not count an exercise’s first workout as a record', () => {
