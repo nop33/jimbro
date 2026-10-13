@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import { Storage } from '../src/db/storage'
-import { getMeta, type OutboxEntry } from '../src/sync/queue'
+import { getMeta, restartFirstSync, type OutboxEntry } from '../src/sync/queue'
 import type { SyncServer } from '../src/sync/server'
 import { createSync } from '../src/sync/syncEngine'
 import type { ExerciseRow, Row, SessionHeader, SetRow } from '../src/db/types'
@@ -439,6 +439,162 @@ describe('sync()', () => {
     page.leave()
     await syncFor(device, failing, page).sync()
     expect(logged).not.toHaveBeenCalled()
+    expect(page.notices).toEqual(['sync-settled'])
+  })
+})
+
+describe('restartFirstSync', () => {
+  const keysOf = (server: ReturnType<typeof memoryServer>) => [...server.rows.keys()].sort()
+  const deviceRows = [
+    exercise('squat', 'Squat'),
+    exercise('bench', 'Bench'),
+    header('session', ['squat']),
+    set('session', 'squat', 60)
+  ]
+
+  it('gives a new account every row of a device that synced with another one', async () => {
+    const accountA = memoryServer()
+    await device.writeRows(deviceRows)
+    await syncFor(device, accountA).sync()
+    expect(keysOf(accountA)).toHaveLength(4)
+    expect(await outboxOf(device)).toEqual([])
+
+    // The device synced with account A, then the user creates passkey account B.
+    await restartFirstSync(device)
+    const accountB = memoryServer()
+    await syncFor(device, accountB).sync()
+
+    expect(keysOf(accountB)).toEqual(keysOf(accountA))
+    for (const [key, row] of accountA.rows) expect(accountB.rows.get(key)?.row).toEqual(row.row)
+    expect(accountA.received).toHaveLength(1)
+    expect(await outboxOf(device)).toEqual([])
+    expect(await getMeta(device, 'cursor')).toBe(4)
+  })
+
+  it('restores the account signed in to and pushes it the rows only this device has', async () => {
+    await device.writeRows(deviceRows)
+    await syncFor(device, memoryServer()).sync()
+
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('deadlift', 'Deadlift'), exercise('squat', 'Back squat')])
+    await syncFor(device, account).sync()
+
+    const local = await localState(device)
+    expect(local.exercises.map((row) => [row.id, row.name])).toEqual([
+      ['bench', 'Bench'],
+      ['deadlift', 'Deadlift'],
+      ['squat', 'Back squat']
+    ])
+    expect(keysOf(account)).toEqual([
+      'exercises:bench',
+      'exercises:deadlift',
+      'exercises:squat',
+      'sessions:session',
+      'sets:session:squat:0'
+    ])
+  })
+
+  it('keeps queued edits and drops the stamps of pushes to the account before', async () => {
+    const accountA = memoryServer()
+    await device.writeRows(deviceRows)
+    await syncFor(device, accountA).sync()
+    // A push that reached account A without an ack leaves its stamp on the entry.
+    await device.writeRows([exercise('squat', 'Front squat', LATER)])
+    const lost: SyncServer = {
+      ...accountA,
+      async push(batch) {
+        await accountA.push(batch)
+        throw new Error('connection lost')
+      }
+    }
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(syncFor(device, lost).sync()).rejects.toThrow('connection lost')
+    expect((await outboxOf(device)).map((entry) => entry.inflightSeq)).toEqual([expect.any(Number)])
+
+    await restartFirstSync(device)
+    expect(await outboxOf(device)).toEqual([{ key: 'exercises:squat', table: 'exercises', id: 'squat', seq: 5 }])
+    expect(await getMeta(device, 'cursor')).toBe(0)
+    expect(await getMeta(device, 'bootstrapped')).toBe(0)
+
+    const accountB = memoryServer()
+    await syncFor(device, accountB).sync()
+    expect(nameOf(accountB.rows.get('exercises:squat'))).toBe('Front squat')
+    expect(keysOf(accountB)).toHaveLength(4)
+    expect(await outboxOf(device)).toEqual([])
+  })
+
+  it('runs a first sync again on a database that was bootstrapped empty', async () => {
+    await syncFor(device, memoryServer()).sync()
+    expect(await getMeta(device, 'bootstrapped')).toBe(1)
+
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('squat', 'Squat')])
+    await syncFor(device, account).sync()
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
+  })
+
+  // Signing in on a phone that holds rows: the account's copy wins for every row both sides have, as in any first
+  // sync. Local winning would let a seeded new phone, whose sample rows all wait in the outbox, overwrite the account's
+  // edited exercises. So the page asks before signing in on a phone with data.
+  it('keeps the account copy of rows a signed-out phone edited, and the rows only the phone has', async () => {
+    await device.writeRows([
+      exercise('squat', 'My squat', LATER),
+      exercise('bench', 'Bench'),
+      header('shared-session', ['squat', 'bench'], LATER),
+      set('shared-session', 'bench', 40)
+    ])
+    await restartFirstSync(device)
+    const account = memoryServer()
+    account.seed([exercise('squat', 'Back squat'), header('shared-session', ['squat'])])
+    await syncFor(device, account).sync()
+
+    const local = await localState(device)
+    expect(local.exercises.map((row) => [row.id, row.name])).toEqual([
+      ['bench', 'Bench'],
+      ['squat', 'Back squat']
+    ])
+    // The header reverts to the account's, so the phone's set of an exercise the account's header lacks goes too.
+    expect(local.sessions.map((row) => row.exercises.map((snapshot) => snapshot.exerciseId))).toEqual([['squat']])
+    expect(local.sets).toEqual([])
+    expect(nameOf(account.rows.get('exercises:squat'))).toBe('Back squat')
+    expect(nameOf(account.rows.get('exercises:bench'))).toBe('Bench')
+    expect(await outboxOf(device)).toEqual([])
+  })
+
+  // Signing out with rows still queued, then back in: the first sync keeps the backup's copy, so the queued edit is
+  // gone. That is why sign-out pushes first and warns about what is still pending.
+  it('replaces an edit that never reached the account when the phone signs in again', async () => {
+    const account = memoryServer()
+    await device.writeRows([exercise('squat', 'Squat')])
+    await syncFor(device, account).sync()
+    await device.writeRows([exercise('squat', 'Front squat', LATER)])
+    expect(await outboxOf(device)).toHaveLength(1)
+
+    await restartFirstSync(device)
+    await syncFor(device, account).sync()
+    expect(nameOf(await device.get<ExerciseRow>(OBJECT_STORES.EXERCISES, 'squat'))).toBe('Squat')
+    expect(nameOf(account.rows.get('exercises:squat'))).toBe('Squat')
+    expect(await outboxOf(device)).toEqual([])
+  })
+})
+
+describe('a failed sync', () => {
+  it('tells the page why, so it can say a full backup is full', async () => {
+    const server = memoryServer()
+    const full = new Error('row_limit')
+    const refusing: SyncServer = {
+      ...server,
+      push: async () => {
+        throw full
+      }
+    }
+    await device.writeRows([exercise('squat', 'Squat')])
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const page = testPage()
+    await expect(syncFor(device, refusing, page).sync()).rejects.toThrow('row_limit')
+    expect(page.failures).toEqual([full])
     expect(page.notices).toEqual(['sync-settled'])
   })
 })

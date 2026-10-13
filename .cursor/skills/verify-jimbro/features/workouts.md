@@ -4,7 +4,7 @@ Workouts is the calendar of training weeks. An empty database offers seeding. We
 
 ## Sub-features
 
-- `workouts-empty` shows `Seed Database` when the database has no exercise and no program rows, deleted ones included. The `#intro` text then offers a 3-day split.
+- `workouts-empty` shows `Seed Database` when the database has no exercise and no program rows, deleted ones included, and `Sign in with passkey` under it where the browser has passkeys. The `#intro` text then offers a 3-day split. Signing in restores the passkey account's workouts and reloads the page.
 - `workouts-intro` shows an `#intro` text while there is no program: onboarding, restore, or `Create a program from your exercises to start a workout.` (exercises only).
 - `workouts-progress` replaces `#intro` once a program exists: `#week-progress` shows the mode (`#workout-mode-name`, `Rotation` or `Freestyle`, and `#workout-mode-rule`, `Every program` or `Goal N`), `#week-progress-count` (`N of M programs done` or `N of M workouts done`), the goal bar `#week-progress-goal` and a note: none done yet, workouts left, or all done.
 - `workouts-restore` shows `Restore from cloud` instead of `Seed Database` when the database is empty, cloud credentials are saved and the database has never synced.
@@ -23,7 +23,7 @@ Workouts is the calendar of training weeks. An empty database offers seeding. We
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `02-workouts-empty` (Seed Database and onboarding intro), `05-workouts` (the progress card, then a week of pending cards above past completed weeks), `06-workouts-new-dialog`, `07-workouts-mode-dialog`.
+- **Tour stops.** `02-workouts-empty` (Seed Database, Sign in with passkey and onboarding intro), `05-workouts` (the progress card, then a week of pending cards above past completed weeks), `06-workouts-new-dialog`, `07-workouts-mode-dialog`.
 - **By hand: status after a start.** From a seeded calendar, count `.card-pending`, click the first, click `Save & start workout`, wait for the toast `Workout session saved.`, then `page.goBack()`. `.card-pending` is one fewer and `.card-warning` is visible.
 - **By hand: freestyle.** Click `#week-progress`, check `getByRole('radio', { name: 'Freestyle' })`, wait for the reload. `#workout-mode-name` reads `Freestyle` and this week shows `Start a workout` `.open-slot` buttons up to the goal.
 

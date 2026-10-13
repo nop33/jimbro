@@ -7,6 +7,7 @@ import GymtimePage from './GymtimePage'
 import { keepScreenAwake } from './keepScreenAwake'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
+import PasskeyOfferCard from './PasskeyOfferCard'
 
 // The page works without the wake lock, so it doesn't wait for it.
 void keepScreenAwake()
@@ -17,4 +18,5 @@ BreakTimerDialog.init()
 ExerciseList.init((exercise) => AddExerciseDialog.pick(exercise))
 ExerciseHistoryChart.init()
 LastSetDialog.init()
+PasskeyOfferCard.init()
 GymtimePage.start()

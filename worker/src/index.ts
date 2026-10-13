@@ -1,12 +1,21 @@
 import { AuthEnv, resolveUserId } from './auth'
 import { handleMcp } from './mcp'
+import { isAllowedOrigin, type OriginEnv } from './origins'
+import {
+  addPasskeyOptions,
+  addPasskeyVerify,
+  registerOptions,
+  registerVerify,
+  signInOptions,
+  signInVerify,
+  signOut
+} from './passkeys'
 import { exportFromRows } from '../../src/sync/rows'
-import { countStatements, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_LIMIT } from './rows'
-const ALLOWED_ORIGINS = new Set(['https://jimbro.nop33.com', 'http://localhost:5173'])
+import { countStatements, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_CAP, ROW_LIMIT } from './rows'
 
 const withCors = (request: Request, response: Response, env: Env) => {
   const origin = request.headers.get('Origin')
-  if (!origin || !(ALLOWED_ORIGINS.has(origin) || origin === env.DEV_ORIGIN)) return response
+  if (!isAllowedOrigin(origin, env)) return response
 
   const headers = new Headers(response.headers)
   headers.set('Access-Control-Allow-Origin', origin)
@@ -16,17 +25,30 @@ const withCors = (request: Request, response: Response, env: Env) => {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
-interface Env extends AuthEnv {
+interface Env extends AuthEnv, OriginEnv {
   jimbro: D1Database
-  // One more origin to allow in a local run, such as a dev server on another port.
-  DEV_ORIGIN?: string
+  // Limits the public passkey routes per client address. See wrangler.jsonc.
+  AUTH_LIMITER: RateLimit
+  // Limits each user's pushes. See wrangler.jsonc.
+  PUSH_LIMITER: RateLimit
+  // 'off' skips AUTH_LIMITER. Only the Playwright run's local worker sets it, since all its browsers share one address.
+  AUTH_RATE_LIMIT?: string
+  // The most rows a user may store, when not ROW_CAP. Tests lower it.
+  ROW_CAP?: string
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return withCors(request, new Response(null, { status: 204 }), env)
 
-    const response = await handleRequest(request, env)
+    let response: Response
+    try {
+      response = await handleRequest(request, env)
+    } catch (error) {
+      // A failure still answers with the CORS headers, so the app reads the status instead of a network error.
+      console.error('request failed', error)
+      response = Response.json({ error: 'internal' }, { status: 500 })
+    }
     return withCors(request, response, env)
   }
 } satisfies ExportedHandler<Env>
@@ -67,12 +89,38 @@ const parseLimit = (value: string | null) => {
   return Math.min(limit, ROW_LIMIT)
 }
 
+// The public routes that sign up and sign in with a passkey. Anyone can call them, so each client address gets a
+// budget of calls a minute.
+const PUBLIC_AUTH_ROUTES = new Map<string, (request: Request, env: Env) => Promise<Response>>([
+  ['/auth/register/options', registerOptions],
+  ['/auth/register/verify', registerVerify],
+  ['/auth/signin/options', signInOptions],
+  ['/auth/signin/verify', signInVerify]
+])
+
+const handlePublicAuth = async (
+  request: Request,
+  env: Env,
+  handle: (request: Request, env: Env) => Promise<Response>
+) => {
+  if (request.method !== 'POST') return Response.json({ error: 'method not allowed' }, { status: 405 })
+  if (env.AUTH_RATE_LIMIT !== 'off') {
+    const client = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+    const { success } = await env.AUTH_LIMITER.limit({ key: `auth:${client}` })
+    if (!success) return Response.json({ error: 'rate_limited' }, { status: 429 })
+  }
+  return handle(request, env)
+}
+
 const handleRequest = async (request: Request, env: Env) => {
   const url = new URL(request.url)
   const path = url.pathname
 
+  const publicAuth = PUBLIC_AUTH_ROUTES.get(path)
+  if (publicAuth) return handlePublicAuth(request, env, publicAuth)
+
   // Auth: Resolve userId from bearer token
-  const userId = resolveUserId(request.headers.get('Authorization'), env)
+  const userId = await resolveUserId(request.headers.get('Authorization'), env)
 
   if (path === '/mcp') {
     if (request.method !== 'POST') {
@@ -89,12 +137,18 @@ const handleRequest = async (request: Request, env: Env) => {
     if (path === '/api/push' && request.method === 'POST') return handlePush(request, env, userId)
     if (path === '/api/pull' && request.method === 'GET') return handlePull(request, env, userId, url)
     if (path === '/api/export' && request.method === 'GET') return handleExport(request, env, userId)
+    if (path === '/api/passkeys/options' && request.method === 'POST') return addPasskeyOptions(request, env, userId)
+    if (path === '/api/passkeys/verify' && request.method === 'POST') return addPasskeyVerify(request, env, userId)
+    if (path === '/api/signout' && request.method === 'POST') return signOut(request, env)
   }
 
   return Response.json({ error: 'not found' }, { status: 404 })
 }
 
 const handlePush = async (request: Request, env: Env, userId: string) => {
+  const { success } = await env.PUSH_LIMITER.limit({ key: `push:${userId}` })
+  if (!success) return json(request, { error: 'rate_limited' }, 429)
+
   let data: unknown
   try {
     data = await request.json()
@@ -109,7 +163,9 @@ const handlePush = async (request: Request, env: Env, userId: string) => {
   }
 
   const counted = countStatements(env.jimbro)
-  const revision = await upsertRows(counted.db, userId, parsed.rows)
+  const cap = env.ROW_CAP ? Number(env.ROW_CAP) : ROW_CAP
+  const revision = await upsertRows(counted.db, userId, parsed.rows, cap)
+  if (revision === null) return json(request, { error: 'row_limit', cap }, 413, countedHeaders(counted))
   return json(request, { revision }, 200, countedHeaders(counted))
 }
 

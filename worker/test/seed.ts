@@ -15,4 +15,8 @@ export const rowsOf = (file: ExportShape): Row[] => {
 }
 
 // Writes an export file's rows straight into D1 for the test user and returns the latest revision.
-export const seedExport = (file: ExportShape) => upsertRows(env.jimbro, 'nikos', rowsOf(file))
+export const seedExport = async (file: ExportShape) => {
+  const revision = await upsertRows(env.jimbro, 'nikos', rowsOf(file))
+  if (revision === null) throw new Error('The fixture is over the row cap')
+  return revision
+}

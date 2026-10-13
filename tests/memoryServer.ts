@@ -76,6 +76,7 @@ export const sharedLock = () => {
 export const testPage = () => {
   const notices: string[] = []
   const synced: string[] = []
+  const failures: unknown[] = []
   let leaving = false
   const page: SyncPage = {
     announce: (notice) => {
@@ -84,12 +85,16 @@ export const testPage = () => {
     synced: (at) => {
       synced.push(at)
     },
+    failed: (error) => {
+      failures.push(error)
+    },
     leaving: () => leaving
   }
   return {
     page,
     notices,
     synced,
+    failures,
     leave() {
       leaving = true
     }

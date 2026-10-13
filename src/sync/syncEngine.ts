@@ -13,6 +13,8 @@ export interface SyncPage {
   announce(notice: Extract<PageNotice, 'sync-settled'>): void
   // Records the time a sync succeeded, before its sync-settled.
   synced(at: string): void
+  // Hears why a sync failed, before its sync-settled, unless the page is leaving.
+  failed(error: unknown): void
   // Whether the page is going away. Leaving aborts the sync's requests, so a sync that fails then resolves quietly.
   leaving(): boolean
 }
@@ -78,6 +80,7 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
         page.synced(new Date().toISOString())
       } catch (error) {
         if (page.leaving()) return
+        page.failed(error)
         console.error('sync failed', error)
         throw error
       } finally {
