@@ -7,7 +7,7 @@ const MODE_DESCRIPTIONS: Record<WorkoutMode, string> = {
 
 class WorkoutModeDialog {
   private static dialog = document.querySelector('#workout-mode-dialog') as HTMLDialogElement
-  private static badge = document.querySelector('#workout-mode-badge') as HTMLButtonElement
+  private static opener = document.querySelector('#week-progress') as HTMLButtonElement
   private static modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="workout-mode"]')
   private static goalContainer = document.querySelector('#weekly-goal-container') as HTMLDivElement
   private static goalInput = document.querySelector('#weekly-goal-input') as HTMLInputElement
@@ -24,7 +24,7 @@ class WorkoutModeDialog {
     this.goalInput.value = String(settings.weeklyGoal)
     this.goalInput.addEventListener('change', () => this.handleGoalChange())
 
-    this.badge.addEventListener('click', () => this.dialog.showModal())
+    this.opener.addEventListener('click', () => this.dialog.showModal())
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
 
     this.updateUI(settings.mode)
@@ -56,16 +56,6 @@ class WorkoutModeDialog {
   private static updateUI(mode: WorkoutMode) {
     this.goalContainer.classList.toggle('hidden', mode !== 'freestyle')
     this.description.textContent = MODE_DESCRIPTIONS[mode]
-    this.updateBadge(mode)
-  }
-
-  private static updateBadge(mode: WorkoutMode) {
-    if (mode === 'freestyle') {
-      const settings = getWorkoutModeSettings()
-      this.badge.textContent = `Freestyle (${settings.weeklyGoal}/wk)`
-    } else {
-      this.badge.textContent = 'Rotation'
-    }
   }
 }
 

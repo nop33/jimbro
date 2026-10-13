@@ -144,6 +144,32 @@ test.describe('Workouts Page', () => {
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
   })
 
+  test("Shows this week's progress under the workout mode, and opens the mode dialog from it", async ({ page }) => {
+    await seedDatabase(page)
+
+    const progress = page.locator('#week-progress')
+    await expect(page.locator('#workout-mode-name')).toHaveText('Rotation')
+    await expect(page.locator('#week-progress-count')).toHaveText('0 of 3 programs done')
+    await expect(page.locator('#week-progress-goal span')).toHaveCount(3)
+    await expect(page.locator('#intro')).toBeHidden()
+
+    await progress.click()
+    const modeDialog = page.locator('dialog#workout-mode-dialog')
+    await expect(modeDialog).toBeVisible()
+    // Choosing a mode reloads the page at once, so a click stands in for check(), which would look for the checked state after it.
+    await modeDialog.getByRole('radio', { name: 'Freestyle' }).click()
+
+    // The page reloads in freestyle, where this week shows an empty slot for each workout toward the goal.
+    await expect(page.locator('#workout-mode-name')).toHaveText('Freestyle')
+    await expect(page.locator('#workout-mode-rule')).toHaveText('Goal 3')
+    await expect(page.locator('#week-progress-count')).toHaveText('0 of 3 workouts done')
+    const openSlots = page.locator('.workout-week').first().getByRole('button', { name: 'Start a workout' })
+    await expect(openSlots).toHaveCount(3)
+
+    await openSlots.first().click()
+    await expect(page.locator('dialog#new-workout-dialog')).toBeVisible()
+  })
+
   test('Updates status correctly when navigating back from an incomplete workout', async ({ page }) => {
     await seedDatabase(page)
 

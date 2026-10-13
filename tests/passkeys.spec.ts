@@ -253,10 +253,10 @@ test.describe('passkeys with a virtual authenticator', () => {
     const { credentials } = await other.cdp.send('WebAuthn.getCredentials', { authenticatorId: other.authenticatorId })
     expect(credentials).toHaveLength(1)
 
-    // A change that cannot back up first makes sign-out warn, and staying keeps the account. The first sync finishes
-    // before the phone goes offline, since a request cut off on its way never answers and holds up the next sync.
+    // A change that cannot back up first makes sign-out warn, and staying keeps the account. Refusing the push, rather
+    // than going offline, fails it at once: a request cut off on its way never answers and would hold up the sync.
     await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
-    await page.context().setOffline(true)
+    await page.route('**/api/push', (route) => route.abort('internetdisconnected'))
     await page.evaluate(async () => {
       const { storage } = await import('/src/db/storage.ts')
       await storage.writeRows([
@@ -284,8 +284,8 @@ test.describe('passkeys with a virtual authenticator', () => {
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled()
     expect((await credentialsOf(page))?.method).toBe('passkey')
 
-    // Online, sign-out pushes the change first, and asks plainly.
-    await page.context().setOffline(false)
+    // With the push back, sign-out pushes the change first, and asks plainly.
+    await page.unroute('**/api/push')
     const asked = page.waitForEvent('dialog')
     await page.getByRole('button', { name: 'Sign out' }).click()
     const plain = await asked

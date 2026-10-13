@@ -12,6 +12,7 @@ import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
 import IntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
+import WeekProgress from './WeekProgress'
 import { reloadWhenStale } from '../reloadWhenStale'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
@@ -34,10 +35,11 @@ const today = getSimpleDate(new Date())
 const { goal, weeks, programs: programStatuses } = trainingWeeks(sessions, programs, settings, today)
 const [thisWeek] = weeks
 
-await IntroText.render(
-  { completed: thisWeek.completed, goal, programCount: programs.length },
-  canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none'
-)
+if (programs.length > 0) {
+  WeekProgress.render({ completed: thisWeek.completed, goal, settings })
+} else {
+  await IntroText.render(canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none')
+}
 NewWorkoutDialog.init(programStatuses)
 WorkoutModeDialog.init()
 
@@ -93,6 +95,15 @@ const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedW
   }
 
   return workoutItemTemplate
+}
+
+// A freestyle week's workouts still to do toward the goal, as empty slots. Any program fills one, so a slot opens
+// the program picker. Only the first one says "Start", so the row reads as one call to action.
+const renderOpenSlot = (isFirst: boolean) => {
+  const openSlot = nodeFromTemplate('#open-slot-template')
+  if (!isFirst) openSlot.querySelector('.open-slot-label')?.remove()
+  openSlot.querySelector('button')?.addEventListener('click', () => NewWorkoutDialog.open())
+  return openSlot
 }
 
 if (_isDbEmpty) {
@@ -171,6 +182,12 @@ if (_isDbEmpty) {
       const workoutItem = renderWorkoutSession(workout)
       workoutsOfThisWeekList.appendChild(workoutItem)
     })
+
+    if (settings.mode === 'freestyle' && isThisWeek) {
+      for (let slot = workoutsOfThisWeek.length; slot < goal; slot++) {
+        workoutsOfThisWeekList.appendChild(renderOpenSlot(slot === workoutsOfThisWeek.length))
+      }
+    }
 
     if (settings.mode === 'rotation' && workoutsOfThisWeek.length < goal) {
       const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)

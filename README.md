@@ -73,12 +73,12 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 ### Workouts (`/workouts/`)
 
 - A weekly calendar, newest week first, with one card per workout. A card opens its workout in gymtime. Weeks run Monday to Sunday, as on the home page, and carry their ISO 8601 number ("Week N of YYYY"), so the days around New Year share one week: Monday 29 December 2025 to Sunday 4 January 2026 is week 1 of 2026.
-- The badge next to the intro opens the workout mode dialog.
+- Once a program exists, a card at the top shows the workout mode and this week's progress toward its goal ("1 of 3 programs done" with the home page's goal bar). Tapping it opens the workout mode dialog.
   - Rotation mode expects every program once a week. A program with no workout yet shows as pending this week and as skipped in past weeks. Tapping a pending card starts that program.
-  - Freestyle mode sets a weekly goal of 1 to 7 workouts and shows only the current week and weeks with workouts.
+  - Freestyle mode sets a weekly goal of 1 to 7 workouts and shows only the current week and weeks with workouts. This week shows an empty dashed slot with a "+" for each workout still to do toward the goal, which opens the program list.
 - Completed cards are green with a check mark, incomplete ones amber, pending ones gray and skipped ones red. Incomplete and pending cards have a dashed border.
 - "New" lists the programs with this week's status and when each was last completed, or that it never was. Picking one starts a workout.
-- The intro line counts the workouts left this week, or tells a new user what to do next, matching the button when there is one.
+- Until a program exists, an intro line tells a new user what to do next, matching the button when there is one.
 - With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split, and "Sign in with passkey" where the browser has passkeys. Signing in restores the account's workouts, so a returning user on a new phone picks up where they left off. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 
 ### Gymtime (`/gymtime/`)
@@ -89,8 +89,8 @@ The page you keep open during a workout.
 - The workout details form has date, gym and notes. The date defaults to today and can't be in the future. The gym is stored as the session's `location`. A new workout takes the gym of the last saved one, and the field suggests the gyms already used, the most recent first. Phones show the suggestions above the keyboard, and the ✕ in the field clears it so they all show. The first save creates the workout and puts its `?id=` in the URL.
 - There is one card per exercise, with its muscle group and a badge for rehab exercises. Opening a card closes the others.
 - "Last time" for an exercise is the latest other workout, up to this workout's date, with a set of the exercise, preferring one at the same gym. Before a workout starts, the cards read it for the date and gym in the workout form, as starting the workout will, and show again when either changes.
-- The "Finished set" form shows the inputs of the exercise's preset. Its values come from the previous set in this workout, else from last time, using its heaviest weight for lifting, else from the exercise's defaults. When last time's sets had different weights, "Max last time" shows under the prefilled weight until it is edited or the set is logged. Zero reps or zero weight asks for confirmation.
-- Each exercise in a workout stores its own target sets: the exercise's target, or last time's set count at the gym when that is more, fixed when the workout starts or the exercise joins it. A card has that many set slots. "Add set" stores one more. Tapping a logged set opens a dialog to edit it.
+- The "Finished set" form shows the inputs of the exercise's preset. Its values come from the previous set in this workout, else from last time, using its heaviest weight for lifting, else from the exercise's defaults. When last time's sets had different weights, a "Max" pill sits on the prefilled weight until it is edited or the set is logged, and tapping it says "Heaviest set last time" with the weight. Zero reps or zero weight asks for confirmation.
+- Each exercise in a workout stores its own target sets: the exercise's target, or last time's set count at the gym when that is more, fixed when the workout starts or the exercise joins it. A card has that many set slots. "Add set", the plus on the last row's corner, stores one more. Tapping a logged set opens a dialog to edit it.
 - An open card that isn't finished has buttons to move the exercise up or down, swap it for another exercise, or delete it from the workout.
 - "Previous sets" lists last time's sets. "View History" charts average weight, estimated 1RM and total volume per workout. The gym with the most of those workouts stays unshaded, and each other gym tints the stretch of the chart behind its workouts, with a key under the chart. The metric names in the header hide and show their lines. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
@@ -210,8 +210,9 @@ Deploy the worker and its D1 migrations before an app version that needs them. F
 
 ## Navigation
 
-- Every page has a bottom bar with Home, Workouts, Exercises, Programs and Stats, and highlights the current page.
-- Workouts, gymtime, exercises, programs and settings have a back button that calls `window.history.back()`.
+- Every page has a bottom bar with Home, Workouts, Exercises, Programs, and highlights the current page. Its icons are inline [Lucide](https://lucide.dev) SVGs (ISC License).
+- Stats opens from any highlight tile on Home.
+- The pages outside the bottom bar (gymtime, stats and settings) have a back button that calls `window.history.back()`.
 - There is no SPA router. Every link is a full page load.
 
 ## Import and export
