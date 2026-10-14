@@ -31,10 +31,11 @@ const copyHistory = (copies: number): ExportShape => {
 
 const history = copyHistory(4)
 
-// About five times the medians measured locally (10 ms and 8 ms), so a slower CI runner passes and a query that
-// turns slow fails.
-const PUSH_BUDGET_MS = 50
-const PULL_BUDGET_MS = 40
+// The exact statement and batch counts below catch an added query. The time budgets only catch a slowdown of an order
+// of magnitude, such as a scan of the whole history: CI runners vary twentyfold from run to run, and their slowest
+// medians so far were a 181 ms push and a 53 ms pull, against 10 ms and 8 ms on a laptop.
+const PUSH_BUDGET_MS = 1_000
+const PULL_BUDGET_MS = 500
 
 const pushRows = Array.from({ length: 1000 }, (_, index) => ({
   table: 'sets' as const,
