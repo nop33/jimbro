@@ -182,7 +182,6 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   await page.context().setOffline(true)
   const logged = await page.evaluate(async () => {
     const sessions = await import('/src/db/stores/workoutSessionsStore.ts')
-    const db = await import('/src/db/storage.ts')
     const exerciseId = 'offline-exercise'
     const snapshot = {
       exerciseId,
