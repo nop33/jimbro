@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from '@playwright/test'
+import { browserHasPasskeys } from './browserPasskeys'
 import { seedDatabase } from './seed'
 
 test.describe('Settings Page', () => {
@@ -58,13 +59,18 @@ test.describe('Settings Page', () => {
     expect(file.stores.workoutSessions).toEqual([])
   })
 
-  // Chromium, WebKit and Mobile Safari all have the passkey APIs the page needs.
   test('cloud backup offers a passkey, and keeps the token form under "Use a token"', async ({ page }) => {
+    const supported = await browserHasPasskeys(page)
     await page.locator('#cloud-backup-details > summary').click()
     await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
-    await expect(page.getByRole('heading', { name: 'Back up your workouts' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toBeVisible()
+    if (supported) {
+      await expect(page.getByRole('heading', { name: 'Back up your workouts' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toBeVisible()
+    } else {
+      await expect(page.getByText("This browser can't use passkeys")).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Create passkey' })).toHaveCount(0)
+    }
     await expect(page.getByRole('button', { name: 'Sync now' })).toBeHidden()
     await expect(page.getByLabel('User ID')).toBeHidden()
 
@@ -76,7 +82,7 @@ test.describe('Settings Page', () => {
     await expect(page.locator('.toast-message-popup')).toHaveText('Cloud backup credentials saved.')
     await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
     // A token is no passkey, so the offer stays.
-    await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create passkey' })).toHaveCount(supported ? 1 : 0)
 
     // The page loads again set up with the token, and fills the token form back in.
     await page.reload()

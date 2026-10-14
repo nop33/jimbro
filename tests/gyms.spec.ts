@@ -106,7 +106,8 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
   await expect(page.locator('#exercise-history-gyms li')).toHaveText(['Unshaded: Holmes Place Syntagma', 'Hotel gym'])
 
   // The header's metric buttons hide and show their line.
-  // What the canvas shows once it stops changing: WebKit can still resize it a few frames after it first draws.
+  // What the canvas shows once it has its final size and stops changing. WebKit can draw a frame or two at the old
+  // size before the chart fits its dialog, so the drawing must also have the shape the canvas has on screen.
   const pixels = () =>
     page.locator('#exercise-history-chart').evaluate(async (element) => {
       const canvas = element as HTMLCanvasElement
@@ -114,7 +115,12 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
       let last = ''
       for (;;) {
         await nextFrame()
-        const now = canvas.hasAttribute('style') ? `${canvas.width}x${canvas.height} ${canvas.toDataURL()}` : ''
+        // The client size leaves out the dialog's rotation on a phone, like the chart's own sizing.
+        const fitted =
+          canvas.hasAttribute('style') &&
+          canvas.clientHeight > 0 &&
+          Math.abs(canvas.width / canvas.height - canvas.clientWidth / canvas.clientHeight) < 0.02
+        const now = fitted ? `${canvas.width}x${canvas.height} ${canvas.toDataURL()}` : ''
         if (now !== '' && now === last) return now
         last = now
       }

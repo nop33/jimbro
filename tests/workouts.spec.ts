@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { seedDatabase } from './seed'
 import { startWorkout } from './startWorkout'
+import { browserHasPasskeys } from './browserPasskeys'
 
 test.describe('Workouts Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -11,8 +12,10 @@ test.describe('Workouts Page', () => {
   test('Greets a new user with the onboarding intro, and seeds the sample programs', async ({ page }) => {
     const seedBtn = page.getByRole('button', { name: 'Seed Database' })
     await expect(seedBtn).toBeVisible()
-    // A returning user on a new phone signs in with their passkey instead. Every project's browser has passkeys.
-    await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toHaveCount(1)
+    // A returning user on a new phone signs in with their passkey instead, where the browser has passkeys.
+    await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toHaveCount(
+      (await browserHasPasskeys(page)) ? 1 : 0
+    )
     await expect(page.locator('#intro')).toHaveText(
       "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"
     )
