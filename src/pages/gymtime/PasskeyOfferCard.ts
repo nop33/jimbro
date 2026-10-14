@@ -1,4 +1,4 @@
-import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { account } from '../../sync/account'
 import Toasts from '../../features/toasts'
 import { createPasskeyAccount, passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
@@ -28,7 +28,7 @@ class PasskeyOfferCard {
   static offer() {
     if (!this.card.hidden) return
     const due = passkeyOfferDue({
-      backup: getCloudBackupConfig()?.method ?? null,
+      backup: account.current()?.method ?? null,
       supported: passkeysSupported(),
       snoozedUntil: readSnoozedUntil(),
       now: new Date()

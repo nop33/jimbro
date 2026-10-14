@@ -1,4 +1,4 @@
-import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { account } from '../../sync/account'
 import { exportIndexedDbToJson } from '../../db/export'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import type { WorkoutSession } from '../../db/types'
@@ -133,7 +133,7 @@ const actOn = async (outcome: Outcome): Promise<void> => {
       BreakTimerDialog.closeDialog()
       throwConfetti('Workout done!')
       PasskeyOfferCard.offer()
-      if (getCloudBackupConfig()) return
+      if (account.current()) return
       try {
         await exportIndexedDbToJson()
       } catch (error) {

@@ -1,8 +1,8 @@
 import { storage } from '../db/storage'
+import { account } from './account'
 import { pushLock } from './outbox'
 import { announce } from './pageChannel'
-import { httpServer, SyncRequestError } from './server'
-import { setLastSyncAt, setSyncProblem } from './status'
+import { httpServer } from './server'
 import { createSync } from './syncEngine'
 
 let leaving = false
@@ -15,21 +15,11 @@ window.addEventListener('pageshow', () => {
   leaving = false
 })
 
-// The app's sync: the worker over HTTP, for the page that runs it.
+// The app's sync: the saved account's worker over HTTP, for the page that runs it.
 export const { sync } = createSync({
   storage,
+  accounts: account,
   server: httpServer,
   lock: pushLock,
-  page: {
-    announce,
-    synced: (at) => {
-      setLastSyncAt(at)
-      setSyncProblem(null)
-    },
-    // A full backup refuses every push from now on, so the pages say so instead of failing quietly.
-    failed: (error) => {
-      if (error instanceof SyncRequestError && error.code === 'row_limit') setSyncProblem('row_limit')
-    },
-    leaving: () => leaving
-  }
+  page: { announce, leaving: () => leaving }
 })
