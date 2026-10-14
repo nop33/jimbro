@@ -36,10 +36,11 @@ const newestSession = [...source.stores.workoutSessions].sort((left, right) => {
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0
 })[0]
 
-// About five times the medians measured locally (2 to 3 ms a tool, 39 ms the export), so a slower CI runner passes
-// and a query that turns slow fails.
-const TOOL_BUDGET_MS = 15
-const EXPORT_BUDGET_MS = 200
+// The exact statement and batch counts below catch an added query. The time budgets only catch a slowdown of an order
+// of magnitude, such as a scan of the whole history: CI runners vary twentyfold from run to run, and their slowest
+// medians so far were 192 ms a tool and 161 ms the export, against 2 to 3 ms and 39 ms on a laptop.
+const TOOL_BUDGET_MS = 500
+const EXPORT_BUDGET_MS = 1_000
 
 const headers = {
   Authorization: 'Bearer test-token-123',
