@@ -96,6 +96,8 @@ test('renames a gym on every workout, merging it into another', async ({ page })
 
 test('the history chart keys the gyms under it and toggles a metric from its header', async ({ page }) => {
   const { sessionId } = await seedWorkoutsAt(page, ['Holmes Place Syntagma', 'Hotel gym', 'Holmes Place Syntagma'])
+  // Without animation the chart repaints at once, so its pixels show what each toggle drew.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto(`/gymtime/?id=${sessionId}`)
   const card = page.locator('details.exercise-details').first()
   await card.locator('summary').click()
@@ -104,41 +106,66 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
   await expect(page.locator('#exercise-history-gyms li')).toHaveText(['Unshaded: Holmes Place Syntagma', 'Hotel gym'])
 
   // The header's metric buttons hide and show their line.
+  // What the canvas shows once it stops changing: WebKit can still resize it a few frames after it first draws.
+  const pixels = () =>
+    page.locator('#exercise-history-chart').evaluate(async (element) => {
+      const canvas = element as HTMLCanvasElement
+      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+      let last = ''
+      for (;;) {
+        await nextFrame()
+        const now = canvas.hasAttribute('style') ? `${canvas.width}x${canvas.height} ${canvas.toDataURL()}` : ''
+        if (now !== '' && now === last) return now
+        last = now
+      }
+    })
+  const withVolume = await pixels()
   const volume = page.getByRole('button', { name: 'Total volume' })
   await volume.click()
   await expect(volume).toHaveAttribute('aria-pressed', 'false')
+  await expect.poll(pixels).not.toBe(withVolume)
   await volume.click()
   await expect(volume).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(pixels).toBe(withVolume)
 })
 
-test('the history chart draws its lines at once, without animating, under reduced motion', async ({ page }) => {
-  const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto(`/gymtime/?id=${sessionId}`)
-  const card = page.locator('details.exercise-details').first()
-  await card.locator('summary').click()
-  await card.locator('.view-history-btn').click()
-  await expect(page.locator('#exercise-history-dialog')).toBeVisible()
+for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+  test(`the history chart animates its lines only without reduced motion (${reducedMotion})`, async ({
+    page
+  }, testInfo) => {
+    // Reading the pixels is so slow on a Mobile Safari canvas that the animation is over before it sees two frames at
+    // the final size, so only the still chart can be checked there.
+    test.skip(reducedMotion === 'no-preference' && testInfo.project.name === 'Mobile Safari', 'pixel reads too slow')
+    const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
+    await page.emulateMedia({ reducedMotion })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+    const card = page.locator('details.exercise-details').first()
+    await card.locator('summary').click()
+    await card.locator('.view-history-btn').click()
+    await expect(page.locator('#exercise-history-dialog')).toBeVisible()
 
-  // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
-  // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
-  // Frames at another size come before the chart fits its dialog, and WebKit can resize it late. Reading the pixels is
-  // slow on a Mobile Safari canvas, so it may see only a few frames at the final size.
-  const frames = await page.evaluate(async () => {
-    const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
-    if (!canvas) throw new Error('no chart canvas')
-    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-    while (!canvas.hasAttribute('style')) await nextFrame()
-    const seen: Array<{ size: string; pixels: string }> = []
-    const start = performance.now()
-    while (performance.now() - start < 2000) {
-      await nextFrame()
-      seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
-    }
-    return seen
+    // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
+    // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
+    // Frames at another size come before the chart fits its dialog, and WebKit can resize it late. Reading the pixels is
+    // slow on a Mobile Safari canvas, so it may see only a few frames at the final size.
+    const frames = await page.evaluate(async () => {
+      const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
+      if (!canvas) throw new Error('no chart canvas')
+      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+      while (!canvas.hasAttribute('style')) await nextFrame()
+      const seen: Array<{ size: string; pixels: string }> = []
+      const start = performance.now()
+      while (performance.now() - start < 2000) {
+        await nextFrame()
+        seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
+      }
+      return seen
+    })
+    const last = frames[frames.length - 1]
+    const atFinalSize = frames.filter((frame) => frame.size === last.size)
+    expect(atFinalSize.length).toBeGreaterThan(1)
+    const changing = atFinalSize.filter((frame) => frame.pixels !== last.pixels)
+    if (reducedMotion === 'reduce') expect(changing).toHaveLength(0)
+    else expect(changing).not.toHaveLength(0)
   })
-  const last = frames[frames.length - 1]
-  const atFinalSize = frames.filter((frame) => frame.size === last.size)
-  expect(atFinalSize.length).toBeGreaterThan(1)
-  expect(atFinalSize.filter((frame) => frame.pixels !== last.pixels)).toHaveLength(0)
-})
+}
