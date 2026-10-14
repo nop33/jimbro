@@ -227,7 +227,8 @@ test.describe('passkeys with a virtual authenticator', () => {
       localStorage.setItem('jimbro.cloudBackup', JSON.stringify(credentials))
     }, user)
     await page.evaluate(async () => (await import('/src/sync/syncClient.ts')).sync())
-    expect(tablesOf(await pullAll(user.token))).toEqual({ exercises: 21, programs: 3 })
+    const tokenAccount = await pullAll(user.token)
+    expect(tablesOf(tokenAccount)).toEqual({ exercises: 21, programs: 3 })
 
     await openCloudBackup(page)
     // A token user gets the offer too, and keeps Sync now.
@@ -237,8 +238,12 @@ test.describe('passkeys with a virtual authenticator', () => {
     await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
 
     const created = await credentialsOf(page)
+    expect(created?.method).toBe('passkey')
     expect(created?.userId).not.toBe(user.userId)
-    expect(tablesOf(await pullAll(created?.token ?? ''))).toEqual({ exercises: 21, programs: 3 })
+    // The new account holds the same rows the token account got from this device.
+    const keysOf = (rows: Array<{ table: string; row: { id: string } }>) =>
+      rows.map(({ table, row }) => `${table}:${row.id}`).sort()
+    expect(keysOf(await pullAll(created?.token ?? ''))).toEqual(keysOf(tokenAccount))
   })
 
   test('adds another passkey and signs out', async ({ page }) => {
