@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { rowsFromSession } from '../src/sync/rows'
-import type { NestedSession, SetRow } from '../src/db/types'
+import type { NestedSession, SessionHeader, SetRow } from '../src/db/types'
 
 const DB_NAME = 'gymbro-database'
 const UPDATED_AT = '2026-03-01T00:00:00.000Z'
@@ -114,7 +113,15 @@ const sourceSessions: Array<NestedSession> = [
   }
 ]
 
-const expectedSetRows = sourceSessions.flatMap((session) => rowsFromSession(session).sets)
+const setRow = (sessionId: string, exerciseId: string, position: number, reps: number, weight: number): SetRow => ({
+  id: `${sessionId}:${exerciseId}:${position}`,
+  sessionId,
+  exerciseId,
+  position,
+  set: { preset: 'lifting', reps, weight },
+  isDeleted: false,
+  updatedAt: UPDATED_AT
+})
 
 const importFile = async (page: Page, name: string, data: unknown) => {
   await page.locator('#import-input').setInputFiles({
@@ -162,23 +169,23 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a version 4 export is stored as session headers and set rows', async ({ page }) => {
-  const headers = await readStore<{ id: string; exercises: Array<Record<string, unknown>> }>(page, 'workoutSessions')
-  const sets = await readStore<SetRow>(page, 'sets')
-  expect(headers).toHaveLength(3)
-  expect(headers.every((header) => header.exercises.every((exercise) => !('sets' in exercise)))).toBe(true)
   const byId = (left: { id: string }, right: { id: string }) => left.id.localeCompare(right.id)
-  expect([...sets].sort(byId)).toEqual([...expectedSetRows].sort(byId))
-
-  const assembled = await page.evaluate(async () => {
-    const { workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-    return workoutSessionsStore.getById('sess-1')
-  })
-  expect(assembled?.exercises[0].sets).toEqual([
-    { preset: 'lifting', reps: 8, weight: 40 },
-    { preset: 'lifting', reps: 6, weight: 42 }
+  const headers = await readStore<SessionHeader>(page, 'workoutSessions')
+  const sets = await readStore<SetRow>(page, 'sets')
+  // Each header keeps its exercises' snapshots without their sets, which become rows of their own.
+  expect([...headers].sort(byId)).toEqual(
+    sourceSessions.map(({ exercises, ...header }) => ({
+      ...header,
+      isDeleted: false,
+      exercises: exercises.map(({ sets: _sets, ...snapshot }) => snapshot)
+    }))
+  )
+  expect([...sets].sort(byId)).toEqual([
+    setRow('sess-1', 'ex-1', 0, 8, 40),
+    setRow('sess-1', 'ex-1', 1, 6, 42),
+    setRow('sess-1', 'ex-2', 0, 10, 20),
+    setRow('sess-2', 'ex-1', 0, 5, 30)
   ])
-  expect(assembled?.exercises[1].sets).toEqual([{ preset: 'lifting', reps: 10, weight: 20 }])
-  expect(assembled?.location).toBe('Zurich')
 })
 
 test('a later export does not overwrite rows that already exist', async ({ page }) => {
