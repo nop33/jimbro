@@ -197,10 +197,9 @@ test.describe('Workouts Page', () => {
 
     // The previously pending workout should now be incomplete (card-warning)
     // So pending workouts should be exactly 1 less
-    const newPendingCount = await pendingWorkouts.count()
-    expect(newPendingCount).toBe(originalPendingCount - 1)
+    await expect(pendingWorkouts).toHaveCount(originalPendingCount - 1)
 
     // There should be an incomplete workout
-    await expect(page.locator('.card-warning').first()).toBeVisible()
+    await expect(page.locator('.workout-week .card-warning')).toHaveCount(1)
   })
 })

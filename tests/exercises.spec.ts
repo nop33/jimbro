@@ -84,8 +84,8 @@ test.describe('Exercises Page', () => {
     const exerciseCard = page.locator('.card', { hasText: 'Treadmill walk' })
     await expect(exerciseCard).toBeVisible()
     await expect(exerciseCard).toContainText('Cardio')
-    await expect(exerciseCard).toContainText('1 set')
-    await expect(exerciseCard).not.toContainText('min')
+    // A treadmill exercise has no default time, so the prescription is the sets alone.
+    await expect(exerciseCard.locator('.exercise-prescription')).toHaveText('1 set')
 
     await exerciseCard.click()
     await expect(dialog).toBeVisible()

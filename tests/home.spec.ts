@@ -71,11 +71,14 @@ test.describe('Home Page', () => {
     await expect(picks.last()).toHaveAttribute('data-status', 'completed')
     await expect(picks.last()).toContainText(done.name)
 
+    // Push day is done, and Pull day comes next in the rotation, since neither of the others was ever done.
+    expect(done.name).toBe('Push day')
     const suggested = page.locator('.program-pick[data-suggested]')
     await expect(suggested).toHaveCount(1)
+    await expect(suggested).toContainText('Pull day')
     await expect(suggested).toContainText('Start ›')
     await suggested.click()
-    await expect(page).toHaveURL(/\/gymtime\/\?programId=/)
+    await expect(page).toHaveURL('/gymtime/?programId=0eae96c5-954e-41fb-9f77-49ecc497ffc2')
   })
 
   test('opens Stats from any highlight, and Stats goes back home', async ({ page }) => {
