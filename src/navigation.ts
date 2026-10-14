@@ -1,7 +1,7 @@
 import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
 import { isOutOfDate } from './sync/freshness'
-import { getSyncProblem } from './sync/status'
+import { account } from './sync/account'
 import Toasts from './features/toasts'
 
 let rowsWrittenTimer = 0
@@ -10,7 +10,7 @@ let toldBackupFull = false
 // A failed sync retries on the next trigger. A full backup never takes a push again, so the page says so, once.
 const startSync = () => {
   void sync().catch(() => {
-    if (toldBackupFull || getSyncProblem() !== 'row_limit') return
+    if (toldBackupFull || account.status().problem !== 'row_limit') return
     toldBackupFull = true
     Toasts.show({
       message: 'Your cloud backup is full. New changes stay on this phone.',

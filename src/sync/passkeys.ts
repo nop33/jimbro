@@ -1,20 +1,11 @@
-import {
-  API_BASE,
-  clearCloudBackupConfig,
-  fetchJimbroApi,
-  getCloudBackupConfig,
-  markSignedOut,
-  storeCloudBackupConfig
-} from '../db/cloudBackup'
 import { OBJECT_STORES } from '../db/constants'
 import { storage } from '../db/storage'
+import { account as savedAccount } from './account'
 import { fromBase64Url, toBase64Url } from './base64url'
 import { replacesLocalRows } from './bootstrap'
-import { outbox, pushLock } from './outbox'
+import { outbox } from './outbox'
 import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
-import { restartFirstSync } from './queue'
-import { PULL_LIMIT, type PullPage } from './server'
-import { clearLastSyncAt, setSyncProblem } from './status'
+import { httpServer, requestJson, ServerError } from './server'
 import { sync } from './syncClient'
 
 // A passkey is the account: signing up makes one on the worker, and the phone's password manager (iCloud Keychain,
@@ -36,48 +27,13 @@ export const passkeysSupported = () => {
   )
 }
 
-// The error the worker answered with, such as invalid_challenge, or the status.
-export class PasskeyServerError extends Error {
-  readonly code: string
+const postPublic = (path: string, body?: unknown) => requestJson(path, { method: 'POST', body })
 
-  constructor(code: string) {
-    super(`passkey request failed: ${code}`)
-    this.code = code
-  }
+const postSignedIn = (path: string, body?: unknown) => {
+  const signedIn = savedAccount.current()
+  if (!signedIn) return Promise.reject(new Error('No account is saved'))
+  return requestJson(path, { method: 'POST', token: signedIn.token, body })
 }
-
-const answer = async (response: Response) => {
-  if (response.ok) return (await response.json()) as unknown
-  let code = String(response.status)
-  try {
-    const body = (await response.json()) as { error?: unknown }
-    if (typeof body.error === 'string') code = body.error
-  } catch {
-    // The body was not JSON, so the status stands.
-  }
-  throw new PasskeyServerError(code)
-}
-
-const post = (path: string, body: unknown, token?: string) => {
-  const init = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body ?? {})
-  }
-  if (token === undefined) return fetch(`${API_BASE}${path}`, init)
-  return fetch(`${API_BASE}${path}`, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } })
-}
-
-const postPublic = async (path: string, body?: unknown) => answer(await post(path, body))
-
-const postSignedIn = async (path: string, body?: unknown) =>
-  answer(
-    await fetchJimbroApi(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body ?? {})
-    })
-  )
 
 // A passkey ceremony: signing up, signing in, or adding a passkey to the signed-in account.
 export type Ceremony = 'register' | 'signin' | 'add'
@@ -167,12 +123,12 @@ interface RequestOptionsJson {
   timeout: number
 }
 
-interface Account {
+interface SignedIn {
   userId: string
   token: string
 }
 
-const isAccount = (value: unknown): value is Account =>
+const isSignedIn = (value: unknown): value is SignedIn =>
   typeof value === 'object' &&
   value !== null &&
   'userId' in value &&
@@ -182,7 +138,7 @@ const isAccount = (value: unknown): value is Account =>
 
 const bytes = (text: string) => {
   const decoded = fromBase64Url(text)
-  if (!decoded) throw new PasskeyServerError('invalid_options')
+  if (!decoded) throw new ServerError(200, 'invalid_options')
   return decoded
 }
 
@@ -213,31 +169,14 @@ const register = async (options: CreationOptionsJson) => {
   }
 }
 
-// Saves the account's credentials and has the next sync run a first sync with it, which restores the account's rows
-// and pushes every row only this device has. A device that synced with another account, through a token or another
-// passkey, leaves that account's backup behind. A sync running with the old credentials finishes first, and the
-// switch holds the push lock, so no chunk is on its way to the old account while the credentials change. The sync
-// state resets before the credentials change, so a switch that stops half way leaves a first sync to run with the old
-// account, which only merges again, never a device that skips the first sync with the new one.
-const switchTo = async (account: Account) => {
-  await sync({ again: false }).catch(() => undefined)
-  await pushLock(async () => {
-    await restartFirstSync(storage)
-    storeCloudBackupConfig({ ...account, method: 'passkey' })
-    markSignedOut(false)
-    clearLastSyncAt()
-    setSyncProblem(null)
-  })
-}
-
 // Signs up: makes a new account with a new passkey and backs this device up to it. A new account has no rows, so
 // nothing on this device is replaced.
 export const createPasskeyAccount = async () => {
   const account = await withOptions('register', async (options) =>
     postPublic('/auth/register/verify', await register(options as CreationOptionsJson))
   )
-  if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
-  await switchTo(account)
+  if (!isSignedIn(account)) throw new ServerError(200, 'invalid_answer')
+  await savedAccount.switchTo({ ...account, method: 'passkey' })
 }
 
 // Whether this device holds any exercise, program or workout, which signing in can replace with the account's copy.
@@ -249,13 +188,10 @@ export const hasLocalRows = async () => {
 }
 
 // Every row of the account the token signs in to, as the first sync would pull them.
-const pullAccount = (token: string) =>
-  pullAll(async (cursor) => {
-    const response = await fetch(`${API_BASE}/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    return (await answer(response)) as PullPage
-  })
+const pullAccount = (token: string) => {
+  const server = httpServer({ token })
+  return pullAll((cursor) => server.pull(cursor))
+}
 
 // Whether signing in to the account would replace any row on this device: one both sides have, with a different copy.
 // A phone that signed out after backing up holds the account's own copies, so signing in again replaces nothing.
@@ -285,14 +221,14 @@ export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: ()
       signature: toBase64Url(response.signature)
     })
   })
-  if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
+  if (!isSignedIn(account)) throw new ServerError(200, 'invalid_answer')
   const pulled = await pullAccount(account.token)
   if ((await signInReplacesLocalRows(pulled)) && !(await confirmReplace())) {
-    await post('/api/signout', {}, account.token).catch(() => undefined)
+    await requestJson('/api/signout', { method: 'POST', token: account.token }).catch(() => undefined)
     preparePasskey('signin')
     return false
   }
-  await switchTo(account)
+  await savedAccount.switchTo({ ...account, method: 'passkey' })
   // A failed restore leaves the first sync to the callers' next sync, which pulls again.
   await sync({ again: false, restoring: pulled }).catch(() => undefined)
   return true
@@ -315,16 +251,13 @@ export const backUpBeforeSignOut = async () => {
 
 // Signs out: the worker forgets this device's token, and the device stops syncing. Its data stays on the device.
 export const signOut = async () => {
-  if (getCloudBackupConfig()) {
+  if (savedAccount.current()) {
     try {
       await postSignedIn('/api/signout')
     } catch (error) {
       // A token the worker no longer knows is signed out already.
-      if (!(error instanceof PasskeyServerError && error.code === 'unauthorized')) throw error
+      if (!(error instanceof ServerError && error.code === 'unauthorized')) throw error
     }
   }
-  clearCloudBackupConfig()
-  markSignedOut(true)
-  clearLastSyncAt()
-  setSyncProblem(null)
+  await savedAccount.signOut()
 }

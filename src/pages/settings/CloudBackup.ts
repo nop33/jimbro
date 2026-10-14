@@ -1,6 +1,6 @@
 import { formatShortDate } from '../../dateUtils'
-import { getCloudBackupConfig, storeCloudBackupConfig, wasSignedOut } from '../../db/cloudBackup'
 import Toasts from '../../features/toasts'
+import { account } from '../../sync/account'
 import { outbox } from '../../sync/outbox'
 import {
   addPasskey,
@@ -13,7 +13,6 @@ import {
 } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
-import { getLastSyncAt, getSyncProblem } from '../../sync/status'
 import { confirmReplaceWithAccount, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
 import { whileBusy } from '../busyButton'
 
@@ -37,10 +36,10 @@ class CloudBackup {
   private static syncNowBtn = document.querySelector('#cloud-sync-now') as HTMLButtonElement
 
   static init() {
-    const existingConfig = getCloudBackupConfig()
-    if (existingConfig?.method === 'token') {
-      this.userIdInput.value = existingConfig.userId
-      this.tokenInput.value = existingConfig.token
+    const saved = account.current()
+    if (saved?.method === 'token') {
+      this.userIdInput.value = saved.userId
+      this.tokenInput.value = saved.token
     }
 
     this.showState()
@@ -55,13 +54,13 @@ class CloudBackup {
     this.signInBtn.addEventListener('click', () => void this.handleSignIn())
     this.addBtn.addEventListener('click', () => void this.handleAddPasskey())
     this.signOutBtn.addEventListener('click', () => void this.handleSignOut())
-    this.saveBtn.addEventListener('click', () => this.handleSave())
+    this.saveBtn.addEventListener('click', () => void this.handleSave())
     this.syncNowBtn.addEventListener('click', () => void this.handleSync())
   }
 
   private static prepare() {
     if (!this.details.open || !passkeysSupported()) return
-    if (getCloudBackupConfig()?.method === 'passkey') {
+    if (account.current()?.method === 'passkey') {
       preparePasskey('add')
       return
     }
@@ -69,10 +68,10 @@ class CloudBackup {
     preparePasskey('signin')
   }
 
-  // Shows what fits the saved credentials: the account for a passkey, else the offer and the token form. A device that
+  // Shows what fits the saved account: the account for a passkey, else the offer and the token form. A device that
   // signed out offers signing in first.
   private static showState() {
-    const config = getCloudBackupConfig()
+    const config = account.current()
     const passkey = config?.method === 'passkey'
     const supported = passkeysSupported()
     this.offer.hidden = passkey || !supported
@@ -83,7 +82,7 @@ class CloudBackup {
     this.tokenDetails.hidden = passkey
     this.syncNowBtn.hidden = config === null
 
-    const signInFirst = wasSignedOut()
+    const signInFirst = account.signedOut()
     this.signInBtn.classList.toggle('btn-primary', signInFirst)
     this.signInBtn.classList.toggle('btn-secondary', !signInFirst)
     this.createBtn.classList.toggle('btn-primary', !signInFirst)
@@ -93,18 +92,17 @@ class CloudBackup {
   }
 
   private static async updateSummaryStatus() {
-    const config = getCloudBackupConfig()
-    if (!config) {
+    if (!account.current()) {
       this.summaryStatus.textContent = 'Not set up yet'
       return
     }
 
     const pending = await outbox.pending()
-    if (getSyncProblem() === 'row_limit') {
+    const { lastSyncAt: lastSync, problem } = account.status()
+    if (problem === 'row_limit') {
       this.summaryStatus.textContent = `Backup full · ${pending} pending`
       return
     }
-    const lastSync = getLastSyncAt()
     if (!lastSync) {
       this.summaryStatus.textContent = `${pending} pending`
       return
@@ -190,7 +188,9 @@ class CloudBackup {
     await this.updateSummaryStatus()
   }
 
-  private static handleSave() {
+  // Switches to the typed account, as a passkey sign-in does, so the next sync restores it and backs this device up
+  // to it.
+  private static async handleSave() {
     const userId = this.userIdInput.value.trim()
     const token = this.tokenInput.value.trim()
 
@@ -199,14 +199,20 @@ class CloudBackup {
       return
     }
 
-    storeCloudBackupConfig({ userId, token, method: 'token' })
+    try {
+      await account.switchTo({ userId, token, method: 'token' })
+    } catch (error) {
+      console.error('saving credentials failed', error)
+      Toasts.show({ message: 'Could not save the credentials. Try again.', type: 'error' })
+      return
+    }
     Toasts.show({ message: 'Cloud backup credentials saved.' })
     this.showState()
-    void this.updateSummaryStatus()
+    await this.handleSync()
   }
 
   private static async handleSync() {
-    if (!getCloudBackupConfig()) {
+    if (!account.current()) {
       Toasts.show({ message: 'Save your credentials first.', type: 'warning' })
       return
     }
@@ -216,7 +222,7 @@ class CloudBackup {
       await sync()
       await this.updateSummaryStatus()
     } catch (error) {
-      const full = getSyncProblem() === 'row_limit'
+      const full = account.status().problem === 'row_limit'
       Toasts.show({
         message: full ? 'Your cloud backup is full. New changes stay on this phone.' : 'Sync failed.',
         type: 'error'

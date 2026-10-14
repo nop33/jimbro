@@ -91,7 +91,7 @@ const freshStorage = async () => {
 }
 
 const syncFor = (storage: Storage, server: SyncServer, page = testPage()) =>
-  createSync({ storage, server, lock: sharedLock().lock, page: page.page })
+  createSync({ storage, accounts: page.accounts, server: () => server, lock: sharedLock().lock, page: page.page })
 
 // Runs a task once, before the first pull this server answers.
 const beforeFirstPull = (server: SyncServer, task: () => Promise<void>): SyncServer => {

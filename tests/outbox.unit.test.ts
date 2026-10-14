@@ -93,8 +93,10 @@ const settlesSoon = <T>(promise: Promise<T>) =>
   })
 
 // Runs the first sync a database that never synced is due, against what the server holds now.
-const firstSync = (storage: Storage, server: SyncServer, lock = sharedLock().lock) =>
-  createSync({ storage, server, lock, page: testPage().page }).sync()
+const firstSync = (storage: Storage, server: SyncServer, lock = sharedLock().lock) => {
+  const { page, accounts } = testPage()
+  return createSync({ storage, accounts, server: () => server, lock, page }).sync()
+}
 
 let page: Storage
 

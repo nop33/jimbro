@@ -1,4 +1,4 @@
-import type { CloudBackupMethod } from '../../db/cloudBackup'
+import type { AccountMethod } from '../../sync/account'
 
 const SNOOZE_KEY = 'jimbro.passkeyOffer.snoozedUntil'
 export const SNOOZE_DAYS = 14
@@ -11,7 +11,7 @@ export const passkeyOfferDue = ({
   snoozedUntil,
   now
 }: {
-  backup: CloudBackupMethod | null
+  backup: AccountMethod | null
   supported: boolean
   snoozedUntil: string | null
   now: Date
