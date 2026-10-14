@@ -115,10 +115,11 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
       let last = ''
       for (;;) {
         await nextFrame()
-        // The client size leaves out the dialog's rotation on a phone, like the chart's own sizing.
+        // The dialog shows the chart in landscape on every screen, rotating it on a phone held upright, and Mobile Safari
+        // on Linux can draw it upright first. The client size leaves out the rotation, like the chart's own sizing.
         const fitted =
           canvas.hasAttribute('style') &&
-          canvas.clientHeight > 0 &&
+          canvas.width > canvas.height &&
           Math.abs(canvas.width / canvas.height - canvas.clientWidth / canvas.clientHeight) < 0.02
         const now = fitted ? `${canvas.width}x${canvas.height} ${canvas.toDataURL()}` : ''
         if (now !== '' && now === last) return now
