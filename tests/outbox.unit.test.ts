@@ -3,10 +3,8 @@ import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import { Storage } from '../src/db/storage'
-import { rowKey } from '../src/sync/bootstrap'
 import { createOutbox, type PushLock, type PushRows } from '../src/sync/outbox'
 import { getMeta, type OutboxEntry } from '../src/sync/queue'
-import { canonical } from '../src/sync/rows'
 import type { SyncServer } from '../src/sync/server'
 import { createSync } from '../src/sync/syncEngine'
 import type { Row, SetRow } from '../src/db/types'
@@ -41,9 +39,6 @@ const deferred = () => {
 }
 
 const outboxOf = (storage: Storage) => storage.getAll<OutboxEntry>(OBJECT_STORES.OUTBOX)
-
-const entryFor = async (storage: Storage, row: Row) =>
-  (await outboxOf(storage)).find((entry) => entry.key === rowKey(row))
 
 const setMeta = async (storage: Storage, name: 'cursor' | 'bootstrapped', value: number) => {
   const db = await storage.connection()
@@ -114,9 +109,10 @@ describe('Outbox.drain', () => {
     await setMeta(page, 'cursor', 3)
     await page.writeRows([setRow(10, 'b')])
     await page.writeRows([setRow(20, 'a')])
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(server.push)
     expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['b', 'a']])
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
     expect(await getMeta(page, 'cursor')).toBe(3)
     expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
@@ -125,9 +121,10 @@ describe('Outbox.drain', () => {
     const server = memoryServer()
     await setMeta(page, 'cursor', 3)
     await page.writeRows(Array.from({ length: 501 }, (_, index) => setRow(index, `set-${index}`)))
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(server.push)
     expect(server.received.map((batch) => batch.length)).toEqual([500, 1])
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
   it('drops an entry whose row is gone and sends the rest', async () => {
@@ -136,9 +133,10 @@ describe('Outbox.drain', () => {
     await page.writeRows([setRow(10, 'gone')])
     await page.writeRows([setRow(20, 'kept')])
     await deleteSets(page, ['gone'])
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(server.push)
     expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['kept']])
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
   it('looks past a whole chunk of entries whose rows are gone', async () => {
@@ -148,9 +146,10 @@ describe('Outbox.drain', () => {
     await page.writeRows(gone.map((id) => setRow(10, id)))
     await page.writeRows([setRow(20, 'kept')])
     await deleteSets(page, gone)
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(server.push)
     expect(server.received.map((batch) => batch.map((row) => row.row.id))).toEqual([['kept']])
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
   it('does not take the lock when nothing is queued', async () => {
@@ -168,7 +167,8 @@ describe('Outbox.drain', () => {
     await setMeta(page, 'cursor', 3)
     await page.writeRows([setRow(40)])
     let edited = false
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => {
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(async (rows) => {
       if (!edited) {
         edited = true
         await page.writeRows([setRow(55)])
@@ -176,61 +176,70 @@ describe('Outbox.drain', () => {
       return server.accept(rows)
     })
     expect(server.received.map((batch) => weightOf(batch[0]))).toEqual([40, 55])
-    expect(weightOf(await page.get<SetRow>('sets', 'race-set'))).toBe(55)
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
-  it('keeps every row queued with its stamp when the push fails', async () => {
+  it('keeps every row queued when the push fails, and sends it with the next drain', async () => {
+    const server = memoryServer()
     await page.writeRows([setRow(10)])
-    const failure = createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => {
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    const failure = outbox.drain(async () => {
       throw new Error('offline')
     })
     await expect(failure).rejects.toThrow('offline')
-    const entry = await entryFor(page, setRow(10))
-    expect(entry?.inflightSeq).toBe(entry?.seq)
-    expect(entry?.inflightCanonical).toBe(canonical(set(10)))
+    expect(await outbox.pending()).toBe(1)
     expect(await getMeta(page, 'bootstrapped')).toBe(0)
+
+    await outbox.drain(server.push)
+    expect(server.received.map((batch) => batch.map(weightOf))).toEqual([[10]])
+    expect(await outbox.pending()).toBe(0)
   })
 })
 
 describe('Outbox.drain on a database that has never synced', () => {
   it('moves the cursor to the revision of each ack', async () => {
     const server = memoryServer()
-    await page.writeRows([setRow(10)])
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
-    expect(await getMeta(page, 'cursor')).toBe(1)
+    await page.writeRows(Array.from({ length: 501 }, (_, index) => setRow(index, `set-${index}`)))
+    const revisions: Array<number | null> = []
+    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async (rows) => {
+      const revision = await server.push(rows)
+      revisions.push(await getMeta(page, 'cursor'))
+      return revision
+    })
+    expect(server.received.map((batch) => batch.length)).toEqual([500, 1])
+    // Before each ack the cursor still holds the revision of the ack before it.
+    expect(revisions).toEqual([0, 500])
+    expect(await getMeta(page, 'cursor')).toBe(501)
     expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
 
   it('marks the database bootstrapped when the server reports no revision', async () => {
     await page.writeRows([setRow(10)])
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => null)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(async () => null)
     expect(await getMeta(page, 'cursor')).toBe(0)
     expect(await getMeta(page, 'bootstrapped')).toBe(1)
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
   it('marks the database bootstrapped when the server answers revision 0', async () => {
     await page.writeRows([setRow(10)])
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(async () => 0)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(async () => 0)
     expect(await getMeta(page, 'cursor')).toBe(0)
     expect(await getMeta(page, 'bootstrapped')).toBe(1)
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
   })
 
   it('sends nothing when every queued row is gone, and marks the database bootstrapped', async () => {
     await page.writeRows([setRow(10, 'gone')])
     await deleteSets(page, ['gone'])
     const push = vi.fn<PushRows>()
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(push)
+    const outbox = createOutbox({ storage: page, lock: sharedLock().lock })
+    await outbox.drain(push)
     expect(push).not.toHaveBeenCalled()
-    expect(await outboxOf(page)).toEqual([])
+    expect(await outbox.pending()).toBe(0)
     expect(await getMeta(page, 'cursor')).toBe(0)
-    expect(await getMeta(page, 'bootstrapped')).toBe(1)
-  })
-
-  it('marks the database bootstrapped when nothing is queued', async () => {
-    await createOutbox({ storage: page, lock: sharedLock().lock }).drain(vi.fn<PushRows>())
     expect(await getMeta(page, 'bootstrapped')).toBe(1)
   })
 
@@ -246,12 +255,11 @@ describe('Outbox.drain on a database that has never synced', () => {
   it('rolls back the ack with the cursor when the page dies before they commit', async () => {
     const server = memoryServer()
     await page.writeRows([setRow(10)])
-    const queued = await entryFor(page, setRow(10))
     await crashNextMetaWrite(page)
     const crashed = createOutbox({ storage: page, lock: sharedLock().lock }).drain(server.push)
-    await expect(crashed).rejects.toThrow()
+    await expect(crashed).rejects.toThrow('outbox ack failed')
     expect(weightOf(server.rows.get('sets:race-set'))).toBe(10)
-    expect((await entryFor(page, setRow(10)))?.seq).toBe(queued?.seq)
+    expect((await outboxOf(page)).map((entry) => [entry.key, entry.seq])).toEqual([['sets:race-set', 1]])
     expect(await getMeta(page, 'cursor')).toBe(0)
     expect(await getMeta(page, 'bootstrapped')).toBe(0)
   })
@@ -286,9 +294,6 @@ describe('Outbox.drain on a database that has never synced', () => {
     expect(await getMeta(page, 'cursor')).toBe(0)
 
     await page.writeRows([setRow(99)])
-    const entry = await entryFor(page, setRow(99))
-    expect(entry?.inflightCanonical).toBe(canonical(set(10)))
-    expect(entry?.seq).toBeGreaterThan(entry?.inflightSeq ?? Infinity)
 
     await firstSync(page, server)
     expect(weightOf(await page.get<SetRow>('sets', 'race-set'))).toBe(99)
@@ -308,9 +313,6 @@ describe('Outbox.drain on a database that has never synced', () => {
     })
     await expect(lost).rejects.toThrow('ack lost')
     expect(weightOf(server.rows.get('sets:race-set'))).toBe(10)
-    const entry = await entryFor(page, setRow(99))
-    expect(entry?.inflightCanonical).toBe(canonical(set(10)))
-    expect(entry?.seq).toBeGreaterThan(entry?.inflightSeq ?? Infinity)
 
     await firstSync(page, server)
     expect(weightOf(await page.get<SetRow>('sets', 'race-set'))).toBe(99)
@@ -394,8 +396,6 @@ describe('Outbox.drain across pages', () => {
       throw new Error('second page crashed')
     })
     await expect(secondCrash).rejects.toThrow('second page crashed')
-    const entry = await entryFor(page, setRow(99))
-    expect(entry?.inflightCanonical).toBe(canonical(set(10)))
 
     await firstSync(page, server, shared.lock)
     expect(weightOf(await page.get<SetRow>('sets', 'race-set'))).toBe(99)

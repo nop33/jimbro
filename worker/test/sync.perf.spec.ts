@@ -2,7 +2,7 @@ import { env, SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import type { ExportShape } from '../../src/db/types'
 import fixture from './fixtures/latest-v4.json'
-import { rowsOf, seedExport } from './seed'
+import { seedExport } from './seed'
 
 const source = fixture as ExportShape
 
@@ -30,6 +30,11 @@ const copyHistory = (copies: number): ExportShape => {
 }
 
 const history = copyHistory(4)
+
+// About five times the medians measured locally (10 ms and 8 ms), so a slower CI runner passes and a query that
+// turns slow fails.
+const PUSH_BUDGET_MS = 50
+const PULL_BUDGET_MS = 40
 
 const pushRows = Array.from({ length: 1000 }, (_, index) => ({
   table: 'sets' as const,
@@ -86,30 +91,24 @@ describe('sync perf', () => {
   it('keeps a 1000-row push and a 1000-row pull on a four-copy history inside the budgets', async () => {
     const pushMs: number[] = []
     const pullMs: number[] = []
-    const pushStatements: number[] = []
-    const pullStatements: number[] = []
 
     for (let sample = 0; sample < 5; sample++) {
       await clearUser()
-      expect(await seedExport(history)).toBe(rowsOf(history).length)
+      // Four copies of the fixture's 2711 rows.
+      expect(await seedExport(history)).toBe(10_844)
 
       const pushed = await timed(() => call('/api/push', { method: 'POST', body: JSON.stringify({ rows: pushRows }) }))
       pushMs.push(pushed.ms)
-      pushStatements.push(pushed.statements)
-      expect(pushed.batches).toBe(1)
-      expect(pushed.statements).toBeGreaterThan(0)
-      expect(pushed.statements).toBeLessThanOrEqual(20)
+      // One batch: the upsert of the single-table chunk and the query for the new revision.
+      expect([pushed.batches, pushed.statements]).toEqual([1, 2])
 
       const pulled = await timed(() => call('/api/pull?cursor=0&limit=1000'))
       pullMs.push(pulled.ms)
-      pullStatements.push(pulled.statements)
-      expect(pulled.batches).toBe(1)
-      expect(pulled.statements).toBeGreaterThan(0)
-      expect(pulled.statements).toBeLessThanOrEqual(20)
+      expect([pulled.batches, pulled.statements]).toEqual([1, 1])
     }
 
-    expect(median(pushMs)).toBeLessThan(1_000)
-    expect(median(pullMs)).toBeLessThan(500)
-    expect(Math.max(...pushStatements, ...pullStatements)).toBeLessThanOrEqual(20)
+    console.info(`sync perf push ${median(pushMs).toFixed(1)}ms pull ${median(pullMs).toFixed(1)}ms`)
+    expect(median(pushMs)).toBeLessThan(PUSH_BUDGET_MS)
+    expect(median(pullMs)).toBeLessThan(PULL_BUDGET_MS)
   }, 180_000)
 })

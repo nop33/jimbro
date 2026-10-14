@@ -51,9 +51,7 @@ describe('schemaUpgrade', () => {
       now
     )
 
-    expect(upgraded.isDeleted).toBe(false)
-    expect(upgraded.updatedAt).toBe(now)
-    expect(upgraded.exercises).toEqual(['ex-1'])
+    expect(upgraded).toEqual({ id: 'p-1', name: 'Push day', exercises: ['ex-1'], isDeleted: false, updatedAt: now })
   })
 
   it('snapshots session exercises from the catalog and preserves completed status targets', () => {

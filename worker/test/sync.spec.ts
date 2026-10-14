@@ -1,4 +1,4 @@
-import { env, SELF } from 'cloudflare:test'
+import { SELF } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import type { ExportShape, Row } from '../../src/db/types'
 import { rowsFromExport } from '../../src/sync/rows'
@@ -33,31 +33,23 @@ const push = (rows: Row[], headers?: HeadersInit) =>
 
 const pull = (cursor: string, limit: string) => api(`/api/pull?cursor=${cursor}&limit=${limit}`)
 
-const countRows = async (table: 'exercises' | 'programs' | 'sessions' | 'sets') => {
-  const row = await env.jimbro
-    .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id = ?1`)
-    .bind('nikos')
-    .first<{ n: number }>()
-  return row?.n ?? -1
+type Pulled = { rows: Array<Row & { rev: number }>; cursor: number; more: boolean }
+
+const pulled = async (cursor: string, limit: string) => (await (await pull(cursor, limit)).json()) as Pulled
+
+// Every row the user holds, page by page, as a restore would read them.
+const pullEverything = async () => {
+  const rows: Pulled['rows'] = []
+  let cursor = '0'
+  for (;;) {
+    const page = await pulled(cursor, '1000')
+    rows.push(...page.rows)
+    cursor = String(page.cursor)
+    if (!page.more) return rows
+  }
 }
 
-const dumpRevData = async () => {
-  const tables = ['exercises', 'programs', 'sessions', 'sets'] as const
-  const dumped: Record<(typeof tables)[number], Array<{ id: string; rev: number; data: string }>> = {
-    exercises: [],
-    programs: [],
-    sessions: [],
-    sets: []
-  }
-  for (const table of tables) {
-    const result = await env.jimbro
-      .prepare(`SELECT id, rev, data FROM ${table} WHERE user_id = ?1 ORDER BY id`)
-      .bind('nikos')
-      .all<{ id: string; rev: number; data: string }>()
-    dumped[table] = result.results
-  }
-  return dumped
-}
+const nothingStored = { rows: [], cursor: 0, more: false }
 
 const byId = <T extends { id: string }>(items: T[]) =>
   [...items].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
@@ -137,13 +129,16 @@ describe('push and pull', () => {
     const renamed = exercise('squat', 'Back squat')
     const repeated = await push([{ table: 'exercises', row: renamed }])
     expect(await repeated.json()).toEqual({ revision: 4 })
-    expect(await countRows('exercises')).toBe(3)
 
-    const page = (await pull('0', '1000').then((response) => response.json())) as {
-      rows: Array<{ row: { id: string; name: string }; rev: number }>
-    }
-    const matches = page.rows.filter((item) => item.row.id === 'squat')
-    expect(matches).toEqual([{ table: 'exercises', row: renamed, rev: 4 }])
+    expect(await pulled('0', '1000')).toEqual({
+      rows: [
+        { table: 'exercises', row: exercise('bench', 'Bench'), rev: 2 },
+        { table: 'exercises', row: exercise('row', 'Row'), rev: 3 },
+        { table: 'exercises', row: renamed, rev: 4 }
+      ],
+      cursor: 4,
+      more: false
+    })
   })
 })
 
@@ -156,7 +151,7 @@ describe('push validation', () => {
     const response = await push(rows)
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'too_many_rows' })
-    expect(await countRows('exercises')).toBe(0)
+    expect(await pulled('0', '1000')).toEqual(nothingStored)
   })
 
   it('answers 400 invalid_row and writes nothing', async () => {
@@ -179,8 +174,7 @@ describe('push validation', () => {
     })
     expect(pushed.status).toBe(400)
     expect(await pushed.json()).toEqual({ error: 'invalid_row', index: 1 })
-    expect(await countRows('exercises')).toBe(0)
-    expect(await countRows('sets')).toBe(0)
+    expect(await pulled('0', '1000')).toEqual(nothingStored)
   })
 })
 
@@ -201,55 +195,45 @@ describe('export', () => {
 
   it('keeps every revision when the same rows are pushed again', async () => {
     expect(await seedExport(file)).toBe(2711)
-    const before = await dumpRevData()
-    const revs = (['exercises', 'programs', 'sessions', 'sets'] as const)
-      .flatMap((table) => before[table].map((row) => row.rev))
-      .sort((left, right) => left - right)
-    expect(revs).toEqual(Array.from({ length: 2711 }, (_, index) => index + 1))
-
-    const firstPage = (await pull('0', '1000').then((response) => response.json())) as {
-      rows: unknown[]
-      more: boolean
-    }
-    expect(firstPage.rows).toHaveLength(1000)
-    expect(firstPage.more).toBe(true)
+    const before = await pullEverything()
+    expect(before.map((entry) => entry.rev)).toEqual(Array.from({ length: 2711 }, (_, index) => index + 1))
 
     const rows = rowsOf(file)
     for (let start = 0; start < rows.length; start += 1000) {
       const again = await push(rows.slice(start, start + 1000))
       expect(await again.json()).toEqual({ revision: 2711 })
     }
-    expect(await dumpRevData()).toEqual(before)
-
-    const stale = (await pull('2711', '1000').then((response) => response.json())) as { rows: unknown[]; more: boolean }
-    expect(stale.rows).toEqual([])
-    expect(stale.more).toBe(false)
+    expect(await pullEverything()).toEqual(before)
+    expect(await pulled('2711', '1000')).toEqual({ rows: [], cursor: 2711, more: false })
 
     const original = rowsFromExport(file).sets[0]
     if (original.set.preset !== 'lifting') throw new Error('expected a lifting set')
     const changed = { ...original, set: { ...original.set, weight: original.set.weight + 5 } }
     const pushed = await push([{ table: 'sets', row: changed }])
     expect(await pushed.json()).toEqual({ revision: 2712 })
-    const stored = await env.jimbro
-      .prepare('SELECT rev FROM sets WHERE user_id = ?1 AND id = ?2')
-      .bind('nikos', original.id)
-      .first<{ rev: number }>()
-    expect(stored).toEqual({ rev: 2712 })
-    expect(await countRows('sets')).toBe(2581)
+    expect(await pulled('2711', '1000')).toEqual({
+      rows: [{ table: 'sets', row: changed, rev: 2712 }],
+      cursor: 2712,
+      more: false
+    })
   })
 })
 
 describe('auth', () => {
-  it('answers 401 on every new route without a token', async () => {
+  it('answers 401 on every route that needs a bearer token when it has none', async () => {
     const routes = [
+      ['GET', '/api/ping'],
       ['POST', '/api/push'],
       ['GET', '/api/pull'],
-      ['GET', '/api/export']
+      ['GET', '/api/export'],
+      ['POST', '/api/passkeys/options'],
+      ['POST', '/api/passkeys/verify'],
+      ['POST', '/api/signout'],
+      ['POST', '/mcp']
     ] as const
     for (const [method, path] of routes) {
       const response = await SELF.fetch(`https://example.com${path}`, { method })
-      expect(response.status).toBe(401)
-      expect(await response.json()).toEqual({ error: 'unauthorized' })
+      expect([path, response.status, await response.json()]).toEqual([path, 401, { error: 'unauthorized' }])
     }
   })
 })

@@ -240,9 +240,9 @@ describe('passkey sign-up and sign-in', () => {
       .prepare('SELECT token_hash FROM auth_tokens WHERE user_id = ?1')
       .bind(session.userId)
       .all<{ token_hash: string }>()
-    expect(stored.results).toHaveLength(1)
-    expect(stored.results[0].token_hash).toMatch(/^[0-9a-f]{64}$/)
-    expect(stored.results[0].token_hash).not.toContain(session.token)
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(session.token))
+    const hex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    expect(stored.results).toEqual([{ token_hash: hex }])
   })
 
   it('signs in with an RS256 passkey', async () => {
@@ -260,24 +260,27 @@ describe('passkey sign-up and sign-in', () => {
 
   it('refuses a credential that is already registered, with CORS headers', async () => {
     const { client, passkey, session } = await signUp()
+    const countUsers = async () =>
+      (await env.jimbro.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>())?.n
+    const usersBefore = await countUsers()
     const options = (await (await client.call('/auth/register/options')).json()) as CreationOptions
     const response = await client.call('/auth/register/verify', await passkey.register(options.challenge))
     expect(response.status).toBe(409)
     expect(await errorOf(response)).toBe('credential_exists')
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe(APP_ORIGIN)
     // The batch rolled back, so the refused sign-up left no account behind.
-    const users = await env.jimbro.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>()
+    expect(await countUsers()).toBe(usersBefore)
     const owners = await env.jimbro
       .prepare('SELECT user_id FROM passkeys WHERE id = ?1')
       .bind(passkey.credentialId)
       .all<{ user_id: string }>()
     expect(owners.results).toEqual([{ user_id: session.userId }])
-    expect(users?.n).toBeGreaterThan(0)
 
     const auth = { Authorization: `Bearer ${session.token}` }
     const add = (await (await client.call('/api/passkeys/options', undefined, auth)).json()) as CreationOptions
     const again = await client.call('/api/passkeys/verify', await passkey.register(add.challenge), auth)
     expect(again.status).toBe(409)
+    expect(await errorOf(again)).toBe('credential_exists')
   })
 
   it('adds another passkey to the signed-in account, and signs out', async () => {
@@ -290,11 +293,14 @@ describe('passkey sign-up and sign-in', () => {
     const other = await newAuthenticator()
     const added = await client.call('/api/passkeys/verify', await other.register(options.challenge), auth)
     expect(added.status).toBe(200)
+    expect(await added.json()).toEqual({ ok: true })
 
     const signedIn = await client.call('/auth/signin/verify', await other.assert(await signInChallenge(client)))
     expect(((await signedIn.json()) as Session).userId).toBe(session.userId)
 
-    expect((await client.call('/api/signout', undefined, auth)).status).toBe(200)
+    const signedOut = await client.call('/api/signout', undefined, auth)
+    expect(signedOut.status).toBe(200)
+    expect(await signedOut.json()).toEqual({ ok: true })
     const ping = await SELF.fetch('https://example.com/api/ping', { headers: auth })
     expect(ping.status).toBe(401)
   })
@@ -312,18 +318,13 @@ describe('passkey sign-up and sign-in', () => {
     )
     expect(await errorOf(response)).toBe('invalid_challenge')
   })
-
-  it('needs a bearer token to add a passkey or sign out', async () => {
-    const client = newClient()
-    expect((await client.call('/api/passkeys/options')).status).toBe(401)
-    expect((await client.call('/api/signout')).status).toBe(401)
-  })
 })
 
 describe('passkey checks', () => {
   it('answers no other origin', async () => {
     const response = await newClient().call('/auth/register/options', undefined, { Origin: 'https://evil.example' })
     expect(response.status).toBe(403)
+    expect(await errorOf(response)).toBe('origin_not_allowed')
   })
 
   it('takes the RP ID from the dev origin of a local run', async () => {

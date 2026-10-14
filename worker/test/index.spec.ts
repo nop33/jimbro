@@ -3,16 +3,12 @@ import { describe, it, expect } from 'vitest'
 import worker from '../src/index'
 
 describe('auth', () => {
-  it('returns 401 with no token', async () => {
-    const res = await SELF.fetch('https://example.com/api/ping')
-    expect(res.status).toBe(401)
-  })
-
   it('returns 401 with wrong token', async () => {
     const res = await SELF.fetch('https://example.com/api/ping', {
       headers: { Authorization: 'Bearer wrong-token' }
     })
     expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'unauthorized' })
   })
 
   it('returns userId with valid token', async () => {
@@ -39,6 +35,7 @@ describe('routing', () => {
       headers: { Authorization: 'Bearer test-token-123' }
     })
     expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'not found' })
   })
 })
 

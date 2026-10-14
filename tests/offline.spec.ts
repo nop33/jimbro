@@ -72,15 +72,19 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
   await page.getByRole('button', { name: 'Seed Database' }).click()
   await expect(page.locator('.workout-week')).toBeVisible()
   // The test worker doesn't know this token, so a sync that still reaches it fails and the rows stay queued.
-  await page.evaluate(() => {
-    localStorage.setItem('jimbro.cloudBackup', JSON.stringify({ userId: 'offline-user', token: 'offline-token' }))
-  })
+  await page.goto(`${origin}/settings/`)
+  await page.locator('#cloud-backup-details > summary').click()
+  await page.getByText('Use a token').click()
+  await page.getByLabel('User ID').fill('offline-user')
+  await page.getByLabel('Token').fill('offline-token')
+  await page.getByRole('button', { name: 'Save credentials' }).click()
+  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
 
   goOffline()
   await page.goto(`${origin}/settings/`)
   const status = page.locator('#cloud-summary-status')
-  await expect(status).toHaveText(/^\d+ pending/)
-  const before = parseInt((await status.textContent()) ?? '')
+  // The 21 sample exercises and 3 programs.
+  await expect(status).toHaveText('24 pending')
 
   await page.goto(`${origin}/workouts/`)
   await page.getByRole('button', { name: 'New' }).click()
@@ -89,6 +93,7 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
   // The exercise cards show before the start, so wait for the start itself before leaving the page.
   await startWorkout(page)
 
+  // Starting the workout with a set to do stores its header, and no set row yet.
   await page.goto(`${origin}/settings/`)
-  await expect.poll(async () => parseInt((await status.textContent()) ?? '')).toBeGreaterThan(before)
+  await expect(status).toHaveText('25 pending')
 })

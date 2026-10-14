@@ -36,6 +36,11 @@ const newestSession = [...source.stores.workoutSessions].sort((left, right) => {
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0
 })[0]
 
+// About five times the medians measured locally (2 to 3 ms a tool, 39 ms the export), so a slower CI runner passes
+// and a query that turns slow fails.
+const TOOL_BUDGET_MS = 15
+const EXPORT_BUDGET_MS = 200
+
 const headers = {
   Authorization: 'Bearer test-token-123',
   'Content-Type': 'application/json',
@@ -88,16 +93,17 @@ const timed = async (run: () => Promise<Response>) => {
 }
 
 describe('mcp perf', () => {
-  it('keeps each tool within three queries, 200ms, and a 64KB recent_sessions body', async () => {
+  it('keeps each tool within three queries and its time budget, and recent_sessions within 64KB', async () => {
     if (!newestSession?.exercises[0]) throw new Error('fixture has no session')
     await clearUser()
     await seedExport(history)
 
     const exportMs: number[] = []
-    const recent: Array<{ ms: number; statements: number; bytes: number }> = []
-    const session: Array<{ ms: number; statements: number }> = []
-    const historySamples: Array<{ ms: number; statements: number }> = []
-    const catalog: Array<{ ms: number; statements: number }> = []
+    type Sample = { ms: number; statements: number; batches: number }
+    const recent: Array<Sample & { bytes: number }> = []
+    const session: Array<Sample> = []
+    const historySamples: Array<Sample> = []
+    const catalog: Array<Sample> = []
 
     for (let sample = 0; sample < 5; sample++) {
       const exported = await timed(() => call('/api/export'))
@@ -110,10 +116,19 @@ describe('mcp perf', () => {
         expect(payload.sessions).toHaveLength(10)
       }
 
-      session.push(await timed(() => callTool('get_session', { id: newestSession.id })))
-      historySamples.push(
-        await timed(() => callTool('exercise_history', { exerciseId: newestSession.exercises[0].exerciseId }))
+      const opened = await timed(() => callTool('get_session', { id: newestSession.id }))
+      session.push(opened)
+      const history = await timed(() =>
+        callTool('exercise_history', { exerciseId: newestSession.exercises[0].exerciseId })
       )
+      historySamples.push(history)
+      if (sample === 0) {
+        const payloadOf = (text: string) => JSON.parse(JSON.parse(text).result.content[0].text)
+        expect((payloadOf(opened.text) as { session: { id: string } | null }).session?.id).toBe(newestSession.id)
+        expect((payloadOf(history.text) as { sessions: Array<{ sessionId: string }> }).sessions[0]?.sessionId).toBe(
+          newestSession.id
+        )
+      }
       catalog.push(await timed(() => callTool('catalog')))
     }
 
@@ -128,14 +143,16 @@ describe('mcp perf', () => {
         `catalog ${catalogMedian.toFixed(1)}ms`
     )
 
-    for (const sample of [...recent, ...session, ...historySamples, ...catalog]) {
-      expect(sample.statements).toBeGreaterThan(0)
-      expect(sample.statements).toBeLessThanOrEqual(3)
-    }
-    expect(recentMedian).toBeLessThanOrEqual(200)
-    expect(sessionMedian).toBeLessThanOrEqual(200)
-    expect(historyMedian).toBeLessThanOrEqual(200)
-    expect(catalogMedian).toBeLessThanOrEqual(200)
+    const queries = (samples: Array<Sample>) => samples.map(({ statements, batches }) => ({ statements, batches }))
+    expect(queries(recent)).toEqual(Array(5).fill({ statements: 3, batches: 2 }))
+    expect(queries(session)).toEqual(Array(5).fill({ statements: 3, batches: 1 }))
+    expect(queries(historySamples)).toEqual(Array(5).fill({ statements: 3, batches: 2 }))
+    expect(queries(catalog)).toEqual(Array(5).fill({ statements: 3, batches: 1 }))
+    expect(median(exportMs)).toBeLessThanOrEqual(EXPORT_BUDGET_MS)
+    expect(recentMedian).toBeLessThanOrEqual(TOOL_BUDGET_MS)
+    expect(sessionMedian).toBeLessThanOrEqual(TOOL_BUDGET_MS)
+    expect(historyMedian).toBeLessThanOrEqual(TOOL_BUDGET_MS)
+    expect(catalogMedian).toBeLessThanOrEqual(TOOL_BUDGET_MS)
     expect(Math.max(...recent.map((sample) => sample.bytes))).toBeLessThanOrEqual(65536)
   }, 180_000)
 })

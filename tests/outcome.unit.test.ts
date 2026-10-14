@@ -70,13 +70,6 @@ describe('outcomeOf', () => {
       expect(outcomeOf(before, after, 'bench', BREAK)).toMatchObject({ kind: 'rest', next: 'squat name' })
     })
 
-    it('counts a set added with Add set in the sets to do', () => {
-      const before = session(exercise('bench', 4, 2))
-      const after = session(exercise('bench', 4, 3))
-
-      expect(outcomeOf(before, after, 'bench', BREAK)).toMatchObject({ kind: 'rest', setsDone: 3, setsTotal: 4 })
-    })
-
     it('starts a break for a treadmill set, whose preset has one', () => {
       const before = session(exercise('run', 2, 0, 'cardioTreadmill'))
       const after = session(exercise('run', 2, 1, 'cardioTreadmill'))

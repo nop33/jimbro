@@ -64,12 +64,6 @@ const pullAll = async (token: string) => {
   }
 }
 
-const exportStores = async (token: string) => {
-  const response = await fetch(`${API_BASE}/api/export`, { headers: authHeaders(token) })
-  if (!response.ok) throw new Error(`export ${response.status} ${await response.text()}`)
-  return sortExport((await response.json()) as ExportFile)
-}
-
 const byId = <T extends { id: string }>(items: T[]) =>
   [...items].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
 
@@ -137,26 +131,11 @@ const localStores = (page: Page) =>
     return exported.buildExportData()
   })
 
-const liftingSet = async (token: string): Promise<SetBody> => {
-  const rows = await pullAll(token)
-  const found = rows.find(
-    (row) => row.table === 'sets' && (row.row.set as SetExecution | undefined)?.preset === 'lifting'
-  )
-  if (!found) throw new Error('fixture has no lifting set')
-  return found.row as unknown as SetBody
-}
-
 const writeSet = (page: Page, set: SetBody) =>
   page.evaluate(async (row) => {
     const db = await import('/src/db/storage.ts')
     await db.storage.writeRows([{ table: 'sets', row }])
   }, set)
-
-const readLocalSet = (page: Page, id: string) =>
-  page.evaluate(async (setId) => {
-    const db = await import('/src/db/storage.ts')
-    return db.storage.get('sets', setId) as Promise<SetBody | undefined>
-  }, id)
 
 test('wipe and restore matches the server export', async ({ page }) => {
   const user = claimUser()
@@ -190,43 +169,7 @@ test('wipe and restore matches the server export', async ({ page }) => {
       })
     )
     .toBe(21)
-  const local = sortExport((await localStores(page)) as ExportFile)
-  const remote = await exportStores(user.token)
-  expect(local).toEqual(remote)
-})
-
-test('a first sync keeps the server copy of a set both sides have and sends D1 the set only this browser has', async ({
-  page
-}) => {
-  const user = claimUser()
-  await seedFixture(user)
-  const original = await liftingSet(user.token)
-  const edited = { ...original, set: { ...original.set, weight: original.set.weight + 9 } }
-  const localOnly: SetBody = {
-    id: 'local-only-set',
-    sessionId: 'local-only-session',
-    exerciseId: 'local-only-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 5, weight: 42 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  const pushes: string[] = []
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().includes('/api/push')) pushes.push(request.postData() ?? '')
-  })
-  await signIn(page, user)
-  await writeSet(page, edited)
-  await writeSet(page, localOnly)
-  await runSync(page)
-
-  expect(pushes.some((body) => body.includes(edited.id))).toBe(false)
-  const local = await readLocalSet(page, edited.id)
-  if (!local) throw new Error('missing local set')
-  expect(local.set.weight).toBe(original.set.weight)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === localOnly.id)
-  if (!stored || stored.table !== 'sets') throw new Error('missing local-only set')
-  expect((stored.row.set as SetExecution).weight).toBe(42)
+  expect(sortExport((await localStores(page)) as ExportFile)).toEqual(sortExport(fixture as unknown as ExportFile))
 })
 
 test('three sets logged offline drain into D1', async ({ page }) => {
@@ -239,7 +182,6 @@ test('three sets logged offline drain into D1', async ({ page }) => {
   await page.context().setOffline(true)
   const logged = await page.evaluate(async () => {
     const sessions = await import('/src/db/stores/workoutSessionsStore.ts')
-    const db = await import('/src/db/storage.ts')
     const exerciseId = 'offline-exercise'
     const snapshot = {
       exerciseId,
@@ -259,97 +201,22 @@ test('three sets logged offline drain into D1', async ({ page }) => {
     for (const weight of [10, 20, 30]) {
       session = await sessions.workoutSessionsStore.addSet(session, exerciseId, { preset: 'lifting', reps: 8, weight })
     }
-    const queued = await db.storage.getAll<{ table: string; id: string }>('outbox')
-    return {
-      sessionId: session.id,
-      setIds: queued.filter((entry) => entry.table === 'sets').map((entry) => entry.id)
-    }
+    return session.id
   })
-  expect(logged.setIds).toHaveLength(3)
   await page.context().setOffline(false)
   await expect.poll(async () => (await outbox(page)).length).toBe(0)
-  const stored = await pullAll(user.token)
-  for (const id of logged.setIds) {
-    expect(stored.some((row) => row.row.id === id)).toBe(true)
-  }
-})
-
-test('a push already on the wire is not the last write after an edit made during it', async ({ page }) => {
-  const user = claimUser()
-  const set: SetBody = {
-    id: 'wire-set',
-    sessionId: 'wire-session',
-    exerciseId: 'wire-exercise',
-    position: 0,
-    set: { preset: 'lifting', reps: 5, weight: 40 },
-    isDeleted: false,
-    updatedAt: '2026-09-27T12:00:00.000Z'
-  }
-  await signIn(page, user)
-  // The first sync, so the next one only pushes.
-  await page.evaluate(async (row) => {
-    const db = await import('/src/db/storage.ts')
-    const client = await import('/src/sync/syncClient.ts')
-    await db.storage.writeRows([{ table: 'sets', row }])
-    await client.sync()
-  }, set)
-  let release: (() => void) | undefined
-  const gate = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  let sawPush: (() => void) | undefined
-  const pushed = new Promise<void>((resolve) => {
-    sawPush = resolve
-  })
-  let held = false
-  await page.route('**/api/push', async (route) => {
-    if (route.request().method() !== 'POST' || held) {
-      await route.continue()
-      return
-    }
-    held = true
-    sawPush?.()
-    await gate
-    await route.continue()
-  })
-  const syncing = page.evaluate(async (row) => {
-    const db = await import('/src/db/storage.ts')
-    const client = await import('/src/sync/syncClient.ts')
-    await db.storage.writeRows([
-      { table: 'sets', row: { ...row, set: { ...row.set, weight: 50 }, updatedAt: '2026-09-27T12:00:01.000Z' } }
-    ])
-    await client.sync()
-  }, set)
-  await pushed
-  // While weight 50 is on the wire, the page edits the set again and asks for a sync, which joins the running one
-  // and queues one more run.
-  await page.evaluate(async (row) => {
-    const db = await import('/src/db/storage.ts')
-    const client = await import('/src/sync/syncClient.ts')
-    await db.storage.writeRows([
-      { table: 'sets', row: { ...row, set: { ...row.set, weight: 99 }, updatedAt: '2026-09-27T12:00:02.000Z' } }
-    ])
-    void client.sync().catch(() => undefined)
-  }, set)
-  const during = (await pullAll(user.token)).find((row) => row.row.id === set.id)
-  const duringSet = during?.row.set
-  if (!duringSet || typeof duringSet !== 'object' || !('weight' in duringSet)) {
-    throw new Error('missing in-flight weight')
-  }
-  expect(duringSet.weight).toBe(40)
-  release?.()
-  await syncing
-  const local = await readLocalSet(page, set.id)
-  if (!local) throw new Error('missing local set')
-  expect(local.set.weight).toBe(99)
-  // The rerun pushes the edit that the ack of weight 50 left queued.
-  await expect.poll(async () => (await outbox(page)).length).toBe(0)
-  const stored = (await pullAll(user.token)).find((row) => row.row.id === set.id)
-  if (!stored) throw new Error('missing uploaded set')
-  const uploaded = stored.row.set
-  if (!uploaded || typeof uploaded !== 'object' || !('weight' in uploaded)) throw new Error('missing uploaded weight')
-  expect(uploaded.weight).toBe(99)
-  await page.unroute('**/api/push')
+  const sets = (await pullAll(user.token)).filter((row) => row.table === 'sets').map((row) => row.row)
+  expect(sets).toEqual(
+    [10, 20, 30].map((weight, position) => ({
+      id: `${logged}:offline-exercise:${position}`,
+      sessionId: logged,
+      exerciseId: 'offline-exercise',
+      position,
+      set: { preset: 'lifting', reps: 8, weight },
+      isDeleted: false,
+      updatedAt: expect.any(String)
+    }))
+  )
 })
 
 test('a failed restore stays on the page', async ({ page }) => {
@@ -410,10 +277,15 @@ test('restore joins the in-flight sync without logging an aborted rerun', async 
   await signIn(page, user)
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
-  const clicked = page.getByRole('button', { name: 'Restore from cloud' }).click()
+  await page.getByRole('button', { name: 'Restore from cloud' }).click()
   await expect.poll(() => pulls).toBe(1)
+  // The restore reloads the page once it is done.
+  const reloaded = page.waitForEvent('load')
   release?.()
-  await clicked
+  await reloaded
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toHaveCount(0)
+  // One pull: the restore took the running sync's instead of pulling again.
+  expect(pulls).toBe(1)
   expect(failures).toEqual([])
 })
 

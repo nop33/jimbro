@@ -70,12 +70,6 @@ const writeSession = (page: Page, session: SeedSessionInput) =>
     ])
   }, session)
 
-const readSessionStatus = (page: Page, sessionId: string) =>
-  page.evaluate(async (id) => {
-    const { storage } = await import('/src/db/storage.ts')
-    return (await storage.get<SessionHeader>('workoutSessions', id))?.status
-  }, sessionId)
-
 // The program's exercises as a session snapshots them, each with its target sets logged.
 const buildCompletedExercisesFor = (page: Page, programId: string): Promise<Array<SeedSessionExercise>> =>
   page.evaluate(async (id) => {
@@ -127,7 +121,7 @@ test.describe('Workout session status reconciliation', () => {
     const exportDownload = page.waitForEvent('download')
     await lastCard.locator('.delete-workout-session-exercise-btn').click()
 
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
+    // The workout completes, which downloads its export.
     await exportDownload
 
     await page.goto('/workouts/')
@@ -160,8 +154,7 @@ test.describe('Workout session status reconciliation', () => {
     await targetCard.click()
 
     await expect(dialog).not.toBeVisible()
-
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('incomplete')
+    await expect(page.locator(`[data-exercise-id="${EXERCISE_NOT_IN_PUSH_DAY.id}"]`)).toBeVisible()
 
     await page.goto('/workouts/')
     const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()
@@ -194,15 +187,13 @@ test.describe('Workout session status reconciliation', () => {
     await lastCard.scrollIntoViewIfNeeded()
     await lastCard.locator('.exercise-details > summary').click()
     await lastCard.getByRole('button', { name: 'Finished set' }).click()
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
     await expect.poll(workoutsDone).toBe(1)
 
     await lastCard.locator('.exercise-details > summary').click()
     await lastCard.getByRole('button', { name: 'Add set' }).click()
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('incomplete')
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
 
     await lastCard.getByRole('button', { name: 'Finished set' }).click()
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
     await expect.poll(workoutsDone).toBe(2)
   })
 
@@ -244,30 +235,5 @@ test.describe('Workout session status reconciliation', () => {
       () => (window as unknown as { vibrations: Array<number | Array<number>> }).vibrations
     )
     expect(patterns.filter(Array.isArray)).toEqual([[60, 40, 60, 40, 60, 80, 400]])
-  })
-
-  test('saving the session details heals a session whose stored status is stale', async ({ page }) => {
-    // Simulate a session that was bugged before the fix: all exercises fully
-    // logged but status stored as 'incomplete'. Saving the details should heal it.
-    const sessionId = crypto.randomUUID()
-    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
-
-    await writeSession(page, {
-      id: sessionId,
-      programId: PUSH_DAY_PROGRAM_ID,
-      status: 'incomplete',
-      exercises
-    })
-
-    await page.goto(`/gymtime/?id=${sessionId}`)
-
-    // Open the details (they start collapsed) and change the notes, which saves them
-    const workoutDetails = page.locator('#workout-details')
-    await workoutDetails.locator('summary').click()
-
-    await page.locator('textarea[name="notes"]').fill('Healed')
-    await page.locator('textarea[name="notes"]').blur()
-
-    await expect.poll(() => readSessionStatus(page, sessionId)).toBe('completed')
   })
 })

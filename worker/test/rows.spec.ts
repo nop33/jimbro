@@ -14,6 +14,10 @@ const updatedAt = '2026-01-02T00:00:00.000Z'
 
 const presets = Object.keys(LOG_PRESET_SPECS) as Array<LogPreset>
 
+// The presets with a slot of each kind, so a test over one kind never runs zero checks.
+const withRequired = presets.filter((preset) => slotsForPreset(preset).some(({ required }) => required))
+const withOptional = presets.filter((preset) => slotsForPreset(preset).some(({ required }) => !required))
+
 const exerciseRow = (fields: Record<string, unknown> = {}) => ({
   table: 'exercises',
   row: {
@@ -69,7 +73,12 @@ describe('push validation follows the exercise logging registry', () => {
     expect(accepts(setRow(filledSet(preset)))).toBe(true)
   })
 
-  it.each(presets)('rejects a %s set without a required slot', (preset) => {
+  it('has presets with required and with optional slots to check', () => {
+    expect(withRequired).not.toEqual([])
+    expect(withOptional).not.toEqual([])
+  })
+
+  it.each(withRequired)('rejects a %s set without a required slot', (preset) => {
     for (const { slot } of slotsForPreset(preset).filter(({ required }) => required)) {
       const set = filledSet(preset)
       delete set[slot]
@@ -77,7 +86,7 @@ describe('push validation follows the exercise logging registry', () => {
     }
   })
 
-  it.each(presets)('accepts a %s set without an optional slot, and rejects text in it', (preset) => {
+  it.each(withOptional)('accepts a %s set without an optional slot, and rejects text in it', (preset) => {
     for (const { slot } of slotsForPreset(preset).filter(({ required }) => !required)) {
       const set = filledSet(preset)
       delete set[slot]
