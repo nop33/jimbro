@@ -21,17 +21,26 @@ class ToastMessagePopup {
     document.body.appendChild(toastMessagePopup)
 
     return new Promise((resolve) => {
-      const dismiss = () => {
+      // It slides out the way it came in, and the next toast waits until it has gone.
+      const dismiss = async () => {
+        toastMessagePopup.classList.add('leaving')
+        // Reading a style applies the class now, so the transitions it starts are there to wait for.
+        void getComputedStyle(toastMessagePopup).opacity
+        await Promise.allSettled(toastMessagePopup.getAnimations().map(({ finished }) => finished))
         toastMessagePopup.remove()
         resolve(undefined)
       }
 
-      const timeout = setTimeout(dismiss, this.toastMessage.duration === 'short' ? 3000 : 5000)
+      const timeout = setTimeout(() => void dismiss(), this.toastMessage.duration === 'short' ? 3000 : 5000)
 
-      toastMessagePopup.addEventListener('click', () => {
-        dismiss()
-        clearTimeout(timeout)
-      })
+      toastMessagePopup.addEventListener(
+        'click',
+        () => {
+          clearTimeout(timeout)
+          void dismiss()
+        },
+        { once: true }
+      )
     })
   }
 }

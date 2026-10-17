@@ -45,6 +45,7 @@ const anchorMenu = (menu: HTMLElement, anchor: () => Element, room: number) => {
     menu.style.top = opensUp ? 'auto' : `${box.bottom + 4}px`
     menu.style.bottom = opensUp ? `${window.innerHeight - box.top + 4}px` : 'auto'
     menu.style.right = `${document.documentElement.clientWidth - box.right}px`
+    menu.style.transformOrigin = opensUp ? 'bottom right' : 'top right'
   }
 
   menu.addEventListener('beforetoggle', (event) => {
