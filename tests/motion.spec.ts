@@ -15,7 +15,7 @@ test('a tapped toast slides out before it leaves the page', async ({ page }) => 
   await expect(toast).toHaveText('Exercise saved!')
   // The toast waits for its exit transitions, so it is still there, leaving, when the tap returns. The tap comes once
   // the toast has slid in, as a person sees it before tapping it.
-  const leaving = await toast.evaluate(async (element) => {
+  const leaving = await toast.evaluate(async (element: HTMLElement) => {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     await Promise.all(element.getAnimations().map(({ finished }) => finished))
     element.click()
