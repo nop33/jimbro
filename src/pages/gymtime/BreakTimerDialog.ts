@@ -83,16 +83,11 @@ class BreakTimerDialog {
     const now = Date.now()
     const diffMs = this.targetTime - now
 
-    // Calculate the difference in seconds first to properly hit 0:00
-    const diffSecs = Math.ceil(diffMs / 1000)
-    const isNegative = diffSecs < 0
-    const absDiffSecs = Math.abs(diffSecs)
-
-    const mins = Math.floor(absDiffSecs / 60)
-    const secs = absDiffSecs % 60
-
-    const timeString = `${mins}:${secs < 10 ? `0${secs}` : secs}`
-    this.countdown.textContent = isNegative ? `-${timeString}` : timeString
+    // Round up, so each number shows for a full second and 0:00 shows once the break is over. It stops at 0:00.
+    const diffSecs = Math.max(Math.ceil(diffMs / 1000), 0)
+    const mins = Math.floor(diffSecs / 60)
+    const secs = diffSecs % 60
+    this.countdown.textContent = `${mins}:${secs < 10 ? `0${secs}` : secs}`
 
     if (diffMs <= 0 && !this.hasPlayedSound) {
       playDingSound()
@@ -102,7 +97,7 @@ class BreakTimerDialog {
     if (diffMs <= 0 && this.autoCloseTimeout === null && document.visibilityState === 'visible') {
       this.autoCloseTimeout = setTimeout(() => {
         this.closeDialog()
-      }, 1500)
+      }, 1000)
     }
   }
 
