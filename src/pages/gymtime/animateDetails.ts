@@ -89,7 +89,7 @@ export function animateDetails(
     stop()
     // Seed the inline styles to match the starting keyframe so the first paint after setAttribute('open') never shows
     // the element at its natural height.
-    // Clips only the height, so what sits on the content's side edges, like the Add set plus, stays whole.
+    // Clips only the height, so what sits on the content's side edges, like the Max pill, stays whole.
     content.style.overflowY = 'clip'
     content.style.height = `${from.height}px`
     content.style.opacity = from.height === 0 ? '0' : '1'

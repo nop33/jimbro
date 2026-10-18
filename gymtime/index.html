@@ -265,24 +265,26 @@
             </header>
             <details class="exercise-details">
               <summary>Exercise sets</summary>
-              <!-- Inside the details, so a closed card hides it, and above the summary's tap area. -->
-              <button type="button" class="add-set-btn">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="2.5"
-                  stroke="currentColor"
-                  class="size-[18px]"
-                  aria-hidden="true"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Add set
-              </button>
               <div class="exercise-details-content">
                 <div class="completed-sets set-list mb-3">
                   <!-- Completed sets will be rendered here -->
+                </div>
+                <!-- Under the last set, on the right. -->
+                <div class="add-set-row">
+                  <button type="button" class="add-set-btn">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2.5"
+                      stroke="currentColor"
+                      class="size-[18px]"
+                      aria-hidden="true"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add set
+                  </button>
                 </div>
                 <!-- Opens from a set still to do. -->
                 <div popover class="set-menu card-menu">
