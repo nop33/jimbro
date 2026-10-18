@@ -140,9 +140,23 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
   test(`the history chart animates its lines only without reduced motion (${reducedMotion})`, async ({
     page
   }, testInfo) => {
-    // Reading the pixels is so slow on a Mobile Safari canvas that the animation is over before it sees two frames at
-    // the final size, so only the still chart can be checked there.
-    test.skip(reducedMotion === 'no-preference' && testInfo.project.name === 'Mobile Safari', 'pixel reads too slow')
+    // On a phone held upright the chart starts at an upright size, and turning it to landscape ends its animation after
+    // a frame or two, so only the still chart can be checked there.
+    test.skip(
+      reducedMotion === 'no-preference' && testInfo.project.name === 'Mobile Safari',
+      'resized before it animates'
+    )
+    // Chart.js clears the canvas before it draws each frame, so counting the clears counts the frames it draws.
+    // Counting is cheap where reading the pixels is not, so a busy browser still shows every frame.
+    await page.addInitScript(() => {
+      const draws: Array<string> = []
+      Object.assign(window, { historyChartDraws: draws })
+      const { clearRect } = CanvasRenderingContext2D.prototype
+      CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+        if (this.canvas.id === 'exercise-history-chart') draws.push(`${this.canvas.width}x${this.canvas.height}`)
+        clearRect.apply(this, args)
+      }
+    })
     const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
     await page.emulateMedia({ reducedMotion })
     await page.goto(`/gymtime/?id=${sessionId}`)
@@ -151,28 +165,16 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     await card.locator('.view-history-btn').click()
     await expect(page.locator('#exercise-history-dialog')).toBeVisible()
 
-    // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
-    // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
-    // Frames at another size come before the chart fits its dialog, and WebKit can resize it late. Reading the pixels is
-    // slow on a Mobile Safari canvas, so it may see only a few frames at the final size.
-    const frames = await page.evaluate(async () => {
-      const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
-      if (!canvas) throw new Error('no chart canvas')
+    // An animated chart draws a frame on every frame for a second. A chart that does not animate draws once at each
+    // size it takes, and WebKit can draw a frame at another size before the chart fits its dialog.
+    const draws = await page.evaluate(async () => {
       const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      while (!canvas.hasAttribute('style')) await nextFrame()
-      const seen: Array<{ size: string; pixels: string }> = []
       const start = performance.now()
-      while (performance.now() - start < 2000) {
-        await nextFrame()
-        seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
-      }
-      return seen
+      while (performance.now() - start < 2000) await nextFrame()
+      return (window as unknown as { historyChartDraws: Array<string> }).historyChartDraws
     })
-    const last = frames[frames.length - 1]
-    const atFinalSize = frames.filter((frame) => frame.size === last.size)
-    expect(atFinalSize.length).toBeGreaterThan(1)
-    const changing = atFinalSize.filter((frame) => frame.pixels !== last.pixels)
-    if (reducedMotion === 'reduce') expect(changing).toHaveLength(0)
-    else expect(changing).not.toHaveLength(0)
+    const atFinalSize = draws.filter((size) => size === draws[draws.length - 1])
+    if (reducedMotion === 'reduce') expect(atFinalSize).toHaveLength(1)
+    else expect(atFinalSize.length).toBeGreaterThan(2)
   })
 }
