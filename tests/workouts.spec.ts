@@ -159,6 +159,7 @@ test.describe('Workouts Page', () => {
     await progress.click()
     const modeDialog = page.locator('dialog#workout-mode-dialog')
     await expect(modeDialog).toBeVisible()
+    await expect(modeDialog.getByRole('heading', { name: 'Workout Mode' })).toBeFocused()
     // Choosing a mode reloads the page at once, so a click stands in for check(), which would look for the checked state after it.
     await modeDialog.getByRole('radio', { name: 'Freestyle' }).click()
 

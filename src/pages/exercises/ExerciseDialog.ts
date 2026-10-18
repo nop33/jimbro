@@ -100,6 +100,11 @@ class ExerciseDialog {
   }
 
   static populateForm(exercise?: Exercise) {
+    // showModal() focuses the autofocus element: the name of a new exercise, so the keyboard opens to type it, or the
+    // title when editing, so no field takes the focus and opens the keyboard over what you came to see.
+    this.exerciseNameInput.autofocus = !exercise
+    this.dialogTitle.autofocus = Boolean(exercise)
+
     if (exercise) {
       this.dialogTitle.textContent = 'Edit Exercise'
       this.exerciseIdInput.value = exercise.id

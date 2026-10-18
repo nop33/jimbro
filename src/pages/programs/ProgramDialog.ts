@@ -88,6 +88,10 @@ class ProgramDialog {
   }
 
   static populateForm(program?: Program) {
+    // As in the exercise dialog: a new program opens on its name, an edited one on its title.
+    this.programNameInput.autofocus = !program
+    this.dialogTitle.autofocus = Boolean(program)
+
     if (program) {
       this.selectedExercises = new Set(program.exercises)
 

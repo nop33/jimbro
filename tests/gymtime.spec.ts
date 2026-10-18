@@ -66,6 +66,8 @@ test.describe('Gymtime Page', () => {
 
     await completedSetItem.click()
     await expect(editSetDialog).toBeVisible()
+    // The set's values fill the form, so the title takes the focus and no keyboard opens over them.
+    await expect(editSetDialog.getByRole('heading', { name: 'Edit set' })).toBeFocused()
 
     await editSetDialog.locator('input[name="set-weight"]').fill('105')
     await editSetDialog.getByRole('button', { name: 'Save' }).click()
@@ -87,6 +89,7 @@ test.describe('Gymtime Page', () => {
 
     await addExerciseCard.click()
     await expect(addExerciseDialog).toBeVisible()
+    await expect(addExerciseDialog.getByRole('heading', { name: 'Add exercise' })).toBeFocused()
 
     const cardNames = page.locator('#exercises-list > .card .exercise-name')
     const cardsBefore = await cardNames.count()

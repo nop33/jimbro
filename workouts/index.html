@@ -172,7 +172,8 @@
 
     <dialog id="workout-mode-dialog">
       <header class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">Workout Mode</h2>
+        <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
+        <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Workout Mode</h2>
         <!-- partial:close-dialog-button -->
       </header>
       <div class="flex flex-col gap-4">
