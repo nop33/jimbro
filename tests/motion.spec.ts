@@ -135,3 +135,45 @@ test('a closing exercise card shrinks to its closed height without a jump at the
   })
   expect(heights.open).toBeCloseTo(heights.closed, 0)
 })
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`a logged set draws its border before the break timer opens only without reduced motion (${reducedMotion})`, async ({
+    page
+  }) => {
+    await seedDatabase(page)
+    await page.emulateMedia({ reducedMotion })
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('summary').click()
+
+    // Notes, in order, when the trace is drawn, when it is gone and when the break timer opens.
+    await page.evaluate(() => {
+      const events: string[] = []
+      ;(window as unknown as { traceEvents: string[] }).traceEvents = events
+      new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes)
+            if (node instanceof SVGElement && node.matches('.set-trace')) events.push('trace')
+          for (const node of record.removedNodes)
+            if (node instanceof SVGElement && node.matches('.set-trace')) events.push('gone')
+          if (record.attributeName === 'open' && (record.target as Element).id === 'break-countdown-dialog')
+            events.push('timer')
+        }
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] })
+    })
+
+    const form = card.locator('.next-set-form')
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('60')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    await expect(page.locator('#break-countdown-dialog')).toHaveClass(/dialog-full-screen/)
+
+    await expect(card.locator('.set.isCompleted')).toHaveCount(1)
+    await expect(page.locator('.set-trace')).toHaveCount(0)
+    const events = await page.evaluate(() => (window as unknown as { traceEvents: string[] }).traceEvents)
+    expect(events).toEqual(reducedMotion === 'reduce' ? ['timer'] : ['trace', 'gone', 'timer'])
+  })
+}
