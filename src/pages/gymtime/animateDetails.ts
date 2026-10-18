@@ -53,32 +53,61 @@ export function animateDetails(
     else callback()
   }
 
-  const runAnimation = (fromHeight: number, toHeight: number, onFinish?: () => void) => {
-    currentAnimation?.cancel()
-    // Seed the inline style to match the starting keyframe so the first paint
-    // after setAttribute('open') never shows the element at its natural height.
+  // An open summary has a gap under it (style.css), which the open attribute alone would add and drop in one frame,
+  // a jump at the end of every close. So the summary's margin moves with the content's height.
+  const summary = details.querySelector('summary')
+
+  // How far the details is open: the content's height and the summary's gap, as they show now.
+  const measure = () => ({
+    height: content.getBoundingClientRect().height,
+    gap: summary ? parseFloat(getComputedStyle(summary).marginBottom) : 0
+  })
+  const shut = { height: 0, gap: 0 }
+
+  const stop = () => {
+    currentAnimation = null
+    for (const element of [content, summary]) element?.getAnimations().forEach((animation) => animation.cancel())
+    // Remove the forwards fill and the seeded inline styles so each element returns to its stylesheet values (or
+    // stays unrendered when closed).
+    content.style.overflowY = ''
+    content.style.height = ''
+    content.style.opacity = ''
+    if (summary) summary.style.marginBottom = ''
+  }
+
+  // The open details' full height and gap, read with nothing animating them.
+  const fullyOpen = () => {
+    stop()
+    return { height: content.scrollHeight, gap: measure().gap }
+  }
+
+  const runAnimation = (
+    from: { height: number; gap: number },
+    to: { height: number; gap: number },
+    onFinish?: () => void
+  ) => {
+    stop()
+    // Seed the inline styles to match the starting keyframe so the first paint after setAttribute('open') never shows
+    // the element at its natural height.
     // Clips only the height, so what sits on the content's side edges, like the Add set plus, stays whole.
     content.style.overflowY = 'clip'
-    content.style.height = `${fromHeight}px`
-    content.style.opacity = fromHeight === 0 ? '0' : '1'
+    content.style.height = `${from.height}px`
+    content.style.opacity = from.height === 0 ? '0' : '1'
+    if (summary) summary.style.marginBottom = `${from.gap}px`
+    const timing = { duration: DURATION_MS, easing: EASING, fill: 'forwards' } as const
     const animation = content.animate(
       [
-        { height: `${fromHeight}px`, opacity: fromHeight === 0 ? 0 : 1 },
-        { height: `${toHeight}px`, opacity: toHeight === 0 ? 0 : 1 }
+        { height: `${from.height}px`, opacity: from.height === 0 ? 0 : 1 },
+        { height: `${to.height}px`, opacity: to.height === 0 ? 0 : 1 }
       ],
-      { duration: DURATION_MS, easing: EASING, fill: 'forwards' }
+      timing
     )
+    summary?.animate([{ marginBottom: `${from.gap}px` }, { marginBottom: `${to.gap}px` }], timing)
     currentAnimation = animation
     animation.onfinish = () => {
       if (currentAnimation !== animation) return
-      currentAnimation = null
+      stop()
       onFinish?.()
-      // Remove the forwards fill and the seeded inline styles so the element
-      // returns to its stylesheet values (or stays unrendered when closed).
-      animation.cancel()
-      content.style.overflowY = ''
-      content.style.height = ''
-      content.style.opacity = ''
     }
   }
 
@@ -88,19 +117,18 @@ export function animateDetails(
     if (isClosing) {
       // Reverse an in-flight close. The <details> is still [open] at this
       // point — we only remove the attribute at the end of a close animation.
-      const currentHeight = content.getBoundingClientRect().height
+      const current = measure()
       endClose()
+      const target = fullyOpen()
       if (reducedMotion) return
-      const targetHeight = content.scrollHeight
-      runAnimation(currentHeight, targetHeight)
+      runAnimation(current, target)
       return
     }
 
     details.setAttribute('open', '')
     if (reducedMotion) return
-    // scrollHeight is measurable now that the content is in layout.
-    const targetHeight = content.scrollHeight
-    runAnimation(0, targetHeight)
+    // The content is measurable now that it is in layout.
+    runAnimation(shut, fullyOpen())
   }
 
   const close = () => {
@@ -111,15 +139,13 @@ export function animateDetails(
       return
     }
 
-    const startHeight = content.getBoundingClientRect().height
     isClosing = true
-    runAnimation(startHeight, 0, () => {
+    runAnimation(measure(), shut, () => {
       details.removeAttribute('open')
       endClose()
     })
   }
 
-  const summary = details.querySelector('summary')
   if (!summary) return { close, afterClose }
 
   summary.addEventListener('click', (e) => {
