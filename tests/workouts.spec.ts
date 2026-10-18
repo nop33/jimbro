@@ -93,7 +93,7 @@ test.describe('Workouts Page', () => {
     page.on('dialog', (dialog) => dialog.accept())
     for (let remaining = await programCards.count(); remaining > 0; remaining--) {
       await programCards.first().locator('.edit-program-btn').click()
-      await page.locator('#delete-program-btn').click()
+      await page.locator('#program-dialog').getByRole('button', { name: 'Delete' }).click()
       await expect(page.locator('#program-dialog')).toBeHidden()
       await expect(programCards).toHaveCount(remaining - 1)
     }
@@ -114,7 +114,7 @@ test.describe('Workouts Page', () => {
 
     await page.locator('.card', { hasText: 'Bench Press' }).click()
     page.once('dialog', (dialog) => dialog.accept())
-    await page.locator('#delete-exercise-btn').click()
+    await page.locator('#exercise-dialog').getByRole('button', { name: 'Delete' }).click()
     await expect(page.locator('#exercise-dialog')).toBeHidden()
 
     await page.goto('/workouts/')

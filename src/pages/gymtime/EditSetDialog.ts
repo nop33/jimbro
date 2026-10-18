@@ -13,14 +13,12 @@ interface EditSetData {
 
 class EditSetDialog {
   private static dialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
-  private static deleteBtn = document.querySelector('#delete-set-btn') as HTMLButtonElement
+  private static deleteBtn = this.dialog.querySelector('.delete-btn') as HTMLButtonElement
   private static form = document.querySelector('#edit-set-form') as HTMLFormElement
   private static fields = document.querySelector('#edit-set-fields') as HTMLDivElement
   private static editedSetData: EditSetData | null = null
 
   static init() {
-    this.dialogCancel.addEventListener('click', () => this.closeDialog())
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.form.addEventListener('submit', (event) => this.onSubmit(event))
     this.deleteBtn.addEventListener('click', () => this.onDelete())

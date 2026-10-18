@@ -22,7 +22,6 @@ import MuscleGroupSelect from './MuscleGroupSelect'
 class ExerciseDialog {
   private static newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
   private static exerciseDialog = document.querySelector('#exercise-dialog') as HTMLDialogElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
   private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
   private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
@@ -34,7 +33,7 @@ class ExerciseDialog {
   private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
   private static exerciseDefaults = document.querySelector('#exercise-defaults') as HTMLDivElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteExerciseBtn = document.querySelector('#delete-exercise-btn') as HTMLButtonElement
+  private static deleteExerciseBtn = this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
 
   static openDialog() {
     this.exerciseDialog.showModal()
@@ -55,10 +54,6 @@ class ExerciseDialog {
     this.newExerciseButton.addEventListener('click', () => {
       this.populateForm()
       this.openDialog()
-    })
-
-    this.dialogCancel.addEventListener('click', () => {
-      this.closeDialog()
     })
 
     this.exerciseDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
@@ -108,7 +103,7 @@ class ExerciseDialog {
     if (exercise) {
       this.dialogTitle.textContent = 'Edit Exercise'
       this.exerciseIdInput.value = exercise.id
-      this.deleteExerciseBtn.classList.remove('hidden')
+      this.deleteExerciseBtn.hidden = false
       this.exerciseNameInput.value = exercise.name
       this.exerciseKindSelect.value = exercise.kind
       this.exerciseMuscleSelect.value = exercise.muscle ?? ''
@@ -120,7 +115,7 @@ class ExerciseDialog {
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
       this.exerciseKindSelect.value = 'lifting'
-      this.deleteExerciseBtn.classList.add('hidden')
+      this.deleteExerciseBtn.hidden = true
       this.onKindChanged()
     }
   }
