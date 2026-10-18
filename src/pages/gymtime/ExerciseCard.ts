@@ -21,6 +21,7 @@ import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
 import { tapToDismiss } from './tapToDismiss'
+import { traceSet } from './traceSet'
 import type { ExercisePlan } from './exercisePlan'
 import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
@@ -139,7 +140,8 @@ class ExerciseCard {
 
   // Shows the exercise as the session holds it, or before a session starts, as the start will store it. It changes
   // only what differs from what the card shows, and leaves the next set's inputs alone while the user is on them.
-  show(snapshot: ExerciseSnapshot, session: WorkoutSession | undefined, plan: ExercisePlan): void {
+  // Resolves once a set just logged has drawn its border.
+  show(snapshot: ExerciseSnapshot, session: WorkoutSession | undefined, plan: ExercisePlan): Promise<void> {
     const presetChanged = snapshot.preset !== this.snapshot.preset
     this.snapshot = snapshot
     this.plan = plan
@@ -161,7 +163,7 @@ class ExerciseCard {
     configureSetRowGrid(this.completedSets, preset)
     const logged = session?.exercises.find(({ exerciseId }) => exerciseId === this.exerciseId)?.sets ?? []
     const removable = canRemoveSetSlot(progress)
-    this.showSetRows(
+    const traced = this.showSetRows(
       Array.from({ length: progress.target }, (_, index) =>
         index < logged.length
           ? { set: logged[index], logged: true }
@@ -180,14 +182,19 @@ class ExerciseCard {
       this.typedIn = false
     }
 
-    // The card starts closing as it shows the set that finished the exercise, and keeps the next set's form until the
-    // close ends, so it closes from its full height.
-    if (progress.done && this.closeWhenDone) this.detailsAnimation.close()
-    this.detailsAnimation.afterClose(() => this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done))
+    // The card starts closing once the set that finished the exercise has drawn its border, and keeps the next set's
+    // form until the close ends, so it closes from its full height.
+    const closing = progress.done && this.closeWhenDone
+    return traced.then(() => {
+      if (closing) this.detailsAnimation.close()
+      this.detailsAnimation.afterClose(() => this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done))
+    })
   }
 
-  // Keeps each row that still shows the same set, so only a changed row is drawn again.
-  private showSetRows(rows: Array<SetRow>) {
+  // Keeps each row that still shows the same set, so only a changed row is drawn again. A set to do that is now logged
+  // draws its border, and the promise resolves once it has.
+  private showSetRows(rows: Array<SetRow>): Promise<void> {
+    const traces: Array<Promise<void>> = []
     rows.forEach((row, index) => {
       const key = JSON.stringify(row)
       const shown = this.completedSets.children.item(index) as HTMLDivElement | null
@@ -196,8 +203,10 @@ class ExerciseCard {
       item.dataset.row = key
       if (shown) shown.replaceWith(item)
       else this.completedSets.append(item)
+      if (row.logged && shown?.classList.contains('isPending')) traces.push(traceSet(item))
     })
     while (this.completedSets.children.length > rows.length) this.completedSets.lastElementChild?.remove()
+    return Promise.all(traces).then(() => undefined)
   }
 
   private renderSetItem({ set, logged, removable }: SetRow, index: number): HTMLDivElement {

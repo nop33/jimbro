@@ -34,7 +34,7 @@ class ExerciseCardList {
     if (!openSession.current) await this.show(undefined)
   }
 
-  // Resolves once the cards show the session, or a later one.
+  // Resolves once the cards show the session, or a later one, and a set just logged has drawn its border.
   private static show(session: WorkoutSession | undefined): Promise<void> {
     const shown = this.draw(session, ++this.generation)
     this.latest = shown
@@ -60,9 +60,10 @@ class ExerciseCardList {
     // Everything from here runs in one task, so a tap or scroll can't land between the cards' changes.
     const scrollY = window.scrollY
     const cards = new Map<ExerciseSnapshot['exerciseId'], ExerciseCard>()
+    const traced: Array<Promise<void>> = []
     for (const [snapshot, plan] of plans.filter((shown) => shown !== undefined)) {
       const card = this.cards.get(snapshot.exerciseId) ?? new ExerciseCard(snapshot)
-      card.show(snapshot, session, plan)
+      traced.push(card.show(snapshot, session, plan))
       cards.set(snapshot.exerciseId, card)
     }
     this.cards = cards
@@ -76,6 +77,9 @@ class ExerciseCardList {
     while (this.exercisesList.children.length > elements.length) this.exercisesList.lastElementChild?.remove()
 
     if (window.scrollY !== scrollY) window.scrollTo(0, scrollY)
+
+    // A set just logged draws its border before what the change means, like the break timer, covers it.
+    await Promise.all(traced)
   }
 }
 

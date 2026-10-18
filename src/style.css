@@ -679,9 +679,25 @@
   }
 
   .set {
+    position: relative;
     display: grid;
     align-items: center;
     grid-template-columns: subgrid;
+  }
+
+  /* The stroke that draws a logged set's border (traceSet.ts), over the row's 1px border. */
+  .set-trace {
+    position: absolute;
+    inset: -1px;
+    overflow: visible;
+    pointer-events: none;
+
+    path {
+      fill: none;
+      stroke: #6fd47f;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
   }
 
   .set-fields {
