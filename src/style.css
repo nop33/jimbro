@@ -14,6 +14,12 @@
   view-transition-name: bottom-nav;
 }
 
+/* The break timer covers both while it morphs (BreakTimerDialog.ts), so they go with the rest of the page. Named, they
+   would draw on top of the timer until the morph ended. */
+.morphing-break-timer :is(.app-header, .bottom-nav) {
+  view-transition-name: none;
+}
+
 /* A list the page draws from IndexedDB arrives a few frames after the page. Where nothing prerendered the page,
    as in Safari, its items fade in instead of popping in. */
 .fills-in > * {

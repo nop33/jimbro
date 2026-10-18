@@ -66,7 +66,8 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
 
-    // The view transition groups that animate in the frames after the timer turns into its bar.
+    // The view transition groups that animate in the frames after the timer turns into its bar. The header and nav
+    // morph with the page under it, since a group of their own would draw on top of the timer.
     const morphed = page.evaluate(
       () =>
         new Promise<string[]>((resolve) => {
@@ -75,7 +76,9 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
             document
               .getAnimations()
               .map((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? '')
-              .filter((pseudo) => /^::view-transition-group\((break-timer|countdown)\)$/.test(pseudo))
+              .filter((pseudo) =>
+                /^::view-transition-group\((break-timer|countdown|app-header|bottom-nav)\)$/.test(pseudo)
+              )
           void (async () => {
             while (!document.querySelector('#break-countdown-dialog.dialog-minimized')) await nextFrame()
             const seen = new Set<string>()
