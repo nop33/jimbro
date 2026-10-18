@@ -7,28 +7,24 @@ on:
   pull_request:
 
 jobs:
-  install:
+  # The e2e jobs run in the Playwright image of the locked version, which they must name before their steps run.
+  playwright-version:
     runs-on: ubuntu-latest
     outputs:
-      playwright: ${{ steps.playwright.outputs.version }}
+      version: ${{ steps.lockfile.outputs.version }}
     steps:
       - uses: actions/checkout@v5
-      - uses: voidzero-dev/setup-vp@v1
         with:
-          node-version: '22'
-          cache: true
-      - name: Install client dependencies
-        run: vp install
-      - name: Install worker dependencies
-        run: cd worker && vp install
-      - name: Read the installed Playwright version
-        id: playwright
+          sparse-checkout: pnpm-lock.yaml
+          sparse-checkout-cone-mode: false
+      - name: Read the locked Playwright version
+        id: lockfile
         run: |
-          version=$(node -p "require('@playwright/test/package.json').version")
+          version=$(grep -m1 -A2 "'@playwright/test':" pnpm-lock.yaml | sed -n 's/^ *version: //p')
+          test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   typecheck:
-    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -44,7 +40,6 @@ jobs:
         run: cd worker && vp run typecheck
 
   format:
-    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -59,7 +54,6 @@ jobs:
           git diff --exit-code || (echo "::error::Files not formatted. Run 'vp fmt' locally." && exit 1)
 
   lint:
-    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -75,7 +69,6 @@ jobs:
         run: vp lint
 
   unit-tests:
-    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -92,12 +85,12 @@ jobs:
 
   e2e:
     name: e2e (${{ matrix.artifact }})
-    needs: install
+    needs: playwright-version
     runs-on: ubuntu-latest
     # The Playwright image of the installed version ships its browsers and the system packages they need. Installing
     # them on the runner with `playwright install --with-deps` sometimes ran into the timeout below.
     container:
-      image: mcr.microsoft.com/playwright:v${{ needs.install.outputs.playwright }}-noble
+      image: mcr.microsoft.com/playwright:v${{ needs.playwright-version.outputs.version }}-noble
       # The job's own PID 1 is `tail`, which never reaps the processes a stopped wrangler leaves behind, so the test
       # worker's teardown would wait out its timeout. --init runs a PID 1 that reaps them.
       options: --init

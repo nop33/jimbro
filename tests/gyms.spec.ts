@@ -137,12 +137,7 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
 })
 
 for (const reducedMotion of ['reduce', 'no-preference'] as const) {
-  test(`the history chart animates its lines only without reduced motion (${reducedMotion})`, async ({
-    page
-  }, testInfo) => {
-    // Reading the pixels is so slow on a Mobile Safari canvas that the animation is over before it sees two frames at
-    // the final size, so only the still chart can be checked there.
-    test.skip(reducedMotion === 'no-preference' && testInfo.project.name === 'Mobile Safari', 'pixel reads too slow')
+  test(`the history chart animates its lines only without reduced motion (${reducedMotion})`, async ({ page }) => {
     const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
     await page.emulateMedia({ reducedMotion })
     await page.goto(`/gymtime/?id=${sessionId}`)
@@ -151,28 +146,14 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     await card.locator('.view-history-btn').click()
     await expect(page.locator('#exercise-history-dialog')).toBeVisible()
 
-    // An animated chart paints its lines a little further on every frame for a second. A chart that does not animate
-    // paints its final lines on the first frame at its final size, so every frame at that size matches the last one.
-    // Frames at another size come before the chart fits its dialog, and WebKit can resize it late. Reading the pixels is
-    // slow on a Mobile Safari canvas, so it may see only a few frames at the final size.
-    const frames = await page.evaluate(async () => {
-      const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
-      if (!canvas) throw new Error('no chart canvas')
-      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-      while (!canvas.hasAttribute('style')) await nextFrame()
-      const seen: Array<{ size: string; pixels: string }> = []
-      const start = performance.now()
-      while (performance.now() - start < 2000) {
-        await nextFrame()
-        seen.push({ size: `${canvas.width}x${canvas.height}`, pixels: canvas.toDataURL() })
-      }
-      return seen
-    })
-    const last = frames[frames.length - 1]
-    const atFinalSize = frames.filter((frame) => frame.size === last.size)
-    expect(atFinalSize.length).toBeGreaterThan(1)
-    const changing = atFinalSize.filter((frame) => frame.pixels !== last.pixels)
-    if (reducedMotion === 'reduce') expect(changing).toHaveLength(0)
-    else expect(changing).not.toHaveLength(0)
+    // Watching the frames can't tell: a busy browser fits the chart to its dialog late, and the resize ends the
+    // animation after a frame or two. So the spec reads the animation Chart.js runs the chart with.
+    const animates = () =>
+      page.evaluate(async () => {
+        const { default: ExerciseHistoryChart } = await import('/src/pages/gymtime/ExerciseHistoryChart.ts')
+        const chart: { options: { animation: unknown } } | null = Reflect.get(ExerciseHistoryChart, 'chartInstance')
+        return chart ? chart.options.animation !== false : undefined
+      })
+    await expect.poll(animates).toBe(reducedMotion === 'no-preference')
   })
 }
