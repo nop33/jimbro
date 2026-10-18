@@ -737,6 +737,58 @@
       @apply bg-jim-info border-jim-info/20;
     }
   }
+
+  /* The celebration layer, a manual popover so it shows in the top layer above any open dialog. Taps go through it.
+     src/features/confetti places and animates what it holds. */
+  .confetti {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+  }
+
+  .confetti-piece,
+  .confetti-spark,
+  .confetti-ring {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .confetti-piece {
+    will-change: transform;
+  }
+
+  .confetti-ring {
+    @apply rounded-full border-3 border-jim-accent;
+  }
+
+  .confetti-spark {
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 2px;
+    transform-origin: 0 50%;
+  }
+
+  /* A dark pill, so the message reads over the cards under it. */
+  .confetti-text {
+    @apply rounded-full border border-jim-accent/55 bg-jim-dark-blue/95 font-bold whitespace-nowrap text-jim-accent;
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    translate: -50% -50%;
+    padding: 0.55em 1.1em;
+    font-size: clamp(1.5rem, 7vw, 2.25rem);
+    line-height: 1.1;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.55);
+  }
 }
 
 /* Respect reduced motion preference */

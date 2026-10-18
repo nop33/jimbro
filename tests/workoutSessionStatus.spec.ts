@@ -237,3 +237,95 @@ test.describe('Workout session status reconciliation', () => {
     expect(patterns.filter(Array.isArray)).toEqual([[60, 40, 60, 40, 60, 80, 400]])
   })
 })
+
+test.describe('Celebrations', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDatabase(page)
+  })
+
+  // A workout whose first exercise is a set short and whose second has no sets, so the first card's set finishes an
+  // exercise, not the workout.
+  const openWithOneSetLeft = async (page: Page) => {
+    const sessionId = crypto.randomUUID()
+    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
+    const [first, second] = exercises
+    first.sets = first.sets.slice(1)
+    second.sets = []
+    await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+    const card = page.locator(`[data-exercise-id="${first.exerciseId}"]`)
+    await card.locator('.exercise-details > summary').click()
+    return card
+  }
+
+  test('finishing an exercise bursts confetti from its card, then clears it', async ({ page }) => {
+    const card = await openWithOneSetLeft(page)
+    // Where the card's corner is when the burst starts, kept on screen like the burst, since logging the set can
+    // scroll the page on a short phone.
+    await card.evaluate((element) => {
+      new MutationObserver((records, observer) => {
+        if (
+          !records.some((record) =>
+            [...record.addedNodes].some((node) => node instanceof HTMLElement && node.matches('.confetti'))
+          )
+        )
+          return
+        observer.disconnect()
+        const box = element.getBoundingClientRect()
+        const clamp = (value: number, max: number) => Math.min(Math.max(value, 16), max - 16)
+        Reflect.set(window, '__corner', { x: clamp(box.right, innerWidth), y: clamp(box.top, innerHeight) })
+      }).observe(document.body, { childList: true })
+    })
+    await card.getByRole('button', { name: 'Finished set' }).click()
+
+    await expect(page.locator('.confetti:popover-open .confetti-text')).toHaveText('Exercise done!')
+    await expect(page.locator('.confetti-piece').first()).toBeAttached()
+    const corner = await page.evaluate(() => Reflect.get(window, '__corner') as { x: number; y: number })
+    // Every piece starts at the card's top right corner, where its done check appears.
+    const starts = await page.locator('.confetti-piece').evaluateAll((pieces) =>
+      pieces.map((piece) => {
+        const effect = piece.getAnimations()[0].effect as KeyframeEffect
+        const [x, y] = /translate\(([-\d.]+)px, ([-\d.]+)px\)/
+          .exec(String(effect.getKeyframes()[0].transform))!
+          .slice(1)
+        return { x: Number(x), y: Number(y) }
+      })
+    )
+    for (const start of starts) {
+      expect(Math.abs(start.x - corner.x)).toBeLessThan(10)
+      expect(Math.abs(start.y - corner.y)).toBeLessThan(10)
+    }
+    // The message fades out with the pieces, and the layer leaves once they have.
+    await expect(page.locator('.confetti')).toHaveCount(0)
+  })
+
+  test('finishing the workout stamps the message with rings and no confetti', async ({ page }) => {
+    const sessionId = crypto.randomUUID()
+    const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
+    const last = exercises[exercises.length - 1]
+    last.sets = last.sets.slice(1)
+    await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
+    await page.goto(`/gymtime/?id=${sessionId}`)
+    const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
+    await lastCard.scrollIntoViewIfNeeded()
+    await lastCard.locator('.exercise-details > summary').click()
+    const exportDownload = page.waitForEvent('download')
+    await lastCard.getByRole('button', { name: 'Finished set' }).click()
+
+    await expect(page.locator('.confetti:popover-open .confetti-text')).toHaveText('Workout done!')
+    await expect(page.locator('.confetti-ring')).toHaveCount(2)
+    await expect(page.locator('.confetti-piece')).toHaveCount(0)
+    await exportDownload
+    await expect(page.locator('.confetti')).toHaveCount(0)
+  })
+
+  test('under reduced motion only the message shows', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const card = await openWithOneSetLeft(page)
+    await card.getByRole('button', { name: 'Finished set' }).click()
+
+    await expect(page.locator('.confetti-text')).toHaveText('Exercise done!')
+    await expect(page.locator('.confetti-piece')).toHaveCount(0)
+    await expect(page.locator('.confetti')).toHaveCount(0)
+  })
+})

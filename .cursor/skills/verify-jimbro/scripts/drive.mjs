@@ -395,8 +395,8 @@ const STOPS = [
     }
     const offer = page.getByRole('region', { name: 'Back up your workouts' })
     await see(offer)
-    // The "Workout done!" confetti covers the card for a few seconds.
-    await page.waitForFunction(() => !document.querySelector('[id^="confetti-"]'))
+    // The "Workout done!" stamp covers the card for a few seconds.
+    await gone(page.locator('.confetti'))
     await offer.scrollIntoViewIfNeeded()
   }],
   ['settings-passkey', async (page) => {
