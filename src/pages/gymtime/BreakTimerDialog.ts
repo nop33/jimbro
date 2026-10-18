@@ -58,16 +58,18 @@ class BreakTimerDialog {
 
   // A view transition snapshots the timer before and after the swap and morphs one into the other: the box between
   // the full screen and the bar, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
-  // reopening the dialog would start it again.
+  // reopening the dialog would start it again, and the header and nav morph with the page under the timer.
   private static morph(swap: () => void) {
     if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       swap()
       return
     }
     this.dialog.style.transition = 'none'
+    document.documentElement.classList.add('morphing-break-timer')
     const transition = document.startViewTransition(swap)
     void transition.finished.finally(() => {
       this.dialog.style.transition = ''
+      document.documentElement.classList.remove('morphing-break-timer')
     })
   }
 
@@ -83,16 +85,11 @@ class BreakTimerDialog {
     const now = Date.now()
     const diffMs = this.targetTime - now
 
-    // Calculate the difference in seconds first to properly hit 0:00
-    const diffSecs = Math.ceil(diffMs / 1000)
-    const isNegative = diffSecs < 0
-    const absDiffSecs = Math.abs(diffSecs)
-
-    const mins = Math.floor(absDiffSecs / 60)
-    const secs = absDiffSecs % 60
-
-    const timeString = `${mins}:${secs < 10 ? `0${secs}` : secs}`
-    this.countdown.textContent = isNegative ? `-${timeString}` : timeString
+    // Round up, so each number shows for a full second and 0:00 shows once the break is over. It stops at 0:00.
+    const diffSecs = Math.max(Math.ceil(diffMs / 1000), 0)
+    const mins = Math.floor(diffSecs / 60)
+    const secs = diffSecs % 60
+    this.countdown.textContent = `${mins}:${secs < 10 ? `0${secs}` : secs}`
 
     if (diffMs <= 0 && !this.hasPlayedSound) {
       playDingSound()
@@ -102,7 +99,7 @@ class BreakTimerDialog {
     if (diffMs <= 0 && this.autoCloseTimeout === null && document.visibilityState === 'visible') {
       this.autoCloseTimeout = setTimeout(() => {
         this.closeDialog()
-      }, 1500)
+      }, 1000)
     }
   }
 
