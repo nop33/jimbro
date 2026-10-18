@@ -402,15 +402,15 @@ test.describe('Gymtime Page', () => {
     await expect(menu).toBeVisible()
     await expect(rows.first()).toHaveClass(/isSelected/)
 
-    // The second row's tap closes the menu and does nothing else.
-    await rows.nth(1).click()
+    // The last row's tap closes the menu and does nothing else. The menu may cover the row under the first.
+    await rows.last().click()
     await expect(menu).toHaveCount(0)
     await expect(card.locator('.set.isSelected')).toHaveCount(0)
 
-    await rows.nth(1).click()
+    await rows.last().click()
     await expect(menu).toBeVisible()
     await expect(card.locator('.set.isSelected')).toHaveCount(1)
-    await expect(rows.nth(1)).toHaveClass(/isSelected/)
+    await expect(rows.last()).toHaveClass(/isSelected/)
 
     // So does a tap on the card's menu button.
     await card.locator('.exercise-actions-btn').click()
