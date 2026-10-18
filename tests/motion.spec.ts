@@ -46,3 +46,51 @@ test('a card menu grows out of the corner by the button that opens it', async ({
   expect(menuBox!.y).toBeGreaterThan(buttonBox!.y)
   expect(await menu.evaluate((element) => element.style.transformOrigin)).toBe('right top')
 })
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`minimizing the break timer morphs it into its bar only without reduced motion (${reducedMotion})`, async ({
+    page
+  }) => {
+    await seedDatabase(page)
+    await page.emulateMedia({ reducedMotion })
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('summary').click()
+    const form = card.locator('.next-set-form')
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('60')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+
+    // The view transition groups that animate in the frames after the timer turns into its bar.
+    const morphed = page.evaluate(
+      () =>
+        new Promise<string[]>((resolve) => {
+          const nextFrame = () => new Promise((done) => requestAnimationFrame(done))
+          const groups = () =>
+            document
+              .getAnimations()
+              .map((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? '')
+              .filter((pseudo) => /^::view-transition-group\((break-timer|countdown)\)$/.test(pseudo))
+          void (async () => {
+            while (!document.querySelector('#break-countdown-dialog.dialog-minimized')) await nextFrame()
+            const seen = new Set<string>()
+            for (let frame = 0; frame < 3; frame++) {
+              groups().forEach((group) => seen.add(group))
+              await nextFrame()
+            }
+            resolve([...seen].sort())
+          })()
+        })
+    )
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    expect(await morphed).toEqual(
+      reducedMotion === 'reduce' ? [] : ['::view-transition-group(break-timer)', '::view-transition-group(countdown)']
+    )
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+  })
+}

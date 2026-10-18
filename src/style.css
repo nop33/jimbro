@@ -20,6 +20,24 @@
   animation: fill-in 150ms var(--ease-out);
 }
 
+::view-transition-group(break-timer),
+::view-transition-group(countdown) {
+  animation-duration: 300ms;
+  animation-timing-function: var(--ease-in-out);
+}
+
+/* The timer's content keeps its size and its place under the top edge, so the bottom edge cuts it off as it rises. */
+::view-transition-group(break-timer) {
+  overflow: clip;
+}
+
+::view-transition-old(break-timer),
+::view-transition-new(break-timer) {
+  height: 100%;
+  object-fit: none;
+  object-position: top;
+}
+
 @keyframes fill-in {
   from {
     opacity: 0;
@@ -43,9 +61,10 @@
   --color-jim-warning: #c97a2b;
   --color-jim-info: #3a5a7a;
 
-  /* The curve things enter and leave on, from Emil Kowalski's animation standards. The browser's own ease-out is too
-     weak to make a short entrance feel quick, so this one replaces Tailwind's. */
+  /* The curves things enter and leave on, and move on screen on, from Emil Kowalski's animation standards. The
+     browser's own are too weak to make a short animation feel quick, so these replace Tailwind's. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @layer base {
@@ -478,13 +497,14 @@
     display: none;
   }
 
-  /* Minimized, the break timer slides down from the top edge it stays on. */
-  @starting-style {
-    .dialog-minimized[open] {
-      opacity: 1;
-      scale: 1;
-      translate: 0 -100%;
-    }
+  /* Minimizing shrinks the break timer into its bar at the top, and the countdown with it, and maximizing grows it
+     back (BreakTimerDialog.ts runs the swap as a view transition). The box moves on screen, so it eases in and out. */
+  #break-countdown-dialog {
+    view-transition-name: break-timer;
+  }
+
+  #countdown {
+    view-transition-name: countdown;
   }
 
   .dialog-minimized .hide-when-minimized {
