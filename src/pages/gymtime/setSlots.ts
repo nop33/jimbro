@@ -11,6 +11,7 @@ import {
   type LogPreset,
   type SetSlot
 } from '../../db/exerciseLogging'
+import { tapToDismiss } from './tapToDismiss'
 
 // Spelled out so Tailwind emits them; an interpolated `grid-cols-${n}` never reaches its scanner.
 const GRID_COLS = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3'] as const
@@ -31,6 +32,7 @@ let fieldCount = 0
 
 // A badge sits on its slot's input until the value is edited, as with "Max" on a prefilled weight. It is a button
 // that opens a popover, which gives light dismiss and aria-expanded, and CSS anchor positioning puts it by the badge.
+// A tap outside the popover only closes it.
 // The input sits in a div with its own label, since a label may hold no button besides its control.
 export const renderSetInputs = (
   container: HTMLElement,
@@ -78,6 +80,7 @@ export const renderSetInputs = (
         details.popover = 'auto'
         details.className = 'set-badge-details'
         details.textContent = badge.details
+        tapToDismiss(details)
 
         const button = document.createElement('button')
         button.type = 'button'

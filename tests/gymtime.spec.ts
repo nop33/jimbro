@@ -392,6 +392,32 @@ test.describe('Gymtime Page', () => {
     await expect(card.getByRole('button', { name: 'Set 1, to do' })).toHaveCount(0)
   })
 
+  test('a tap outside an open set menu only closes it', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const rows = card.getByRole('button', { name: /, to do$/ })
+    const menu = page.locator('.set-menu:popover-open')
+    await card.locator('.exercise-details > summary').click()
+
+    await rows.first().click()
+    await expect(menu).toBeVisible()
+    await expect(rows.first()).toHaveClass(/isSelected/)
+
+    // The second row's tap closes the menu and does nothing else.
+    await rows.nth(1).click()
+    await expect(menu).toHaveCount(0)
+    await expect(card.locator('.set.isSelected')).toHaveCount(0)
+
+    await rows.nth(1).click()
+    await expect(menu).toBeVisible()
+    await expect(card.locator('.set.isSelected')).toHaveCount(1)
+    await expect(rows.nth(1)).toHaveClass(/isSelected/)
+
+    // So does a tap on the card's menu button.
+    await card.locator('.exercise-actions-btn').click()
+    await expect(menu).toHaveCount(0)
+    await expect(page.locator('.exercise-actions-menu:popover-open')).toHaveCount(0)
+  })
+
   test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
     await page.locator('#workout-details > summary').click()
     await page.locator('input[name="location"]').fill('Memorial Gym')

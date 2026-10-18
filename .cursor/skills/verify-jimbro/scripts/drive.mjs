@@ -304,7 +304,13 @@ const STOPS = [
   }],
   ['gymtime-set-menu', async (page) => {
     const card = page.locator('details.exercise-details').first()
-    await card.getByRole('button', { name: /, to do$/ }).last().click()
+    const rows = card.getByRole('button', { name: /, to do$/ })
+    // A tap on another row while the menu is open only closes it, so the last row's menu takes a second tap.
+    await rows.first().click()
+    await see(card.locator('.set-menu'))
+    await rows.last().click()
+    await gone(page.locator('.set-menu:popover-open'))
+    await rows.last().click()
     await see(card.locator('.set-menu'))
   }],
   ['break-timer', async (page) => {
