@@ -7,12 +7,11 @@ import ProgramExercisesSortableList from './ProgramExercisesSortableList'
 class ProgramDialog {
   private static newProgramButton = document.querySelector('#new-program-btn') as HTMLButtonElement
   private static programDialog = document.querySelector('#program-dialog') as HTMLDialogElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
   private static programForm = document.querySelector('#program-form') as HTMLFormElement
   private static programIdInput = document.querySelector('#program-id') as HTMLInputElement
   private static programNameInput = document.querySelector('#program-name') as HTMLInputElement
   private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteProgramBtn = document.querySelector('#delete-program-btn') as HTMLButtonElement
+  private static deleteProgramBtn = this.programDialog.querySelector('.delete-btn') as HTMLButtonElement
 
   private static programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
   private static programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list')
@@ -51,10 +50,6 @@ class ProgramDialog {
     this.newProgramButton.addEventListener('click', () => {
       this.populateForm()
       this.openDialog()
-    })
-
-    this.dialogCancel.addEventListener('click', () => {
-      this.closeDialog()
     })
 
     this.programDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
@@ -96,7 +91,7 @@ class ProgramDialog {
       this.selectedExercises = new Set(program.exercises)
 
       this.dialogTitle.textContent = 'Edit Program'
-      this.deleteProgramBtn.classList.remove('hidden')
+      this.deleteProgramBtn.hidden = false
       this.programIdInput.value = program.id
       this.programNameInput.value = program.name
     } else {
@@ -104,7 +99,7 @@ class ProgramDialog {
       this.dialogTitle.textContent = 'New Program'
       this.programForm.reset()
       this.programIdInput.value = ''
-      this.deleteProgramBtn.classList.add('hidden')
+      this.deleteProgramBtn.hidden = true
     }
 
     this.programExercisesMultiselect.render({ selectedExercises: this.selectedExercises })

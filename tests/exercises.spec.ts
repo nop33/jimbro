@@ -21,6 +21,9 @@ test.describe('Exercises Page', () => {
     await expect(dialog).toBeVisible()
     // An empty form opens on its first field, ready to type.
     await expect(page.getByLabel('Name')).toBeFocused()
+    // A new item has nothing to delete, and the ✕ is the only way to cancel.
+    await expect(dialog.getByRole('button', { name: 'Delete' })).toBeHidden()
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
 
     await page.getByLabel('Name').fill('Bench Press')
     await expect(page.getByLabel('Kind')).toHaveValue('lifting')
@@ -63,7 +66,7 @@ test.describe('Exercises Page', () => {
       await confirmDialog.accept()
     })
 
-    await page.locator('#delete-exercise-btn').click()
+    await page.locator('#exercise-dialog').getByRole('button', { name: 'Delete' }).click()
     await expect(exerciseCard).not.toBeVisible()
   })
 
