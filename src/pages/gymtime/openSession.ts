@@ -2,7 +2,7 @@ import { getCloudBackupConfig } from '../../db/cloudBackup'
 import { exportIndexedDbToJson } from '../../db/export'
 import type { Exercise } from '../../db/stores/exercisesStore'
 import type { WorkoutSession } from '../../db/types'
-import { throwConfetti } from '../../features/confetti'
+import { popConfetti, stampConfetti } from '../../features/confetti'
 import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds } from '../../settings'
 import BreakTimerDialog from './BreakTimerDialog'
@@ -131,7 +131,7 @@ const actOn = async (outcome: Outcome): Promise<void> => {
     case 'workout-done':
       navigator.vibrate?.(WORKOUT_DONE_VIBRATION)
       BreakTimerDialog.closeDialog()
-      throwConfetti('Workout done!')
+      stampConfetti('Workout done!')
       PasskeyOfferCard.offer()
       if (getCloudBackupConfig()) return
       try {
@@ -144,7 +144,7 @@ const actOn = async (outcome: Outcome): Promise<void> => {
     case 'exercise-done':
       navigator.vibrate?.(EXERCISE_DONE_VIBRATION)
       BreakTimerDialog.closeDialog()
-      throwConfetti('Exercise done!')
+      popConfetti('Exercise done!', document.querySelector(`[data-exercise-id="${CSS.escape(outcome.exerciseId)}"]`))
       return
     case 'rest':
       BreakTimerDialog.start(outcome)
