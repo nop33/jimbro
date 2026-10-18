@@ -5,10 +5,10 @@ Exercises is the library. The user creates, edits, filters and deletes exercises
 ## Sub-features
 
 - `exercise-list` shows one card per exercise: name, muscle badge (or `Cardio`), a `Rehab` badge for rehab, and a prescription such as `3 sets × 10 reps`, `3 sets × 30s hold` or `1 set`. An empty library is an empty grid with no message.
-- `exercise-new` opens `dialog#exercise-dialog` titled `New Exercise` with Name, Kind, Muscle group, Default sets and Default reps.
+- `exercise-new` opens `dialog#exercise-dialog` titled `New Exercise` with Name, Kind, Muscle group, Default sets and Default reps. The empty form opens on Name, so the keyboard comes up.
 - `exercise-kinds` changes the form by Kind: Rehab shows `Log as` (Reps or Hold, Hold asking `Default hold (sec)`). Cardio hides Muscle group and the defaults.
 - `exercise-save` saves and shows `Exercise saved!`. Empty required fields keep the dialog open with the browser's validation.
-- `exercise-edit` opens the same dialog titled `Edit Exercise`, prefilled, with a trash button `#delete-exercise-btn`.
+- `exercise-edit` opens the same dialog titled `Edit Exercise`, prefilled, with a trash button `#delete-exercise-btn`. The focus goes to the title, not a field, so no keyboard covers the form.
 - `exercise-filter` filters by `Filter by muscle group`. A muscle filter hides cardio, which has no muscle.
 - `exercise-delete` confirms, soft-deletes the row and shows `Exercise deleted.`.
 - `exercise-cancel` closes the dialog with `Close dialog`, `Cancel` or Escape, saving nothing.

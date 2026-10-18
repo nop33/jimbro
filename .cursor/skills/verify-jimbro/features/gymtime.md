@@ -10,7 +10,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 - `gymtime-menu` is each card's `Actions for <name>` popover: Move up, Move down, Swap exercise, Delete exercise. Move buttons hide at the ends. Swap and Delete hide on a finished exercise and ask a confirm.
 - `gymtime-break` opens `#break-countdown-dialog` after a lifting or cardio set that does not finish its exercise: `#sets-done`, `#countdown`, `Coming up`, `Minimize`, `View exercise history`, `Skip`. It closes itself 1.5 s after 0:00. Rehab sets never open it.
 - `gymtime-set-menu` opens the card's `.set-menu` popover from a set to do (`Set N, to do`), with `Remove set N`, which removes one set to do. The rows are buttons only while more than one set is left to do and more than the sets logged, so an exercise keeps at least one set.
-- `gymtime-edit-set` opens `#edit-set-dialog` from a logged set. Saving shows `Set updated.`. A 0 value asks a confirm. `Delete` confirms, shows `Set deleted.` and leaves the slot to do again.
+- `gymtime-edit-set` opens `#edit-set-dialog` from a logged set, focusing its title rather than a field. Saving shows `Set updated.`. A 0 value asks a confirm. `Delete` confirms, shows `Set deleted.` and leaves the slot to do again.
 - `gymtime-previous` opens `#last-set-dialog` (`Previous sets`, `in <gym> on <date>`).
 - `gymtime-history` opens `#exercise-history-dialog`: a chart with toggles `Average weight`, `Estimated 1RM`, `Total volume`, and gym bands with a legend in `#exercise-history-gyms`.
 - `gymtime-add` opens `#add-exercise-dialog` from `#add-exercise-card`, with a muscle filter. Adding an exercise already in the workout shows an alert. Swap reuses it titled `Swap exercise`.

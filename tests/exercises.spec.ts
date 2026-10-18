@@ -19,6 +19,8 @@ test.describe('Exercises Page', () => {
 
     await page.getByRole('button', { name: 'New' }).click()
     await expect(dialog).toBeVisible()
+    // An empty form opens on its first field, ready to type.
+    await expect(page.getByLabel('Name')).toBeFocused()
 
     await page.getByLabel('Name').fill('Bench Press')
     await expect(page.getByLabel('Kind')).toHaveValue('lifting')
@@ -37,6 +39,8 @@ test.describe('Exercises Page', () => {
     // 2. Edit
     await exerciseCard.click()
     await expect(dialog).toBeVisible()
+    // A filled form opens on its title, with no field focused, so no keyboard covers it.
+    await expect(dialog.getByRole('heading', { name: 'Edit Exercise' })).toBeFocused()
 
     await page.getByLabel('Default reps').fill('8')
     await page.getByRole('button', { name: 'Save' }).click()

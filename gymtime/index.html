@@ -428,7 +428,8 @@
 
     <dialog id="edit-set-dialog">
       <header class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">Edit set</h2>
+        <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
+        <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Edit set</h2>
         <!-- partial:close-dialog-button -->
       </header>
       <form id="edit-set-form" class="flex flex-col gap-2">
@@ -518,7 +519,7 @@
 
     <dialog id="add-exercise-dialog" class="w-full h-full">
       <header class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">Add exercise</h2>
+        <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Add exercise</h2>
         <!-- partial:close-dialog-button -->
       </header>
       <div class="app-page-content">

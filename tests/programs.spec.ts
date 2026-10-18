@@ -29,6 +29,8 @@ test.describe('Programs Page', () => {
 
     await page.getByRole('button', { name: 'New' }).click()
     await expect(dialog).toBeVisible()
+    // An empty form opens on its first field, ready to type.
+    await expect(page.getByLabel('Name', { exact: true })).toBeFocused()
 
     await page.getByLabel('Name', { exact: true }).fill('Leg Day')
 
@@ -47,6 +49,8 @@ test.describe('Programs Page', () => {
     // Click the edit button on the program card
     await programCard.locator('button.link-primary').first().click()
     await expect(dialog).toBeVisible()
+    // A filled form opens on its title, with no field focused, so no keyboard covers it.
+    await expect(dialog.getByRole('heading', { name: 'Edit Program' })).toBeFocused()
 
     await page.getByLabel('Name', { exact: true }).fill('Mega Leg Day')
     await page.getByRole('button', { name: 'Save' }).click()

@@ -5,10 +5,10 @@ Programs are workout templates: a name and an ordered list of exercises. The use
 ## Sub-features
 
 - `program-list` shows one `#programs-grid > .card` per program with a pencil `.edit-program-btn` and a collapsed `Program exercises` section. Expanding it lists the exercises as condensed cards in program order, with their prescription. An empty grid shows no message.
-- `program-new` opens `dialog#program-dialog` titled `New Program`: Name, the picker `#exercises-selection` (grouped by muscle, Cardio for none) and the `Reorder program exercises` list.
+- `program-new` opens `dialog#program-dialog` titled `New Program`: Name, the picker `#exercises-selection` (grouped by muscle, Cardio for none) and the `Reorder program exercises` list. The empty form opens on Name.
 - `program-reorder` drags rows of `#selected-exercises-list` by mouse or touch. The saved order is the order the card shows.
 - `program-save` saves with `Program saved!`. Only Name is required, so a program with no exercises saves.
-- `program-edit` opens the dialog titled `Edit Program`, prefilled, with a trash button `#delete-program-btn`.
+- `program-edit` opens the dialog titled `Edit Program`, prefilled, with a trash button `#delete-program-btn`, and focuses its title, not a field.
 - `program-delete` confirms, removes the card and shows `Program deleted.`.
 - `program-cancel` closes the dialog with `Close dialog`, `Cancel` or Escape.
 
