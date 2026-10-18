@@ -590,14 +590,14 @@
     }
   }
 
-  /* Add set: neutral text on the right under the last set, in a 44px tall tap target whose text lines up with the sets'
+  /* Add set: the muted grey of a set still to do, on the right under the last set, in a 44px tall tap target whose text lines up with the sets'
      right edge. */
   .add-set-row {
     @apply -mt-2 mb-1 -mr-2.5 flex justify-end;
   }
 
   .add-set-btn {
-    @apply flex h-11 cursor-pointer items-center gap-1 px-2.5 font-semibold text-jim-neutral;
+    @apply flex h-11 cursor-pointer items-center gap-1 px-2.5 text-jim-neutral-secondary/50;
   }
 
   /* A set still to do opens its menu. The row it opened from stays marked while the menu is open. */
