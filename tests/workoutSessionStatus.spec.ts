@@ -260,14 +260,27 @@ test.describe('Celebrations', () => {
 
   test('finishing an exercise bursts confetti from its card, then clears it', async ({ page }) => {
     const card = await openWithOneSetLeft(page)
-    const corner = await card.evaluate((element) => {
-      const box = element.getBoundingClientRect()
-      return { x: box.right, y: box.top }
+    // Where the card's corner is when the burst starts, kept on screen like the burst, since logging the set can
+    // scroll the page on a short phone.
+    await card.evaluate((element) => {
+      new MutationObserver((records, observer) => {
+        if (
+          !records.some((record) =>
+            [...record.addedNodes].some((node) => node instanceof HTMLElement && node.matches('.confetti'))
+          )
+        )
+          return
+        observer.disconnect()
+        const box = element.getBoundingClientRect()
+        const clamp = (value: number, max: number) => Math.min(Math.max(value, 16), max - 16)
+        Reflect.set(window, '__corner', { x: clamp(box.right, innerWidth), y: clamp(box.top, innerHeight) })
+      }).observe(document.body, { childList: true })
     })
     await card.getByRole('button', { name: 'Finished set' }).click()
 
     await expect(page.locator('.confetti:popover-open .confetti-text')).toHaveText('Exercise done!')
     await expect(page.locator('.confetti-piece').first()).toBeAttached()
+    const corner = await page.evaluate(() => Reflect.get(window, '__corner') as { x: number; y: number })
     // Every piece starts at the card's top right corner, where its done check appears.
     const starts = await page.locator('.confetti-piece').evaluateAll((pieces) =>
       pieces.map((piece) => {
