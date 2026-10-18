@@ -20,6 +20,7 @@ import AddExerciseDialog from './AddExerciseDialog'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
+import { tapToDismiss } from './tapToDismiss'
 import type { ExercisePlan } from './exercisePlan'
 import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
 
@@ -37,8 +38,10 @@ interface SetRow {
 
 // Places a popover menu under what it opens from, right edges lined up, or above it when room wouldn't fit below,
 // and keeps it there while the page scrolls. Script places it, since CSS anchor positioning is missing from older iOS
-// versions. anchor gives what the menu opens from each time it opens.
+// versions. anchor gives what the menu opens from each time it opens. A tap outside the menu only closes it.
 const anchorMenu = (menu: HTMLElement, anchor: () => Element, room: number) => {
+  tapToDismiss(menu)
+
   const place = () => {
     const box = anchor().getBoundingClientRect()
     const opensUp = window.innerHeight - box.bottom < room
