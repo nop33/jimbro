@@ -14,7 +14,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // A test that passes only on a retry is flaky, so CI fails it instead of letting the retry hide it.
   failOnFlakyTests: !!process.env.CI,
-  workers: process.env.CI ? 1 : 2,
+  // Each test has its own browser context and worker user, so tests run side by side, one per core of a CI runner.
+  workers: process.env.CI ? 4 : 2,
   reporter: 'html',
   // Starts the local worker (wrangler dev) that tests/sync.spec.ts talks to, on WORKER_PORT (default 8790).
   globalSetup: './tests/localWorker.ts',

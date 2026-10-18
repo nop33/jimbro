@@ -445,6 +445,8 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     await page.getByRole('button', { name: 'New' }).click()
     await page.locator('dialog#new-workout-dialog a.program-link').first().click()
 
+    // The page wires Add exercise before it draws the cards, so a tap before the first card shows does nothing.
+    await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
     // Adding the exercise starts the workout.
     await page.locator('#add-exercise-card').click()
     const addExerciseDialog = page.locator('#add-exercise-dialog')

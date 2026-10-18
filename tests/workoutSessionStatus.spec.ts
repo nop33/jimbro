@@ -141,6 +141,8 @@ test.describe('Workout session status reconciliation', () => {
     })
 
     await page.goto(`/gymtime/?id=${sessionId}`)
+    // The page wires Add exercise before it draws the cards, so a tap before the first card shows does nothing.
+    await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
 
     const addExerciseCard = page.locator('#add-exercise-card')
     await addExerciseCard.scrollIntoViewIfNeeded()
