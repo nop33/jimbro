@@ -32,9 +32,12 @@
   animation-timing-function: var(--ease-in-out);
 }
 
-/* The timer's content keeps its size and its place under the top edge, so the bottom edge cuts it off as it rises. */
+/* The timer's content keeps its size and its place under the top edge, so the bottom edge cuts it off as it rises. The
+   box keeps its background while its two looks crossfade, so the countdown never floats over a see-through box. */
 ::view-transition-group(break-timer) {
   overflow: clip;
+  border-radius: var(--radius-2xl);
+  background-color: var(--color-jim-dark-blue);
 }
 
 ::view-transition-old(break-timer),
