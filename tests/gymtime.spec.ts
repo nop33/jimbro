@@ -143,7 +143,7 @@ test.describe('Gymtime Page', () => {
     await expect(weight).not.toHaveAttribute('aria-describedby')
   })
 
-  test('the break counts on past 0:00 and closes itself 1.5 s after reaching it', async ({ page }) => {
+  test('the break shows 0:00 for a second and closes itself before it would show -0:01', async ({ page }) => {
     // Install clock to manipulate time
     await page.clock.install()
 
@@ -167,16 +167,16 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
 
-    // The 2:30 break reaches 0:00, counts a second below it, and closes 1.5 s after 0:00. The clock stops at each
-    // point until the test runs it on.
+    // The 2:30 break reaches 0:00, keeps it on screen for a second like every other number, and closes when -0:01 would
+    // show. The clock stops at each point until the test runs it on.
     const countdown = breakTimer.locator('#countdown')
     const now = await page.evaluate(() => Date.now())
     await page.clock.pauseAt(now + 150_000)
     await expect(countdown).toHaveText('0:00')
-    await page.clock.runFor(1_000)
-    await expect(countdown).toHaveText('-0:01')
+    await page.clock.runFor(999)
+    await expect(countdown).toHaveText('0:00')
     await expect(breakTimer).toBeVisible()
-    await page.clock.runFor(600)
+    await page.clock.runFor(1)
     await expect(breakTimer).toBeHidden()
   })
 
@@ -196,7 +196,7 @@ test.describe('Gymtime Page', () => {
     await logSet()
     await expect(breakTimer).toBeVisible()
 
-    // The break reaches 0:00 and is about to close itself, 1.5 s later. The clock stops there until the test runs it.
+    // The break reaches 0:00 and is about to close itself, a second later. The clock stops there until the test runs it.
     const now = await page.evaluate(() => Date.now())
     await page.clock.pauseAt(now + 150_000)
     await expect(countdown).toHaveText('0:00')
