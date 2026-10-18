@@ -58,16 +58,18 @@ class BreakTimerDialog {
 
   // A view transition snapshots the timer before and after the swap and morphs one into the other: the box between
   // the full screen and the bar, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
-  // reopening the dialog would start it again.
+  // reopening the dialog would start it again, and the header and nav morph with the page under the timer.
   private static morph(swap: () => void) {
     if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       swap()
       return
     }
     this.dialog.style.transition = 'none'
+    document.documentElement.classList.add('morphing-break-timer')
     const transition = document.startViewTransition(swap)
     void transition.finished.finally(() => {
       this.dialog.style.transition = ''
+      document.documentElement.classList.remove('morphing-break-timer')
     })
   }
 

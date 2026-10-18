@@ -66,16 +66,21 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
 
-    // The view transition groups that animate in the frames after the timer turns into its bar.
+    // The view transition groups that animate in the frames after the timer turns into its bar, and the timer box's
+    // background while it does. The header and nav morph with the page under it, since a group of their own would draw
+    // on top of the timer. The box stays opaque while its two looks crossfade, so the countdown never floats over the
+    // page.
     const morphed = page.evaluate(
       () =>
-        new Promise<string[]>((resolve) => {
+        new Promise<{ groups: string[]; background: string }>((resolve) => {
           const nextFrame = () => new Promise((done) => requestAnimationFrame(done))
           const groups = () =>
             document
               .getAnimations()
               .map((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement ?? '')
-              .filter((pseudo) => /^::view-transition-group\((break-timer|countdown)\)$/.test(pseudo))
+              .filter((pseudo) =>
+                /^::view-transition-group\((break-timer|countdown|app-header|bottom-nav)\)$/.test(pseudo)
+              )
           void (async () => {
             while (!document.querySelector('#break-countdown-dialog.dialog-minimized')) await nextFrame()
             const seen = new Set<string>()
@@ -83,13 +88,22 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
               groups().forEach((group) => seen.add(group))
               await nextFrame()
             }
-            resolve([...seen].sort())
+            const { backgroundColor } = getComputedStyle(
+              document.documentElement,
+              '::view-transition-group(break-timer)'
+            )
+            resolve({ groups: [...seen].sort(), background: seen.size ? backgroundColor : '' })
           })()
         })
     )
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     expect(await morphed).toEqual(
-      reducedMotion === 'reduce' ? [] : ['::view-transition-group(break-timer)', '::view-transition-group(countdown)']
+      reducedMotion === 'reduce'
+        ? { groups: [], background: '' }
+        : {
+            groups: ['::view-transition-group(break-timer)', '::view-transition-group(countdown)'],
+            background: 'rgb(25, 27, 31)'
+          }
     )
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
   })
