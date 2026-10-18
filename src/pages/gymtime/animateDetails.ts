@@ -13,7 +13,8 @@
  */
 
 const DURATION_MS = 220
-const EASING = 'ease-out'
+// The --ease-out curve in src/style.css. The Web Animations API can't read a CSS variable.
+const EASING = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
 // Registry keyed by <details> so opening one card can animate-close others.
 // WeakMap lets entries be GC'd automatically when a card is replaced.

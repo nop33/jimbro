@@ -38,18 +38,37 @@ class BreakTimerDialog {
 
   private static minimizeDialog() {
     this.isMinimized = true
-    this.dialog.close()
-    this.dialog.classList.remove('dialog-full-screen')
-    this.dialog.classList.add('dialog-minimized')
-    this.dialog.show()
+    this.morph(() => {
+      this.dialog.close()
+      this.dialog.classList.remove('dialog-full-screen')
+      this.dialog.classList.add('dialog-minimized')
+      this.dialog.show()
+    })
   }
 
   private static maximizeDialog() {
     this.isMinimized = false
-    this.dialog.close()
-    this.dialog.classList.remove('dialog-minimized')
-    this.dialog.classList.add('dialog-full-screen')
-    this.dialog.showModal()
+    this.morph(() => {
+      this.dialog.close()
+      this.dialog.classList.remove('dialog-minimized')
+      this.dialog.classList.add('dialog-full-screen')
+      this.dialog.showModal()
+    })
+  }
+
+  // A view transition snapshots the timer before and after the swap and morphs one into the other: the box between
+  // the full screen and the bar, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
+  // reopening the dialog would start it again.
+  private static morph(swap: () => void) {
+    if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      swap()
+      return
+    }
+    this.dialog.style.transition = 'none'
+    const transition = document.startViewTransition(swap)
+    void transition.finished.finally(() => {
+      this.dialog.style.transition = ''
+    })
   }
 
   private static handleVisibilityChange() {

@@ -17,7 +17,25 @@
 /* A list the page draws from IndexedDB arrives a few frames after the page. Where nothing prerendered the page,
    as in Safari, its items fade in instead of popping in. */
 .fills-in > * {
-  animation: fill-in 150ms ease-out;
+  animation: fill-in 150ms var(--ease-out);
+}
+
+::view-transition-group(break-timer),
+::view-transition-group(countdown) {
+  animation-duration: 300ms;
+  animation-timing-function: var(--ease-in-out);
+}
+
+/* The timer's content keeps its size and its place under the top edge, so the bottom edge cuts it off as it rises. */
+::view-transition-group(break-timer) {
+  overflow: clip;
+}
+
+::view-transition-old(break-timer),
+::view-transition-new(break-timer) {
+  height: 100%;
+  object-fit: none;
+  object-position: top;
 }
 
 @keyframes fill-in {
@@ -42,6 +60,11 @@
   --color-jim-success: #3a7d44;
   --color-jim-warning: #c97a2b;
   --color-jim-info: #3a5a7a;
+
+  /* The curves things enter and leave on, and move on screen on, from Emil Kowalski's animation standards. The
+     browser's own are too weak to make a short animation feel quick, so these replace Tailwind's. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @layer base {
@@ -82,12 +105,25 @@
   }
 
   /* Modern button styles */
+  /* A button shrinks a little while it is pressed, so a tap shows it landed before its result does. */
   .btn-primary {
-    @apply px-6 py-3 rounded-xl text-white bg-jim-primary font-semibold shadow-lg hover:scale-101 active:scale-100 transition-all duration-200 hover:bg-jim-accent/70 cursor-pointer;
+    @apply px-6 py-3 rounded-xl text-white bg-jim-primary font-semibold shadow-lg hover:bg-jim-accent/70 cursor-pointer;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 rounded-xl font-medium hover:bg-neutral-700 hover:text-white transition-all duration-200 border border-neutral-600/50;
+    @apply px-6 py-3 rounded-xl font-medium hover:bg-neutral-700 hover:text-white border border-neutral-600/50;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    transition:
+      scale 160ms var(--ease-out),
+      background-color 200ms ease,
+      color 200ms ease;
+
+    &:active {
+      scale: 0.97;
+    }
   }
 
   .btn-danger {
@@ -119,7 +155,7 @@
   }
 
   .card-hover {
-    @apply hover:border-jim-primary/50 transition-all duration-300;
+    @apply hover:border-jim-primary/50 transition-colors duration-300;
   }
 
   .card-clickable {
@@ -168,7 +204,7 @@
   input[type='date'],
   textarea,
   select {
-    @apply w-full px-4 py-3 rounded-xl border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all duration-200 placeholder:text-neutral-500;
+    @apply w-full px-4 py-3 rounded-xl border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-neutral-500;
   }
 
   input[type='text']:hover,
@@ -415,8 +451,42 @@
     background: rgba(0, 0, 0, 0.6);
   }
 
+  /* A dialog grows in from just under its size while its backdrop fades in, so it arrives instead of appearing.
+     It closes at once: the tap that closes it has already shown its result. The scale property, not transform,
+     leaves the transform that turns the history chart sideways alone. */
+  dialog[open] {
+    transition:
+      opacity 250ms var(--ease-out),
+      scale 250ms var(--ease-out),
+      translate 250ms var(--ease-out);
+  }
+
+  dialog[open]::backdrop {
+    transition: opacity 250ms var(--ease-out);
+  }
+
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      scale: 0.96;
+    }
+
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
   .dialog-full-screen {
     @apply h-full w-full;
+  }
+
+  /* Some dialogs only fade in: the break timer, which fills the screen after every set, and the history chart, which
+     sizes its canvas to the box it measures as it opens, so a growing dialog would leave it drawn too small. */
+  @starting-style {
+    .dialog-full-screen[open],
+    .dialog-fade-in[open] {
+      scale: 1;
+    }
   }
 
   .dialog-minimized {
@@ -425,6 +495,16 @@
 
   .dialog-minimized::backdrop {
     display: none;
+  }
+
+  /* Minimizing shrinks the break timer into its bar at the top, and the countdown with it, and maximizing grows it
+     back (BreakTimerDialog.ts runs the swap as a view transition). The box moves on screen, so it eases in and out. */
+  #break-countdown-dialog {
+    view-transition-name: break-timer;
+  }
+
+  #countdown {
+    view-transition-name: countdown;
   }
 
   .dialog-minimized .hide-when-minimized {
@@ -441,6 +521,17 @@
     @apply fixed m-0 w-56 overflow-hidden rounded-xl border border-neutral-700/60 bg-neutral-800 p-0 text-jim-neutral;
     inset: auto;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    /* It grows out of the corner by the button it opens from, which anchorMenu sets as its transform origin. */
+    transition:
+      opacity 150ms var(--ease-out),
+      scale 150ms var(--ease-out);
+
+    @starting-style {
+      &:popover-open {
+        opacity: 0;
+        scale: 0.95;
+      }
+    }
 
     button {
       @apply flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-neutral-700/50 active:bg-neutral-700;
@@ -551,7 +642,7 @@
   }
 
   .sortable-item {
-    @apply mb-2 px-5 py-4 my-2 bg-neutral-100 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-colors transition-transform duration-200 hover:bg-blue-50 hover:scale-105;
+    @apply mb-2 px-5 py-4 my-2 bg-neutral-100 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-[background-color,scale] duration-200 hover:bg-blue-50 hover:scale-105;
   }
 
   .dragging {
@@ -601,6 +692,21 @@
   .toast-message-popup {
     @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 top-4 w-11/12 max-w-md z-50;
     transform: translateX(-50%);
+    /* It slides in from the top edge and leaves the same way (ToastMessage.ts), at the gentler pace a toast has. */
+    transition:
+      opacity 400ms ease,
+      translate 400ms ease;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 -100%;
+    }
+
+    &.leaving {
+      @apply pointer-events-none;
+      opacity: 0;
+      translate: 0 -100%;
+    }
 
     &.success {
       @apply bg-jim-success border-jim-success/20;
