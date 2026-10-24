@@ -17,6 +17,8 @@ export interface ExercisePlan {
   // The prefilled weight is the heaviest of last time's differing weights.
   prefillIsMax: boolean
   lastTime: LastTime | undefined
+  // The session, or the planned one, that last time came before: Previous sets steps through what else did.
+  before: PlannedSession & { id?: WorkoutSession['id'] }
 }
 
 export type ReadLastTime = (
@@ -62,7 +64,8 @@ export async function planExercise(
     progress: progressOf(exercise),
     prefill: nextSetValues(snapshot, exercise.sets, lastTime),
     prefillIsMax: prefillIsMaxWeight(snapshot, exercise.sets, lastTime),
-    lastTime
+    lastTime,
+    before: { id: 'id' in session ? session.id : undefined, date: session.date, location: session.location }
   }
 }
 

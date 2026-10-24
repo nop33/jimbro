@@ -24,7 +24,7 @@ export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'status' | 'updatedA
 export type PlannedSession = Pick<WorkoutSession, 'date' | 'location'>
 
 // An exercise's sets as one earlier session holds them.
-export type LastTime = Pick<WorkoutSession, 'date' | 'location'> & Pick<ExerciseExecution, 'sets'>
+export type LastTime = Pick<WorkoutSession, 'id' | 'date' | 'location'> & Pick<ExerciseExecution, 'sets'>
 
 // How far an exercise in a session is: the sets logged, the sets to do, and whether they are all logged.
 export interface ExerciseProgress {
@@ -89,6 +89,22 @@ export const hasExercise = (
   session: { exercises: ReadonlyArray<ExerciseSnapshot> },
   exerciseId: Exercise['id']
 ): boolean => session.exercises.some((exercise) => exercise.exerciseId === exerciseId)
+
+// Whether a session came before the given one, which it is not, and has the exercise.
+const isEarlierWith = (
+  candidate: Pick<SessionHeader, 'id' | 'date' | 'exercises'>,
+  exerciseId: Exercise['id'],
+  session: PlannedSession & { id?: WorkoutSession['id'] }
+): boolean => hasExercise(candidate, exerciseId) && candidate.id !== session.id && candidate.date <= session.date
+
+const loggedSetsOf = (session: WorkoutSession, exerciseId: Exercise['id']) =>
+  session.exercises.find((exercise) => exercise.exerciseId === exerciseId)?.sets ?? []
+
+// The exercise's sets in a session, when it logged any.
+const lastTimeIn = (session: WorkoutSession, exerciseId: Exercise['id']): LastTime | undefined => {
+  const sets = loggedSetsOf(session, exerciseId)
+  return sets.length > 0 ? { id: session.id, date: session.date, location: session.location, sets } : undefined
+}
 
 const indexOfExercise = (session: WorkoutSession, exerciseId: Exercise['id']): number => {
   const index = session.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId)
@@ -189,10 +205,8 @@ export class WorkoutSessionsStore {
     exerciseId: Exercise['id'],
     session: PlannedSession & { id?: WorkoutSession['id'] }
   ): Promise<LastTime | undefined> {
-    const earlier = (header: SessionHeader) =>
-      hasExercise(header, exerciseId) && header.id !== session.id && header.date <= session.date
-    const hasSets = (candidate: WorkoutSession) =>
-      candidate.exercises.some((exercise) => exercise.exerciseId === exerciseId && exercise.sets.length > 0)
+    const earlier = (header: SessionHeader) => isEarlierWith(header, exerciseId, session)
+    const hasSets = (candidate: WorkoutSession) => loggedSetsOf(candidate, exerciseId).length > 0
 
     const found =
       (session.location &&
@@ -202,9 +216,19 @@ export class WorkoutSessionsStore {
           hasSets
         ))) ||
       (await this.firstMatchingSession('prev', earlier, hasSets))
-    const exercise = found?.exercises.find((candidate) => candidate.exerciseId === exerciseId)
-    if (!found || !exercise) return undefined
-    return { date: found.date, location: found.location, sets: exercise.sets }
+    return found && lastTimeIn(found, exerciseId)
+  }
+
+  // Every session before this one that logged the exercise, at any gym, newest first, in the order lastTimeOf reads.
+  async earlierTimesOf(
+    exerciseId: Exercise['id'],
+    session: PlannedSession & { id?: WorkoutSession['id'] }
+  ): Promise<Array<LastTime>> {
+    return (await this.getAll())
+      .filter((candidate) => isEarlierWith(candidate, exerciseId, session))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+      .map((candidate) => lastTimeIn(candidate, exerciseId))
+      .filter((lastTime): lastTime is LastTime => lastTime !== undefined)
   }
 
   async getDateOfFirst(): Promise<string | undefined> {

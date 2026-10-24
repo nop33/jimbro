@@ -143,6 +143,63 @@ test.describe('Gymtime Page', () => {
     await expect(weight).not.toHaveAttribute('aria-describedby')
   })
 
+  test('Previous sets opens on last time and steps to older and newer workouts at any gym', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const exerciseId = await card.getAttribute('data-exercise-id')
+    await page.evaluate(async (id) => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      const { snapshotFromExercise, workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+      const exercise = await exercisesStore.getById(id ?? '')
+      if (!exercise) throw new Error('exercise not seeded')
+      for (const [date, location, weight] of [
+        ['2020-01-01', 'Zurich', 40],
+        ['2020-01-08', 'Athens', 45],
+        ['2020-01-15', 'Zurich', 50]
+      ] as const) {
+        const session = await workoutSessionsStore.create({
+          date,
+          programId: 'past',
+          location,
+          exercises: [snapshotFromExercise(exercise)]
+        })
+        await workoutSessionsStore.addSet(session, id ?? '', { preset: 'lifting', reps: 8, weight })
+      }
+    }, exerciseId)
+    // The page reads last time once, so it loads again to see the workouts just stored.
+    await page.reload()
+
+    await card.locator('.exercise-details > summary').click()
+    await card.locator('.view-last-set-btn').click()
+    const dialog = page.locator('#last-set-dialog')
+    const date = dialog.locator('#last-set-date')
+    const gym = dialog.locator('#last-set-gym')
+    const sets = dialog.locator('#last-set-list')
+    const older = dialog.locator('#last-set-older')
+    const newer = dialog.locator('#last-set-newer')
+    await expect(date).toHaveText(/Jan 15, 2020/)
+    await expect(gym).toHaveText('in Zurich')
+    await expect(sets).toContainText('50')
+    await expect(newer).toBeDisabled()
+    await expect(older).toHaveAccessibleName(/^Older workout, .*Jan 8, 2020 in Athens$/)
+
+    await older.click()
+    await expect(date).toHaveText(/Jan 8, 2020/)
+    await expect(gym).toHaveText('in Athens')
+    await expect(sets).toContainText('45')
+
+    // From the keyboard, since WebKit does not focus a clicked button.
+    await older.focus()
+    await page.keyboard.press('Enter')
+    await expect(date).toHaveText(/Jan 1, 2020/)
+    await expect(sets).toContainText('40')
+    await expect(older).toBeDisabled()
+    await expect(newer).toBeFocused()
+
+    await page.keyboard.press('ArrowRight')
+    await expect(date).toHaveText(/Jan 8, 2020/)
+    await expect(newer).toBeEnabled()
+  })
+
   test('the break shows 0:00 for a second and closes itself before it would show -0:01', async ({ page }) => {
     // Install clock to manipulate time
     await page.clock.install()

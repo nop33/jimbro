@@ -110,6 +110,24 @@ describe('planExercise', () => {
   })
 })
 
+describe('earlierTimesOf', () => {
+  it('lists the earlier workouts that logged the exercise at any gym, newest first, with last time among them', async () => {
+    const press = exercise('overhead press')
+    const first = await workout(press, '2026-10-01', 'Zurich', [30])
+    await workout(press, '2026-10-02', 'Zurich', [])
+    const athens = await workout(press, '2026-10-05', 'Athens', [25, 25])
+    const today = await workout(press, '2026-10-08', 'Zurich', [35])
+    await workout(press, '2026-10-09', 'Zurich', [40])
+
+    const plan = await planExercise(snapshotFromExercise(press), today)
+    const times = await workoutSessionsStore.earlierTimesOf(press.id, plan.before)
+
+    expect(times.map(({ id }) => id)).toEqual([athens.id, first.id])
+    expect(times[1]).toEqual({ id: first.id, date: '2026-10-01', location: 'Zurich', sets: [lift(30)] })
+    expect(plan.lastTime?.id).toBe(first.id)
+  })
+})
+
 describe('keptLastTimes', () => {
   it('keeps last time for a workout, and reads it again for another day or gym', async () => {
     const raise = exercise('raise')
@@ -129,7 +147,7 @@ describe('keptLastTimes', () => {
 
 describe('nextSetValues', () => {
   const snapshot = snapshotFromExercise(exercise('fly'))
-  const lastTime = { date: '2026-10-01', location: 'Zurich', sets: [lift(40), lift(50), lift(45)] }
+  const lastTime = { id: 'past', date: '2026-10-01', location: 'Zurich', sets: [lift(40), lift(50), lift(45)] }
 
   it("starts from last time's heaviest weight, and says so when the weights differed", () => {
     expect(nextSetValues(snapshot, [], lastTime)).toEqual({ reps: 5, weight: 50 })
