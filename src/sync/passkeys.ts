@@ -170,6 +170,8 @@ interface RequestOptionsJson {
 interface Account {
   userId: string
   token: string
+  // How many devices a sign-in finds signed in to the account already. A sign-up has none.
+  otherDevices?: number
 }
 
 const isAccount = (value: unknown): value is Account =>
@@ -178,7 +180,8 @@ const isAccount = (value: unknown): value is Account =>
   'userId' in value &&
   'token' in value &&
   typeof value.userId === 'string' &&
-  typeof value.token === 'string'
+  typeof value.token === 'string' &&
+  (!('otherDevices' in value) || typeof value.otherDevices === 'number')
 
 const bytes = (text: string) => {
   const decoded = fromBase64Url(text)
@@ -265,12 +268,25 @@ const signInReplacesLocalRows = async (pulled: PulledAccount) => {
   return replacesLocalRows(local.rows, pulled.rows)
 }
 
+// What a sign-in would do beyond restoring the account, which the page asks about first: move the account here from the
+// devices signed in to it, which then stop backing up, and replace rows on this device with the account's copy.
+export interface SignInEffects {
+  movesFromOtherDevice: boolean
+  replacesLocalRows: boolean
+}
+
 // Signs in with any passkey this phone has for Jimbro, which the browser lets the user pick, and restores its account.
-// The first sync with the account keeps the account's copy of every row both sides have, so where that would replace a
-// row on this device, confirmReplace asks first, after the passkey sheet, so the sheet still opens right on the tap. Resolves to
-// false when the user said no, and then the device stays as it was and the worker forgets the new token. The account is
-// downloaded once: the comparison and the restore share the pull, so the callers' next sync only pushes.
-export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: () => boolean | Promise<boolean> }) => {
+// An account backs up one device, so signing in claims it, and every other device signed in to it stops backing up.
+// The first sync with the account keeps the account's copy of every row both sides have. When the sign-in moves the
+// account or replaces a row on this device, confirmSignIn asks first, after the passkey sheet, so the sheet still opens
+// right on the tap. Resolves to false when the user said no, and then the device stays as it was, the other devices
+// keep backing up, and the worker forgets the new token. The account is downloaded once: the comparison and the
+// restore share the pull, so the callers' next sync only pushes.
+export const signInWithPasskey = async ({
+  confirmSignIn
+}: {
+  confirmSignIn: (effects: SignInEffects) => boolean | Promise<boolean>
+}) => {
   const account = await withOptions('signin', async (options) => {
     const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
     const credential = await navigator.credentials.get({
@@ -286,11 +302,25 @@ export const signInWithPasskey = async ({ confirmReplace }: { confirmReplace: ()
     })
   })
   if (!isAccount(account)) throw new PasskeyServerError('invalid_answer')
-  const pulled = await pullAccount(account.token)
-  if ((await signInReplacesLocalRows(pulled)) && !(await confirmReplace())) {
+  const forget = async () => {
     await post('/api/signout', {}, account.token).catch(() => undefined)
     preparePasskey('signin')
+  }
+  const pulled = await pullAccount(account.token)
+  const effects: SignInEffects = {
+    movesFromOtherDevice: (account.otherDevices ?? 0) > 0,
+    replacesLocalRows: await signInReplacesLocalRows(pulled)
+  }
+  if ((effects.movesFromOtherDevice || effects.replacesLocalRows) && !(await confirmSignIn(effects))) {
+    await forget()
     return false
+  }
+  // The other devices are signed out before this one switches, so a failed claim leaves everything as it was.
+  try {
+    await answer(await post('/api/claim', {}, account.token))
+  } catch (error) {
+    await forget()
+    throw error
   }
   await switchTo(account)
   // A failed restore leaves the first sync to the callers' next sync, which pulls again.

@@ -231,11 +231,16 @@ export const signInVerify = async (request: Request, env: PasskeyEnv) => {
   if ((signCount !== 0 || stored.sign_count !== 0) && signCount <= stored.sign_count) return fail('sign_count', 401)
 
   const { token, statement } = await newToken(env.jimbro, stored.user_id, new Date().toISOString())
-  await env.jimbro.batch([
+  const [, , others] = await env.jimbro.batch<{ n: number }>([
     env.jimbro.prepare('UPDATE passkeys SET sign_count = ?1 WHERE id = ?2').bind(signCount, toBase64Url(id)),
-    statement
+    statement,
+    env.jimbro
+      .prepare('SELECT COUNT(*) AS n FROM auth_tokens WHERE user_id = ?1 AND token_hash != ?2')
+      .bind(stored.user_id, await hashToken(token))
   ])
-  return Response.json({ userId: stored.user_id, token })
+  // otherDevices counts the devices signed in to the account already, which a claim signs out, so the app can say so
+  // before it moves the account here.
+  return Response.json({ userId: stored.user_id, token, otherDevices: others.results[0]?.n ?? 0 })
 }
 
 // POST /api/passkeys/options: a challenge for one more passkey on the signed-in account.
@@ -275,4 +280,16 @@ export const signOut = async (request: Request, env: PasskeyEnv) => {
       .run()
   }
   return Response.json({ ok: true })
+}
+
+// POST /api/claim: moves the account to the device that calls it, by forgetting every other token a passkey handed out
+// for it. An account backs up one device, so a sign-in on a new phone claims the account once the user agrees, and the
+// old device's next push answers 401. AUTH_TOKENS tokens stay.
+export const claimAccount = async (request: Request, env: PasskeyEnv, userId: string) => {
+  const token = bearerToken(request.headers.get('Authorization'))
+  const result = await env.jimbro
+    .prepare('DELETE FROM auth_tokens WHERE user_id = ?1 AND token_hash != ?2')
+    .bind(userId, token ? await hashToken(token) : '')
+    .run()
+  return Response.json({ signedOut: result.meta.changes })
 }

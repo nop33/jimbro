@@ -3,20 +3,19 @@ import { onPageNotice } from './sync/pageChannel'
 import { isOutOfDate } from './sync/freshness'
 import { getSyncProblem } from './sync/status'
 import Toasts from './features/toasts'
+import { PROBLEM_MESSAGES } from './pages/syncProblems'
 
 let rowsWrittenTimer = 0
-let toldBackupFull = false
+let toldProblem = false
 
-// A failed sync retries on the next trigger. A full backup never takes a push again, so the page says so, once.
+// A failed sync retries on the next trigger. A full backup never takes a push again, and a backup that moved to another
+// device stops this one syncing, so the page says so, once.
 const startSync = () => {
   void sync().catch(() => {
-    if (toldBackupFull || getSyncProblem() !== 'row_limit') return
-    toldBackupFull = true
-    Toasts.show({
-      message: 'Your cloud backup is full. New changes stay on this phone.',
-      type: 'error',
-      duration: 'long'
-    })
+    const problem = getSyncProblem()
+    if (toldProblem || !problem) return
+    toldProblem = true
+    Toasts.show({ message: PROBLEM_MESSAGES[problem], type: 'error', duration: 'long' })
   })
 }
 

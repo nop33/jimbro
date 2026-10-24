@@ -234,6 +234,34 @@ describe('passkey sign-up and sign-in', () => {
     expect(page.rows.map((entry) => entry.row)).toEqual([exercise])
   })
 
+  it('counts the devices signed in already, and a claim signs them out', async () => {
+    const { client, passkey, session } = await signUp()
+    const signInAs = async () => {
+      const response = await client.call('/auth/signin/verify', await passkey.assert(await signInChallenge(client)))
+      return (await response.json()) as Session & { otherDevices: number }
+    }
+    const laptop = await signInAs()
+    expect(laptop.otherDevices).toBe(1)
+    const tablet = await signInAs()
+    expect(tablet.otherDevices).toBe(2)
+
+    const ping = (token: string) =>
+      SELF.fetch('https://example.com/api/ping', { headers: { Authorization: `Bearer ${token}` } })
+    const claimed = await client.call('/api/claim', undefined, { Authorization: `Bearer ${tablet.token}` })
+    expect(claimed.status).toBe(200)
+    expect(await claimed.json()).toEqual({ signedOut: 2 })
+    expect((await ping(session.token)).status).toBe(401)
+    expect((await ping(laptop.token)).status).toBe(401)
+    expect((await ping(tablet.token)).status).toBe(200)
+
+    // Another account's devices stay signed in.
+    const other = await signUp()
+    await client.call('/api/claim', undefined, { Authorization: `Bearer ${(await signInAs()).token}` })
+    expect((await ping(other.session.token)).status).toBe(200)
+
+    expect((await client.call('/api/claim')).status).toBe(401)
+  })
+
   it('stores only a hash of each token', async () => {
     const { session } = await signUp()
     const stored = await env.jimbro

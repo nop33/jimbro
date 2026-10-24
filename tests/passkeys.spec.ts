@@ -199,8 +199,14 @@ test.describe('passkeys with a virtual authenticator', () => {
       restoring.on('request', (request) => {
         if (request.url().includes('/api/pull?cursor=0')) fullPulls.push(request.url())
       })
+      // The old phone still backs up to the account, so the sign-in asks before it moves the backup here.
+      const moving = restoring.waitForEvent('dialog')
       const reloaded = restoring.waitForEvent('framenavigated')
       await restoring.getByRole('button', { name: 'Sign in with passkey' }).click()
+      const move = await moving
+      expect(move.message()).toContain('Your account is signed in on another device.')
+      expect(move.message()).not.toContain("replace this device's copy")
+      await move.accept()
       await reloaded
       await expect(restoring.locator('.workout-week').first()).toBeVisible()
       await expect(restoring.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
@@ -215,6 +221,58 @@ test.describe('passkeys with a virtual authenticator', () => {
     } finally {
       await newPhone.close()
     }
+
+    // The old phone's next push finds the backup moved: it stops syncing, keeps its workouts and says so.
+    await page.goto('/exercises/')
+    await page.evaluate(async () => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      await exercisesStore.load()
+      const [first] = exercisesStore.all
+      await exercisesStore.update({ ...first, name: 'Renamed on the old phone' })
+    })
+    await expect(
+      page.locator('.toast-message-popup', { hasText: 'Your backup moved to another device.' })
+    ).toBeVisible()
+    expect(await credentialsOf(page)).toBeNull()
+    expect(await countLocal(page, 'exercises')).toBe(21)
+    await openCloudBackup(page)
+    await expect(page.locator('#cloud-summary-status')).toHaveText('Moved to another device')
+    await expect(page.getByText('Your backup moved to another device, so this phone stopped backing up.')).toBeVisible()
+    await expect(page.locator('#passkey-offer button').first()).toHaveText('Sign in with passkey')
+  })
+
+  test('keeps the other phone backing up when the move is declined', async ({ page, browser }) => {
+    const { cdp, authenticatorId } = await authenticatorOn(page)
+    await seedDatabase(page)
+    await assertLocalWorker(page)
+    await openCloudBackup(page)
+    await page.getByRole('button', { name: 'Create passkey' }).click()
+    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    const created = await credentialsOf(page)
+    const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
+
+    const laptop = await browser.newContext()
+    try {
+      const signingIn = await laptop.newPage()
+      const authenticator = await authenticatorOn(signingIn)
+      await authenticator.cdp.send('WebAuthn.addCredential', {
+        authenticatorId: authenticator.authenticatorId,
+        credential: credentials[0]
+      })
+      await openCloudBackup(signingIn)
+      const asked = signingIn.waitForEvent('dialog')
+      await signingIn.getByRole('button', { name: 'Sign in with passkey' }).click()
+      const move = await asked
+      expect(move.message()).toContain('signing in here moves your backup to this device')
+      await move.dismiss()
+      await expect(signingIn.getByRole('button', { name: 'Sign in with passkey' })).toBeEnabled()
+      expect(await credentialsOf(signingIn)).toBeNull()
+    } finally {
+      await laptop.close()
+    }
+
+    const ping = await fetch(`${API_BASE}/api/ping`, { headers: { Authorization: `Bearer ${created?.token}` } })
+    expect(ping.status).toBe(200)
   })
 
   test('makes a new account for a device that synced with a token, and pushes it every row', async ({ page }) => {

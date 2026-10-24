@@ -14,7 +14,8 @@ import {
 import { sync } from '../../sync/syncClient'
 import { onPageNotice } from '../../sync/pageChannel'
 import { getLastSyncAt, getSyncProblem } from '../../sync/status'
-import { confirmReplaceWithAccount, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
+import { PROBLEM_MESSAGES } from '../syncProblems'
+import { confirmSignIn, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
 import { whileBusy } from '../busyButton'
 
 // Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
@@ -23,6 +24,7 @@ class CloudBackup {
   private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
   private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
   private static offer = document.querySelector('#passkey-offer') as HTMLElement
+  private static moved = document.querySelector('#passkey-moved') as HTMLParagraphElement
   private static unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
   private static account = document.querySelector('#passkey-account') as HTMLParagraphElement
   private static accountActions = document.querySelector('#passkey-account-actions') as HTMLDivElement
@@ -76,6 +78,7 @@ class CloudBackup {
     const passkey = config?.method === 'passkey'
     const supported = passkeysSupported()
     this.offer.hidden = passkey || !supported
+    this.moved.hidden = passkey || getSyncProblem() !== 'moved'
     this.unsupported.hidden = passkey || supported
     this.account.hidden = !passkey
     this.accountActions.hidden = !passkey
@@ -95,7 +98,7 @@ class CloudBackup {
   private static async updateSummaryStatus() {
     const config = getCloudBackupConfig()
     if (!config) {
-      this.summaryStatus.textContent = 'Not set up yet'
+      this.summaryStatus.textContent = getSyncProblem() === 'moved' ? 'Moved to another device' : 'Not set up yet'
       return
     }
 
@@ -151,12 +154,7 @@ class CloudBackup {
 
   // The sign-in restores the account before it resolves, so the button stays busy until the workouts are back.
   private static handleSignIn() {
-    return this.runPasskeyStep(
-      this.signInBtn,
-      'Signing in…',
-      () => signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }),
-      'Signed in.'
-    )
+    return this.runPasskeyStep(this.signInBtn, 'Signing in…', () => signInWithPasskey({ confirmSignIn }), 'Signed in.')
   }
 
   private static async handleAddPasskey() {
@@ -216,11 +214,13 @@ class CloudBackup {
       await sync()
       await this.updateSummaryStatus()
     } catch (error) {
-      const full = getSyncProblem() === 'row_limit'
+      const problem = getSyncProblem()
       Toasts.show({
-        message: full ? 'Your cloud backup is full. New changes stay on this phone.' : 'Sync failed.',
+        message: problem ? PROBLEM_MESSAGES[problem] : 'Sync failed.',
         type: 'error'
       })
+      this.showState()
+      this.prepare()
       await this.updateSummaryStatus()
       console.error('sync failed', error)
     }

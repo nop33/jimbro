@@ -4,6 +4,7 @@ import { isAllowedOrigin, type OriginEnv } from './origins'
 import {
   addPasskeyOptions,
   addPasskeyVerify,
+  claimAccount,
   registerOptions,
   registerVerify,
   signInOptions,
@@ -140,6 +141,7 @@ const handleRequest = async (request: Request, env: Env) => {
     if (path === '/api/passkeys/options' && request.method === 'POST') return addPasskeyOptions(request, env, userId)
     if (path === '/api/passkeys/verify' && request.method === 'POST') return addPasskeyVerify(request, env, userId)
     if (path === '/api/signout' && request.method === 'POST') return signOut(request, env)
+    if (path === '/api/claim' && request.method === 'POST') return claimAccount(request, env, userId)
   }
 
   return Response.json({ error: 'not found' }, { status: 404 })

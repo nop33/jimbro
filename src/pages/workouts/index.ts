@@ -19,7 +19,7 @@ import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
 import { whileBusy } from '../busyButton'
-import { confirmReplaceWithAccount, showPasskeyFailure } from '../passkeyPrompts'
+import { confirmSignIn, showPasskeyFailure } from '../passkeyPrompts'
 
 const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
 
@@ -153,7 +153,7 @@ if (_isDbEmpty) {
           'Signing in…',
           async () => {
             try {
-              if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return
+              if (!(await signInWithPasskey({ confirmSignIn }))) return
             } catch (error) {
               showPasskeyFailure(error)
               return
