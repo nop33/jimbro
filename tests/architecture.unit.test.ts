@@ -100,6 +100,17 @@ const syncStoresOutsideSync: Detector = (file, source) => {
     : []
 }
 
+// The saved account, its sync status and the signed-out hint change together: a switch or sign-out that missed one
+// left a device syncing with the token it typed but never restoring that account, or showing the account before's
+// last sync. So only the Account module reads or writes them.
+const accountKeysOutsideAccount: Detector = (file, source) => {
+  const accountFile = path.normalize('src/sync/account.ts')
+  const accountKey = /['"`]jimbro\.(?:cloudBackup|sync\.)/
+  return file !== accountFile && accountKey.test(source)
+    ? [`${file} reads or writes the saved account or its status. Use account from src/sync/account.ts.`]
+    : []
+}
+
 // A notice sent or heard as a bare jimbro: window event skips announce and onPageNotice, and its listener gets no
 // typed notice. A custom event between modules, like the exercise-clicked event that ExerciseList's callback
 // replaced, reaches its listeners untyped. A BroadcastChannel carried notices to other tabs until each user ran the
@@ -228,6 +239,16 @@ const rules: Array<{
     flags: 1,
     flagged: /reads or writes the outbox or meta store/,
     good: "db.transaction('workoutSessions')"
+  },
+  {
+    rule: 'leaves the saved account and its status to the Account module',
+    detector: accountKeysOutsideAccount,
+    files: () => sourceFiles('src'),
+    file: page,
+    bad: "localStorage.getItem('jimbro.cloudBackup')",
+    flags: 1,
+    flagged: /reads or writes the saved account/,
+    good: "account.current()\nlocalStorage.getItem('jimbro.passkeyOffer.snoozedUntil')"
   },
   {
     rule: 'leaves page notices to pageChannel, custom events to EventEmitter, and opens no BroadcastChannel',

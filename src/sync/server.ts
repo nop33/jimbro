@@ -1,6 +1,7 @@
-import { fetchJimbroApi, getCloudBackupConfig } from '../db/cloudBackup'
 import type { Row } from '../db/types'
 import type { PushRows } from './outbox'
+
+export const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.jimbro.nop33.com'
 
 // One page of a pull: the rows above the cursor asked for, in revision order, each with its revision, the cursor
 // after them, and whether more rows remain above it.
@@ -22,20 +23,34 @@ export interface SyncServer {
 
 export const PULL_LIMIT = 1000
 
-// A request the worker refused, with the error it answered, such as row_limit or rate_limited, or the status.
-export class SyncRequestError extends Error {
+// A request the worker refused, with the error it answered, such as row_limit, unauthorized or invalid_challenge, or
+// the status.
+export class ServerError extends Error {
   readonly status: number
   readonly code: string
 
   constructor(status: number, code: string) {
-    super(`sync request failed: ${status}${code === String(status) ? '' : ` ${code}`}`)
+    super(`request failed: ${status}${code === String(status) ? '' : ` ${code}`}`)
     this.status = status
     this.code = code
   }
 }
 
-const assertOk = async (response: Response) => {
-  if (response.ok) return
+// Sends one request to the worker, with the token when it is given, and resolves to the JSON it answered. Throws a
+// ServerError when the worker refused it.
+export const requestJson = async (
+  path: string,
+  options: { method?: 'GET' | 'POST'; token?: string; body?: unknown } = {}
+): Promise<unknown> => {
+  const headers = new Headers()
+  if (options.token !== undefined) headers.set('Authorization', `Bearer ${options.token}`)
+  const init: RequestInit = { method: options.method ?? 'GET', headers }
+  if (options.method === 'POST') {
+    headers.set('Content-Type', 'application/json')
+    init.body = JSON.stringify(options.body ?? {})
+  }
+  const response = await fetch(`${API_BASE}${path}`, init)
+  if (response.ok) return (await response.json()) as unknown
   let code = String(response.status)
   try {
     const body = (await response.json()) as { error?: unknown }
@@ -43,7 +58,7 @@ const assertOk = async (response: Response) => {
   } catch {
     // The body was not JSON, so the status stands.
   }
-  throw new SyncRequestError(response.status, code)
+  throw new ServerError(response.status, code)
 }
 
 const revisionOf = (body: unknown) => {
@@ -51,22 +66,9 @@ const revisionOf = (body: unknown) => {
   return typeof body.revision === 'number' ? body.revision : null
 }
 
-// The worker's /api/push and /api/pull, with the saved credentials. It is reachable while credentials are saved and
-// the browser is online.
-export const httpServer: SyncServer = {
-  reachable: () => getCloudBackupConfig() !== null && navigator.onLine,
-  async push(rows) {
-    const response = await fetchJimbroApi('/api/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows })
-    })
-    await assertOk(response)
-    return revisionOf(await response.json())
-  },
-  async pull(cursor) {
-    const response = await fetchJimbroApi(`/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`)
-    await assertOk(response)
-    return (await response.json()) as PullPage
-  }
-}
+// The worker's /api/push and /api/pull for one account's token. It is reachable while the browser is online.
+export const httpServer = ({ token }: { token: string }): SyncServer => ({
+  reachable: () => navigator.onLine,
+  push: async (rows) => revisionOf(await requestJson('/api/push', { method: 'POST', token, body: { rows } })),
+  pull: async (cursor) => (await requestJson(`/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`, { token })) as PullPage
+})

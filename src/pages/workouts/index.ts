@@ -1,4 +1,4 @@
-import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { account } from '../../sync/account'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
@@ -28,7 +28,7 @@ const programNames = Object.fromEntries(programs.map((program) => [program.id, p
 const _isDbEmpty = await isDbEmpty()
 const canRestore =
   _isDbEmpty &&
-  getCloudBackupConfig() !== null &&
+  account.current() !== null &&
   (await getMeta(storage, 'cursor')) === 0 &&
   (await getMeta(storage, 'bootstrapped')) === 0
 const settings = getWorkoutModeSettings()
