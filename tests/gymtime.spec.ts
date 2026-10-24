@@ -290,6 +290,33 @@ test.describe('Gymtime Page', () => {
     expect(countdown.y + countdown.height).toBeLessThanOrEqual(bar.y + bar.height)
   })
 
+  test('set rows spread their fields across the row, in columns', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    await card.locator('.exercise-details > summary').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    await expect(card.locator('.completed-sets > .isCompleted')).toHaveCount(1)
+
+    // Each row's last field ends at the row's right edge, inside its padding, and every column starts at the same x.
+    const rows = await card.locator('.completed-sets > .set').evaluateAll((sets) =>
+      sets.map((set) => {
+        const row = set.getBoundingClientRect()
+        const fields = [...set.querySelectorAll('.set-fields > *')].map((field) => field.getBoundingClientRect())
+        return {
+          rightGap: Math.round(row.right - fields.at(-1)!.right),
+          starts: fields.map(({ left }) => Math.round(left))
+        }
+      })
+    )
+    expect(rows.length).toBeGreaterThan(1)
+    for (const { rightGap, starts } of rows) {
+      expect(rightGap).toBeLessThanOrEqual(16)
+      expect(starts).toEqual(rows[0].starts)
+    }
+  })
+
   test("moves an exercise from its card's actions menu, which starts the workout", async ({ page }) => {
     const names = page.locator('.exercise-name')
     await expect(names.first()).toBeVisible()
