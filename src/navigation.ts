@@ -21,8 +21,9 @@ const startSync = () => {
 }
 
 export function initNavigation() {
-  document.querySelector('#back-button')?.addEventListener('click', () => {
-    window.history.back()
+  // The router puts each page's header in place, so the document listens for the back button of whichever is shown.
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Element && event.target.closest('#back-button')) window.history.back()
   })
 
   // The service worker caches every page and asset, so the app opens offline. The dev server has no build to cache.

@@ -11,6 +11,11 @@ onPageNotice((notice) => {
   if (notice === 'rows-written') shown = readVersion()
 })
 
+// Called once a page has drawn the database, as the router shows each page.
+export const markRendered = () => {
+  shown = readVersion()
+}
+
 // True when another page or a sync changed the database since this page rendered it. A page that Back or Forward
 // restored, or one prerendered before the tap, misses what the pages shown in between wrote.
 export const isOutOfDate = async () => (await readVersion()) !== (await shown)

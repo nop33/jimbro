@@ -215,7 +215,7 @@ Deploy the worker and its D1 migrations before an app version that needs them. F
 - Every page has a bottom bar with Home, Workouts, Exercises, Programs, and highlights the current page. Its icons are inline [Lucide](https://lucide.dev) SVGs (ISC License).
 - Stats opens from any highlight tile on Home.
 - The pages outside the bottom bar (gymtime, stats and settings) have a back button that calls `window.history.back()`.
-- There is no SPA router. Every link is a full page load.
+- Every page is a static `index.html` that works on its own when opened by URL. Where the browser has the Navigation API (Chromium, Safari 26.2+), the router in `src/router.ts` shows the next page in the same document: it loads the page's HTML from the service worker cache, swaps the body under a view transition and mounts the page's module. The break timer, toasts and confetti stay on screen across it. Elsewhere every link is a full page load.
 
 ## Import and export
 

@@ -6,12 +6,24 @@ const MODE_DESCRIPTIONS: Record<WorkoutMode, string> = {
 }
 
 class WorkoutModeDialog {
-  private static dialog = document.querySelector('#workout-mode-dialog') as HTMLDialogElement
-  private static opener = document.querySelector('#week-progress') as HTMLButtonElement
-  private static modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="workout-mode"]')
-  private static goalContainer = document.querySelector('#weekly-goal-container') as HTMLDivElement
-  private static goalInput = document.querySelector('#weekly-goal-input') as HTMLInputElement
-  private static description = document.querySelector('#workout-mode-description') as HTMLParagraphElement
+  private static get dialog() {
+    return document.querySelector('#workout-mode-dialog') as HTMLDialogElement
+  }
+  private static get opener() {
+    return document.querySelector('#week-progress') as HTMLButtonElement
+  }
+  private static get modeRadios() {
+    return document.querySelectorAll<HTMLInputElement>('input[name="workout-mode"]')
+  }
+  private static get goalContainer() {
+    return document.querySelector('#weekly-goal-container') as HTMLDivElement
+  }
+  private static get goalInput() {
+    return document.querySelector('#weekly-goal-input') as HTMLInputElement
+  }
+  private static get description() {
+    return document.querySelector('#workout-mode-description') as HTMLParagraphElement
+  }
 
   static init() {
     const settings = getWorkoutModeSettings()

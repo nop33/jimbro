@@ -8,12 +8,7 @@
 <link rel="manifest" href="/app.webmanifest" />
 <!-- A stylesheet in the head blocks the first paint until it loads, so no page shows unstyled, in dev too. -->
 <link rel="stylesheet" href="/src/style.css" />
-<!-- Chromium prerenders the other bottom-nav pages, so tapping one shows it complete at once. -->
-<script type="speculationrules">
-  {
-    "prerender": [{ "where": { "selector_matches": ".bottom-nav a:not([aria-current])" }, "eagerness": "immediate" }]
-  }
-</script>
-<!-- Module scripts run in order once the page is parsed, so these can sit here, before each page's own script. -->
+<!-- Module scripts run in order once the page is parsed. The router draws the page and shows the next ones in place. -->
 <script type="module" src="/src/navigation.ts"></script>
 <script type="module" src="/src/features/hapticFeedback/index.ts"></script>
+<script type="module" src="/src/router.ts"></script>

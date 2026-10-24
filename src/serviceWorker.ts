@@ -40,7 +40,8 @@ const respond = async (request: Request) => {
 }
 
 self.addEventListener('install', (event) => {
-  // A new build takes over at once. Pages are full loads, so an open page keeps the files it already loaded.
+  // A new build takes over at once. An open page keeps the files it already loaded, and when its router can't import
+  // a page the new build dropped, it loads that page in full from the new build.
   event.waitUntil(precache().then(() => self.skipWaiting()))
 })
 

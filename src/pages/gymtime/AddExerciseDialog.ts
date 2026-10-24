@@ -1,10 +1,18 @@
 import type { Exercise } from '../../db/stores/exercisesStore'
 
 class AddExerciseDialog {
-  private static dialog = document.querySelector('#add-exercise-dialog') as HTMLDialogElement
-  private static dialogCancel = this.dialog.querySelector('.dialog-cancel') as HTMLButtonElement
-  private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
-  private static dialogTitle = this.dialog.querySelector('h2') as HTMLHeadingElement
+  private static get dialog() {
+    return document.querySelector('#add-exercise-dialog') as HTMLDialogElement
+  }
+  private static get dialogCancel() {
+    return this.dialog.querySelector('.dialog-cancel') as HTMLButtonElement
+  }
+  private static get addExerciseCard() {
+    return document.querySelector('#add-exercise-card') as HTMLDivElement
+  }
+  private static get dialogTitle() {
+    return this.dialog.querySelector('h2') as HTMLHeadingElement
+  }
   private static defaultCallback: ((exercise: Exercise) => void) | null = null
   private static currentCallback: ((exercise: Exercise) => void) | null = null
 

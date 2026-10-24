@@ -20,20 +20,48 @@ import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
 class ExerciseDialog {
-  private static newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
-  private static exerciseDialog = document.querySelector('#exercise-dialog') as HTMLDialogElement
-  private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
-  private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
-  private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
-  private static exerciseKindSelect = document.querySelector('#exercise-kind') as HTMLSelectElement
-  private static exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLDivElement
-  private static exercisePresetSelect = document.querySelector('#exercise-preset') as HTMLSelectElement
-  private static exerciseMuscleField = document.querySelector('#exercise-muscle-field') as HTMLDivElement
-  private static exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
-  private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
-  private static exerciseDefaults = document.querySelector('#exercise-defaults') as HTMLDivElement
-  private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteExerciseBtn = this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
+  private static get newExerciseButton() {
+    return document.querySelector('#new-exercise-btn') as HTMLButtonElement
+  }
+  private static get exerciseDialog() {
+    return document.querySelector('#exercise-dialog') as HTMLDialogElement
+  }
+  private static get exerciseForm() {
+    return document.querySelector('#exercise-form') as HTMLFormElement
+  }
+  private static get exerciseIdInput() {
+    return document.querySelector('#exercise-id') as HTMLInputElement
+  }
+  private static get exerciseNameInput() {
+    return document.querySelector('#exercise-name') as HTMLInputElement
+  }
+  private static get exerciseKindSelect() {
+    return document.querySelector('#exercise-kind') as HTMLSelectElement
+  }
+  private static get exercisePresetField() {
+    return document.querySelector('#exercise-preset-field') as HTMLDivElement
+  }
+  private static get exercisePresetSelect() {
+    return document.querySelector('#exercise-preset') as HTMLSelectElement
+  }
+  private static get exerciseMuscleField() {
+    return document.querySelector('#exercise-muscle-field') as HTMLDivElement
+  }
+  private static get exerciseMuscleSelect() {
+    return document.querySelector('#exercise-muscle') as HTMLSelectElement
+  }
+  private static get exerciseSetsInput() {
+    return document.querySelector('#exercise-sets') as HTMLInputElement
+  }
+  private static get exerciseDefaults() {
+    return document.querySelector('#exercise-defaults') as HTMLDivElement
+  }
+  private static get dialogTitle() {
+    return document.querySelector('#dialog-title') as HTMLHeadingElement
+  }
+  private static get deleteExerciseBtn() {
+    return this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
+  }
 
   static openDialog() {
     this.exerciseDialog.showModal()

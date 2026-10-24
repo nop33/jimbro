@@ -3,12 +3,15 @@ import { programsStore } from '../../db/stores/programsStore'
 import ProgramComponent from './ProgramComponent'
 
 class ProgramList {
-  private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
+  private static get programsGrid() {
+    return document.querySelector('#programs-grid') as HTMLDivElement
+  }
 
-  static init() {
+  static init(signal: AbortSignal) {
     this.render(programsStore.all)
 
-    programsStore.subscribe((programs) => this.render(programs))
+    const unsubscribe = programsStore.subscribe((programs) => this.render(programs))
+    signal.addEventListener('abort', unsubscribe)
   }
 
   static render(programs: Array<Program>) {

@@ -12,10 +12,18 @@ interface EditSetData {
 }
 
 class EditSetDialog {
-  private static dialog = document.querySelector('#edit-set-dialog') as HTMLDialogElement
-  private static deleteBtn = this.dialog.querySelector('.delete-btn') as HTMLButtonElement
-  private static form = document.querySelector('#edit-set-form') as HTMLFormElement
-  private static fields = document.querySelector('#edit-set-fields') as HTMLDivElement
+  private static get dialog() {
+    return document.querySelector('#edit-set-dialog') as HTMLDialogElement
+  }
+  private static get deleteBtn() {
+    return this.dialog.querySelector('.delete-btn') as HTMLButtonElement
+  }
+  private static get form() {
+    return document.querySelector('#edit-set-form') as HTMLFormElement
+  }
+  private static get fields() {
+    return document.querySelector('#edit-set-fields') as HTMLDivElement
+  }
   private static editedSetData: EditSetData | null = null
 
   static init() {

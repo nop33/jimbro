@@ -121,6 +121,12 @@ export const preparePasskey = (ceremony: Ceremony) => {
   prefetched.set(ceremony, entry)
 }
 
+// Stops refreshing the prefetched options, for a page that no longer shows a passkey button.
+export const forgetPreparedPasskeys = () => {
+  for (const { refresh } of prefetched.values()) window.clearTimeout(refresh)
+  prefetched.clear()
+}
+
 // The options for this tap: the prefetched ones while fresh, else fetched now. A challenge is good once, so either way
 // they are used up.
 const takeOptions = async (ceremony: Ceremony) => {

@@ -103,4 +103,4 @@ async function calculateAndRenderStats() {
   }
 }
 
-await calculateAndRenderStats()
+export const mount = () => calculateAndRenderStats()

@@ -4,7 +4,9 @@ type EmptyStateButton = 'seed' | 'restore' | 'none'
 
 // The message for a user with no program yet. Once there is one, the week's progress card takes its place.
 class IntroText {
-  private static introText = document.querySelector('#intro') as HTMLDivElement
+  private static get introText() {
+    return document.querySelector('#intro') as HTMLDivElement
+  }
 
   static async render(emptyStateButton: EmptyStateButton) {
     if (emptyStateButton === 'seed') {

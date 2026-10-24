@@ -10,11 +10,21 @@ import { parseUrlParams } from './parseUrlParams'
 import WorkoutSessionForm from './WorkoutSessionForm'
 
 class GymtimePage {
-  private static pageContent = document.querySelector('.app-page-content') as HTMLDivElement
-  private static deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
-  private static workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
-  private static saveToProgramCard = document.querySelector('#save-to-program-card') as HTMLDivElement
-  private static addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
+  private static get pageContent() {
+    return document.querySelector('.app-page-content') as HTMLDivElement
+  }
+  private static get deleteWorkoutSessionBtn() {
+    return document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
+  }
+  private static get workoutDetails() {
+    return document.querySelector('#workout-details') as HTMLDetailsElement
+  }
+  private static get saveToProgramCard() {
+    return document.querySelector('#save-to-program-card') as HTMLDivElement
+  }
+  private static get addExerciseCard() {
+    return document.querySelector('#add-exercise-card') as HTMLDivElement
+  }
   private static program: Program
 
   static async init() {
@@ -120,8 +130,8 @@ class GymtimePage {
     }
   }
 
-  static start() {
-    this.init().catch((error) => {
+  static start(): Promise<void> {
+    return this.init().catch((error: unknown) => {
       console.error('Failed to initialize gymtime page:', error)
       this.showError('Could not load workout. The program or session may no longer exist.')
     })

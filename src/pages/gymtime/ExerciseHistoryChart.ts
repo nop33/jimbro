@@ -11,14 +11,26 @@ export interface ExerciseHistoryTarget {
 }
 
 class ExerciseHistoryChart {
-  private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
-  private static canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
-  private static closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
-  private static gymKey = this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
-  private static metricButtons = [...this.dialog.querySelectorAll<HTMLButtonElement>('.history-metric')]
+  private static get dialog() {
+    return document.getElementById('exercise-history-dialog') as HTMLDialogElement
+  }
+  private static get canvas() {
+    return document.getElementById('exercise-history-chart') as HTMLCanvasElement
+  }
+  private static get closeBtn() {
+    return this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
+  }
+  private static get gymKey() {
+    return this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
+  }
+  private static get metricButtons() {
+    return [...this.dialog.querySelectorAll<HTMLButtonElement>('.history-metric')]
+  }
   private static chartInstance: ChartInstance | null = null
 
   static init() {
+    this.chartInstance?.destroy()
+    this.chartInstance = null
     for (const button of this.metricButtons) {
       // A hidden line stays hidden for the other exercises' charts until the page reloads.
       button.addEventListener('click', () => {
@@ -39,6 +51,10 @@ class ExerciseHistoryChart {
         this.chartInstance = null
       }
     })
+  }
+
+  static onPage(): boolean {
+    return this.dialog !== null
   }
 
   static async openDialog(exercise: ExerciseHistoryTarget) {

@@ -13,14 +13,30 @@ import { openSession } from './openSession'
 // The workout's day, gym and notes, under a summary line that shows the day and gym. Before the workout starts they
 // say what the start will store; after, each change saves as it is made.
 class WorkoutSessionForm {
-  private static form = document.querySelector('#gymtime-form') as HTMLFormElement
-  private static dateInput = this.form.querySelector('input[name="date"]') as HTMLInputElement
-  private static locationInput = this.form.querySelector('input[name="location"]') as HTMLInputElement
-  private static clearGymBtn = this.form.querySelector('#clear-gym-btn') as HTMLButtonElement
-  private static gymOptions = this.form.querySelector('#gym-options') as HTMLDataListElement
-  private static notesInput = this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
-  private static dateLabel = document.querySelector('#workout-date-label') as HTMLSpanElement
-  private static gymLabel = document.querySelector('#workout-gym-label') as HTMLSpanElement
+  private static get form() {
+    return document.querySelector('#gymtime-form') as HTMLFormElement
+  }
+  private static get dateInput() {
+    return this.form.querySelector('input[name="date"]') as HTMLInputElement
+  }
+  private static get locationInput() {
+    return this.form.querySelector('input[name="location"]') as HTMLInputElement
+  }
+  private static get clearGymBtn() {
+    return this.form.querySelector('#clear-gym-btn') as HTMLButtonElement
+  }
+  private static get gymOptions() {
+    return this.form.querySelector('#gym-options') as HTMLDataListElement
+  }
+  private static get notesInput() {
+    return this.form.querySelector('textarea[name="notes"]') as HTMLTextAreaElement
+  }
+  private static get dateLabel() {
+    return document.querySelector('#workout-date-label') as HTMLSpanElement
+  }
+  private static get gymLabel() {
+    return document.querySelector('#workout-gym-label') as HTMLSpanElement
+  }
   private static programId: Program['id']
 
   // session is the workout the page opened, if any.

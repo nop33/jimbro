@@ -4,7 +4,7 @@ import { isOutOfDate } from '../sync/freshness'
 
 // A page drawn once from the day, the workout mode and the database needs loading again when any of them changes
 // while it is hidden, unless a dialog is open, which a reload would throw away.
-export const reloadWhenStale = (renderedDay: string) => {
+export const reloadWhenStale = (renderedDay: string, signal: AbortSignal) => {
   const renderedSettings = JSON.stringify(getWorkoutModeSettings())
   const reloadIfStale = async () => {
     // A prerendered page is checked when it is shown, in navigation.ts.
@@ -16,10 +16,18 @@ export const reloadWhenStale = (renderedDay: string) => {
     if (stale) window.location.reload()
   }
 
-  window.addEventListener('pageshow', (event) => {
-    if (event.persisted) void reloadIfStale()
-  })
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void reloadIfStale()
-  })
+  window.addEventListener(
+    'pageshow',
+    (event) => {
+      if (event.persisted) void reloadIfStale()
+    },
+    { signal }
+  )
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.visibilityState === 'visible') void reloadIfStale()
+    },
+    { signal }
+  )
 }

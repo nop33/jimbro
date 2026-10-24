@@ -3,10 +3,18 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import { configureSetRowGrid, renderSetFields } from './setSlots'
 
 class LastSetDialog {
-  private static dialog = document.getElementById('last-set-dialog') as HTMLDialogElement
-  private static listContainer = document.getElementById('last-set-list') as HTMLDivElement
-  private static subtitleEl = document.getElementById('last-set-subtitle') as HTMLParagraphElement
-  private static closeBtn = this.dialog?.querySelector('.close-dialog-btn') as HTMLButtonElement
+  private static get dialog() {
+    return document.getElementById('last-set-dialog') as HTMLDialogElement
+  }
+  private static get listContainer() {
+    return document.getElementById('last-set-list') as HTMLDivElement
+  }
+  private static get subtitleEl() {
+    return document.getElementById('last-set-subtitle') as HTMLParagraphElement
+  }
+  private static get closeBtn() {
+    return this.dialog?.querySelector('.close-dialog-btn') as HTMLButtonElement
+  }
 
   static init() {
     if (!this.dialog) return

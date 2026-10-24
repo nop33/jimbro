@@ -420,6 +420,29 @@ const STOPS = [
   ['gymtime-error', async (page) => {
     await page.goto('/gymtime/?programId=missing')
     await see(page.getByRole('link', { name: 'Back to workouts' }))
+  }],
+  ['break-timer-other-page', async (page) => {
+    // A break keeps counting down after the lifter leaves gymtime: the minimized timer stays on the next page.
+    await page.goto('/')
+    await page.locator('.program-pick').first().click()
+    await page.waitForURL('**/gymtime/?*')
+    const card = page.locator('details.exercise-details').first()
+    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const form = card.locator('.next-set-form')
+    const reps = form.locator('input[name="set-reps"]')
+    if ((await reps.count()) > 0 && (await reps.first().inputValue()) === '') await reps.first().fill('8')
+    const weight = form.locator('input[name="set-weight"]')
+    if ((await weight.count()) > 0 && (await weight.first().inputValue()) === '') await weight.first().fill('40')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    await see(page.locator('#break-countdown-dialog'))
+    await page.locator('#minimize-break').click()
+    await see(page.locator('#break-countdown-dialog.dialog-minimized'))
+    await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
+    await page.waitForURL('**/exercises/')
+    await see(page.locator('#exercises-grid .card').first())
+    // The "Workout started" toast covers the bar at the top until it goes.
+    await gone(page.locator('.toast-message-popup'))
+    await see(page.locator('#break-countdown-dialog.dialog-minimized'))
   }]
 ]
 

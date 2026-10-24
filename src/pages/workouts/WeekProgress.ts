@@ -4,7 +4,9 @@ import { setTextContent } from '../../utils'
 // This week's progress toward the goal, under the mode that sets it. The card opens the mode dialog, so the mode
 // sits next to the count it decides. The goal bar is the home page's week card's.
 class WeekProgress {
-  private static card = document.querySelector('#week-progress') as HTMLButtonElement
+  private static get card() {
+    return document.querySelector('#week-progress') as HTMLButtonElement
+  }
 
   static render({ completed, goal, settings }: { completed: number; goal: number; settings: WorkoutModeSettings }) {
     const rotation = settings.mode === 'rotation'

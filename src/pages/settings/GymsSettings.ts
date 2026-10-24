@@ -3,11 +3,21 @@ import Toasts from '../../features/toasts'
 
 // Renames a gym on every workout, which also fixes workouts saved under a city before gyms had names.
 class GymsSettings {
-  private static form = document.querySelector('#rename-gym-form') as HTMLFormElement
-  private static fromSelect = this.form.querySelector('#rename-gym-from') as HTMLSelectElement
-  private static toInput = this.form.querySelector('#rename-gym-to') as HTMLInputElement
-  private static toOptions = this.form.querySelector('#rename-gym-options') as HTMLDataListElement
-  private static noGyms = document.querySelector('#no-gyms') as HTMLParagraphElement
+  private static get form() {
+    return document.querySelector('#rename-gym-form') as HTMLFormElement
+  }
+  private static get fromSelect() {
+    return this.form.querySelector('#rename-gym-from') as HTMLSelectElement
+  }
+  private static get toInput() {
+    return this.form.querySelector('#rename-gym-to') as HTMLInputElement
+  }
+  private static get toOptions() {
+    return this.form.querySelector('#rename-gym-options') as HTMLDataListElement
+  }
+  private static get noGyms() {
+    return document.querySelector('#no-gyms') as HTMLParagraphElement
+  }
 
   static async init() {
     this.form.addEventListener('submit', (event) => {

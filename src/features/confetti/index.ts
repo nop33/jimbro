@@ -22,6 +22,7 @@ const openLayer = (): HTMLElement => {
   const layer = document.createElement('div')
   layer.className = 'confetti'
   layer.popover = 'manual'
+  layer.dataset.persist = ''
   document.body.append(layer)
   layer.showPopover()
   shown = layer

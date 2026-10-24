@@ -62,6 +62,16 @@ export const openSession = {
     if (running > 0) region.setAttribute('aria-busy', 'true')
   },
 
+  // Forgets the workout, its views and its start, for a gymtime page shown again or left.
+  reset(): void {
+    open = undefined
+    views.clear()
+    starter = undefined
+    starting = undefined
+    running = 0
+    busyRegion = undefined
+  },
+
   // Shows the session the page loaded.
   async show(session: WorkoutSession | undefined): Promise<void> {
     await whileBusy(() => showNow(session))

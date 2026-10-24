@@ -20,23 +20,53 @@ import { whileBusy } from '../busyButton'
 // Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
 // user ID and token under "Use a token" for local runs, tests and MCP.
 class CloudBackup {
-  private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
-  private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
-  private static offer = document.querySelector('#passkey-offer') as HTMLElement
-  private static unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
-  private static account = document.querySelector('#passkey-account') as HTMLParagraphElement
-  private static accountActions = document.querySelector('#passkey-account-actions') as HTMLDivElement
-  private static tokenDetails = document.querySelector('#cloud-token-details') as HTMLDetailsElement
-  private static createBtn = document.querySelector('#create-passkey') as HTMLButtonElement
-  private static signInBtn = document.querySelector('#sign-in-passkey') as HTMLButtonElement
-  private static addBtn = document.querySelector('#add-passkey') as HTMLButtonElement
-  private static signOutBtn = document.querySelector('#sign-out-passkey') as HTMLButtonElement
-  private static userIdInput = document.querySelector('#cloud-userid') as HTMLInputElement
-  private static tokenInput = document.querySelector('#cloud-token') as HTMLInputElement
-  private static saveBtn = document.querySelector('#cloud-save') as HTMLButtonElement
-  private static syncNowBtn = document.querySelector('#cloud-sync-now') as HTMLButtonElement
+  private static get details() {
+    return document.querySelector('#cloud-backup-details') as HTMLDetailsElement
+  }
+  private static get summaryStatus() {
+    return document.querySelector('#cloud-summary-status') as HTMLSpanElement
+  }
+  private static get offer() {
+    return document.querySelector('#passkey-offer') as HTMLElement
+  }
+  private static get unsupported() {
+    return document.querySelector('#passkey-unsupported') as HTMLParagraphElement
+  }
+  private static get account() {
+    return document.querySelector('#passkey-account') as HTMLParagraphElement
+  }
+  private static get accountActions() {
+    return document.querySelector('#passkey-account-actions') as HTMLDivElement
+  }
+  private static get tokenDetails() {
+    return document.querySelector('#cloud-token-details') as HTMLDetailsElement
+  }
+  private static get createBtn() {
+    return document.querySelector('#create-passkey') as HTMLButtonElement
+  }
+  private static get signInBtn() {
+    return document.querySelector('#sign-in-passkey') as HTMLButtonElement
+  }
+  private static get addBtn() {
+    return document.querySelector('#add-passkey') as HTMLButtonElement
+  }
+  private static get signOutBtn() {
+    return document.querySelector('#sign-out-passkey') as HTMLButtonElement
+  }
+  private static get userIdInput() {
+    return document.querySelector('#cloud-userid') as HTMLInputElement
+  }
+  private static get tokenInput() {
+    return document.querySelector('#cloud-token') as HTMLInputElement
+  }
+  private static get saveBtn() {
+    return document.querySelector('#cloud-save') as HTMLButtonElement
+  }
+  private static get syncNowBtn() {
+    return document.querySelector('#cloud-sync-now') as HTMLButtonElement
+  }
 
-  static init() {
+  static init(signal: AbortSignal) {
     const existingConfig = getCloudBackupConfig()
     if (existingConfig?.method === 'token') {
       this.userIdInput.value = existingConfig.userId
@@ -47,7 +77,7 @@ class CloudBackup {
     void this.updateSummaryStatus()
     onPageNotice(() => {
       void this.updateSummaryStatus()
-    })
+    }, signal)
 
     // The passkey buttons show once the section opens, so that is when their options are fetched.
     this.details.addEventListener('toggle', () => this.prepare())

@@ -9,10 +9,18 @@ import { passkeyOfferDue, readSnoozedUntil, snoozePasskeyOffer } from './passkey
 // The offer to back up with a passkey that a finished workout shows under the exercises. It is a card in the page, not
 // a dialog, so it never stands between the lifter and the workout.
 class PasskeyOfferCard {
-  private static card = document.querySelector('#passkey-offer') as HTMLElement
-  private static createBtn = document.querySelector('#passkey-offer-create') as HTMLButtonElement
-  private static dismissBtn = document.querySelector('#passkey-offer-dismiss') as HTMLButtonElement
-  private static signInBtn = document.querySelector('#passkey-offer-sign-in') as HTMLButtonElement
+  private static get card() {
+    return document.querySelector('#passkey-offer') as HTMLElement
+  }
+  private static get createBtn() {
+    return document.querySelector('#passkey-offer-create') as HTMLButtonElement
+  }
+  private static get dismissBtn() {
+    return document.querySelector('#passkey-offer-dismiss') as HTMLButtonElement
+  }
+  private static get signInBtn() {
+    return document.querySelector('#passkey-offer-sign-in') as HTMLButtonElement
+  }
 
   static init() {
     this.createBtn.addEventListener('click', () => void this.create())

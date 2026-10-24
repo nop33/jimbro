@@ -5,16 +5,30 @@ import ProgramExercisesMultiselect from './ProgramExercisesMultiselect'
 import ProgramExercisesSortableList from './ProgramExercisesSortableList'
 
 class ProgramDialog {
-  private static newProgramButton = document.querySelector('#new-program-btn') as HTMLButtonElement
-  private static programDialog = document.querySelector('#program-dialog') as HTMLDialogElement
-  private static programForm = document.querySelector('#program-form') as HTMLFormElement
-  private static programIdInput = document.querySelector('#program-id') as HTMLInputElement
-  private static programNameInput = document.querySelector('#program-name') as HTMLInputElement
-  private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteProgramBtn = this.programDialog.querySelector('.delete-btn') as HTMLButtonElement
+  private static get newProgramButton() {
+    return document.querySelector('#new-program-btn') as HTMLButtonElement
+  }
+  private static get programDialog() {
+    return document.querySelector('#program-dialog') as HTMLDialogElement
+  }
+  private static get programForm() {
+    return document.querySelector('#program-form') as HTMLFormElement
+  }
+  private static get programIdInput() {
+    return document.querySelector('#program-id') as HTMLInputElement
+  }
+  private static get programNameInput() {
+    return document.querySelector('#program-name') as HTMLInputElement
+  }
+  private static get dialogTitle() {
+    return document.querySelector('#dialog-title') as HTMLHeadingElement
+  }
+  private static get deleteProgramBtn() {
+    return this.programDialog.querySelector('.delete-btn') as HTMLButtonElement
+  }
 
-  private static programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
-  private static programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list')
+  private static programExercisesMultiselect: ProgramExercisesMultiselect
+  private static programExercisesSortableList: ProgramExercisesSortableList
 
   private static selectedExercises = new Set<Exercise['id']>()
 
@@ -27,6 +41,9 @@ class ProgramDialog {
   }
 
   static init() {
+    this.programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
+    this.programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list')
+    this.selectedExercises = new Set()
     this.programExercisesMultiselect.on('exercise-selected', ({ detail: { selectedExerciseIds } }) => {
       const selectedIdsSet = new Set(selectedExerciseIds)
       selectedExerciseIds.forEach((id) => this.selectedExercises.add(id))

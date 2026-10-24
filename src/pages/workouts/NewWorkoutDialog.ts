@@ -10,10 +10,18 @@ const lastCompletedText = (lastCompleted: ProgramStatus['lastCompleted']) => {
 }
 
 class NewWorkoutDialog {
-  private static newWorkoutDialog = document.querySelector('#new-workout-dialog') as HTMLDialogElement
-  private static programsList = document.querySelector('#programs-list') as HTMLUListElement
-  private static newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
+  private static get newWorkoutDialog() {
+    return document.querySelector('#new-workout-dialog') as HTMLDialogElement
+  }
+  private static get programsList() {
+    return document.querySelector('#programs-list') as HTMLUListElement
+  }
+  private static get newWorkoutButton() {
+    return document.querySelector('#new-workout-btn') as HTMLButtonElement
+  }
+  private static get dialogCancel() {
+    return document.querySelector('#dialog-cancel') as HTMLButtonElement
+  }
 
   static init(programs: Array<ProgramStatus>) {
     this.newWorkoutButton.addEventListener('click', () => {

@@ -6,8 +6,6 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import { reloadWhenStale } from '../reloadWhenStale'
 import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
 
-const today = getSimpleDate(new Date())
-
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 const longDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 const weekdayLetter = new Intl.DateTimeFormat(undefined, { weekday: 'narrow' })
@@ -112,8 +110,8 @@ const renderPicks = ({ picks }: WeekOverview) => {
   }
 }
 
-// Chrome may offer the install before the database answers, so the button listens first.
-const installBtn = document.getElementById('install-btn')
+// Chrome offers the install once per document, and may do so before the database answers, so the module listens
+// as soon as it loads and keeps the offer for every visit to Home.
 let deferredPrompt: Event | null = null
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -121,22 +119,26 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPrompt = e
 })
 
-if (installBtn) {
-  installBtn.addEventListener('click', () => {
-    if (deferredPrompt && 'prompt' in deferredPrompt && typeof deferredPrompt.prompt === 'function') {
-      deferredPrompt.prompt()
-    } else {
-      alert("To install the app on iOS tap the Share icon in Safari, then select 'Add to Home Screen'.")
-    }
-  })
+export const mount = async (signal: AbortSignal) => {
+  const today = getSimpleDate(new Date())
+  const installBtn = document.getElementById('install-btn')
+  if (installBtn) {
+    installBtn.addEventListener('click', () => {
+      if (deferredPrompt && 'prompt' in deferredPrompt && typeof deferredPrompt.prompt === 'function') {
+        deferredPrompt.prompt()
+      } else {
+        alert("To install the app on iOS tap the Share icon in Safari, then select 'Add to Home Screen'.")
+      }
+    })
 
-  window.addEventListener('appinstalled', () => document.getElementById('install-row')?.remove())
+    window.addEventListener('appinstalled', () => document.getElementById('install-row')?.remove(), { signal })
+  }
+
+  const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
+  const overview = buildWeekOverview(sessions, programs, getWorkoutModeSettings())
+  renderWeek(overview)
+  if (sessions.length > 0) renderHighlights(overview)
+  renderPicks(overview)
+
+  reloadWhenStale(today, signal)
 }
-
-const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
-const overview = buildWeekOverview(sessions, programs, getWorkoutModeSettings())
-renderWeek(overview)
-if (sessions.length > 0) renderHighlights(overview)
-renderPicks(overview)
-
-reloadWhenStale(today)

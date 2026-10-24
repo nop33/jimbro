@@ -4,15 +4,31 @@ import type { Rest } from './outcome'
 import { playDingSound } from './sound'
 
 class BreakTimerDialog {
-  private static dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
-  private static minimizeButton = this.dialog.querySelector('#minimize-break') as HTMLButtonElement
-  private static countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
+  private static get dialog() {
+    return document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+  }
+  private static get minimizeButton() {
+    return this.dialog.querySelector('#minimize-break') as HTMLButtonElement
+  }
+  private static get countdown() {
+    return this.dialog.querySelector('#countdown') as HTMLHeadingElement
+  }
   private static countdownInterval: ReturnType<typeof setInterval> | null = null
-  private static skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
-  private static viewHistoryButton = this.dialog.querySelector('#view-history-break') as HTMLButtonElement
-  private static setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
-  private static nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
-  private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
+  private static get skipBreakButton() {
+    return this.dialog.querySelector('#skip-break') as HTMLButtonElement
+  }
+  private static get viewHistoryButton() {
+    return this.dialog.querySelector('#view-history-break') as HTMLButtonElement
+  }
+  private static get setsDoneEl() {
+    return this.dialog.querySelector('#sets-done') as HTMLParagraphElement
+  }
+  private static get nextExerciseNameEl() {
+    return this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
+  }
+  private static get nextExerciseMessageEl() {
+    return this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
+  }
   private static targetTime: number | null = null
   private static hasPlayedSound = false
   private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
@@ -48,6 +64,7 @@ class BreakTimerDialog {
 
   private static maximizeDialog() {
     this.isMinimized = false
+    this.showHistoryButton()
     this.morph(() => {
       this.dialog.close()
       this.dialog.classList.remove('dialog-minimized')
@@ -71,6 +88,13 @@ class BreakTimerDialog {
       this.dialog.style.transition = ''
       document.documentElement.classList.remove('morphing-break-timer')
     })
+  }
+
+  // The history chart lives on the gymtime page, so the timer offers it only there.
+  private static showHistoryButton() {
+    const exercise = this.currentExercise
+    const offered = exercise !== null && historyChartEnabled(exercise.kind) && ExerciseHistoryChart.onPage()
+    this.viewHistoryButton.classList.toggle('hidden', !offered)
   }
 
   private static handleVisibilityChange() {
@@ -107,7 +131,7 @@ class BreakTimerDialog {
   static start({ seconds, setsDone, setsTotal, next, exercise }: Rest) {
     this.stopCountdown()
     this.currentExercise = exercise
-    this.viewHistoryButton.classList.toggle('hidden', !historyChartEnabled(exercise.kind))
+    this.showHistoryButton()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
 

@@ -19,6 +19,9 @@ class ExerciseCardList {
   // planned tells where the workout will be done, for the cards shown before it starts.
   static init(programExerciseIds: string[], planned: () => PlannedSession) {
     this.exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
+    this.cards = new Map()
+    this.lastTimes = keptLastTimes()
+    this.latest = Promise.resolve()
     this.programExerciseIds = programExerciseIds
     this.planned = planned
     openSession.busyOn(this.exercisesList)
