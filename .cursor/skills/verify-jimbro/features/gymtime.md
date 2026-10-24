@@ -12,7 +12,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 - `gymtime-break` opens `#break-countdown-dialog` after a lifting or cardio set that does not finish its exercise: `#sets-done`, `#countdown`, `Coming up`, `Minimize`, `View exercise history`, `Skip`. It shows 0:00 for a second and then closes itself, so it never counts below 0:00. Rehab sets never open it.
 - `gymtime-set-menu` opens the card's `.set-menu` popover from a set to do (`Set N, to do`), with `Remove set N`, which removes one set to do. The rows are buttons only while more than one set is left to do and more than the sets logged, so an exercise keeps at least one set. A tap outside the set menu, the actions menu or a badge popover only closes it: the row, set or button under the tap does not react (`tapToDismiss.ts`).
 - `gymtime-edit-set` opens `#edit-set-dialog` from a logged set, focusing its title rather than a field. Saving shows `Set updated.`. A 0 value asks a confirm. `Delete`, on the left of `Save` (there is no `Cancel`, the ✕ cancels), confirms, shows `Set deleted.` and leaves the slot to do again.
-- `gymtime-previous` opens `#last-set-dialog` (`Previous sets`, `in <gym> on <date>`).
+- `gymtime-previous` opens `#last-set-dialog` (`Previous sets`) on last time: the day and gym (`#last-set-date`, `#last-set-gym`) between `Older workout` and `Newer workout` arrows, which step through every earlier workout that logged the exercise, at any gym, and turn off at either end. The left and right arrow keys step too. Newer stops at the most recent earlier workout, never the open one.
 - `gymtime-history` opens `#exercise-history-dialog`: a chart with toggles `Average weight`, `Estimated 1RM`, `Total volume`, and gym bands with a legend in `#exercise-history-gyms`.
 - `gymtime-add` opens `#add-exercise-dialog` from `#add-exercise-card`, with a muscle filter. Adding an exercise already in the workout shows an alert. Swap reuses it titled `Swap exercise`.
 - `gymtime-save-to-program` shows `#save-to-program-card` when the workout's exercises differ from the program's. It saves with the toast `Saved to program`.
@@ -31,7 +31,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 
 Preconditions: `control-jimbro doctor` passes. The tour imports a year of history first, so `Previous sets`, the history chart and gym suggestions have data.
 
-- **Tour stops.** `20-gymtime-new` (summary line, cards before the start), `21-gymtime-details` (the details open), `22-gymtime-started` (Add set started it), `23-gymtime-card-open`, `24-gymtime-set-menu`, `25-break-timer`, `26-break-timer-minimized`, `27-edit-set-dialog`, `28-previous-sets-dialog`, `29-history-chart-dialog`, `30-gymtime-card-menu`, `31-add-exercise-dialog`, `32-gymtime-passkey-offer` (deletes all but the first exercise and logs its sets until `Workout done!`), `35-gymtime-error`.
+- **Tour stops.** `20-gymtime-new` (summary line, cards before the start), `21-gymtime-details` (the details open), `22-gymtime-started` (Add set started it), `23-gymtime-card-open`, `24-gymtime-set-menu`, `25-break-timer`, `26-break-timer-minimized`, `27-edit-set-dialog`, `28-previous-sets-dialog` (last time, Newer off), `29-previous-sets-older` (one workout back, both arrows on), `30-history-chart-dialog`, `31-gymtime-card-menu`, `32-add-exercise-dialog`, `33-gymtime-passkey-offer` (deletes all but the first exercise and logs its sets until `Workout done!`), `36-gymtime-error`.
 - **By hand: a logged set persists.** After logging, reload the `?id=` URL and expand the card. The `.set.isCompleted` row still shows the values.
 - **By hand: cardio and rehab.** Create a cardio or rehab exercise on `/exercises/`, add it with `#add-exercise-card`, and expand it. Cardio has `set-durationSec`, `set-speed` and `set-incline` inputs and no `View History`. A rehab set opens no break timer.
 
@@ -41,6 +41,6 @@ Preconditions: `control-jimbro doctor` passes. The tour imports a year of histor
 - Only `.set.isCompleted` opens the edit dialog. An `.isPending` row opens the set menu, when it can be removed.
 - The break timer closes itself after its countdown, so a slow step can miss `Skip`. The tour minimizes it instead.
 - Completing every set of a workout downloads a JSON file. Handle the download, or log fewer sets.
-- The passkey offer's `Create passkey` needs a passkey the browser can make: WebAuthn refuses the IP address origin `127.0.0.1`, and the verification server's API is dead. The tour only shows the card here, and signs up on `localhost` in `33-settings-passkey`.
+- The passkey offer's `Create passkey` needs a passkey the browser can make: WebAuthn refuses the IP address origin `127.0.0.1`, and the verification server's API is dead. The tour only shows the card here, and signs up on `localhost` in `34-settings-passkey`.
 - After the start, keep using the `?id=` URL. Opening the same `programId` again and changing anything starts another workout.
 - Never force a click. A click that needs force means something covers the control, which is a finding.

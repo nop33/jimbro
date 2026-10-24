@@ -129,8 +129,7 @@ class ExerciseCard {
       void ExerciseHistoryChart.openDialog({ id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind })
     })
     this.viewLastSetBtn.addEventListener('click', () => {
-      const lastTime = this.plan?.lastTime
-      if (lastTime) void LastSetDialog.openDialog(lastTime.sets, lastTime.date, lastTime.location)
+      if (this.plan?.lastTime) LastSetDialog.openDialog(this.exerciseId, this.plan.lastTime, this.plan.before)
     })
   }
 

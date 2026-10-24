@@ -20,14 +20,14 @@ Settings is `/settings/`: break time, the passkey cloud backup, gyms, and the lo
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history), `33-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `34-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first), `35-settings-moved` (signed in again over a canned account that another device backs up, then that device takes it back, so `Sync now` is refused).
+- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history), `34-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `35-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first), `36-settings-moved` (signed in again over a canned account that another device backs up, then that device takes it back, so `Sync now` is refused).
 - **By hand: reset.** Open `Manage local data`, register `page.once('dialog', d => d.accept())`, click `Reset Database`, and wait for `Database reset.`.
 - **By hand: export.** Wait for Playwright's `download` event while clicking `Export to JSON`, and read the file.
 
 ## Gotchas
 
 - `launch` points the app at a dead API, so `Sync now` with any credentials ends in `Sync failed.`. A real sync needs the local worker that `tests/localWorker.ts` starts, never production or real tokens.
-- A passkey needs a domain origin: WebAuthn refuses `127.0.0.1`, so drive passkeys on `http://localhost:<port>` (its own empty IndexedDB), and only in Chromium with a virtual authenticator (`WebAuthn.addVirtualAuthenticator` over CDP). The tour answers the worker's `/auth/register/*`, `/auth/signin/options`, `/api/push`, `/api/pull` and `/api/signout` with canned JSON, since it reaches no worker. `tests/passkeys.spec.ts` covers the real thing.
+- A passkey needs a domain origin: WebAuthn refuses `127.0.0.1`, so drive passkeys on `http://localhost:<port>` (its own empty IndexedDB), and only in Chromium with a virtual authenticator (`WebAuthn.addVirtualAuthenticator` over CDP). The tour answers the worker's `/auth/register/*`, `/auth/signin/*`, `/api/claim`, `/api/push`, `/api/pull` and `/api/signout` with canned JSON, since it reaches no worker. `tests/passkeys.spec.ts` covers the real thing.
 - Saving credentials turns on syncing on every page, and on `/workouts/` an empty database then offers `Restore from cloud` instead of `Seed Database`.
 - Import never overwrites a stored row. Reset first to import into an empty database.
 - Register the confirm handler before clicking Reset or Rename.
