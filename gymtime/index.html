@@ -445,12 +445,54 @@
 
     <dialog id="last-set-dialog">
       <header class="flex justify-between items-start mb-4">
-        <div>
-          <h2 class="text-xl font-bold">Previous sets</h2>
-          <p id="last-set-subtitle" class="text-sm text-jim-neutral-secondary font-medium mt-1"></p>
-        </div>
+        <h2 class="text-xl font-bold">Previous sets</h2>
         <!-- partial:close-dialog-button -->
       </header>
+      <!-- Older and newer workouts on either side of the day shown, so the arrows stay put whatever the day holds. -->
+      <div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 mb-4">
+        <button
+          id="last-set-older"
+          type="button"
+          class="last-set-step border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200 disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Older workout"
+          disabled
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <p id="last-set-day" class="text-center leading-tight" aria-live="polite">
+          <span id="last-set-date" class="block font-semibold"></span>
+          <span id="last-set-gym" class="text-sm text-jim-neutral-secondary font-medium"></span>
+        </p>
+        <button
+          id="last-set-newer"
+          type="button"
+          class="last-set-step border border-neutral-600/50 p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors duration-200 disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Newer workout"
+          disabled
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </div>
       <div id="last-set-list" class="set-list">
         <!-- Completed sets will be rendered here -->
       </div>

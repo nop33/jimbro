@@ -21,3 +21,12 @@ export const formatShortDate = (date: Date, now = new Date()): string =>
     day: 'numeric',
     year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric'
   })
+
+// "Wed, Oct 1", formatShortDate with the day of the week, for a line that names one workout.
+export const formatShortDay = (date: Date, now = new Date()): string =>
+  date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric'
+  })

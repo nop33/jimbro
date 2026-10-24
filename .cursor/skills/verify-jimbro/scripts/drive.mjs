@@ -341,6 +341,11 @@ const STOPS = [
     await page.locator('details.exercise-details').first().locator('.view-last-set-btn').click()
     await see(page.locator('#last-set-dialog'))
   }],
+  ['previous-sets-older', async (page) => {
+    const dialog = page.locator('#last-set-dialog')
+    await dialog.locator('#last-set-older:enabled').click()
+    await see(dialog.locator('#last-set-newer:enabled'))
+  }],
   ['history-chart-dialog', async (page) => {
     await page.locator('#last-set-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#last-set-dialog'))
