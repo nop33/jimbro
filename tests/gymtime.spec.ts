@@ -187,7 +187,9 @@ test.describe('Gymtime Page', () => {
     await expect(gym).toHaveText('in Athens')
     await expect(sets).toContainText('45')
 
-    await older.click()
+    // From the keyboard, since WebKit does not focus a clicked button.
+    await older.focus()
+    await page.keyboard.press('Enter')
     await expect(date).toHaveText(/Jan 1, 2020/)
     await expect(sets).toContainText('40')
     await expect(older).toBeDisabled()

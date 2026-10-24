@@ -132,11 +132,13 @@ class LastSetDialog {
   private static showArrows() {
     const older = this.times[this.index + 1]
     const newer = this.times[this.index - 1]
+    // An arrow that reaches the end hands focus to the other one, so the keyboard stays in the dialog. Disabling it
+    // can drop its focus at once, so whether it had focus is read first.
+    const focused = document.activeElement
     this.olderBtn.disabled = !older
     this.newerBtn.disabled = !newer
-    // An arrow that just reached the end hands focus to the other one, so the keyboard stays in the dialog.
-    if (this.olderBtn.disabled && document.activeElement === this.olderBtn) this.newerBtn.focus()
-    if (this.newerBtn.disabled && document.activeElement === this.newerBtn) this.olderBtn.focus()
+    if (!older && focused === this.olderBtn) this.newerBtn.focus()
+    if (!newer && focused === this.newerBtn) this.olderBtn.focus()
     this.olderBtn.setAttribute('aria-label', older ? `Older workout, ${this.dayOf(older)}` : 'Older workout')
     this.newerBtn.setAttribute('aria-label', newer ? `Newer workout, ${this.dayOf(newer)}` : 'Newer workout')
   }
