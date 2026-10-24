@@ -270,6 +270,26 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
+  test('the minimized break timer is a bar that holds its countdown', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    await card.locator('.exercise-details > summary').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    // The bar sits at the top of the screen with the countdown inside it, not drawn over the header under it.
+    const bar = (await breakTimer.boundingBox())!
+    const countdown = (await breakTimer.locator('#countdown').boundingBox())!
+    expect(bar.y).toBe(0)
+    expect(countdown.y).toBeGreaterThanOrEqual(bar.y)
+    expect(countdown.y + countdown.height).toBeLessThanOrEqual(bar.y + bar.height)
+  })
+
   test("moves an exercise from its card's actions menu, which starts the workout", async ({ page }) => {
     const names = page.locator('.exercise-name')
     await expect(names.first()).toBeVisible()

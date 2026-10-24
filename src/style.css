@@ -489,6 +489,12 @@
     @apply h-full w-full;
   }
 
+  /* Only the full screen timer stretches its content to its height. In the bar, Safari resolves a full height against
+     the bar's own content and collapses it, so the countdown would hang below the bar, over the header. */
+  .dialog-full-screen > * {
+    @apply h-full;
+  }
+
   /* Some dialogs only fade in: the break timer, which fills the screen after every set, and the history chart, which
      sizes its canvas to the box it measures as it opens, so a growing dialog would leave it drawn too small. */
   @starting-style {
