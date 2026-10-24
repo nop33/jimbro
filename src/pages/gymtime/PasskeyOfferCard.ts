@@ -3,7 +3,7 @@ import Toasts from '../../features/toasts'
 import { createPasskeyAccount, passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { whileBusy } from '../busyButton'
-import { confirmReplaceWithAccount, showPasskeyFailure } from '../passkeyPrompts'
+import { confirmSignIn, showPasskeyFailure } from '../passkeyPrompts'
 import { passkeyOfferDue, readSnoozedUntil, snoozePasskeyOffer } from './passkeyOffer'
 
 // The offer to back up with a passkey that a finished workout shows under the exercises. It is a card in the page, not
@@ -65,7 +65,7 @@ class PasskeyOfferCard {
   // This workout is only on this phone, so it stays and backs up.
   private static async signIn() {
     const signedIn = await this.run(this.signInBtn, 'Signing in…', async () => {
-      if (!(await signInWithPasskey({ confirmReplace: confirmReplaceWithAccount }))) return false
+      if (!(await signInWithPasskey({ confirmSignIn }))) return false
       await sync({ again: false }).catch(() => undefined)
       return true
     })

@@ -1,4 +1,5 @@
 import Toasts from '../features/toasts'
+import type { SignInEffects } from '../sync/passkeys'
 
 // Tells the user why a passkey step failed: the browser's own sheet was closed or timed out, the passkey already
 // exists, or the request failed.
@@ -15,10 +16,21 @@ export const showPasskeyFailure = (error: unknown) => {
   Toasts.show({ message: 'Passkey failed. Try again.', type: 'error' })
 }
 
-// Asks before signing in replaces rows on this device: the account's copy wins for every row both sides have.
-export const confirmReplaceWithAccount = () =>
+// Asks before a sign-in moves the account here from another device, or replaces rows on this device with the account's
+// copy, which wins for every row both sides have.
+export const confirmSignIn = ({ movesFromOtherDevice, replacesLocalRows }: SignInEffects) =>
   confirm(
-    "Since both this device and your account have data that differs, signing in will replace this device's copy with your account's. Proceed to sign in?"
+    [
+      movesFromOtherDevice
+        ? "Your account is signed in on another device. Jimbro backs up one device at a time, so signing in here moves your backup to this device. The other device stops backing up and keeps its workouts, but anything it hasn't backed up yet won't come here."
+        : '',
+      replacesLocalRows
+        ? "Since both this device and your account have data that differs, signing in will replace this device's copy with your account's."
+        : '',
+      movesFromOtherDevice ? 'Sign in here?' : 'Proceed to sign in?'
+    ]
+      .filter(Boolean)
+      .join('\n\n')
   )
 
 // Asks before a sign-out, saying what the backup misses when rows wait to sync.

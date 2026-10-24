@@ -44,10 +44,15 @@
                 <span id="cloud-summary-status" class="text-sm text-jim-neutral-tertiary"></span>
               </summary>
               <div class="flex flex-col gap-2 mt-4">
+                <p id="passkey-moved" class="text-sm text-jim-warning" hidden>
+                  Your backup moved to another device, so this phone stopped backing up. Its workouts stay here. Sign in
+                  to move the backup back to this phone.
+                </p>
                 <section id="passkey-offer" class="flex flex-col gap-2" aria-labelledby="passkey-offer-title" hidden>
                   <h3 id="passkey-offer-title" class="text-lg font-bold">Back up your workouts</h3>
                   <p class="text-sm text-jim-neutral-secondary">
-                    Create a passkey to keep a copy of your workouts in the cloud.
+                    Create a passkey to keep a copy of your workouts in the cloud. The backup follows you to a new
+                    phone: signing in there moves it, and this phone stops backing up.
                   </p>
                   <button type="button" id="create-passkey" class="btn-primary">Create passkey</button>
                   <button type="button" id="sign-in-passkey" class="btn-secondary">Sign in with passkey</button>

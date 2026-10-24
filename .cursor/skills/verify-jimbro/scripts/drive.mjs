@@ -131,9 +131,14 @@ function writeFixture(outDir) {
 
 const base64Url = (bytes) => Buffer.from(bytes).toString('base64url')
 
-// A virtual authenticator on the page, and canned answers in place of the worker for a passkey sign-up, the sync
-// after it and a sign-out. The tour's API base is a dead address, so nothing else would answer.
+// Whether the canned worker refuses pushes as it does once a sign-in on another device moved the account there.
+let movedElsewhere = false
+
+// A virtual authenticator on the page, and canned answers in place of the worker for a passkey sign-up, a sign-in on a
+// phone whose account another device backs up, the sync after it and a sign-out. The tour's API base is a dead address,
+// so nothing else would answer.
 async function withPasskeyWorker(page) {
+  movedElsewhere = false
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('WebAuthn.enable')
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -164,6 +169,8 @@ async function withPasskeyWorker(page) {
       userVerification: 'required',
       timeout: 300_000
     }),
+    '/auth/signin/verify': () => ({ userId: 'tour-user', token: 'tour-token', otherDevices: 1 }),
+    '/api/claim': () => ({ signedOut: 1 }),
     '/api/signout': () => ({ ok: true }),
     '/api/pull': () => ({ rows: [], cursor: 0, more: false }),
     '/api/push': () => ({ revision: 1 })
@@ -177,7 +184,11 @@ async function withPasskeyWorker(page) {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
       }
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
-      return route.fulfill({ json: answers[new URL(route.request().url()).pathname](), headers })
+      const path = new URL(route.request().url()).pathname
+      if (movedElsewhere && path === '/api/push') {
+        return route.fulfill({ status: 401, json: { error: 'unauthorized' }, headers })
+      }
+      return route.fulfill({ json: answers[path](), headers })
     }
   )
 }
@@ -415,6 +426,28 @@ const STOPS = [
     // The tour accepts the sign-out confirm. A phone that signed out offers signing in first.
     await page.getByRole('button', { name: 'Sign out' }).click()
     await see(page.locator('#cloud-backup-details .btn-primary', { hasText: 'Sign in with passkey' }))
+    await gone(page.locator('.toast-message-popup'))
+  }],
+  ['settings-moved', async (page) => {
+    // The tour accepts the sign-in's confirm that the backup moves here. Then a sign-in on another device takes it
+    // back, so the next push is refused and this phone says it stopped backing up.
+    await page.getByRole('button', { name: 'Sign in with passkey' }).click()
+    await see(page.getByRole('button', { name: 'Sign out' }))
+    await gone(page.locator('.toast-message-popup'))
+    movedElsewhere = true
+    await page.evaluate(async () => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      await exercisesStore.create({
+        name: 'Squat',
+        kind: 'lifting',
+        preset: 'lifting',
+        muscle: 'quads',
+        targetSets: 3,
+        defaults: { reps: 5 }
+      })
+    })
+    await page.getByRole('button', { name: 'Sync now' }).click()
+    await see(page.getByText('Your backup moved to another device, so this phone stopped backing up.'))
     await gone(page.locator('.toast-message-popup'))
   }],
   ['gymtime-error', async (page) => {
