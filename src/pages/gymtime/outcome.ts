@@ -33,6 +33,7 @@ export function outcomeOf(
   if (!breakTimerEnabled(exercise.preset)) return NONE
   return {
     kind: 'rest',
+    sessionId: after.id,
     seconds: breakSeconds,
     setsDone: progress.logged,
     setsTotal: progress.target,

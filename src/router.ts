@@ -1,3 +1,5 @@
+import { breakTimer } from './features/breakTimer'
+import './features/installPrompt'
 import { markRendered } from './sync/freshness'
 
 // A page's module draws the page into the document and wires it, until signal aborts as the next page replaces it.
@@ -33,6 +35,98 @@ const mount = async (page: Page) => {
     markRendered()
   }
 }
+
+// Puts the next page's body in place of this one's, except what outlives a page (data-persist): the break timer, a
+// toast or confetti, which stay where they are so they keep running. The next page's own copy of them goes.
+const replaceBody = (next: Document) => {
+  document.title = next.title
+  for (const kept of document.body.querySelectorAll(':scope > [data-persist]')) {
+    if (kept.id) next.getElementById(kept.id)?.remove()
+  }
+  for (const child of document.body.querySelectorAll(':scope > :not([data-persist])')) child.remove()
+  document.body.className = next.body.className
+  document.body.prepend(...document.adoptNode(next.body).childNodes)
+}
+
+// Loads one of the app's pages as a document, which the browser parses without running its scripts. The service
+// worker answers from its cache, so this costs no network.
+const loadPage = (url: URL) =>
+  new Promise<Document>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('GET', url.pathname)
+    request.responseType = 'document'
+    request.addEventListener('load', () =>
+      request.status === 200 && request.responseXML
+        ? resolve(request.responseXML)
+        : reject(new Error(`${url.pathname} answered ${request.status}`))
+    )
+    request.addEventListener('error', () => reject(new Error(`${url.pathname} failed to load`)))
+    request.send()
+  })
+
+// Once the document can't show a page itself, every navigation loads in full: after a failed load, and after a new
+// build's service worker took over, so the whole app moves to the new build together instead of mixing the two.
+let inFull = false
+const loadInFull = (url: URL) => {
+  inFull = true
+  window.location.assign(url)
+}
+// The first service worker takes over a page it didn't serve, from the same build, so only a later one is a new build.
+if (navigator.serviceWorker?.controller) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    inFull = true
+  })
+}
+
+// Shows the page at url in this document. The old page stays on screen, frozen by the view transition, until the new
+// one has drawn its data, so a tap never shows an empty page, and the header and nav stay still across it.
+const show = async (url: URL, page: () => Promise<Page>, event: NavigateEvent) => {
+  let next: Document
+  let module: Page
+  try {
+    ;[next, module] = await Promise.all([loadPage(url), page()])
+  } catch (error) {
+    console.error('Could not show the next page, so it loads in full:', error)
+    loadInFull(url)
+    return
+  }
+  if (event.signal.aborted) return
+
+  const update = async () => {
+    replaceBody(next)
+    await mount(module)
+    event.scroll()
+  }
+  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update()
+  await document.startViewTransition(update).updateCallbackDone
+}
+
+// Each tap on a link, Back and Forward, and each location change from script stay in this document when they go to one
+// of the app's pages. A reload, a download or a form post stays a browser navigation, and so does history.replaceState
+// on the same page, such as gymtime's ?id= once a workout starts, which only changes the address. Browsers without the
+// Navigation API load each page in full, and every page works that way too. Focus moves to the new page once it shows,
+// the Navigation API's default, so a screen reader starts reading it.
+window.navigation?.addEventListener('navigate', (event) => {
+  const url = new URL(event.destination.url)
+  const page = PAGES[pagePath(url)]
+  const here = new URL(window.location.href)
+  if (
+    inFull ||
+    !page ||
+    !event.canIntercept ||
+    event.hashChange ||
+    event.downloadRequest !== null ||
+    event.formData !== null ||
+    event.navigationType === 'reload' ||
+    (event.navigationType === 'replace' && pagePath(url) === pagePath(here)) ||
+    url.origin !== here.origin
+  )
+    return
+  event.intercept({ scroll: 'manual', handler: () => show(url, page, event) })
+})
+
+// The break timer outlives every page, so the document wires it once.
+breakTimer()
 
 const first = PAGES[pagePath(new URL(window.location.href))]
 if (first) void first().then(mount)

@@ -39,7 +39,7 @@ class GymtimePage {
     this.historyChart = new ExerciseHistoryChart(signal)
     this.lastSetDialog = new LastSetDialog()
     new ExerciseList((exercise) => this.addExerciseDialog.pick(exercise), signal)
-    breakTimer().offerHistory((exercise) => void this.historyChart.openDialog(exercise), signal)
+    breakTimer().onWorkoutPage((exercise) => void this.historyChart.openDialog(exercise), signal)
   }
 
   private async init() {

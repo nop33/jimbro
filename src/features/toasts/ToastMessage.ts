@@ -12,6 +12,8 @@ class ToastMessagePopup {
     toastMessagePopup.classList.add('toast-message-popup')
     toastMessagePopup.classList.add(this.toastMessage.type)
     toastMessagePopup.textContent = this.toastMessage.message
+    // A toast stays up through the next page, as after "Workout session deleted".
+    toastMessagePopup.dataset.persist = ''
 
     return toastMessagePopup
   }

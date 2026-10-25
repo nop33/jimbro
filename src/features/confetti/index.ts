@@ -22,6 +22,8 @@ const openLayer = (): HTMLElement => {
   const layer = document.createElement('div')
   layer.className = 'confetti'
   layer.popover = 'manual'
+  // A celebration keeps playing through the next page.
+  layer.dataset.persist = ''
   document.body.append(layer)
   layer.showPopover()
   shown = layer

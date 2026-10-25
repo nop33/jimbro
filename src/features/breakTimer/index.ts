@@ -2,8 +2,10 @@ import type { ExerciseKind } from '../../db/exerciseLogging'
 import { historyChartEnabled } from '../../db/exerciseLogging'
 import { playDingSound } from './sound'
 
-// A break after a set: its length, the exercise's sets logged and to do, and the next exercise with sets to do.
+// A break after a set in a workout: its length, the exercise's sets logged and to do, and the next exercise with sets
+// to do.
 export interface Break {
+  sessionId: string
   seconds: number
   setsDone: number
   setsTotal: number
@@ -19,6 +21,7 @@ class BreakTimer {
   private countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
   private skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
   private viewHistoryButton = this.dialog.querySelector('#view-history-break') as HTMLButtonElement
+  private backToWorkoutLink = this.dialog.querySelector('#back-to-workout') as HTMLAnchorElement
   private setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
   private nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
   private nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
@@ -27,8 +30,9 @@ class BreakTimer {
   private hasPlayedSound = false
   private autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
   private currentExercise: Break['exercise'] | null = null
+  private sessionId: Break['sessionId'] | null = null
   private isMinimized = false
-  // How the page on screen opens an exercise's history, while it offers one.
+  // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
 
   constructor() {
@@ -45,34 +49,47 @@ class BreakTimer {
     this.viewHistoryButton.addEventListener('click', () => {
       if (this.currentExercise) this.openHistory?.(this.currentExercise)
     })
+    // The link goes to the workout with the break running, as the bar at the top, so the workout shows under it.
+    this.backToWorkoutLink.addEventListener('click', (event) => {
+      event.stopPropagation()
+      this.showMinimized()
+    })
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
   }
 
-  // The full timer offers the exercise's history through open until signal aborts, as when the page goes.
-  offerHistory(open: (exercise: Break['exercise']) => void, signal: AbortSignal) {
-    this.openHistory = open
-    this.showHistoryButton()
+  // While the workout's page shows, until signal aborts, the full timer offers the exercise's history through
+  // openHistory. On any other page it offers a link back to the workout instead.
+  onWorkoutPage(openHistory: (exercise: Break['exercise']) => void, signal: AbortSignal) {
+    this.openHistory = openHistory
+    this.showWayToWorkout()
     signal.addEventListener('abort', () => {
-      if (this.openHistory !== open) return
+      if (this.openHistory !== openHistory) return
       this.openHistory = null
-      this.showHistoryButton()
+      this.showWayToWorkout()
     })
   }
 
-  private showHistoryButton() {
+  private showWayToWorkout() {
     const exercise = this.currentExercise
-    const offered = this.openHistory !== null && exercise !== null && historyChartEnabled(exercise.kind)
-    this.viewHistoryButton.classList.toggle('hidden', !offered)
+    const onWorkoutPage = this.openHistory !== null
+    this.viewHistoryButton.classList.toggle(
+      'hidden',
+      !onWorkoutPage || exercise === null || !historyChartEnabled(exercise.kind)
+    )
+    this.backToWorkoutLink.hidden = onWorkoutPage || this.sessionId === null
+    if (this.sessionId !== null) this.backToWorkoutLink.href = `/gymtime/?id=${this.sessionId}`
   }
 
   private minimizeDialog() {
+    this.morph(() => this.showMinimized())
+  }
+
+  private showMinimized() {
     this.isMinimized = true
-    this.morph(() => {
-      this.dialog.close()
-      this.dialog.classList.remove('dialog-full-screen')
-      this.dialog.classList.add('dialog-minimized')
-      this.dialog.show()
-    })
+    this.dialog.close()
+    this.dialog.classList.remove('dialog-full-screen')
+    this.dialog.classList.add('dialog-minimized')
+    this.dialog.show()
   }
 
   private maximizeDialog() {
@@ -133,10 +150,11 @@ class BreakTimer {
   }
 
   // Starts a break, in place of any break still running.
-  start({ seconds, setsDone, setsTotal, next, exercise }: Break) {
+  start({ sessionId, seconds, setsDone, setsTotal, next, exercise }: Break) {
     this.stopCountdown()
     this.currentExercise = exercise
-    this.showHistoryButton()
+    this.sessionId = sessionId
+    this.showWayToWorkout()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
 
@@ -179,6 +197,7 @@ class BreakTimer {
     this.targetTime = null
     this.hasPlayedSound = false
     this.currentExercise = null
+    this.sessionId = null
   }
 
   // Ends the break, early or on time.
