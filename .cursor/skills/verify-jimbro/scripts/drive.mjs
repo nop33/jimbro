@@ -67,6 +67,23 @@ async function withPage(device, fn) {
     timezoneId: TIME_ZONE,
     reducedMotion: 'reduce'
   })
+  // Safari on the iPhone has passkeys, but Playwright's WebKit build has no WebAuthn, so the app would hide every passkey
+  // button. Stand-ins for the parts passkeysSupported() checks bring them back. No stop taps one in WebKit, since
+  // CHROMIUM_ONLY skips the ceremonies.
+  if (engine === 'webkit') {
+    await context.addInitScript(() => {
+      if (typeof window.PublicKeyCredential === 'function') return
+      const unsupported = () => Promise.reject(new DOMException('No authenticator in this browser', 'NotAllowedError'))
+      window.PublicKeyCredential = function PublicKeyCredential() {}
+      if (typeof navigator.credentials?.create !== 'function') {
+        Object.defineProperty(navigator, 'credentials', { value: { create: unsupported, get: unsupported } })
+      }
+      window.AuthenticatorAttestationResponse = function AuthenticatorAttestationResponse() {}
+      for (const method of ['getPublicKey', 'getPublicKeyAlgorithm', 'getAuthenticatorData']) {
+        window.AuthenticatorAttestationResponse.prototype[method] = () => null
+      }
+    })
+  }
   const page = await context.newPage()
   // A stop that fails should fail fast, not hold up every stop after it.
   page.setDefaultTimeout(10_000)
