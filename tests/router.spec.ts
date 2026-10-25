@@ -52,6 +52,7 @@ test('a nav tap shows the next page in the same document, and Back brings the la
   await expect(page).toHaveTitle('Jimbro - Programs')
   await expect(page.getByText('Push day')).toBeVisible()
   await expect(page.locator('.bottom-nav a[aria-current="page"]')).toHaveText('Programs')
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
   expect(await sameDocument(page)).toBe(true)
 
   await page.goBack()

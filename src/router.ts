@@ -95,7 +95,10 @@ const show = async (url: URL, page: () => Promise<Page>, event: NavigateEvent) =
   const update = async () => {
     replaceBody(next)
     await mount(module)
-    event.scroll()
+    // Back and Forward bring the page back where it was. A new page starts at its top. The router scrolls there itself,
+    // since event.scroll() in CI's Chromium left a page shorter than the last one scrolled to its bottom.
+    if (event.navigationType === 'traverse') event.scroll()
+    else window.scrollTo(0, 0)
   }
   if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update()
   await document.startViewTransition(update).updateCallbackDone
