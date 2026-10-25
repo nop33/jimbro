@@ -59,11 +59,11 @@ Prefer Playwright through the helper. Each Playwright context gets an empty Inde
 .cursor/skills/verify-jimbro/scripts/control-jimbro snapshot / --out .cursor/skills/verify-jimbro/artifacts/scratch
 ```
 
-`tour` is the main helper. It imports a year of real history through Settings (the worker's fixture, with dates moved so the latest workout was last Sunday), then walks every screen and dialog the feature map names, in order, on an iPhone 13 (390×844) and a Pixel 8 Pro (448×998) viewport. It writes one PNG per stop to `artifacts/tour/<device>/` and a contact sheet with the phones side by side to `artifacts/tour/index.html`. A stop that does not show what it waits for, or an uncaught page error, fails the tour and is marked on the sheet. Both phones take under a minute. `--device` picks one phone and `--only` keeps the screenshots whose stop name contains the text (every stop still runs, since later stops build on earlier ones).
+`tour` is the main helper. It imports a year of real history through Settings (the worker's fixture, with dates moved so the latest workout was last Sunday), then walks every screen and dialog the feature map names, in order, on an iPhone 13 (390×844) in WebKit and a Pixel 8 Pro (448×998) in Chromium, the engines of Safari and Chrome on those phones. It writes one PNG per stop to `artifacts/tour/<device>/` and a contact sheet with the phones side by side to `artifacts/tour/index.html`. A stop that does not show what it waits for, or an uncaught page error, fails the tour and is marked on the sheet. Both phones take under a minute. `--device` picks one phone and `--only` keeps the screenshots whose stop name contains the text (every stop still runs, since later stops build on earlier ones).
 
 The tour shows; it does not judge. Correctness belongs in `tests/*.spec.ts`, which CI runs on every pull request. Look at the screenshots, since a stop passes as long as its screen appears, however it looks.
 
-Chromium emulates the iPhone's viewport and touch, not WebKit, and neither phone's system font. The repo's WebKit specs run on CI.
+CI runs the tour on every pull request and uploads the contact sheet as the `tour` artifact. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone runs in Chromium, which shows its size but not Safari's layout, and the sheet labels each phone with its engine. Look at CI's sheet for how the iPhone really lays out. WebKit skips the three passkey stops, which need Chromium's virtual authenticator. Neither phone gets its system font.
 
 For a flow no stop covers, follow the feature file's by-hand steps with Playwright against `$JIMBRO_VERIFY_URL`. When a new screen or dialog ships, add a stop to `STOPS` in `scripts/drive.mjs` and name it in its feature file.
 
@@ -138,4 +138,4 @@ All commands are run from the repo root. The script is executable.
 
 Repo Playwright suite (`pnpm test` / `playwright test`) auto-starts `vp run dev` on 5173 and is a regression net, not this skill's isolated proof. Use it when you need the full spec file. Use this skill when you need a disposable origin, screenshots on both phones, and a user-path drive mid-task.
 
-First machine: `vp exec playwright install chromium` so `tour` and `snapshot` can launch Chromium. When Playwright's own build is missing, `drive.mjs` falls back to `JIMBRO_CHROMIUM`, then `/opt/pw-browsers/chromium`, the image's Chromium in Claude Code cloud sessions.
+First machine: `vp exec playwright install chromium webkit` so `tour` can launch both phones' engines. When Playwright's own build is missing, `drive.mjs` falls back to `JIMBRO_CHROMIUM`, then `/opt/pw-browsers/chromium`, the image's Chromium in Claude Code cloud sessions.

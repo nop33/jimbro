@@ -123,10 +123,55 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+  # The verify-jimbro tour on the two phones Jimbro runs on, each in its own browser's engine: Ena's iPhone in WebKit and
+  # Ilias's Pixel in Chromium. A stop whose screen does not show fails it, and the contact sheet is the tour artifact.
+  tour:
+    name: tour (iPhone on WebKit, Pixel on Chromium)
+    needs: playwright-version
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.playwright-version.outputs.version }}-noble
+      options: --init
+    timeout-minutes: 15
+    env:
+      JIMBRO_VERIFY_URL: http://127.0.0.1:5174
+      JIMBRO_ARTIFACTS_DIR: ${{ github.workspace }}/tour-artifacts
+    steps:
+      - uses: actions/checkout@v5
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: '22'
+          cache: true
+      - run: vp install
+      # A dead API base, as control-jimbro launch uses, so the tour never reaches a worker.
+      - name: Start the app
+        run: |
+          VITE_API_BASE=http://127.0.0.1:9 nohup vp run dev --host 127.0.0.1 --port 5174 --strictPort > dev.log 2>&1 &
+          node -e '
+            const until = Date.now() + 60_000
+            const ready = async () => (await (await fetch(process.env.JIMBRO_VERIFY_URL)).text()).includes("<title>Jimbro</title>")
+            const wait = async () => {
+              while (Date.now() < until) {
+                if (await ready().catch(() => false)) return
+                await new Promise((resolve) => setTimeout(resolve, 500))
+              }
+              throw new Error("The dev server did not serve Jimbro within a minute")
+            }
+            wait().catch((error) => { console.error(error.message); process.exit(1) })
+          ' || (cat dev.log && exit 1)
+      - name: Walk every screen on both phones
+        run: xvfb-run node .cursor/skills/verify-jimbro/scripts/drive.mjs tour
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: tour
+          path: tour-artifacts/tour/
+          retention-days: 30
+
   e2e-tests:
-    needs: e2e
+    needs: [e2e, tour]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - name: Fail unless every browser project passed
-        run: test "${{ needs.e2e.result }}" = "success"
+      - name: Fail unless every browser project and the tour passed
+        run: test "${{ needs.e2e.result }}" = "success" && test "${{ needs.tour.result }}" = "success"

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import { chromium } from '@playwright/test'
+import { chromium, webkit } from '@playwright/test'
 
 const base = process.env.JIMBRO_VERIFY_URL
 if (!base) {
@@ -14,10 +14,11 @@ const repoRoot = resolve(import.meta.dirname, '..', '..', '..', '..')
 // Ilias and Ena train in Athens, so "today" and the week follow its clock.
 const TIME_ZONE = 'Europe/Athens'
 
-// The two phones Jimbro is used on. Chromium stands in for Safari on the iPhone profile, so the tour shows
-// layout at each phone's size, not WebKit rendering. The repo's WebKit specs run on CI.
+// The two phones Jimbro is used on, each in its own browser's engine: Ena's iPhone runs Safari, so WebKit, and Ilias's
+// Pixel runs Chrome, so Chromium. CI runs the tour this way on every pull request.
 const DEVICES = {
   iphone13: {
+    engine: 'webkit',
     viewport: { width: 390, height: 844 },
     deviceScaleFactor: 3,
     isMobile: true,
@@ -26,6 +27,7 @@ const DEVICES = {
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
   },
   pixel8pro: {
+    engine: 'chromium',
     viewport: { width: 448, height: 998 },
     deviceScaleFactor: 3,
     isMobile: true,
@@ -44,23 +46,51 @@ function chromiumPath() {
   throw new Error('No Chromium found. Run `vp exec playwright install chromium` or set JIMBRO_CHROMIUM.')
 }
 
+// The browser a phone runs in. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone
+// runs in Chromium instead, which shows its size but not how Safari lays it out, and the contact sheet says so.
+function browserFor(device) {
+  if (DEVICES[device].engine === 'webkit' && existsSync(webkit.executablePath())) return 'webkit'
+  if (DEVICES[device].engine === 'webkit') console.warn(`WebKit is not installed, so ${device} runs in Chromium.`)
+  return 'chromium'
+}
+
 // A fresh context per device, so IndexedDB starts empty. Reduced motion keeps screenshots still, the way
 // src/style.css and animateDetails.ts stop their animations.
 async function withPage(device, fn) {
-  const browser = await chromium.launch({ executablePath: chromiumPath() })
+  const engine = browserFor(device)
+  const browser =
+    engine === 'webkit' ? await webkit.launch() : await chromium.launch({ executablePath: chromiumPath() })
+  const { engine: _wanted, ...profile } = DEVICES[device]
   const context = await browser.newContext({
-    ...DEVICES[device],
+    ...profile,
     baseURL: base,
     timezoneId: TIME_ZONE,
     reducedMotion: 'reduce'
   })
+  // Safari on the iPhone has passkeys, but Playwright's WebKit build has no WebAuthn, so the app would hide every passkey
+  // button. Stand-ins for the parts passkeysSupported() checks bring them back. No stop taps one in WebKit, since
+  // CHROMIUM_ONLY skips the ceremonies.
+  if (engine === 'webkit') {
+    await context.addInitScript(() => {
+      if (typeof window.PublicKeyCredential === 'function') return
+      const unsupported = () => Promise.reject(new DOMException('No authenticator in this browser', 'NotAllowedError'))
+      window.PublicKeyCredential = function PublicKeyCredential() {}
+      if (typeof navigator.credentials?.create !== 'function') {
+        Object.defineProperty(navigator, 'credentials', { value: { create: unsupported, get: unsupported } })
+      }
+      window.AuthenticatorAttestationResponse = function AuthenticatorAttestationResponse() {}
+      for (const method of ['getPublicKey', 'getPublicKeyAlgorithm', 'getAuthenticatorData']) {
+        window.AuthenticatorAttestationResponse.prototype[method] = () => null
+      }
+    })
+  }
   const page = await context.newPage()
   // A stop that fails should fail fast, not hold up every stop after it.
   page.setDefaultTimeout(10_000)
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   try {
-    return await fn(page, errors)
+    return await fn(page, errors, engine)
   } finally {
     await browser.close()
   }
@@ -194,7 +224,8 @@ async function withPasskeyWorker(page) {
 }
 
 // Each stop puts one screen or dialog on the phone and waits for what proves it is there. The tour runs
-// them in order in one context, so a stop may rely on the state the stops before it left.
+// them in order in one context, so a stop may rely on the state the stops before it left. The passkey stops need
+// Chromium's virtual authenticator, so WebKit skips them, as tests/passkeys.spec.ts does.
 /** @type {Array<[string, (page: import('@playwright/test').Page, context: { fixture: string }) => Promise<void>]>} */
 const STOPS = [
   ['home-empty', async (page) => {
@@ -461,21 +492,29 @@ const STOPS = [
   }]
 ]
 
+const CHROMIUM_ONLY = new Set(['settings-passkey', 'settings-signed-out', 'settings-moved'])
+
 async function tour(devices, only) {
   const outDir = resolve(artifactsRoot, 'tour')
   rmSync(outDir, { recursive: true, force: true })
   mkdirSync(outDir, { recursive: true })
   const fixture = writeFixture(outDir)
   const results = {}
+  const engines = {}
   for (const device of devices) {
     const dir = join(outDir, device)
     mkdirSync(dir, { recursive: true })
-    results[device] = await withPage(device, async (page, errors) => {
+    results[device] = await withPage(device, async (page, errors, engine) => {
+      engines[device] = engine
       page.on('dialog', (dialog) => void dialog.accept())
-      /** @type {Record<string, { file?: string, error?: string, pageErrors?: string[] }>} */
+      /** @type {Record<string, { file?: string, error?: string, skipped?: string, pageErrors?: string[] }>} */
       const shots = {}
       for (const [index, [slug, go]] of STOPS.entries()) {
         const file = `${String(index + 1).padStart(2, '0')}-${slug}.png`
+        if (engine !== 'chromium' && CHROMIUM_ONLY.has(slug)) {
+          shots[slug] = { skipped: "Chromium only: it needs Chromium's virtual authenticator." }
+          continue
+        }
         try {
           await go(page, { fixture })
           if (only && !slug.includes(only)) continue
@@ -493,11 +532,12 @@ async function tour(devices, only) {
       return shots
     })
   }
-  writeFileSync(join(outDir, 'index.html'), contactSheet(devices, results))
+  writeFileSync(join(outDir, 'index.html'), contactSheet(devices, engines, results))
   const failed = Object.values(results).flatMap((shots) =>
     Object.entries(shots).filter(([, shot]) => shot.error || shot.pageErrors)
   )
-  console.log(`Tour of ${STOPS.length} stops on ${devices.join(', ')}: ${relative(repoRoot, join(outDir, 'index.html'))}`)
+  const ran = devices.map((device) => `${device} (${engines[device]})`).join(', ')
+  console.log(`Tour of ${STOPS.length} stops on ${ran}: ${relative(repoRoot, join(outDir, 'index.html'))}`)
   if (failed.length > 0) {
     console.error(`${failed.length} stop(s) failed. See the messages above and the contact sheet.`)
     process.exit(1)
@@ -507,7 +547,7 @@ async function tour(devices, only) {
 const escape = (text) => text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`)
 
 // One row per stop with the phones side by side, so a reviewer can scan the whole app in one page.
-const contactSheet = (devices, results) => `<!doctype html>
+const contactSheet = (devices, engines, results) => `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jimbro tour</title>
@@ -518,6 +558,7 @@ const contactSheet = (devices, results) => `<!doctype html>
   figure { margin: 0; }
   img { width: 300px; border: 1px solid #333; border-radius: 12px; }
   .error { color: #f87171; max-width: 300px; }
+  .skipped { color: #a3a3a3; max-width: 300px; }
 </style>
 <h1>Jimbro tour</h1>
 <p>${escape(new Date().toISOString())} · ${escape(base)}</p>
@@ -527,9 +568,11 @@ ${STOPS.map(
       const shot = results[device]?.[slug]
       if (!shot) return ''
       const problem = [shot.error, ...(shot.pageErrors ?? [])].filter(Boolean).join(' · ')
-      return `<figure><figcaption>${escape(device)}</figcaption>${
+      return `<figure><figcaption>${escape(`${device} · ${engines[device]}`)}</figcaption>${
         shot.file ? `<img src="${escape(shot.file)}" alt="${escape(`${slug} on ${device}`)}">` : ''
-      }${problem ? `<p class="error">${escape(problem)}</p>` : ''}</figure>`
+      }${problem ? `<p class="error">${escape(problem)}</p>` : ''}${
+        shot.skipped ? `<p class="skipped">${escape(shot.skipped)}</p>` : ''
+      }</figure>`
     })
     .join('')}</div></section>`
 ).join('\n')}
