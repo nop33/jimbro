@@ -175,6 +175,105 @@ const utcCalendarDates: Detector = (file, source) => {
     : []
 }
 
+// The router shows each page in the same document, so a page draws itself only when the router mounts it, and stops
+// what it wired when the next page replaces it. A page module that ran at load drew once and never again, and a
+// listener on the document kept running on every page after it.
+const pagesDir = path.join('src', 'pages')
+const isPageEntry = (file: string) =>
+  path.dirname(path.dirname(file)) === pagesDir && path.basename(file) === 'index.ts'
+const parse = (file: string, text: string) => ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+const at = (file: string, source: ts.SourceFile, node: ts.Node) =>
+  `${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`
+
+const pageEntries: Detector = (file, text) => {
+  if (!isPageEntry(file)) return []
+  const source = parse(file, text)
+  const exportsMount = source.statements.some(
+    (statement) =>
+      ((ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.some(
+          (declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === 'mount'
+        )) ||
+        (ts.isFunctionDeclaration(statement) && statement.name?.text === 'mount')) &&
+      ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+  )
+  const runsAtLoad = source.statements.filter((statement) => ts.isExpressionStatement(statement))
+  return [
+    ...(exportsMount
+      ? []
+      : [`${file} exports no mount. Export mount(signal), which the router calls to show the page.`]),
+    ...runsAtLoad.map(
+      (statement) =>
+        `${at(file, source, statement)} runs when the module loads. Move it into mount, which runs each time the page shows.`
+    )
+  ]
+}
+
+// Each visit brings new elements, so an element looked up when the module loaded is the first visit's. And a page's
+// state belongs to one visit: state at module level, or in a static field, outlives it.
+const pageStateAtLoad: Detector = (file, text) => {
+  if (!file.startsWith(pagesDir + path.sep)) return []
+  const source = parse(file, text)
+  const mistakes: Array<string> = []
+  const touchesDom = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && (node.text === 'document' || node.text === 'window')) ||
+    (!ts.isFunctionLike(node) && !ts.isClassLike(node) && ts.forEachChild(node, touchesDom) === true)
+  for (const statement of source.statements) {
+    if (ts.isVariableStatement(statement) && !(statement.declarationList.flags & ts.NodeFlags.Const))
+      mistakes.push(
+        `${at(file, source, statement)} keeps state at module level, which outlives the page. Keep it in an instance that mount creates.`
+      )
+    if (
+      !ts.isFunctionLike(statement) &&
+      !ts.isClassLike(statement) &&
+      !ts.isImportDeclaration(statement) &&
+      touchesDom(statement)
+    )
+      mistakes.push(
+        `${at(file, source, statement)} reads the document when the module loads. Read it in mount, or in a constructor that mount calls.`
+      )
+    if (ts.isClassDeclaration(statement))
+      for (const member of statement.members)
+        if (
+          ts.isPropertyDeclaration(member) &&
+          ts.getModifiers(member)?.some(({ kind }) => kind === ts.SyntaxKind.StaticKeyword)
+        )
+          mistakes.push(
+            `${at(file, source, member)} is a static field, which outlives the page. Make it an instance field of a component mount creates.`
+          )
+  }
+  return mistakes
+}
+
+// A listener on the document or the window outlives the elements of the page that added it.
+const pageListenersWithoutSignal: Detector = (file, text) => {
+  if (!file.startsWith(pagesDir + path.sep)) return []
+  const source = parse(file, text)
+  const mistakes: Array<string> = []
+  const passesSignal = (options: ts.Expression | undefined) =>
+    options !== undefined &&
+    ts.isObjectLiteralExpression(options) &&
+    options.properties.some(
+      (property) => property.name && ts.isIdentifier(property.name) && property.name.text === 'signal'
+    )
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'addEventListener' &&
+      ts.isIdentifier(node.expression.expression) &&
+      ['document', 'window'].includes(node.expression.expression.text) &&
+      !passesSignal(node.arguments[2])
+    )
+      mistakes.push(
+        `${at(file, source, node)} listens on the ${node.expression.expression.text} without a signal. Pass { signal } from mount, so the listener stops when the page goes.`
+      )
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return mistakes
+}
+
 // The specs and the helpers they import, which the fixed-wait rule covers.
 const specsAndHelpers = () => {
   const testFiles = sourceFiles('tests')
@@ -259,6 +358,36 @@ const rules: Array<{
     flagged:
       /^tests\/example\.spec\.ts:1 waits a fixed time[\s\S]*tests\/example\.spec\.ts:2 sleeps[\s\S]*tests\/example\.spec\.ts:3 forces an action/,
     good: 'await new Promise((r) => setTimeout(r, 0))\nawait expect(button).toBeEnabled()\nawait button.click()'
+  },
+  {
+    rule: 'gives every page an entry that exports mount and runs nothing when it loads',
+    detector: pageEntries,
+    files: () => sourceFiles('src/pages'),
+    file: path.join('src', 'pages', 'example', 'index.ts'),
+    bad: "import { store } from '../../db/store'\nawait store.load()\nrender()",
+    flags: 3,
+    flagged: /exports no mount[\s\S]*:2 runs when the module loads[\s\S]*:3 runs when the module loads/,
+    good: "import { store } from '../../db/store'\nexport const mount = async (signal: AbortSignal) => {\n  await store.load()\n}"
+  },
+  {
+    rule: 'keeps no page state or element lookups at module level',
+    detector: pageStateAtLoad,
+    files: () => sourceFiles('src/pages'),
+    file: page,
+    bad: "let open = 0\nconst grid = document.querySelector('#grid')\nclass List {\n  private static items = []\n}",
+    flags: 3,
+    flagged: /:1 keeps state at module level[\s\S]*:2 reads the document[\s\S]*:4 is a static field/,
+    good: "const LABELS = ['a']\nconst find = () => document.querySelector('#grid')\nclass List {\n  private grid = document.querySelector('#grid')\n  static of() {}\n}"
+  },
+  {
+    rule: 'stops page listeners on the document and window with the page',
+    detector: pageListenersWithoutSignal,
+    files: () => sourceFiles('src/pages'),
+    file: page,
+    bad: "document.addEventListener('scroll', f)\nwindow.addEventListener('resize', f, { passive: true })",
+    flags: 2,
+    flagged: /:1 listens on the document without a signal[\s\S]*:2 listens on the window without a signal/,
+    good: "document.addEventListener('scroll', f, { passive: true, signal })\nbutton.addEventListener('click', f)"
   },
   {
     rule: 'takes calendar dates from local time, never from toISOString',
