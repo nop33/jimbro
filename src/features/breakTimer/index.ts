@@ -1,26 +1,38 @@
+import type { ExerciseKind } from '../../db/exerciseLogging'
 import { historyChartEnabled } from '../../db/exerciseLogging'
-import ExerciseHistoryChart, { type ExerciseHistoryTarget } from './ExerciseHistoryChart'
-import type { Rest } from './outcome'
 import { playDingSound } from './sound'
 
-class BreakTimerDialog {
-  private static dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
-  private static minimizeButton = this.dialog.querySelector('#minimize-break') as HTMLButtonElement
-  private static countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
-  private static countdownInterval: ReturnType<typeof setInterval> | null = null
-  private static skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
-  private static viewHistoryButton = this.dialog.querySelector('#view-history-break') as HTMLButtonElement
-  private static setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
-  private static nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
-  private static nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
-  private static targetTime: number | null = null
-  private static hasPlayedSound = false
-  private static autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
-  private static currentExercise: ExerciseHistoryTarget | null = null
-  private static isMinimized = false
+// A break after a set: its length, the exercise's sets logged and to do, and the next exercise with sets to do.
+export interface Break {
+  seconds: number
+  setsDone: number
+  setsTotal: number
+  next?: string
+  exercise: { id: string; name: string; kind: ExerciseKind }
+}
 
-  static init() {
-    this.skipBreakButton.addEventListener('click', () => this.closeDialog())
+// The countdown between sets, full screen or as a bar at the top. One timer serves the whole document, so a break
+// keeps counting down whatever page shows under it.
+class BreakTimer {
+  private dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
+  private minimizeButton = this.dialog.querySelector('#minimize-break') as HTMLButtonElement
+  private countdown = this.dialog.querySelector('#countdown') as HTMLHeadingElement
+  private skipBreakButton = this.dialog.querySelector('#skip-break') as HTMLButtonElement
+  private viewHistoryButton = this.dialog.querySelector('#view-history-break') as HTMLButtonElement
+  private setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
+  private nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
+  private nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
+  private countdownInterval: ReturnType<typeof setInterval> | null = null
+  private targetTime: number | null = null
+  private hasPlayedSound = false
+  private autoCloseTimeout: ReturnType<typeof setTimeout> | null = null
+  private currentExercise: Break['exercise'] | null = null
+  private isMinimized = false
+  // How the page on screen opens an exercise's history, while it offers one.
+  private openHistory: ((exercise: Break['exercise']) => void) | null = null
+
+  constructor() {
+    this.skipBreakButton.addEventListener('click', () => this.close())
     this.minimizeButton.addEventListener('click', (e) => {
       e.stopPropagation()
       this.minimizeDialog()
@@ -31,12 +43,29 @@ class BreakTimerDialog {
       }
     })
     this.viewHistoryButton.addEventListener('click', () => {
-      if (this.currentExercise) void ExerciseHistoryChart.openDialog(this.currentExercise)
+      if (this.currentExercise) this.openHistory?.(this.currentExercise)
     })
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange())
   }
 
-  private static minimizeDialog() {
+  // The full timer offers the exercise's history through open until signal aborts, as when the page goes.
+  offerHistory(open: (exercise: Break['exercise']) => void, signal: AbortSignal) {
+    this.openHistory = open
+    this.showHistoryButton()
+    signal.addEventListener('abort', () => {
+      if (this.openHistory !== open) return
+      this.openHistory = null
+      this.showHistoryButton()
+    })
+  }
+
+  private showHistoryButton() {
+    const exercise = this.currentExercise
+    const offered = this.openHistory !== null && exercise !== null && historyChartEnabled(exercise.kind)
+    this.viewHistoryButton.classList.toggle('hidden', !offered)
+  }
+
+  private minimizeDialog() {
     this.isMinimized = true
     this.morph(() => {
       this.dialog.close()
@@ -46,7 +75,7 @@ class BreakTimerDialog {
     })
   }
 
-  private static maximizeDialog() {
+  private maximizeDialog() {
     this.isMinimized = false
     this.morph(() => {
       this.dialog.close()
@@ -59,7 +88,7 @@ class BreakTimerDialog {
   // A view transition snapshots the timer before and after the swap and morphs one into the other: the box between
   // the full screen and the bar, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
   // reopening the dialog would start it again, and the header and nav morph with the page under the timer.
-  private static morph(swap: () => void) {
+  private morph(swap: () => void) {
     if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       swap()
       return
@@ -73,13 +102,13 @@ class BreakTimerDialog {
     })
   }
 
-  private static handleVisibilityChange() {
+  private handleVisibilityChange() {
     if (document.visibilityState === 'visible' && this.targetTime !== null) {
       this.updateTimerDisplay()
     }
   }
 
-  private static updateTimerDisplay() {
+  private updateTimerDisplay() {
     if (this.targetTime === null) return
 
     const now = Date.now()
@@ -98,16 +127,16 @@ class BreakTimerDialog {
 
     if (diffMs <= 0 && this.autoCloseTimeout === null && document.visibilityState === 'visible') {
       this.autoCloseTimeout = setTimeout(() => {
-        this.closeDialog()
+        this.close()
       }, 1000)
     }
   }
 
   // Starts a break, in place of any break still running.
-  static start({ seconds, setsDone, setsTotal, next, exercise }: Rest) {
+  start({ seconds, setsDone, setsTotal, next, exercise }: Break) {
     this.stopCountdown()
     this.currentExercise = exercise
-    this.viewHistoryButton.classList.toggle('hidden', !historyChartEnabled(exercise.kind))
+    this.showHistoryButton()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
 
@@ -127,7 +156,7 @@ class BreakTimerDialog {
     this.openDialog()
   }
 
-  private static openDialog() {
+  private openDialog() {
     this.isMinimized = false
     this.dialog.classList.remove('dialog-minimized')
     this.dialog.classList.add('dialog-full-screen')
@@ -138,7 +167,7 @@ class BreakTimerDialog {
   }
 
   // Stops the countdown, its ding and its pending auto-close, and forgets the break.
-  private static stopCountdown() {
+  private stopCountdown() {
     if (this.autoCloseTimeout !== null) {
       clearTimeout(this.autoCloseTimeout)
       this.autoCloseTimeout = null
@@ -152,7 +181,8 @@ class BreakTimerDialog {
     this.currentExercise = null
   }
 
-  static closeDialog() {
+  // Ends the break, early or on time.
+  close() {
     this.stopCountdown()
     this.isMinimized = false
     this.dialog.classList.remove('dialog-full-screen')
@@ -161,4 +191,7 @@ class BreakTimerDialog {
   }
 }
 
-export default BreakTimerDialog
+let timer: BreakTimer | undefined
+
+// The document's one break timer, made the first time something needs it.
+export const breakTimer = () => (timer ??= new BreakTimer())

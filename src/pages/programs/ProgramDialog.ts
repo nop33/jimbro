@@ -5,28 +5,22 @@ import ProgramExercisesMultiselect from './ProgramExercisesMultiselect'
 import ProgramExercisesSortableList from './ProgramExercisesSortableList'
 
 class ProgramDialog {
-  private static newProgramButton = document.querySelector('#new-program-btn') as HTMLButtonElement
-  private static programDialog = document.querySelector('#program-dialog') as HTMLDialogElement
-  private static programForm = document.querySelector('#program-form') as HTMLFormElement
-  private static programIdInput = document.querySelector('#program-id') as HTMLInputElement
-  private static programNameInput = document.querySelector('#program-name') as HTMLInputElement
-  private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteProgramBtn = this.programDialog.querySelector('.delete-btn') as HTMLButtonElement
+  private newProgramButton = document.querySelector('#new-program-btn') as HTMLButtonElement
+  private programDialog = document.querySelector('#program-dialog') as HTMLDialogElement
+  private programForm = document.querySelector('#program-form') as HTMLFormElement
+  private programIdInput = document.querySelector('#program-id') as HTMLInputElement
+  private programNameInput = document.querySelector('#program-name') as HTMLInputElement
+  private dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
+  private deleteProgramBtn = this.programDialog.querySelector('.delete-btn') as HTMLButtonElement
 
-  private static programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
-  private static programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list')
+  private programExercisesMultiselect = new ProgramExercisesMultiselect('#exercises-selection')
+  private programExercisesSortableList: ProgramExercisesSortableList
 
-  private static selectedExercises = new Set<Exercise['id']>()
+  private selectedExercises = new Set<Exercise['id']>()
 
-  static openDialog() {
-    this.programDialog.showModal()
-  }
+  constructor(signal: AbortSignal) {
+    this.programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list', signal)
 
-  static closeDialog() {
-    this.programDialog.close()
-  }
-
-  static init() {
     this.programExercisesMultiselect.on('exercise-selected', ({ detail: { selectedExerciseIds } }) => {
       const selectedIdsSet = new Set(selectedExerciseIds)
       selectedExerciseIds.forEach((id) => this.selectedExercises.add(id))
@@ -47,10 +41,7 @@ class ProgramDialog {
       void this.deleteProgram()
     })
 
-    this.newProgramButton.addEventListener('click', () => {
-      this.populateForm()
-      this.openDialog()
-    })
+    this.newProgramButton.addEventListener('click', () => this.open())
 
     this.programDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
       this.closeDialog()
@@ -82,7 +73,17 @@ class ProgramDialog {
     })
   }
 
-  static populateForm(program?: Program) {
+  // Opens on the program to edit, or on an empty form for a new one.
+  open(program?: Program) {
+    this.populateForm(program)
+    this.programDialog.showModal()
+  }
+
+  private closeDialog() {
+    this.programDialog.close()
+  }
+
+  private populateForm(program?: Program) {
     // As in the exercise dialog: a new program opens on its name, an edited one on its title.
     this.programNameInput.autofocus = !program
     this.dialogTitle.autofocus = Boolean(program)
@@ -106,7 +107,7 @@ class ProgramDialog {
     this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises })
   }
 
-  private static async deleteProgram() {
+  private async deleteProgram() {
     if (confirm('Are you sure you want to delete this program?')) {
       try {
         await programsStore.remove(this.programIdInput.value)

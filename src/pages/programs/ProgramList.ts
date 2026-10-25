@@ -3,19 +3,22 @@ import { programsStore } from '../../db/stores/programsStore'
 import ProgramComponent from './ProgramComponent'
 
 class ProgramList {
-  private static programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
+  private programsGrid = document.querySelector('#programs-grid') as HTMLDivElement
+  private onEdit: (program: Program) => void
 
-  static init() {
+  constructor(onEdit: (program: Program) => void, signal: AbortSignal) {
+    this.onEdit = onEdit
     this.render(programsStore.all)
 
-    programsStore.subscribe((programs) => this.render(programs))
+    const unsubscribe = programsStore.subscribe((programs) => this.render(programs))
+    signal.addEventListener('abort', unsubscribe)
   }
 
-  static render(programs: Array<Program>) {
+  private render(programs: Array<Program>) {
     this.programsGrid.innerHTML = ''
 
     for (const program of programs) {
-      const programComponent = new ProgramComponent(program)
+      const programComponent = new ProgramComponent(program, this.onEdit)
       const programItem = programComponent.render()
       this.programsGrid.appendChild(programItem)
     }

@@ -20,30 +20,22 @@ import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 
 class ExerciseDialog {
-  private static newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
-  private static exerciseDialog = document.querySelector('#exercise-dialog') as HTMLDialogElement
-  private static exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
-  private static exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
-  private static exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
-  private static exerciseKindSelect = document.querySelector('#exercise-kind') as HTMLSelectElement
-  private static exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLDivElement
-  private static exercisePresetSelect = document.querySelector('#exercise-preset') as HTMLSelectElement
-  private static exerciseMuscleField = document.querySelector('#exercise-muscle-field') as HTMLDivElement
-  private static exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
-  private static exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
-  private static exerciseDefaults = document.querySelector('#exercise-defaults') as HTMLDivElement
-  private static dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
-  private static deleteExerciseBtn = this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
+  private newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
+  private exerciseDialog = document.querySelector('#exercise-dialog') as HTMLDialogElement
+  private exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
+  private exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
+  private exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
+  private exerciseKindSelect = document.querySelector('#exercise-kind') as HTMLSelectElement
+  private exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLDivElement
+  private exercisePresetSelect = document.querySelector('#exercise-preset') as HTMLSelectElement
+  private exerciseMuscleField = document.querySelector('#exercise-muscle-field') as HTMLDivElement
+  private exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
+  private exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
+  private exerciseDefaults = document.querySelector('#exercise-defaults') as HTMLDivElement
+  private dialogTitle = document.querySelector('#dialog-title') as HTMLHeadingElement
+  private deleteExerciseBtn = this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
 
-  static openDialog() {
-    this.exerciseDialog.showModal()
-  }
-
-  static closeDialog() {
-    this.exerciseDialog.close()
-  }
-
-  static init() {
+  constructor() {
     this.renderKindPicker()
     this.renderMusclePicker()
     this.populateForm()
@@ -51,10 +43,7 @@ class ExerciseDialog {
     this.exerciseKindSelect.addEventListener('change', () => this.onKindChanged())
     this.exercisePresetSelect.addEventListener('change', () => this.renderPresetFields())
 
-    this.newExerciseButton.addEventListener('click', () => {
-      this.populateForm()
-      this.openDialog()
-    })
+    this.newExerciseButton.addEventListener('click', () => this.open())
 
     this.exerciseDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
       this.closeDialog()
@@ -94,7 +83,17 @@ class ExerciseDialog {
     })
   }
 
-  static populateForm(exercise?: Exercise) {
+  // Opens on the exercise to edit, or on an empty form for a new one.
+  open(exercise?: Exercise) {
+    this.populateForm(exercise)
+    this.exerciseDialog.showModal()
+  }
+
+  private closeDialog() {
+    this.exerciseDialog.close()
+  }
+
+  private populateForm(exercise?: Exercise) {
     // showModal() focuses the autofocus element: the name of a new exercise, so the keyboard opens to type it, or the
     // title when editing, so no field takes the focus and opens the keyboard over what you came to see.
     this.exerciseNameInput.autofocus = !exercise
@@ -120,29 +119,29 @@ class ExerciseDialog {
     }
   }
 
-  private static selectedKind(): ExerciseKind {
+  private selectedKind(): ExerciseKind {
     return parseExerciseKind(this.exerciseKindSelect.value) ?? 'lifting'
   }
 
-  private static selectedPreset(): LogPreset {
+  private selectedPreset(): LogPreset {
     const kind = this.selectedKind()
     const preset = parseLogPreset(this.exercisePresetSelect.value)
     return preset && LOG_PRESET_SPECS[preset].kind === kind ? preset : defaultPresetForKind(kind)
   }
 
-  private static onKindChanged() {
+  private onKindChanged() {
     const kind = this.selectedKind()
     this.renderPresetPicker(kind, defaultPresetForKind(kind))
     this.renderPresetFields()
   }
 
-  private static renderKindPicker() {
+  private renderKindPicker() {
     this.exerciseKindSelect.replaceChildren(
       ...EXERCISE_KINDS.map((kind) => new Option(EXERCISE_KIND_LABELS[kind], kind))
     )
   }
 
-  private static renderPresetPicker(kind: ExerciseKind, preset: LogPreset) {
+  private renderPresetPicker(kind: ExerciseKind, preset: LogPreset) {
     const presets = presetsForKind(kind)
 
     this.exercisePresetSelect.replaceChildren(
@@ -152,7 +151,7 @@ class ExerciseDialog {
     this.exercisePresetField.classList.toggle('hidden', presets.length < 2)
   }
 
-  private static renderPresetFields(defaults: Exercise['defaults'] = {}) {
+  private renderPresetFields(defaults: Exercise['defaults'] = {}) {
     const preset = this.selectedPreset()
     const needsMuscle = muscleRequired(preset)
     const display = toDisplayValues(preset, defaults)
@@ -186,7 +185,7 @@ class ExerciseDialog {
     )
   }
 
-  private static enteredDefaults(preset: LogPreset): Record<string, FormDataEntryValue | null> {
+  private enteredDefaults(preset: LogPreset): Record<string, FormDataEntryValue | null> {
     const formData = new FormData(this.exerciseForm)
     const entered: Record<string, FormDataEntryValue | null> = {}
 
@@ -197,12 +196,12 @@ class ExerciseDialog {
     return entered
   }
 
-  private static renderMusclePicker() {
+  private renderMusclePicker() {
     const musclePicker = new MuscleGroupSelect({ selector: '#exercise-muscle' })
     musclePicker.render({ includeOptionAll: false })
   }
 
-  private static async deleteExercise() {
+  private async deleteExercise() {
     if (confirm('Are you sure you want to delete this exercise?')) {
       try {
         await exercisesStore.remove(this.exerciseIdInput.value)

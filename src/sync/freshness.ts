@@ -5,12 +5,17 @@ import { getMeta } from './queue'
 // seq grows with every local write and cursor with the first sync, so the pair moves whenever the database changes.
 const readVersion = async () => `${await getMeta(storage, 'seq')}:${await getMeta(storage, 'cursor')}`
 
-// The version this page shows. A page renders its own writes, so each of its writes moves it along.
+// The version the page on screen shows. A page renders its own writes, so each of its writes moves it along.
 let shown = readVersion()
 onPageNotice((notice) => {
   if (notice === 'rows-written') shown = readVersion()
 })
 
-// True when another page or a sync changed the database since this page rendered it. A page that Back or Forward
-// restored, or one prerendered before the tap, misses what the pages shown in between wrote.
+// The router calls it each time it has drawn a page from the database.
+export const markRendered = () => {
+  shown = readVersion()
+}
+
+// True when a sync or another tab changed the database since the page on screen rendered it. A document that Back or
+// Forward restored from the back/forward cache, or one prerendered before the tap, misses what was written meanwhile.
 export const isOutOfDate = async () => (await readVersion()) !== (await shown)

@@ -15,11 +15,11 @@ import {
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
-import EditSetDialog from './EditSetDialog'
-import AddExerciseDialog from './AddExerciseDialog'
-import ExerciseHistoryChart from './ExerciseHistoryChart'
-import LastSetDialog from './LastSetDialog'
-import { alertIfInSession, openSession } from './openSession'
+import type EditSetDialog from './EditSetDialog'
+import type AddExerciseDialog from './AddExerciseDialog'
+import type ExerciseHistoryChart from './ExerciseHistoryChart'
+import type LastSetDialog from './LastSetDialog'
+import type { OpenSession } from './openSession'
 import { tapToDismiss } from './tapToDismiss'
 import { liftCard } from './liftCard'
 import { traceSet } from './traceSet'
@@ -75,11 +75,21 @@ const anchorMenu = (menu: HTMLElement, anchor: () => Element, room: number) => {
   })
 }
 
+// What a card's buttons reach: the open session they write to, and the page's dialogs.
+export interface CardActions {
+  session: OpenSession
+  editSet: EditSetDialog
+  addExercise: AddExerciseDialog
+  history: ExerciseHistoryChart
+  lastSet: LastSetDialog
+}
+
 // One exercise's card. The card list builds it once per exercise and calls show with each session the page shows, so
 // the card keeps what the user is doing in it: open or closed, its menu, and a value typed into the next set's form.
 // Its buttons only write to the open session, which then reaches every card through show.
 class ExerciseCard {
   readonly element: HTMLDivElement
+  private readonly actions: CardActions
   private snapshot: ExerciseSnapshot
   private plan: ExercisePlan | undefined
   private readonly details: HTMLDetailsElement
@@ -101,8 +111,9 @@ class ExerciseCard {
   // exercise.
   private closeWhenDone = false
 
-  constructor(snapshot: ExerciseSnapshot) {
+  constructor(snapshot: ExerciseSnapshot, actions: CardActions) {
     this.snapshot = snapshot
+    this.actions = actions
     const template = nodeFromTemplate('#workout-exercise-item-template')
     this.element = template.querySelector('div') as HTMLDivElement
     this.details = this.element.querySelector('.exercise-details') as HTMLDetailsElement
@@ -127,10 +138,10 @@ class ExerciseCard {
     this.setUpNextSetForm()
 
     this.viewHistoryBtn.addEventListener('click', () => {
-      void ExerciseHistoryChart.openDialog({ id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind })
+      void this.actions.history.openDialog({ id: this.exerciseId, name: this.snapshot.name, kind: this.snapshot.kind })
     })
     this.viewLastSetBtn.addEventListener('click', () => {
-      if (this.plan?.lastTime) LastSetDialog.openDialog(this.exerciseId, this.plan.lastTime, this.plan.before)
+      if (this.plan?.lastTime) this.actions.lastSet.openDialog(this.exerciseId, this.plan.lastTime, this.plan.before)
     })
   }
 
@@ -222,8 +233,8 @@ class ExerciseCard {
 
     if (logged) {
       div.addEventListener('click', () => {
-        if (!openSession.current) throw new Error('No existing workout session found')
-        EditSetDialog.openDialog({ set, exerciseId: this.exerciseId, index })
+        if (!this.actions.session.current) throw new Error('No existing workout session found')
+        this.actions.editSet.openDialog({ set, exerciseId: this.exerciseId, index })
       })
     } else if (removable) {
       // A row, not a button, so it keeps the set list's grid. It takes the focus and keys a button would.
@@ -262,7 +273,7 @@ class ExerciseCard {
     const removeBtn = setMenu.querySelector('.remove-set-slot-btn') as HTMLButtonElement
     removeBtn.addEventListener('click', async () => {
       setMenu.hidePopover()
-      await openSession.apply((session) => workoutSessionsStore.removeSetSlot(session, this.exerciseId))
+      await this.actions.session.apply((session) => workoutSessionsStore.removeSetSlot(session, this.exerciseId))
     })
   }
 
@@ -288,12 +299,12 @@ class ExerciseCard {
       if (event.newState !== 'open') return
 
       // A finished exercise keeps its sets: it can move, but not be swapped or deleted.
-      const session = openSession.current
+      const session = this.actions.session.current
       const completed = (session && this.progressIn(session)?.done) ?? false
       swapBtn.classList.toggle('hidden', completed)
       deleteBtn.classList.toggle('hidden', completed)
 
-      const exerciseIds = openSession.exerciseIds()
+      const exerciseIds = this.actions.session.exerciseIds()
       const exerciseIndex = exerciseIds.indexOf(this.exerciseId)
       moveUpBtn.classList.toggle('hidden', exerciseIndex <= 0)
       moveDownBtn.classList.toggle('hidden', exerciseIndex === -1 || exerciseIndex === exerciseIds.length - 1)
@@ -305,29 +316,29 @@ class ExerciseCard {
 
     moveUpBtn.addEventListener('click', async () => {
       await liftCard(this.element, () =>
-        openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
+        this.actions.session.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
       )
     })
 
     moveDownBtn.addEventListener('click', async () => {
       await liftCard(this.element, () =>
-        openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
+        this.actions.session.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
       )
     })
 
     deleteBtn.addEventListener('click', async () => {
-      const session = openSession.current
+      const session = this.actions.session.current
       const hasSets = session !== undefined && (this.progressIn(session)?.logged ?? 0) > 0
       const question = hasSets
         ? 'This exercise already has completed sets. Deleting it will result in lost progress. Are you sure?'
         : 'Are you sure you want to delete this exercise from the workout session?'
       if (!confirm(question)) return
 
-      await openSession.apply((session) => workoutSessionsStore.removeExercise(session, this.exerciseId))
+      await this.actions.session.apply((session) => workoutSessionsStore.removeExercise(session, this.exerciseId))
     })
 
     swapBtn.addEventListener('click', () => {
-      const session = openSession.current
+      const session = this.actions.session.current
       if (
         session &&
         (this.progressIn(session)?.logged ?? 0) > 0 &&
@@ -337,11 +348,13 @@ class ExerciseCard {
       )
         return
 
-      AddExerciseDialog.openDialog({
+      this.actions.addExercise.openDialog({
         title: 'Swap exercise',
         onExerciseClicked: async (newExercise) => {
-          if (newExercise.id === this.exerciseId || alertIfInSession(newExercise.id)) return
-          await openSession.apply((session) => workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise))
+          if (newExercise.id === this.exerciseId || this.actions.session.alertIfHolds(newExercise.id)) return
+          await this.actions.session.apply((session) =>
+            workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise)
+          )
         }
       })
     })
@@ -357,7 +370,7 @@ class ExerciseCard {
 
     // The session stores the extra set, so the workout is not done until it is logged.
     addSetBtn.addEventListener('click', async () => {
-      await openSession.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
+      await this.actions.session.apply((session) => workoutSessionsStore.addSetSlot(session, this.exerciseId))
     })
 
     nextSetForm.addEventListener('submit', async (event) => {
@@ -372,9 +385,12 @@ class ExerciseCard {
 
       this.closeWhenDone = true
       try {
-        await openSession.apply((session) => workoutSessionsStore.addSet(session, this.exerciseId, completedSet), {
-          loggedFor: this.exerciseId
-        })
+        await this.actions.session.apply(
+          (session) => workoutSessionsStore.addSet(session, this.exerciseId, completedSet),
+          {
+            loggedFor: this.exerciseId
+          }
+        )
       } finally {
         this.closeWhenDone = false
       }

@@ -28,8 +28,6 @@ export interface SetSlotBadge {
   details: string
 }
 
-let fieldCount = 0
-
 // A badge sits on its slot's input until the value is edited, as with "Max" on a prefilled weight. It is a button
 // that opens a popover, which gives light dismiss and aria-expanded, and CSS anchor positioning puts it by the badge.
 // A tap outside the popover only closes it.
@@ -45,7 +43,7 @@ export const renderSetInputs = (
 
   container.replaceChildren(
     ...slots.map((spec) => {
-      const id = `set-field-${++fieldCount}`
+      const id = `set-field-${crypto.randomUUID()}`
       const field = document.createElement('div')
       field.className = 'flex flex-col gap-1.5'
 

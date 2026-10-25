@@ -14,6 +14,8 @@
     "prerender": [{ "where": { "selector_matches": ".bottom-nav a:not([aria-current])" }, "eagerness": "immediate" }]
   }
 </script>
-<!-- Module scripts run in order once the page is parsed, so these can sit here, before each page's own script. -->
+<!-- Module scripts run in order once the page is parsed, so these can sit here, before each page's own script. The
+     router mounts the page each page's script exports. -->
 <script type="module" src="/src/navigation.ts"></script>
 <script type="module" src="/src/features/hapticFeedback/index.ts"></script>
+<script type="module" src="/src/router.ts"></script>

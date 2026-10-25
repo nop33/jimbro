@@ -8,23 +8,21 @@ import { configureSetRowGrid, renderSetFields } from './setSlots'
 // Shows an exercise's sets in one earlier workout, opening on last time, with arrows to the workouts before and after
 // it that logged the exercise, at any gym.
 class LastSetDialog {
-  private static dialog = document.getElementById('last-set-dialog') as HTMLDialogElement
-  private static listContainer = document.getElementById('last-set-list') as HTMLDivElement
-  private static dateEl = document.getElementById('last-set-date') as HTMLSpanElement
-  private static gymEl = document.getElementById('last-set-gym') as HTMLSpanElement
-  private static olderBtn = document.getElementById('last-set-older') as HTMLButtonElement
-  private static newerBtn = document.getElementById('last-set-newer') as HTMLButtonElement
-  private static closeBtn = this.dialog?.querySelector('.close-dialog-btn') as HTMLButtonElement
+  private dialog = document.getElementById('last-set-dialog') as HTMLDialogElement
+  private listContainer = document.getElementById('last-set-list') as HTMLDivElement
+  private dateEl = document.getElementById('last-set-date') as HTMLSpanElement
+  private gymEl = document.getElementById('last-set-gym') as HTMLSpanElement
+  private olderBtn = document.getElementById('last-set-older') as HTMLButtonElement
+  private newerBtn = document.getElementById('last-set-newer') as HTMLButtonElement
+  private closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
 
   // The workouts to step through, newest first, and the one shown.
-  private static times: Array<LastTime> = []
-  private static index = 0
+  private times: Array<LastTime> = []
+  private index = 0
   // Counts the openings, so a list read for an earlier one never lands on a later one.
-  private static opening = 0
+  private opening = 0
 
-  static init() {
-    if (!this.dialog) return
-
+  constructor() {
     this.closeBtn.addEventListener('click', () => {
       this.closeDialog()
     })
@@ -43,13 +41,7 @@ class LastSetDialog {
     })
   }
 
-  static openDialog(
-    exerciseId: string,
-    lastTime: LastTime,
-    before: PlannedSession & { id?: WorkoutSession['id'] }
-  ): void {
-    if (!this.dialog || !this.listContainer) return
-
+  openDialog(exerciseId: string, lastTime: LastTime, before: PlannedSession & { id?: WorkoutSession['id'] }): void {
     const opening = ++this.opening
     this.times = [lastTime]
     this.index = 0
@@ -74,12 +66,12 @@ class LastSetDialog {
     )
   }
 
-  static closeDialog() {
+  closeDialog() {
     this.dialog.close()
   }
 
   // Moves by one workout, older for 1 and newer for -1.
-  private static step(by: 1 | -1) {
+  private step(by: 1 | -1) {
     const index = this.index + by
     if (index < 0 || index >= this.times.length) return
     this.index = index
@@ -99,7 +91,7 @@ class LastSetDialog {
     }
   }
 
-  private static show() {
+  private show() {
     const { date, location, sets } = this.times[this.index]
     this.dateEl.textContent = formatShortDay(parseSimpleDate(date))
     this.gymEl.textContent = location ? `in ${location}` : ''
@@ -129,7 +121,7 @@ class LastSetDialog {
   }
 
   // Each arrow names the day it goes to, and is off at the end of the list.
-  private static showArrows() {
+  private showArrows() {
     const older = this.times[this.index + 1]
     const newer = this.times[this.index - 1]
     // An arrow that reaches the end hands focus to the other one, so the keyboard stays in the dialog. Disabling it
@@ -143,7 +135,7 @@ class LastSetDialog {
     this.newerBtn.setAttribute('aria-label', newer ? `Newer workout, ${this.dayOf(newer)}` : 'Newer workout')
   }
 
-  private static dayOf({ date, location }: LastTime): string {
+  private dayOf({ date, location }: LastTime): string {
     const day = formatShortDay(parseSimpleDate(date))
     return location ? `${day} in ${location}` : day
   }

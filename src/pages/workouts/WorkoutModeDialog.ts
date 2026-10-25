@@ -6,14 +6,14 @@ const MODE_DESCRIPTIONS: Record<WorkoutMode, string> = {
 }
 
 class WorkoutModeDialog {
-  private static dialog = document.querySelector('#workout-mode-dialog') as HTMLDialogElement
-  private static opener = document.querySelector('#week-progress') as HTMLButtonElement
-  private static modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="workout-mode"]')
-  private static goalContainer = document.querySelector('#weekly-goal-container') as HTMLDivElement
-  private static goalInput = document.querySelector('#weekly-goal-input') as HTMLInputElement
-  private static description = document.querySelector('#workout-mode-description') as HTMLParagraphElement
+  private dialog = document.querySelector('#workout-mode-dialog') as HTMLDialogElement
+  private opener = document.querySelector('#week-progress') as HTMLButtonElement
+  private modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="workout-mode"]')
+  private goalContainer = document.querySelector('#weekly-goal-container') as HTMLDivElement
+  private goalInput = document.querySelector('#weekly-goal-input') as HTMLInputElement
+  private description = document.querySelector('#workout-mode-description') as HTMLParagraphElement
 
-  static init() {
+  constructor() {
     const settings = getWorkoutModeSettings()
 
     for (const radio of this.modeRadios) {
@@ -30,7 +30,7 @@ class WorkoutModeDialog {
     this.updateUI(settings.mode)
   }
 
-  private static handleModeChange() {
+  private handleModeChange() {
     const selected = this.getSelectedMode()
     const settings = getWorkoutModeSettings()
     storeWorkoutModeSettings({ ...settings, mode: selected })
@@ -38,7 +38,7 @@ class WorkoutModeDialog {
     window.location.reload()
   }
 
-  private static handleGoalChange() {
+  private handleGoalChange() {
     const value = Math.min(7, Math.max(1, parseInt(this.goalInput.value) || 3))
     this.goalInput.value = String(value)
     const settings = getWorkoutModeSettings()
@@ -46,14 +46,14 @@ class WorkoutModeDialog {
     window.location.reload()
   }
 
-  private static getSelectedMode(): WorkoutMode {
+  private getSelectedMode(): WorkoutMode {
     for (const radio of this.modeRadios) {
       if (radio.checked) return radio.value as WorkoutMode
     }
     return 'rotation'
   }
 
-  private static updateUI(mode: WorkoutMode) {
+  private updateUI(mode: WorkoutMode) {
     this.goalContainer.classList.toggle('hidden', mode !== 'freestyle')
     this.description.textContent = MODE_DESCRIPTIONS[mode]
   }

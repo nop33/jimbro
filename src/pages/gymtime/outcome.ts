@@ -1,22 +1,13 @@
 import { breakTimerEnabled } from '../../db/exerciseLogging'
 import { nextUnfinished, progressOf } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
-import type { ExerciseHistoryTarget } from './ExerciseHistoryChart'
-
-// A break after a set: its length, the exercise's sets logged and to do, and the next exercise with sets to do.
-export interface Rest {
-  seconds: number
-  setsDone: number
-  setsTotal: number
-  next?: string
-  exercise: ExerciseHistoryTarget
-}
+import type { Break } from '../../features/breakTimer'
 
 // What a change to the open workout means for the lifter, which openSession acts on.
 export type Outcome =
   | { kind: 'workout-done' }
   | { kind: 'exercise-done'; exerciseId: string }
-  | ({ kind: 'rest' } & Rest)
+  | ({ kind: 'rest' } & Break)
   | { kind: 'none' }
 
 const NONE: Outcome = { kind: 'none' }
