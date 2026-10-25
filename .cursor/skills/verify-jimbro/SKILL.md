@@ -5,7 +5,7 @@ description: Drive the Jimbro workout-tracking PWA in a real browser and screens
 
 # Verify Jimbro
 
-Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login to use the app. Cloud backup signs up with a passkey in Settings (or takes a user ID and token under `Use a token`). Pages are full HTML loads, not an SPA.
+Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login to use the app. Cloud backup signs up with a passkey in Settings (or takes a user ID and token under `Use a token`). Where the browser has the Navigation API, `src/router.ts` swaps each page into the same document, so `page.waitForURL` and locators work as with full loads, but `page.goto` is still a full load.
 
 This skill is for agents. Follow the feature map under `features/`. Do not invent selectors. Do not call product code or IndexedDB from the console as a substitute for the user path.
 
