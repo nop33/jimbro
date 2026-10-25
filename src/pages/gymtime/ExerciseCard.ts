@@ -21,6 +21,7 @@ import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
 import { alertIfInSession, openSession } from './openSession'
 import { tapToDismiss } from './tapToDismiss'
+import { liftCard } from './liftCard'
 import { traceSet } from './traceSet'
 import type { ExercisePlan } from './exercisePlan'
 import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
@@ -303,11 +304,15 @@ class ExerciseCard {
     }
 
     moveUpBtn.addEventListener('click', async () => {
-      await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
+      await liftCard(this.element, () =>
+        openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'up'))
+      )
     })
 
     moveDownBtn.addEventListener('click', async () => {
-      await openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
+      await liftCard(this.element, () =>
+        openSession.apply((session) => workoutSessionsStore.moveExercise(session, this.exerciseId, 'down'))
+      )
     })
 
     deleteBtn.addEventListener('click', async () => {

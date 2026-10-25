@@ -194,6 +194,14 @@
     color: white;
   }
 
+  /* A gymtime card moving up or down (liftCard.ts) passes over its neighbour, so it hides it with an opaque version of
+     its own background. */
+  .card-lifted {
+    position: relative;
+    z-index: 1;
+    background-color: color-mix(in srgb, var(--color-jim-dark-blue) 50%, var(--color-jim-dark));
+  }
+
   .card-danger {
     @apply bg-jim-error/20 border-jim-error/20;
   }
