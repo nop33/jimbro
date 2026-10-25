@@ -63,7 +63,7 @@ Prefer Playwright through the helper. Each Playwright context gets an empty Inde
 
 The tour shows; it does not judge. Correctness belongs in `tests/*.spec.ts`, which CI runs on every pull request. Look at the screenshots, since a stop passes as long as its screen appears, however it looks.
 
-CI runs the tour on every pull request and uploads the contact sheet as the `tour` artifact. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone runs in Chromium, which shows its size but not Safari's layout, and the sheet labels each phone with its engine. Look at CI's sheet for how the iPhone really lays out. WebKit skips the three passkey stops, which need Chromium's virtual authenticator. Neither phone gets its system font.
+CI runs the tour on every pull request and uploads the contact sheet as the `tour` artifact. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone runs in Chromium, which shows its size but not Safari's layout, and the sheet labels each phone with its engine. Look at CI's sheet for how the iPhone really lays out. WebKit skips the three passkey stops, which need Chromium's virtual authenticator. It also runs without the Navigation API, since Playwright's WebKit can't follow the router, so every tap loads the next page in full and it skips the two stops of a break timer kept across pages. Neither phone gets its system font.
 
 For a flow no stop covers, follow the feature file's by-hand steps with Playwright against `$JIMBRO_VERIFY_URL`. When a new screen or dialog ships, add a stop to `STOPS` in `scripts/drive.mjs` and name it in its feature file.
 

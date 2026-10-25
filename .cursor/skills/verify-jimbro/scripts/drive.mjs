@@ -83,6 +83,9 @@ async function withPage(device, fn) {
         window.AuthenticatorAttestationResponse.prototype[method] = () => null
       }
     })
+    // Playwright's WebKit never reports a navigation the router intercepts, so a tap on a link waits for it until it
+    // times out. Without the Navigation API every tap loads the next page in full, which Playwright follows.
+    await context.addInitScript(() => Object.defineProperty(window, 'navigation', { value: undefined }))
   }
   const page = await context.newPage()
   // A stop that fails should fail fast, not hold up every stop after it.
@@ -224,8 +227,8 @@ async function withPasskeyWorker(page) {
 }
 
 // Each stop puts one screen or dialog on the phone and waits for what proves it is there. The tour runs
-// them in order in one context, so a stop may rely on the state the stops before it left. The passkey stops need
-// Chromium's virtual authenticator, so WebKit skips them, as tests/passkeys.spec.ts does.
+// them in order in one context, so a stop may rely on the state the stops before it left. WebKit skips the stops in
+// CHROMIUM_ONLY.
 /** @type {Array<[string, (page: import('@playwright/test').Page, context: { fixture: string }) => Promise<void>]>} */
 const STOPS = [
   ['home-empty', async (page) => {
@@ -521,7 +524,15 @@ const STOPS = [
   }]
 ]
 
-const CHROMIUM_ONLY = new Set(['settings-passkey', 'settings-signed-out', 'settings-moved'])
+// The passkey stops need Chromium's virtual authenticator, and the break timer only outlives a page under the router,
+// which the WebKit tour does without.
+const CHROMIUM_ONLY = new Map([
+  ['settings-passkey', "it needs Chromium's virtual authenticator."],
+  ['settings-signed-out', "it needs Chromium's virtual authenticator."],
+  ['settings-moved', "it needs Chromium's virtual authenticator."],
+  ['break-timer-other-page', 'the WebKit tour loads every page in full, which ends the break.'],
+  ['break-timer-off-gymtime', 'the WebKit tour loads every page in full, which ends the break.']
+])
 
 async function tour(devices, only) {
   const outDir = resolve(artifactsRoot, 'tour')
@@ -541,7 +552,7 @@ async function tour(devices, only) {
       for (const [index, [slug, go]] of STOPS.entries()) {
         const file = `${String(index + 1).padStart(2, '0')}-${slug}.png`
         if (engine !== 'chromium' && CHROMIUM_ONLY.has(slug)) {
-          shots[slug] = { skipped: "Chromium only: it needs Chromium's virtual authenticator." }
+          shots[slug] = { skipped: `Chromium only: ${CHROMIUM_ONLY.get(slug)}` }
           continue
         }
         try {

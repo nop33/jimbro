@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures'
 
 test.describe('Web app manifest', () => {
   test('serves every icon and screenshot as its declared type', async ({ page, request }) => {

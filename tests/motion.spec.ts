@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
 test('a tapped toast slides out before it leaves the page', async ({ page }) => {

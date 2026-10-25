@@ -1,6 +1,7 @@
 import { createServer, request } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { PREVIEW_HOST, PREVIEW_PORT } from './preview'
 import { startWorkout } from './startWorkout'
 

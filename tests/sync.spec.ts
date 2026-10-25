@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { rowsFromExport } from '../src/sync/rows'
 import type { ExportShape, Row } from '../src/db/types'
 import { API_BASE, claimUser, type WorkerUser } from './localWorker'

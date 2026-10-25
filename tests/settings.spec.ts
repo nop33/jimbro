@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { test, expect } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures'
 import { browserHasPasskeys } from './browserPasskeys'
 import { seedDatabase } from './seed'
 

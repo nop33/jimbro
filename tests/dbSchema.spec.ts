@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 
 const DB_NAME = 'gymbro-database'
 const UPDATED_AT = '2026-03-01T00:00:00.000Z'

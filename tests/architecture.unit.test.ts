@@ -163,6 +163,16 @@ const fixedWaits: Detector = (file, source) => {
   )
 }
 
+// The WebKit projects take the Navigation API away through the test in tests/fixtures.ts, since Playwright's WebKit
+// can't follow the router. A spec on Playwright's own test would keep it, and its taps would hang in WebKit.
+const specsWithoutFixtures: Detector = (file, source) =>
+  [...source.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]@playwright\/test['"]/g)]
+    .filter(([, names]) => names.split(',').some((name) => name.trim() === 'test'))
+    .map(
+      ({ index }) =>
+        `${file}:${lineOf(source, index)} imports test from @playwright/test. Import it from ./fixtures, which sets up the page for each project.`
+    )
+
 // toISOString() is UTC, so away from UTC its date is a day off for part of every day. f9d3364 fixed the workout
 // form's default date for that.
 const utcCalendarDates: Detector = (file, source) => {
@@ -358,6 +368,16 @@ const rules: Array<{
     flagged:
       /^tests\/example\.spec\.ts:1 waits a fixed time[\s\S]*tests\/example\.spec\.ts:2 sleeps[\s\S]*tests\/example\.spec\.ts:3 forces an action/,
     good: 'await new Promise((r) => setTimeout(r, 0))\nawait expect(button).toBeEnabled()\nawait button.click()'
+  },
+  {
+    rule: 'takes test in specs from tests/fixtures.ts',
+    detector: specsWithoutFixtures,
+    files: () => sourceFiles('tests').filter((file) => file.endsWith('.spec.ts')),
+    file: 'tests/example.spec.ts',
+    bad: "import { test, expect } from '@playwright/test'",
+    flags: 1,
+    flagged: /^tests\/example\.spec\.ts:1 imports test from @playwright\/test/,
+    good: "import { expect, type Page } from '@playwright/test'\nimport { test } from './fixtures'"
   },
   {
     rule: 'gives every page an entry that exports mount and runs nothing when it loads',

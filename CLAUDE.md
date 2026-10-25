@@ -149,6 +149,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | Every page fills its head and bottom nav from `partials/`, and marks only its own nav link as current    | `tests/pageShell.unit.test.ts`                                                                      |
 | Calendar dates never come from `toISOString()`                                                           | `tests/architecture.unit.test.ts`                                                                   |
 | Specs wait for what the app shows or stores, never for a fixed time, and never force a click             | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a run that needed a retry        |
+| Specs take `test` from `tests/fixtures.ts`, so the WebKit projects run without the Navigation API        | `tests/architecture.unit.test.ts`                                                                   |
 | Code is formatted                                                                                        | `vp check`, which `vp staged` runs on each commit                                                   |
 
 Everything else in this file is a convention that only review catches. When a review corrects a mistake that no check covers, add a check that fails on that mistake and a row here in the same change. Drop a row once its mistake can no longer be written.
@@ -156,6 +157,7 @@ Everything else in this file is a convention that only review catches. When a re
 ## Testing notes
 
 - Playwright runs every `tests/*.spec.ts` on chromium, webkit and Mobile Safari (iPhone 12) in parallel.
+- Specs take `test` from `tests/fixtures.ts`. Its `navigationApi` option is false on the WebKit projects, which take the Navigation API away, so every tap there loads the next page in full: Playwright's WebKit never reports a navigation the router intercepts, so a tap would wait for it until the test times out. `router.spec.ts` checks a nav tap in WebKit too, tapping with `page.mouse` and reading what the page shows from the page. Back there is left to a check on the iPhone, since Playwright's WebKit leaves an intercepted navigation's entry out of `navigation.entries()`.
 - Playwright starts the dev server on port 5173 with `VITE_API_BASE` pointing at the test worker. It also builds the app and serves it with `vp preview` on port 4173 for `offline.spec.ts`, since only the build registers the service worker. Outside CI it reuses a server already listening on 5173, so stop your own `vp dev` before a run.
 - Global setup (`tests/localWorker.ts`) starts one fresh `wrangler dev --local` per run on `WORKER_PORT` (default 8790), with its own D1 state and tokens, and stops it at the end. It needs `cd worker && vp install`. A busy port fails the tests that need the worker with a clear message, instead of reusing whatever listens there. `claimUser()` gives each test its own user.
 - `tests/tsconfig.json` maps `/src/*` to `../src/*`, so `await import('/src/db/storage.ts')` inside `page.evaluate` is typed. Specs use such imports to drive app modules in the page.

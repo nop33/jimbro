@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures'
 
 test('writeRows stores nothing when a later put throws', async ({ page }) => {
   await page.goto('/settings/')

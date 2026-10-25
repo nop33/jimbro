@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
 // Stores a workout of Bench, with two sets to do, and logs the sets given.

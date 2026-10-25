@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
 // Seeds the programs, then one bench press workout per gym, a few days apart, oldest first, with the sets given for
