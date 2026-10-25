@@ -115,7 +115,7 @@ jobs:
       - name: Install worker dependencies
         run: cd worker && vp install
       - name: Run Playwright tests
-        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}"
+        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}" --repeat-each=3 --retries=0 --reporter=dot
       - uses: actions/upload-artifact@v6
         if: always()
         with:
