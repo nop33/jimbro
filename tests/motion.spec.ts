@@ -177,3 +177,49 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     expect(events).toEqual(reducedMotion === 'reduce' ? ['timer'] : ['trace', 'gone', 'timer'])
   })
 }
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`a moved card lifts over its neighbour and glows where it lands only without reduced motion (${reducedMotion})`, async ({
+    page
+  }) => {
+    await seedDatabase(page)
+    await page.emulateMedia({ reducedMotion })
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+    const names = page.locator('.exercise-name')
+    await expect(names.first()).toBeVisible()
+    const [first, second] = (await names.allTextContents()).map((name) => name.trim())
+
+    // Notes the cards that lift, and the ones that animate, as the order changes.
+    await page.evaluate(() => {
+      const moves: string[] = []
+      ;(window as unknown as { moves: string[] }).moves = moves
+      const list = document.querySelector('#exercises-list')!
+      const nameOf = (card: Element) => card.querySelector('.exercise-name')?.textContent?.trim() ?? ''
+      new MutationObserver(() => {
+        for (const card of list.children) {
+          if (card.classList.contains('card-lifted')) moves.push(`lifted ${nameOf(card)}`)
+          if (card.getAnimations().length > 0) moves.push(`animates ${nameOf(card)}`)
+        }
+      }).observe(list, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] })
+    })
+
+    await page.getByRole('button', { name: `Actions for ${first}` }).click()
+    await page.locator('.exercise-actions-menu:popover-open').getByRole('button', { name: 'Move down' }).click()
+
+    await expect(names.nth(0)).toHaveText(second)
+    await expect(names.nth(1)).toHaveText(first)
+    // The lift lets go of the card once it has landed.
+    await expect(page.locator('.card-lifted')).toHaveCount(0)
+    const moves = new Set(await page.evaluate(() => (window as unknown as { moves: string[] }).moves))
+    if (reducedMotion === 'reduce') {
+      expect([...moves].filter((move) => move.startsWith('lifted'))).toEqual([])
+    } else {
+      expect(moves).toContain(`lifted ${first}`)
+      expect(moves).not.toContain(`lifted ${second}`)
+      expect(moves).toContain(`animates ${second}`)
+    }
+  })
+}
