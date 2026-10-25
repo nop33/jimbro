@@ -5,7 +5,7 @@ description: Drive the Jimbro workout-tracking PWA in a real browser and screens
 
 # Verify Jimbro
 
-Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login to use the app. Cloud backup signs up with a passkey in Settings (or takes a user ID and token under `Use a token`). Pages are full HTML loads, not an SPA.
+Jimbro is a vanilla TypeScript PWA. This skill loads in Cursor from `.cursor/skills/verify-jimbro/` and in Claude Code through the `.claude/skills/verify-jimbro` symlink. Every path below is the real one under `.cursor/`. Persistence is IndexedDB (`gymbro-database`) on the page origin. There is no login to use the app. Cloud backup signs up with a passkey in Settings (or takes a user ID and token under `Use a token`). Where the browser has the Navigation API, `src/router.ts` swaps each page into the same document, so `page.waitForURL` and locators work as with full loads, but `page.goto` is still a full load.
 
 This skill is for agents. Follow the feature map under `features/`. Do not invent selectors. Do not call product code or IndexedDB from the console as a substitute for the user path.
 
@@ -63,7 +63,7 @@ Prefer Playwright through the helper. Each Playwright context gets an empty Inde
 
 The tour shows; it does not judge. Correctness belongs in `tests/*.spec.ts`, which CI runs on every pull request. Look at the screenshots, since a stop passes as long as its screen appears, however it looks.
 
-CI runs the tour on every pull request and uploads the contact sheet as the `tour` artifact. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone runs in Chromium, which shows its size but not Safari's layout, and the sheet labels each phone with its engine. Look at CI's sheet for how the iPhone really lays out. WebKit skips the three passkey stops, which need Chromium's virtual authenticator. Neither phone gets its system font.
+CI runs the tour on every pull request and uploads the contact sheet as the `tour` artifact. Where Playwright's WebKit is not installed, as in Claude Code cloud sessions, the iPhone runs in Chromium, which shows its size but not Safari's layout, and the sheet labels each phone with its engine. Look at CI's sheet for how the iPhone really lays out. WebKit skips the three passkey stops, which need Chromium's virtual authenticator. It also runs without the Navigation API, since Playwright's WebKit can't follow the router, so every tap loads the next page in full and it skips the two stops of a break timer kept across pages. Neither phone gets its system font.
 
 For a flow no stop covers, follow the feature file's by-hand steps with Playwright against `$JIMBRO_VERIFY_URL`. When a new screen or dialog ships, add a stop to `STOPS` in `scripts/drive.mjs` and name it in its feature file.
 

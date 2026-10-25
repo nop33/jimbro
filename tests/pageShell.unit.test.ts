@@ -65,14 +65,18 @@ describe('page shell', () => {
     }
   })
 
-  // Chromium prerenders the other nav pages from these rules. Gymtime stays out of them, since opening it can start
-  // a workout.
-  it('gives every page speculation rules that prerender only the bottom-nav links', () => {
-    for (const file of Object.keys(PAGES)) {
-      const json = /<script type="speculationrules">([\s\S]*?)<\/script>/.exec(served(file))?.[1]
-      expect(JSON.parse(json ?? 'null'), file).toEqual({
-        prerender: [{ where: { selector_matches: '.bottom-nav a:not([aria-current])' }, eagerness: 'immediate' }]
-      })
+  // Each page loads its own module in the head, the router mounts it and shows the next pages in place, and keeps the
+  // break timer on screen across them. A page's body holds no script, since the router swaps bodies.
+  it('gives every page the router, its own module in the head and the break timer', () => {
+    for (const [file, current] of Object.entries(PAGES)) {
+      const source = sourceOf(file)
+      const head = /<head>([\s\S]*?)<\/head>/.exec(source)?.[1] ?? ''
+      const body = /<body[\s\S]*?<\/body>/.exec(source)?.[0] ?? ''
+      const route = (current ?? `/${path.dirname(file)}/`).replace(/^\/$/, '/home/')
+      expect(served(file), file).toContain('<script type="module" src="/src/router.ts"></script>')
+      expect(head, file).toContain(`<script type="module" src="/src/pages${route}index.ts"></script>`)
+      expect(source, file).toContain('<!-- partial:break-timer -->')
+      expect(body.match(/<script/g) ?? [], file).toEqual([])
     }
   })
 

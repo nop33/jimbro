@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
 // Seeds the programs, then one bench press workout per gym, a few days apart, oldest first, with the sets given for
@@ -150,8 +151,9 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     // animation after a frame or two. So the spec reads the animation Chart.js runs the chart with.
     const animates = () =>
       page.evaluate(async () => {
-        const { default: ExerciseHistoryChart } = await import('/src/pages/gymtime/ExerciseHistoryChart.ts')
-        const chart: { options: { animation: unknown } } | null = Reflect.get(ExerciseHistoryChart, 'chartInstance')
+        const { loadChartJs } = await import('/src/pages/gymtime/chartJs.ts')
+        const Chart = await loadChartJs()
+        const chart = Chart.getChart(document.getElementById('exercise-history-chart') as HTMLCanvasElement)
         return chart ? chart.options.animation !== false : undefined
       })
     await expect.poll(animates).toBe(reducedMotion === 'no-preference')

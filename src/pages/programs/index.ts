@@ -3,7 +3,9 @@ import { programsStore } from '../../db/stores/programsStore'
 import ProgramDialog from './ProgramDialog'
 import ProgramList from './ProgramList'
 
-await programsStore.load()
-await exercisesStore.load()
-ProgramList.init()
-ProgramDialog.init()
+export const mount = async (signal: AbortSignal) => {
+  await programsStore.load()
+  await exercisesStore.load()
+  const dialog = new ProgramDialog(signal)
+  new ProgramList((program) => dialog.open(program), signal)
+}

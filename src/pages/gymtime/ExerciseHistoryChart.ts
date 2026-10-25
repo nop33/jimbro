@@ -2,6 +2,7 @@ import { historyChartEnabled, isRepsSet, type ExerciseKind } from '../../db/exer
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
+import { loadChartJs } from './chartJs'
 import type { Chart as ChartInstance, Plugin } from 'chart.js'
 
 export interface ExerciseHistoryTarget {
@@ -11,16 +12,16 @@ export interface ExerciseHistoryTarget {
 }
 
 class ExerciseHistoryChart {
-  private static dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
-  private static canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
-  private static closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
-  private static gymKey = this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
-  private static metricButtons = [...this.dialog.querySelectorAll<HTMLButtonElement>('.history-metric')]
-  private static chartInstance: ChartInstance | null = null
+  private dialog = document.getElementById('exercise-history-dialog') as HTMLDialogElement
+  private canvas = document.getElementById('exercise-history-chart') as HTMLCanvasElement
+  private closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
+  private gymKey = this.dialog.querySelector('#exercise-history-gyms') as HTMLUListElement
+  private metricButtons = [...this.dialog.querySelectorAll<HTMLButtonElement>('.history-metric')]
+  private chartInstance: ChartInstance | null = null
 
-  static init() {
+  constructor(signal: AbortSignal) {
     for (const button of this.metricButtons) {
-      // A hidden line stays hidden for the other exercises' charts until the page reloads.
+      // A hidden line stays hidden for the other exercises' charts while the page shows.
       button.addEventListener('click', () => {
         const visible = button.getAttribute('aria-pressed') === 'false'
         button.setAttribute('aria-pressed', String(visible))
@@ -33,16 +34,16 @@ class ExerciseHistoryChart {
       this.closeDialog()
     })
 
-    this.dialog.addEventListener('close', () => {
-      if (this.chartInstance) {
-        this.chartInstance.destroy()
-        this.chartInstance = null
-      }
-    })
+    // A chart listens to the window for resizes, so it goes with the dialog or the page.
+    const destroyChart = () => {
+      this.chartInstance?.destroy()
+      this.chartInstance = null
+    }
+    this.dialog.addEventListener('close', destroyChart)
+    signal.addEventListener('abort', destroyChart)
   }
 
-  static async openDialog(exercise: ExerciseHistoryTarget) {
-    if (!this.dialog || !this.canvas) return
+  async openDialog(exercise: ExerciseHistoryTarget) {
     if (!historyChartEnabled(exercise.kind)) return
 
     setTextContent('.exercise-history-title span', exercise.name, this.dialog)
@@ -51,11 +52,11 @@ class ExerciseHistoryChart {
     await this.renderChart(exercise)
   }
 
-  static closeDialog() {
+  closeDialog() {
     this.dialog.close()
   }
 
-  private static async renderChart(exercise: ExerciseHistoryTarget) {
+  private async renderChart(exercise: ExerciseHistoryTarget) {
     const sessions = await workoutSessionsStore.getAll()
 
     // Filter sessions that have this exercise and have completed sets
@@ -108,9 +109,7 @@ class ExerciseHistoryChart {
     const gymBands = bandsByGym(locationsData)
     this.renderGymKey(gymBands)
 
-    // Chart.js is most of gymtime's code and only this dialog draws with it, so it loads when the dialog first opens.
-    // The service worker caches its chunk with the rest of the build, so it loads offline too.
-    const { default: Chart } = await import('chart.js/auto')
+    const Chart = await loadChartJs()
     if (!this.dialog.open) return
 
     if (this.chartInstance) {
@@ -254,11 +253,11 @@ class ExerciseHistoryChart {
     })
   }
 
-  private static isMetricHidden(index: number) {
+  private isMetricHidden(index: number) {
     return this.metricButtons[index]?.getAttribute('aria-pressed') === 'false'
   }
 
-  private static renderGymKey({ usual, away }: GymBands) {
+  private renderGymKey({ usual, away }: GymBands) {
     this.gymKey.hidden = away.length === 0
     const items = away.map(({ name, color }) => {
       const swatch = document.createElement('span')

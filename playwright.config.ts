@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 import { API_BASE } from './tests/localWorker'
 import { PREVIEW_HOST, PREVIEW_PORT, PREVIEW_URL } from './tests/preview'
+import type { RouterOptions } from './tests/fixtures'
 
-export default defineConfig({
+export default defineConfig<RouterOptions>({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
   timeout: 30_000,
@@ -28,13 +29,17 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] }
     },
+    // Playwright's WebKit never reports a navigation the router intercepts: the page shows the next one, but Playwright
+    // keeps the old URL and a tap on a link waits for the navigation until the test times out. So the WebKit projects
+    // run without the Navigation API, where every tap loads the next page in full, and tests/router.spec.ts checks a
+    // router tap in WebKit with the mouse alone.
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] }
+      use: { ...devices['Desktop Safari'], navigationApi: false }
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] }
+      use: { ...devices['iPhone 12'], navigationApi: false }
     }
   ],
   webServer: [

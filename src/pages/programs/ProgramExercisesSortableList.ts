@@ -11,13 +11,14 @@ type ProgramExercisesSortableListEventMap = {
 class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortableListEventMap> {
   private selectedExercisesList: HTMLUListElement
 
-  constructor(selector: string) {
+  constructor(selector: string, signal: AbortSignal) {
     super()
     this.selectedExercisesList = document.querySelector(selector) as HTMLUListElement
-    this.init()
+    this.init(signal)
   }
 
-  private init() {
+  // A drag listens on the whole document, so it can leave the list, until it ends or the page goes.
+  private init(signal: AbortSignal) {
     let draggingItem: HTMLElement | null = null
 
     let isMoved = false
@@ -33,11 +34,11 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
       isMoved = false
 
       // Add global listeners dynamically to handle dragging outside the container cleanly
-      document.addEventListener('mousemove', moveDrag, { passive: false })
-      document.addEventListener('mouseup', endDrag)
-      document.addEventListener('touchmove', moveDrag, { passive: false })
-      document.addEventListener('touchend', endDrag)
-      document.addEventListener('touchcancel', endDrag)
+      document.addEventListener('mousemove', moveDrag, { passive: false, signal })
+      document.addEventListener('mouseup', endDrag, { signal })
+      document.addEventListener('touchmove', moveDrag, { passive: false, signal })
+      document.addEventListener('touchend', endDrag, { signal })
+      document.addEventListener('touchcancel', endDrag, { signal })
     }
 
     const moveDrag = (e: TouchEvent | MouseEvent) => {

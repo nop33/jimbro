@@ -7,7 +7,7 @@ export const announce = (notice: PageNotice) => {
   window.dispatchEvent(new CustomEvent(`jimbro:${notice}`))
 }
 
-// Calls handle for each notice this page announces.
-export const onPageNotice = (handle: (notice: PageNotice) => void) => {
-  for (const notice of PAGE_NOTICES) window.addEventListener(`jimbro:${notice}`, () => handle(notice))
+// Calls handle for each notice this page announces, until signal aborts.
+export const onPageNotice = (handle: (notice: PageNotice) => void, signal?: AbortSignal) => {
+  for (const notice of PAGE_NOTICES) window.addEventListener(`jimbro:${notice}`, () => handle(notice), { signal })
 }

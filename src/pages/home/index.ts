@@ -4,9 +4,8 @@ import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { getWorkoutModeSettings } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { reloadWhenStale } from '../reloadWhenStale'
+import { onAppInstalled, promptInstall } from '../../features/installPrompt'
 import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
-
-const today = getSimpleDate(new Date())
 
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 const longDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -112,31 +111,24 @@ const renderPicks = ({ picks }: WeekOverview) => {
   }
 }
 
-// Chrome may offer the install before the database answers, so the button listens first.
-const installBtn = document.getElementById('install-btn')
-let deferredPrompt: Event | null = null
+export const mount = async (signal: AbortSignal) => {
+  const today = getSimpleDate(new Date())
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault()
-  deferredPrompt = e
-})
+  const installBtn = document.getElementById('install-btn')
+  if (installBtn) {
+    installBtn.addEventListener('click', () => {
+      if (!promptInstall()) {
+        alert("To install the app on iOS tap the Share icon in Safari, then select 'Add to Home Screen'.")
+      }
+    })
+    onAppInstalled(() => document.getElementById('install-row')?.remove(), signal)
+  }
 
-if (installBtn) {
-  installBtn.addEventListener('click', () => {
-    if (deferredPrompt && 'prompt' in deferredPrompt && typeof deferredPrompt.prompt === 'function') {
-      deferredPrompt.prompt()
-    } else {
-      alert("To install the app on iOS tap the Share icon in Safari, then select 'Add to Home Screen'.")
-    }
-  })
+  const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
+  const overview = buildWeekOverview(sessions, programs, getWorkoutModeSettings())
+  renderWeek(overview)
+  if (sessions.length > 0) renderHighlights(overview)
+  renderPicks(overview)
 
-  window.addEventListener('appinstalled', () => document.getElementById('install-row')?.remove())
+  reloadWhenStale(today, signal)
 }
-
-const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
-const overview = buildWeekOverview(sessions, programs, getWorkoutModeSettings())
-renderWeek(overview)
-if (sessions.length > 0) renderHighlights(overview)
-renderPicks(overview)
-
-reloadWhenStale(today)

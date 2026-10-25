@@ -21,24 +21,27 @@ import { whileBusy } from '../busyButton'
 // Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
 // user ID and token under "Use a token" for local runs, tests and MCP.
 class CloudBackup {
-  private static details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
-  private static summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
-  private static offer = document.querySelector('#passkey-offer') as HTMLElement
-  private static moved = document.querySelector('#passkey-moved') as HTMLParagraphElement
-  private static unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
-  private static account = document.querySelector('#passkey-account') as HTMLParagraphElement
-  private static accountActions = document.querySelector('#passkey-account-actions') as HTMLDivElement
-  private static tokenDetails = document.querySelector('#cloud-token-details') as HTMLDetailsElement
-  private static createBtn = document.querySelector('#create-passkey') as HTMLButtonElement
-  private static signInBtn = document.querySelector('#sign-in-passkey') as HTMLButtonElement
-  private static addBtn = document.querySelector('#add-passkey') as HTMLButtonElement
-  private static signOutBtn = document.querySelector('#sign-out-passkey') as HTMLButtonElement
-  private static userIdInput = document.querySelector('#cloud-userid') as HTMLInputElement
-  private static tokenInput = document.querySelector('#cloud-token') as HTMLInputElement
-  private static saveBtn = document.querySelector('#cloud-save') as HTMLButtonElement
-  private static syncNowBtn = document.querySelector('#cloud-sync-now') as HTMLButtonElement
+  // Aborts when the page goes, which stops the passkey options refreshing and the status following syncs.
+  private signal: AbortSignal
+  private details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
+  private summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
+  private offer = document.querySelector('#passkey-offer') as HTMLElement
+  private moved = document.querySelector('#passkey-moved') as HTMLParagraphElement
+  private unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
+  private account = document.querySelector('#passkey-account') as HTMLParagraphElement
+  private accountActions = document.querySelector('#passkey-account-actions') as HTMLDivElement
+  private tokenDetails = document.querySelector('#cloud-token-details') as HTMLDetailsElement
+  private createBtn = document.querySelector('#create-passkey') as HTMLButtonElement
+  private signInBtn = document.querySelector('#sign-in-passkey') as HTMLButtonElement
+  private addBtn = document.querySelector('#add-passkey') as HTMLButtonElement
+  private signOutBtn = document.querySelector('#sign-out-passkey') as HTMLButtonElement
+  private userIdInput = document.querySelector('#cloud-userid') as HTMLInputElement
+  private tokenInput = document.querySelector('#cloud-token') as HTMLInputElement
+  private saveBtn = document.querySelector('#cloud-save') as HTMLButtonElement
+  private syncNowBtn = document.querySelector('#cloud-sync-now') as HTMLButtonElement
 
-  static init() {
+  constructor(signal: AbortSignal) {
+    this.signal = signal
     const existingConfig = getCloudBackupConfig()
     if (existingConfig?.method === 'token') {
       this.userIdInput.value = existingConfig.userId
@@ -49,7 +52,7 @@ class CloudBackup {
     void this.updateSummaryStatus()
     onPageNotice(() => {
       void this.updateSummaryStatus()
-    })
+    }, signal)
 
     // The passkey buttons show once the section opens, so that is when their options are fetched.
     this.details.addEventListener('toggle', () => this.prepare())
@@ -61,19 +64,19 @@ class CloudBackup {
     this.syncNowBtn.addEventListener('click', () => void this.handleSync())
   }
 
-  private static prepare() {
+  private prepare() {
     if (!this.details.open || !passkeysSupported()) return
     if (getCloudBackupConfig()?.method === 'passkey') {
-      preparePasskey('add')
+      preparePasskey('add', this.signal)
       return
     }
-    preparePasskey('register')
-    preparePasskey('signin')
+    preparePasskey('register', this.signal)
+    preparePasskey('signin', this.signal)
   }
 
   // Shows what fits the saved credentials: the account for a passkey, else the offer and the token form. A device that
   // signed out offers signing in first.
-  private static showState() {
+  private showState() {
     const config = getCloudBackupConfig()
     const passkey = config?.method === 'passkey'
     const supported = passkeysSupported()
@@ -95,7 +98,7 @@ class CloudBackup {
     else this.signInBtn.before(this.createBtn)
   }
 
-  private static async updateSummaryStatus() {
+  private async updateSummaryStatus() {
     const config = getCloudBackupConfig()
     if (!config) {
       this.summaryStatus.textContent = getSyncProblem() === 'moved' ? 'Moved to another device' : 'Not set up yet'
@@ -121,12 +124,7 @@ class CloudBackup {
 
   // Runs a sign-up or sign-in, then syncs, which backs this device up to the account and restores the account's rows.
   // Resolves to false when it did not switch the account.
-  private static async runPasskeyStep(
-    button: HTMLButtonElement,
-    label: string,
-    step: () => Promise<boolean>,
-    done: string
-  ) {
+  private async runPasskeyStep(button: HTMLButtonElement, label: string, step: () => Promise<boolean>, done: string) {
     const beside = button === this.createBtn ? this.signInBtn : this.createBtn
     try {
       if (!(await whileBusy(button, label, step, [beside]))) return
@@ -140,7 +138,7 @@ class CloudBackup {
     await this.handleSync()
   }
 
-  private static handleCreate() {
+  private handleCreate() {
     return this.runPasskeyStep(
       this.createBtn,
       'Creating passkey…',
@@ -153,11 +151,11 @@ class CloudBackup {
   }
 
   // The sign-in restores the account before it resolves, so the button stays busy until the workouts are back.
-  private static handleSignIn() {
+  private handleSignIn() {
     return this.runPasskeyStep(this.signInBtn, 'Signing in…', () => signInWithPasskey({ confirmSignIn }), 'Signed in.')
   }
 
-  private static async handleAddPasskey() {
+  private async handleAddPasskey() {
     try {
       await whileBusy(this.addBtn, 'Adding passkey…', addPasskey)
       Toasts.show({ message: 'Passkey added.' })
@@ -167,7 +165,7 @@ class CloudBackup {
   }
 
   // Backs up what waits first, and warns when some of it could not go.
-  private static async handleSignOut() {
+  private async handleSignOut() {
     this.signOutBtn.disabled = true
     this.summaryStatus.textContent = 'Syncing...'
     try {
@@ -188,7 +186,7 @@ class CloudBackup {
     await this.updateSummaryStatus()
   }
 
-  private static handleSave() {
+  private handleSave() {
     const userId = this.userIdInput.value.trim()
     const token = this.tokenInput.value.trim()
 
@@ -203,7 +201,7 @@ class CloudBackup {
     void this.updateSummaryStatus()
   }
 
-  private static async handleSync() {
+  private async handleSync() {
     if (!getCloudBackupConfig()) {
       Toasts.show({ message: 'Save your credentials first.', type: 'warning' })
       return

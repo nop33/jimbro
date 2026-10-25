@@ -6,14 +6,14 @@ import { getBreakTimeSeconds, storeBreakTimeSeconds } from '../../settings'
 import CloudBackup from './CloudBackup'
 import GymsSettings from './GymsSettings'
 
-CloudBackup.init()
-void GymsSettings.init()
+export const mount = async (signal: AbortSignal) => {
+  new CloudBackup(signal)
+  const gyms = new GymsSettings()
 
-const breakMinutesInput = document.querySelector('#break-minutes') as HTMLInputElement
-const breakSecondsInput = document.querySelector('#break-seconds') as HTMLInputElement
-const saveBreakTimeBtn = document.querySelector('#save-break-time') as HTMLButtonElement
+  const breakMinutesInput = document.querySelector('#break-minutes') as HTMLInputElement
+  const breakSecondsInput = document.querySelector('#break-seconds') as HTMLInputElement
+  const saveBreakTimeBtn = document.querySelector('#save-break-time') as HTMLButtonElement
 
-if (breakMinutesInput && breakSecondsInput && saveBreakTimeBtn) {
   const currentBreakTime = getBreakTimeSeconds()
   breakMinutesInput.value = Math.floor(currentBreakTime / 60).toString()
   breakSecondsInput.value = (currentBreakTime % 60).toString()
@@ -31,33 +31,35 @@ if (breakMinutesInput && breakSecondsInput && saveBreakTimeBtn) {
     storeBreakTimeSeconds(totalSeconds)
     Toasts.show({ message: 'Break time saved!', type: 'success' })
   })
-}
 
-const exportJsonBtn = document.querySelector('#export-json') as HTMLButtonElement
-exportJsonBtn.addEventListener('click', exportIndexedDbToJson)
+  const exportJsonBtn = document.querySelector('#export-json') as HTMLButtonElement
+  exportJsonBtn.addEventListener('click', exportIndexedDbToJson)
 
-const importInput = document.querySelector('#import-input') as HTMLInputElement
-importInput.addEventListener('change', async (event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) {
-    try {
-      await importIndexedDbFromJson(file)
-      Toasts.show({ message: 'Database imported!' })
-    } catch (error) {
-      Toasts.show({ message: 'Failed to import database.', type: 'error' })
-      console.error('❌ Failed to import database', error)
+  const importInput = document.querySelector('#import-input') as HTMLInputElement
+  importInput.addEventListener('change', async (event) => {
+    const file = (event.target as HTMLInputElement).files?.[0]
+    if (file) {
+      try {
+        await importIndexedDbFromJson(file)
+        Toasts.show({ message: 'Database imported!' })
+      } catch (error) {
+        Toasts.show({ message: 'Failed to import database.', type: 'error' })
+        console.error('❌ Failed to import database', error)
+      }
     }
-  }
-})
+  })
 
-const resetDatabaseBtn = document.querySelector('#reset-database') as HTMLButtonElement
-resetDatabaseBtn.addEventListener('click', async () => {
-  if (!confirm('Are you sure you want to reset the database?')) return
-  try {
-    await storage.deleteDatabase()
-    Toasts.show({ message: 'Database reset.' })
-  } catch (error) {
-    console.error('reset failed', error)
-    Toasts.show({ message: 'Close other tabs and try again.', type: 'error' })
-  }
-})
+  const resetDatabaseBtn = document.querySelector('#reset-database') as HTMLButtonElement
+  resetDatabaseBtn.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to reset the database?')) return
+    try {
+      await storage.deleteDatabase()
+      Toasts.show({ message: 'Database reset.' })
+    } catch (error) {
+      console.error('reset failed', error)
+      Toasts.show({ message: 'Close other tabs and try again.', type: 'error' })
+    }
+  })
+
+  await gyms.render()
+}

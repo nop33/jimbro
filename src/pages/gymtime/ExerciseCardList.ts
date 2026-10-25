@@ -1,47 +1,47 @@
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { snapshotFromExercise, type PlannedSession } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
-import ExerciseCard from './ExerciseCard'
+import ExerciseCard, { type CardActions } from './ExerciseCard'
 import { keptLastTimes, planExercise, type ExercisePlan } from './exercisePlan'
-import { openSession } from './openSession'
 
 // The view of the open session: one card per exercise, kept for as long as the exercise is shown. Each session the
 // page shows reaches every card through ExerciseCard.show, whatever changed it.
 class ExerciseCardList {
-  private static exercisesList: HTMLDivElement
-  private static programExerciseIds: string[]
-  private static planned: () => PlannedSession
-  private static cards = new Map<ExerciseSnapshot['exerciseId'], ExerciseCard>()
-  private static lastTimes = keptLastTimes()
-  private static generation = 0
-  private static latest: Promise<void> = Promise.resolve()
+  private exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
+  private actions: CardActions
+  private programExerciseIds: string[]
+  private planned: () => PlannedSession
+  private cards = new Map<ExerciseSnapshot['exerciseId'], ExerciseCard>()
+  private lastTimes = keptLastTimes()
+  private generation = 0
+  private latest: Promise<void> = Promise.resolve()
 
   // planned tells where the workout will be done, for the cards shown before it starts.
-  static init(programExerciseIds: string[], planned: () => PlannedSession) {
-    this.exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
+  constructor(actions: CardActions, programExerciseIds: string[], planned: () => PlannedSession) {
+    this.actions = actions
     this.programExerciseIds = programExerciseIds
     this.planned = planned
-    openSession.busyOn(this.exercisesList)
-    openSession.subscribe((session) => this.show(session))
+    actions.session.busyOn(this.exercisesList)
+    actions.session.subscribe((session) => this.show(session))
   }
 
-  static setProgramExerciseIds(programExerciseIds: string[]) {
+  setProgramExerciseIds(programExerciseIds: string[]) {
     this.programExerciseIds = programExerciseIds
   }
 
   // The cards before the start show what it will store for the new day or gym.
-  static async replan(): Promise<void> {
-    if (!openSession.current) await this.show(undefined)
+  async replan(): Promise<void> {
+    if (!this.actions.session.current) await this.show(undefined)
   }
 
   // Resolves once the cards show the session, or a later one, and a set just logged has drawn its border.
-  private static show(session: WorkoutSession | undefined): Promise<void> {
+  private show(session: WorkoutSession | undefined): Promise<void> {
     const shown = this.draw(session, ++this.generation)
     this.latest = shown
     return shown
   }
 
-  private static async draw(session: WorkoutSession | undefined, generation: number): Promise<void> {
+  private async draw(session: WorkoutSession | undefined, generation: number): Promise<void> {
     const planned = this.planned()
     const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
 
@@ -62,7 +62,7 @@ class ExerciseCardList {
     const cards = new Map<ExerciseSnapshot['exerciseId'], ExerciseCard>()
     const traced: Array<Promise<void>> = []
     for (const [snapshot, plan] of plans.filter((shown) => shown !== undefined)) {
-      const card = this.cards.get(snapshot.exerciseId) ?? new ExerciseCard(snapshot)
+      const card = this.cards.get(snapshot.exerciseId) ?? new ExerciseCard(snapshot, this.actions)
       traced.push(card.show(snapshot, session, plan))
       cards.set(snapshot.exerciseId, card)
     }

@@ -102,16 +102,27 @@ interface Prefetched {
 
 const prefetched = new Map<Ceremony, Prefetched>()
 
-// Fetches the ceremony's options now, for a tap to come.
-export const preparePasskey = (ceremony: Ceremony) => {
+// Fetches the ceremony's options now, for a tap to come, and keeps them fresh until signal aborts, as when the page
+// with the button goes.
+export const preparePasskey = (ceremony: Ceremony, signal?: AbortSignal) => {
+  if (signal?.aborted) return
   const previous = prefetched.get(ceremony)
   if (previous) window.clearTimeout(previous.refresh)
   const options = fetchOptions(ceremony)
   const entry: Prefetched = {
     at: Date.now(),
     options,
-    refresh: window.setTimeout(() => preparePasskey(ceremony), FRESH_MS)
+    refresh: window.setTimeout(() => preparePasskey(ceremony, signal), FRESH_MS)
   }
+  signal?.addEventListener(
+    'abort',
+    () => {
+      if (prefetched.get(ceremony) !== entry) return
+      window.clearTimeout(entry.refresh)
+      prefetched.delete(ceremony)
+    },
+    { once: true }
+  )
   // A failed prefetch leaves the tap to fetch.
   options.catch(() => {
     if (prefetched.get(ceremony) !== entry) return

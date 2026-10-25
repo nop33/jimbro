@@ -41,6 +41,7 @@ describe('outcomeOf', () => {
 
       expect(outcomeOf(before, after, 'bench', BREAK)).toEqual({
         kind: 'rest',
+        sessionId: 'session',
         seconds: BREAK,
         setsDone: 1,
         setsTotal: 3,

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import type { ExerciseSnapshot, SessionHeader, SetRow } from '../src/db/types'
 import { seedDatabase } from './seed'
 

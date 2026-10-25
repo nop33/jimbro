@@ -1,4 +1,5 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { expect, type BrowserContext, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import type { CDPSession } from '@playwright/test'
 import type { ExerciseSnapshot, SetRow } from '../src/db/types'
 import { API_BASE } from './localWorker'

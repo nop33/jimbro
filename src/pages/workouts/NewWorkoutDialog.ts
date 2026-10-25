@@ -10,12 +10,12 @@ const lastCompletedText = (lastCompleted: ProgramStatus['lastCompleted']) => {
 }
 
 class NewWorkoutDialog {
-  private static newWorkoutDialog = document.querySelector('#new-workout-dialog') as HTMLDialogElement
-  private static programsList = document.querySelector('#programs-list') as HTMLUListElement
-  private static newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
-  private static dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
+  private newWorkoutDialog = document.querySelector('#new-workout-dialog') as HTMLDialogElement
+  private programsList = document.querySelector('#programs-list') as HTMLUListElement
+  private newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
+  private dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
 
-  static init(programs: Array<ProgramStatus>) {
+  constructor(programs: Array<ProgramStatus>) {
     this.newWorkoutButton.addEventListener('click', () => {
       this.open()
     })
@@ -31,7 +31,7 @@ class NewWorkoutDialog {
     this.render(programs)
   }
 
-  private static render(programs: Array<ProgramStatus>) {
+  private render(programs: Array<ProgramStatus>) {
     for (const { program, thisWeek, lastCompleted } of programs) {
       const programItem = nodeFromTemplate('#program-item-template')
       const programItemDiv = programItem.querySelector('div') as HTMLDivElement
@@ -57,11 +57,11 @@ class NewWorkoutDialog {
     }
   }
 
-  static open() {
+  open() {
     this.newWorkoutDialog.showModal()
   }
 
-  private static closeDialog() {
+  private closeDialog() {
     this.newWorkoutDialog.close()
   }
 }

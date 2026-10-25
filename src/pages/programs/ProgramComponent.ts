@@ -2,13 +2,14 @@ import type { Program } from '../../db/stores/programsStore'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import ExerciseComponent from '../exercises/ExerciseComponent'
-import ProgramDialog from './ProgramDialog'
 
 class ProgramComponent {
   private program: Program
+  private onEdit: (program: Program) => void
 
-  constructor(program: Program) {
+  constructor(program: Program, onEdit: (program: Program) => void) {
     this.program = program
+    this.onEdit = onEdit
   }
 
   render() {
@@ -26,10 +27,7 @@ class ProgramComponent {
       }
     }
 
-    editProgramBtn.addEventListener('click', () => {
-      ProgramDialog.populateForm(this.program)
-      ProgramDialog.openDialog()
-    })
+    editProgramBtn.addEventListener('click', () => this.onEdit(this.program))
 
     return programItem
   }
