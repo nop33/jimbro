@@ -10,6 +10,7 @@ import {
 import { OBJECT_STORES } from '../constants'
 import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
+import { transactionDone } from '../promisifyRequest'
 import { storage } from '../storage'
 import type { Exercise } from './exercisesStore'
 
@@ -137,22 +138,15 @@ class WorkoutSessionsStore {
 
   async getAll(): Promise<Array<WorkoutSession>> {
     const db = await storage.connection()
-    const { headers, groups } = await new Promise<{
-      headers: Array<SessionHeader>
-      groups: Array<{ sessionId: string; sets: Array<SetRow> }>
-    }>((resolve, reject) => {
-      const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
-      const headersRequest = tx.objectStore(this.storeName).getAll()
-      const groupsRequest = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll()
-      tx.oncomplete = () =>
-        resolve({
-          headers: headersRequest.result as Array<SessionHeader>,
-          groups: groupsRequest.result as Array<{ sessionId: string; sets: Array<SetRow> }>
-        })
-      tx.onerror = () => reject(tx.error)
-    })
-    const bySession = new Map(groups.map((group) => [group.sessionId, group.sets]))
-    return headers
+    const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
+    const done = transactionDone(tx, 'session read')
+    const headers = tx.objectStore(this.storeName).getAll() as IDBRequest<Array<SessionHeader>>
+    const groups = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll() as IDBRequest<
+      Array<{ sessionId: string; sets: Array<SetRow> }>
+    >
+    await done
+    const bySession = new Map(groups.result.map((group) => [group.sessionId, group.sets]))
+    return headers.result
       .filter((header) => !header.isDeleted)
       .map((header) => sessionFromRows(header, bySession.get(header.id) ?? []))
   }

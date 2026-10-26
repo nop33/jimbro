@@ -1,4 +1,5 @@
 import { OBJECT_STORES } from '../db/constants'
+import { transactionDone } from '../db/promisifyRequest'
 import { cloneForIdb, putRow, type Storage } from '../db/storage'
 import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../db/types'
 import { splitRowKey, type BootstrapAction } from './bootstrap'
@@ -64,33 +65,30 @@ const syncSetGroups = (tx: IDBTransaction, kept: Array<SetRow>, droppedBySession
 
 export async function readFirstSyncSnapshot(storage: Storage): Promise<{ seq: number; rows: Row[] }> {
   const db = await storage.connection()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(
-      [
-        OBJECT_STORES.EXERCISES,
-        OBJECT_STORES.PROGRAMS,
-        OBJECT_STORES.WORKOUT_SESSIONS,
-        OBJECT_STORES.SETS,
-        OBJECT_STORES.META
-      ],
-      'readonly'
-    )
-    const exercises = tx.objectStore(OBJECT_STORES.EXERCISES).getAll() as IDBRequest<ExerciseRow[]>
-    const programs = tx.objectStore(OBJECT_STORES.PROGRAMS).getAll() as IDBRequest<ProgramRow[]>
-    const sessions = tx.objectStore(OBJECT_STORES.WORKOUT_SESSIONS).getAll() as IDBRequest<SessionHeader[]>
-    const sets = tx.objectStore(OBJECT_STORES.SETS).getAll() as IDBRequest<SetRow[]>
-    const seq = tx.objectStore(OBJECT_STORES.META).get('seq') as IDBRequest<MetaRecord | undefined>
-    tx.oncomplete = () => {
-      const rows: Row[] = [
-        ...exercises.result.map((row) => ({ table: 'exercises' as const, row })),
-        ...programs.result.map((row) => ({ table: 'programs' as const, row })),
-        ...sessions.result.map((row) => ({ table: 'sessions' as const, row })),
-        ...sets.result.map((row) => ({ table: 'sets' as const, row }))
-      ]
-      resolve({ seq: seq.result?.value ?? 0, rows })
-    }
-    tx.onerror = () => reject(tx.error ?? new Error('readFirstSyncSnapshot failed'))
-  })
+  const tx = db.transaction(
+    [
+      OBJECT_STORES.EXERCISES,
+      OBJECT_STORES.PROGRAMS,
+      OBJECT_STORES.WORKOUT_SESSIONS,
+      OBJECT_STORES.SETS,
+      OBJECT_STORES.META
+    ],
+    'readonly'
+  )
+  const done = transactionDone(tx, 'readFirstSyncSnapshot')
+  const exercises = tx.objectStore(OBJECT_STORES.EXERCISES).getAll() as IDBRequest<ExerciseRow[]>
+  const programs = tx.objectStore(OBJECT_STORES.PROGRAMS).getAll() as IDBRequest<ProgramRow[]>
+  const sessions = tx.objectStore(OBJECT_STORES.WORKOUT_SESSIONS).getAll() as IDBRequest<SessionHeader[]>
+  const sets = tx.objectStore(OBJECT_STORES.SETS).getAll() as IDBRequest<SetRow[]>
+  const seq = tx.objectStore(OBJECT_STORES.META).get('seq') as IDBRequest<MetaRecord | undefined>
+  await done
+  const rows: Row[] = [
+    ...exercises.result.map((row) => ({ table: 'exercises' as const, row })),
+    ...programs.result.map((row) => ({ table: 'programs' as const, row })),
+    ...sessions.result.map((row) => ({ table: 'sessions' as const, row })),
+    ...sets.result.map((row) => ({ table: 'sets' as const, row }))
+  ]
+  return { seq: seq.result?.value ?? 0, rows }
 }
 
 export async function commitFirstSync(

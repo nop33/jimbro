@@ -1,4 +1,5 @@
 import { OBJECT_STORES } from '../db/constants'
+import { transactionDone } from '../db/promisifyRequest'
 import type { Storage } from '../db/storage'
 import type { Row, RowTable } from '../db/types'
 import { rowKey } from './bootstrap'
@@ -69,23 +70,20 @@ export const queueRows = (tx: IDBTransaction, writes: ReadonlyArray<Row>) => {
 export const restartFirstSync = async (storage: Storage) => {
   const db = await storage.connection()
   const tx = db.transaction([OBJECT_STORES.OUTBOX, OBJECT_STORES.META], 'readwrite')
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('restartFirstSync failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('restartFirstSync aborted'))
-    const meta = tx.objectStore(OBJECT_STORES.META)
-    meta.put({ name: 'cursor', value: 0 })
-    meta.put({ name: 'bootstrapped', value: 0 })
-    const request = tx.objectStore(OBJECT_STORES.OUTBOX).openCursor()
-    request.onsuccess = () => {
-      const cursor = request.result
-      if (!cursor) return
-      const entry = cursor.value as OutboxEntry
-      if (entry.inflightSeq !== undefined || entry.inflightCanonical !== undefined) {
-        const unstamped: OutboxEntry = { key: entry.key, table: entry.table, id: entry.id, seq: entry.seq }
-        cursor.update(unstamped)
-      }
-      cursor.continue()
+  const done = transactionDone(tx, 'restartFirstSync')
+  const meta = tx.objectStore(OBJECT_STORES.META)
+  meta.put({ name: 'cursor', value: 0 })
+  meta.put({ name: 'bootstrapped', value: 0 })
+  const request = tx.objectStore(OBJECT_STORES.OUTBOX).openCursor()
+  request.onsuccess = () => {
+    const cursor = request.result
+    if (!cursor) return
+    const entry = cursor.value as OutboxEntry
+    if (entry.inflightSeq !== undefined || entry.inflightCanonical !== undefined) {
+      const unstamped: OutboxEntry = { key: entry.key, table: entry.table, id: entry.id, seq: entry.seq }
+      cursor.update(unstamped)
     }
-  })
+    cursor.continue()
+  }
+  await done
 }

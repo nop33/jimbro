@@ -1,4 +1,5 @@
 import { OBJECT_STORES } from '../db/constants'
+import { transactionDone } from '../db/promisifyRequest'
 import { STORE_FOR_TABLE, storage, type Storage } from '../db/storage'
 import type { Row, RowTable } from '../db/types'
 import { getMeta, type OutboxEntry } from './queue'
@@ -55,36 +56,32 @@ const takeChunk = async (db: IDBDatabase, limit: number): Promise<Taken[] | null
     ],
     'readwrite'
   )
+  const done = transactionDone(tx, 'outbox take')
   const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
-  const read: { taken: Array<Taken | undefined> | null } = { taken: null }
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('outbox take failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('outbox take aborted'))
-    const request = outbox.getAll()
-    request.onsuccess = () => {
-      const entries = (request.result as OutboxEntry[]).sort((left, right) => left.seq - right.seq).slice(0, limit)
-      if (entries.length === 0) return
-      const taken = Array.from<Taken | undefined>({ length: entries.length })
-      read.taken = taken
-      entries.forEach((entry, index) => {
-        const rowRequest = tx.objectStore(STORE_FOR_TABLE[entry.table]).get(entry.id)
-        rowRequest.onsuccess = () => {
-          if (rowRequest.result === undefined) {
-            outbox.delete(entry.key)
-            return
-          }
-          const row = rowOf(entry.table, rowRequest)
-          taken[index] = { key: entry.key, seq: entry.seq, row }
-          if (entry.inflightSeq === undefined || entry.inflightCanonical === undefined) {
-            outbox.put({ ...entry, inflightSeq: entry.seq, inflightCanonical: canonical(row.row) })
-          }
+  let taken = null as Array<Taken | undefined> | null
+  const request = outbox.getAll()
+  request.onsuccess = () => {
+    const entries = (request.result as OutboxEntry[]).sort((left, right) => left.seq - right.seq).slice(0, limit)
+    if (entries.length === 0) return
+    const read = Array.from<Taken | undefined>({ length: entries.length })
+    taken = read
+    entries.forEach((entry, index) => {
+      const rowRequest = tx.objectStore(STORE_FOR_TABLE[entry.table]).get(entry.id)
+      rowRequest.onsuccess = () => {
+        if (rowRequest.result === undefined) {
+          outbox.delete(entry.key)
+          return
         }
-      })
-    }
-  })
-  if (!read.taken) return null
-  return read.taken.filter((item): item is Taken => item !== undefined)
+        const row = rowOf(entry.table, rowRequest)
+        read[index] = { key: entry.key, seq: entry.seq, row }
+        if (entry.inflightSeq === undefined || entry.inflightCanonical === undefined) {
+          outbox.put({ ...entry, inflightSeq: entry.seq, inflightCanonical: canonical(row.row) })
+        }
+      }
+    })
+  }
+  await done
+  return taken && taken.filter((item): item is Taken => item !== undefined)
 }
 
 // Drops each sent entry whose seq is unchanged, so an edit made during the push stays queued.
@@ -96,30 +93,24 @@ const acknowledge = async (
   advance: { name: 'cursor' | 'bootstrapped'; value: number } | null
 ) => {
   const tx = db.transaction(advance ? [OBJECT_STORES.OUTBOX, OBJECT_STORES.META] : [OBJECT_STORES.OUTBOX], 'readwrite')
+  const done = transactionDone(tx, 'outbox ack')
   const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('outbox ack failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('outbox ack aborted'))
-    if (advance) tx.objectStore(OBJECT_STORES.META).put(advance)
-    for (const item of sent) {
-      const request = outbox.get(item.key)
-      request.onsuccess = () => {
-        const current = request.result as OutboxEntry | undefined
-        if (current && current.seq === item.seq) outbox.delete(item.key)
-      }
+  if (advance) tx.objectStore(OBJECT_STORES.META).put(advance)
+  for (const item of sent) {
+    const request = outbox.get(item.key)
+    request.onsuccess = () => {
+      const current = request.result as OutboxEntry | undefined
+      if (current && current.seq === item.seq) outbox.delete(item.key)
     }
-  })
+  }
+  await done
 }
 
 const markBootstrapped = async (db: IDBDatabase) => {
   const tx = db.transaction([OBJECT_STORES.META], 'readwrite')
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('outbox bootstrap mark failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('outbox bootstrap mark aborted'))
-    tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: 1 })
-  })
+  const done = transactionDone(tx, 'outbox bootstrap mark')
+  tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: 1 })
+  await done
 }
 
 // The lock covers take, push and ack of each chunk. No other page can then take, send or ack the
