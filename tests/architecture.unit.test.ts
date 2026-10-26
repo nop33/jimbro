@@ -185,6 +185,15 @@ const utcCalendarDates: Detector = (file, source) => {
     : []
 }
 
+// A smooth scroll keeps moving the page after a script or a test asked for a scroll. In WebKit, Playwright scrolls a
+// button into view through it, so the page was still scrolling when the tap landed: the press hit the button and the
+// release the one above it, and the click went to neither.
+const smoothScrolling: Detector = (file, source) =>
+  [...source.matchAll(/scroll-behavior\s*:\s*smooth/g)].map(
+    ({ index }) =>
+      `${file}:${lineOf(source, index)} scrolls smoothly. Scroll at once, so a tap lands where the page showed it.`
+  )
+
 // The router shows each page in the same document, so a page draws itself only when the router mounts it, and stops
 // what it wired when the next page replaces it. A page module that ran at load drew once and never again, and a
 // listener on the document kept running on every page after it.
@@ -418,6 +427,16 @@ const rules: Array<{
     flags: 1,
     flagged: /takes a date from toISOString\(\)/,
     good: 'const updatedAt = new Date().toISOString()'
+  },
+  {
+    rule: 'scrolls at once, never smoothly',
+    detector: smoothScrolling,
+    files: () => ['src/style.css'],
+    file: 'src/style.css',
+    bad: 'html {\n  scroll-behavior: smooth;\n}',
+    flags: 1,
+    flagged: /style\.css:2 scrolls smoothly/,
+    good: '* {\n  scroll-behavior: auto !important;\n}'
   }
 ]
 

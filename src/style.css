@@ -440,11 +440,6 @@
     min-width: 44px;
   }
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
-  }
-
   details {
     &[open] {
       summary {
