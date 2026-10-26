@@ -13,7 +13,7 @@ import { replacesLocalRows } from './bootstrap'
 import { outbox, pushLock } from './outbox'
 import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
 import { restartFirstSync } from './queue'
-import { PULL_LIMIT, type PullPage } from './server'
+import { errorCodeOf, PULL_LIMIT, type PullPage } from './server'
 import { clearLastSyncAt, setSyncProblem } from './status'
 import { sync } from './syncClient'
 
@@ -37,7 +37,7 @@ export const passkeysSupported = () => {
 }
 
 // The error the worker answered with, such as invalid_challenge, or the status.
-export class PasskeyServerError extends Error {
+class PasskeyServerError extends Error {
   readonly code: string
 
   constructor(code: string) {
@@ -48,14 +48,7 @@ export class PasskeyServerError extends Error {
 
 const answer = async (response: Response) => {
   if (response.ok) return (await response.json()) as unknown
-  let code = String(response.status)
-  try {
-    const body = (await response.json()) as { error?: unknown }
-    if (typeof body.error === 'string') code = body.error
-  } catch {
-    // The body was not JSON, so the status stands.
-  }
-  throw new PasskeyServerError(code)
+  throw new PasskeyServerError(await errorCodeOf(response))
 }
 
 const post = (path: string, body: unknown, token?: string) => {
@@ -255,7 +248,7 @@ export const createPasskeyAccount = async () => {
 }
 
 // Whether this device holds any exercise, program or workout, which signing in can replace with the account's copy.
-export const hasLocalRows = async () => {
+const hasLocalRows = async () => {
   for (const store of [OBJECT_STORES.EXERCISES, OBJECT_STORES.PROGRAMS, OBJECT_STORES.WORKOUT_SESSIONS]) {
     if ((await storage.count(store)) > 0) return true
   }

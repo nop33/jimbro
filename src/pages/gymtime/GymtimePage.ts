@@ -110,28 +110,18 @@ class GymtimePage {
     await this.openSession.show(workoutSession)
   }
 
+  // Shows "Save to program" while the workout's exercises differ from the program's.
   private updateSaveToProgramBtnVisibility() {
-    const session = this.openSession.current
-    if (!session) {
-      this.saveToProgramCard.classList.add('hidden')
-      this.addExerciseCard.classList.replace('mt-2', 'mt-16')
-      return
-    }
-
-    const sessionExerciseIds = session.exercises.map((e) => e.exerciseId)
+    const sessionExerciseIds = this.openSession.current?.exercises.map((e) => e.exerciseId)
     const programExerciseIds = this.program.exercises
-
     const isDifferent =
-      sessionExerciseIds.length !== programExerciseIds.length ||
-      sessionExerciseIds.some((id, index) => id !== programExerciseIds[index])
+      sessionExerciseIds !== undefined &&
+      (sessionExerciseIds.length !== programExerciseIds.length ||
+        sessionExerciseIds.some((id, index) => id !== programExerciseIds[index]))
 
-    if (isDifferent) {
-      this.saveToProgramCard.classList.remove('hidden')
-      this.addExerciseCard.classList.replace('mt-16', 'mt-2')
-    } else {
-      this.saveToProgramCard.classList.add('hidden')
-      this.addExerciseCard.classList.replace('mt-2', 'mt-16')
-    }
+    this.saveToProgramCard.classList.toggle('hidden', !isDifferent)
+    if (isDifferent) this.addExerciseCard.classList.replace('mt-16', 'mt-2')
+    else this.addExerciseCard.classList.replace('mt-2', 'mt-16')
   }
 
   private updateDeleteBtnVisibility() {

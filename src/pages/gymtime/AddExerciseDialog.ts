@@ -5,38 +5,35 @@ class AddExerciseDialog {
   private dialogCancel = this.dialog.querySelector('.dialog-cancel') as HTMLButtonElement
   private addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
   private dialogTitle = this.dialog.querySelector('h2') as HTMLHeadingElement
-  private defaultCallback: (exercise: Exercise) => void
-  private currentCallback: ((exercise: Exercise) => void) | null = null
+  private addExercise: (exercise: Exercise) => void
+  private onPick: (exercise: Exercise) => void
 
-  // defaultOnExerciseClicked adds the exercise tapped, unless an opening asks for something else, as a swap does.
-  constructor(defaultOnExerciseClicked: (exercise: Exercise) => void) {
-    this.defaultCallback = defaultOnExerciseClicked
+  // addExercise adds the exercise tapped, unless an opening asks for something else, as a swap does.
+  constructor(addExercise: (exercise: Exercise) => void) {
+    this.addExercise = addExercise
+    this.onPick = addExercise
     this.dialogCancel.addEventListener('click', () => this.closeDialog())
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
-    this.addExerciseCard.addEventListener('click', () =>
-      this.openDialog({ title: 'Add exercise', onExerciseClicked: defaultOnExerciseClicked })
-    )
+    this.addExerciseCard.addEventListener('click', () => this.openDialog())
   }
 
   // The dialog's exercise list calls this with the exercise tapped.
   pick(exercise: Exercise) {
-    const onExerciseClicked = this.currentCallback ?? this.defaultCallback
-    onExerciseClicked(exercise)
+    this.onPick(exercise)
     this.closeDialog()
   }
 
   openDialog({
     title = 'Add exercise',
-    onExerciseClicked
+    onExerciseClicked = this.addExercise
   }: { title?: string; onExerciseClicked?: (exercise: Exercise) => void } = {}) {
     this.dialogTitle.textContent = title
-    this.currentCallback = onExerciseClicked || null
+    this.onPick = onExerciseClicked
     this.dialog.showModal()
   }
 
   closeDialog() {
     this.dialog.close()
-    this.currentCallback = null
   }
 }
 

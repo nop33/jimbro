@@ -8,8 +8,7 @@ import { isOutOfDate } from '../sync/freshness'
 export const reloadWhenStale = (renderedDay: string, signal: AbortSignal) => {
   const renderedSettings = JSON.stringify(getWorkoutModeSettings())
   const reloadIfStale = async () => {
-    // A prerendered page is checked when it is shown, in navigation.ts.
-    if (document.prerendering || document.querySelector('dialog[open]')) return
+    if (document.querySelector('dialog[open]')) return
     const stale =
       getSimpleDate(new Date()) !== renderedDay ||
       JSON.stringify(getWorkoutModeSettings()) !== renderedSettings ||

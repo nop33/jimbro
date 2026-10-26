@@ -34,16 +34,19 @@ export class SyncRequestError extends Error {
   }
 }
 
-const assertOk = async (response: Response) => {
-  if (response.ok) return
-  let code = String(response.status)
+// The error the worker answered with, such as row_limit or invalid_challenge, or else the status.
+export const errorCodeOf = async (response: Response): Promise<string> => {
   try {
     const body = (await response.json()) as { error?: unknown }
-    if (typeof body.error === 'string') code = body.error
+    if (typeof body.error === 'string') return body.error
   } catch {
     // The body was not JSON, so the status stands.
   }
-  throw new SyncRequestError(response.status, code)
+  return String(response.status)
+}
+
+const assertOk = async (response: Response) => {
+  if (!response.ok) throw new SyncRequestError(response.status, await errorCodeOf(response))
 }
 
 const revisionOf = (body: unknown) => {

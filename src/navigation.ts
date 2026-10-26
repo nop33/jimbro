@@ -19,7 +19,7 @@ const startSync = () => {
   })
 }
 
-export function initNavigation() {
+function initNavigation() {
   // The back button comes with each page the router shows, so one listener on the document serves them all.
   document.addEventListener('click', (event) => {
     if (event.target instanceof Element && event.target.closest('#back-button')) window.history.back()
@@ -30,15 +30,11 @@ export function initNavigation() {
     navigator.serviceWorker.register('/sw.js').catch((error: unknown) => console.error('Service worker failed:', error))
   }
 
-  // A page Back or Forward restored, or one prerendered before the tap, shows the database as it was then. When it
-  // changed meanwhile, the page loads fresh instead.
-  const showOrReload = () =>
-    void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
-  // A prerendered page waits for the tap before it syncs, so only the page on screen syncs.
-  if (document.prerendering) document.addEventListener('prerenderingchange', showOrReload, { once: true })
-  else startSync()
+  startSync()
+  // A page Back or Forward restored from the back/forward cache shows the database as it was then. When it changed
+  // meanwhile, the page loads fresh instead.
   window.addEventListener('pageshow', (event) => {
-    if (event.persisted) showOrReload()
+    if (event.persisted) void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
   })
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {

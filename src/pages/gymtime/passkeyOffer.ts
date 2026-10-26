@@ -1,7 +1,7 @@
 import type { CloudBackupMethod } from '../../db/cloudBackup'
 
 const SNOOZE_KEY = 'jimbro.passkeyOffer.snoozedUntil'
-export const SNOOZE_DAYS = 14
+const SNOOZE_DAYS = 14
 
 // Whether a finished workout offers a passkey: only where the browser has passkeys, while no passkey backs this device
 // up (no backup, or a typed token), and not during the 14 days after "Not now".

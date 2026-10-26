@@ -2,7 +2,6 @@ import {
   emptySet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
-  setValues,
   type ExerciseSetExecution
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
@@ -24,7 +23,14 @@ import { tapToDismiss } from './tapToDismiss'
 import { liftCard } from './liftCard'
 import { traceSet } from './traceSet'
 import type { ExercisePlan } from './exercisePlan'
-import { clearSetBadges, configureSetRowGrid, readSetFromForm, renderSetFields, renderSetInputs } from './setSlots'
+import {
+  clearSetBadges,
+  configureSetRowGrid,
+  confirmZeroSet,
+  readSetFromForm,
+  renderSetFields,
+  renderSetInputs
+} from './setSlots'
 
 // Room a menu needs below what it opens from: the actions menu's four 48px items and a margin, or the set menu's one.
 const MENU_ROOM = 220
@@ -377,11 +383,7 @@ class ExerciseCard {
       event.preventDefault()
       const { preset } = this.snapshot
       const completedSet = readSetFromForm(nextSetForm, preset)
-      const values = setValues(completedSet)
-
-      if (values.reps === 0 || (completedSet.preset === 'lifting' && completedSet.weight === 0)) {
-        if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
-      }
+      if (!confirmZeroSet(completedSet)) return
 
       this.closeWhenDone = true
       try {

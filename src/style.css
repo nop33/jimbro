@@ -20,8 +20,8 @@
   view-transition-name: none;
 }
 
-/* A list the page draws from IndexedDB arrives a few frames after the page. Where nothing prerendered the page,
-   as in Safari, its items fade in instead of popping in. */
+/* A list the page draws from IndexedDB arrives a few frames after the page, as on a full load, so its items fade in
+   instead of popping in. */
 .fills-in > * {
   animation: fill-in 150ms var(--ease-out);
 }
@@ -748,7 +748,7 @@
   .toast-message-popup {
     @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 top-4 w-11/12 max-w-md z-50;
     transform: translateX(-50%);
-    /* It slides in from the top edge and leaves the same way (ToastMessage.ts), at the gentler pace a toast has. */
+    /* It slides in from the top edge and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
     transition:
       opacity 400ms ease,
       translate 400ms ease;

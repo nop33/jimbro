@@ -4,6 +4,7 @@ import {
   inputLabel,
   setFieldName,
   setFields,
+  setValues,
   slotsForPreset,
   toDisplayValues,
   type ExerciseDefaults,
@@ -111,6 +112,13 @@ export const readSetFromForm = (form: HTMLFormElement, preset: LogPreset): Exerc
   }
 
   return buildSet(preset, fromDisplayValues(preset, entered))
+}
+
+// A set of 0 reps, or a lifting set of 0 kg, is most likely a slip, so it asks first. Resolves to whether to log it.
+export const confirmZeroSet = (set: ExerciseSetExecution): boolean => {
+  const { reps } = setValues(set)
+  if (reps !== 0 && !(set.preset === 'lifting' && set.weight === 0)) return true
+  return confirm(`Are you sure you want to submit a set with 0 ${reps === 0 ? 'reps' : 'weight'}?`)
 }
 
 export const configureSetRowGrid = (container: HTMLElement, preset: LogPreset) => {

@@ -21,10 +21,12 @@ import { trainingWeeks } from '../../weeks'
 import { whileBusy } from '../busyButton'
 import { confirmSignIn, showPasskeyFailure } from '../passkeyPrompts'
 
-type PendingOrSkippedWorkoutSession = Omit<WorkoutSession, 'id' | 'date' | 'status' | 'updatedAt'> & {
+// A rotation program the week has no workout of: still to do this week, or skipped in an earlier one.
+interface MissingWorkout {
+  programId: WorkoutSession['programId']
+  status: 'pending' | 'skipped'
   id?: undefined
   date?: undefined
-  status: 'pending' | 'skipped'
 }
 
 export const mount = async (signal: AbortSignal) => {
@@ -32,9 +34,9 @@ export const mount = async (signal: AbortSignal) => {
 
   const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
   const programNames = Object.fromEntries(programs.map((program) => [program.id, program.name]))
-  const _isDbEmpty = await isDbEmpty()
+  const empty = await isDbEmpty()
   const canRestore =
-    _isDbEmpty &&
+    empty &&
     getCloudBackupConfig() !== null &&
     (await getMeta(storage, 'cursor')) === 0 &&
     (await getMeta(storage, 'bootstrapped')) === 0
@@ -46,12 +48,12 @@ export const mount = async (signal: AbortSignal) => {
   if (programs.length > 0) {
     renderWeekProgress({ completed: thisWeek.completed, goal, settings })
   } else {
-    await renderIntroText(canRestore ? 'restore' : _isDbEmpty ? 'seed' : 'none')
+    await renderIntroText(canRestore ? 'restore' : empty ? 'seed' : 'none')
   }
   const newWorkoutDialog = new NewWorkoutDialog(programStatuses)
   new WorkoutModeDialog()
 
-  const renderWorkoutSession = (workoutSession: WorkoutSession | PendingOrSkippedWorkoutSession) => {
+  const renderWorkoutSession = (workoutSession: WorkoutSession | MissingWorkout) => {
     const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
     const workoutStatus = workoutItemTemplate.querySelector('.workout-status') as HTMLParagraphElement
     const workoutDate = workoutItemTemplate.querySelector('.workout-date') as HTMLParagraphElement
@@ -114,7 +116,7 @@ export const mount = async (signal: AbortSignal) => {
     return openSlot
   }
 
-  if (_isDbEmpty) {
+  if (empty) {
     if (canRestore) {
       const restoreButton = document.createElement('button')
       restoreButton.classList.add('btn-primary', 'mx-auto')
@@ -213,14 +215,7 @@ export const mount = async (signal: AbortSignal) => {
 
         missingProgramsIds.forEach((missingProgramId) => {
           const status = isThisWeek ? 'pending' : 'skipped'
-          const workoutItem = renderWorkoutSession({
-            programId: missingProgramId,
-            status: status,
-            exercises: [],
-            location: '',
-            date: undefined
-          })
-          workoutsOfThisWeekList.appendChild(workoutItem)
+          workoutsOfThisWeekList.appendChild(renderWorkoutSession({ programId: missingProgramId, status }))
         })
       }
 
