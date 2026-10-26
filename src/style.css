@@ -20,8 +20,8 @@
   view-transition-name: none;
 }
 
-/* A list the page draws from IndexedDB arrives a few frames after the page. Where nothing prerendered the page,
-   as in Safari, its items fade in instead of popping in. */
+/* A list the page draws from IndexedDB arrives a few frames after the page, as on a full load, so its items fade in
+   instead of popping in. */
 .fills-in > * {
   animation: fill-in 150ms var(--ease-out);
 }

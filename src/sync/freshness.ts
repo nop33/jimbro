@@ -17,5 +17,5 @@ export const markRendered = () => {
 }
 
 // True when a sync or another tab changed the database since the page on screen rendered it. A document that Back or
-// Forward restored from the back/forward cache, or one prerendered before the tap, misses what was written meanwhile.
+// Forward restored from the back/forward cache misses what was written meanwhile.
 export const isOutOfDate = async () => (await readVersion()) !== (await shown)

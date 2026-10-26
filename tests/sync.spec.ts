@@ -233,8 +233,8 @@ test('a failed restore stays on the page', async ({ page }) => {
 })
 
 test('reset succeeds while another page holds the database', async ({ page }) => {
-  // A page Chromium prerendered or a page in the back/forward cache holds a connection, and closes it when the reset
-  // asks. A second page in the same context stands in for them.
+  // A page in the back/forward cache holds a connection, and closes it when the reset asks. A second page in the same
+  // context stands in for it.
   const other = await page.context().newPage()
   await other.goto('/workouts/')
   await other.evaluate(async () => {
