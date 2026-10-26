@@ -3,7 +3,7 @@ import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { parseSimpleDate } from '../../dateUtils'
 import { setTextContent } from '../../utils'
 import { loadChartJs } from './chartJs'
-import type { Chart as ChartInstance, Plugin } from 'chart.js'
+import type { Chart as ChartInstance, ChartDataset, Plugin } from 'chart.js'
 
 export interface ExerciseHistoryTarget {
   id: string
@@ -59,21 +59,13 @@ class ExerciseHistoryChart {
   private async renderChart(exercise: ExerciseHistoryTarget) {
     const sessions = await workoutSessionsStore.getAll()
 
-    // Filter sessions that have this exercise and have completed sets
-    const relevantSessions = sessions.reduce<
-      { session: (typeof sessions)[number]; exerciseExec: (typeof sessions)[number]['exercises'][number] }[]
-    >((acc, session) => {
-      const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)
-      if (exerciseExec && exerciseExec.sets.length > 0) {
-        acc.push({ session, exerciseExec })
-      }
-      return acc
-    }, [])
-
-    // Sort chronologically
-    relevantSessions.sort(
-      (a, b) => parseSimpleDate(a.session.date).getTime() - parseSimpleDate(b.session.date).getTime()
-    )
+    // The sessions that logged a set of this exercise, oldest first.
+    const relevantSessions = sessions
+      .flatMap((session) => {
+        const exerciseExec = session.exercises.find((e) => e.exerciseId === exercise.id)
+        return exerciseExec && exerciseExec.sets.length > 0 ? [{ session, exerciseExec }] : []
+      })
+      .sort((a, b) => a.session.date.localeCompare(b.session.date))
 
     const labels: string[] = []
     const avgWeightData: number[] = []
@@ -116,65 +108,18 @@ class ExerciseHistoryChart {
       this.chartInstance.destroy()
     }
 
-    // Chart.js configuration
-    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-
-    const textColor = isDarkMode ? '#e5e5e5' : '#262626'
-    const gridColor = isDarkMode ? '#404040' : '#d4d4d4'
-    const accentColor = '#3b82f6' // jim-accent roughly
-    const est1rmColor = '#10b981' // emerald-500
-    const volumeColor = '#8b5cf6' // violet-500
+    // The app is dark only, so the chart's text and grid are light on the dialog's dark background.
+    const textColor = '#e5e5e5'
+    const gridColor = '#404040'
 
     this.chartInstance = new Chart(this.canvas, {
       type: 'line',
       data: {
         labels,
         datasets: [
-          {
-            label: 'Average Weight',
-            data: avgWeightData,
-            borderColor: accentColor,
-            backgroundColor: accentColor + '33', // 20% opacity
-            borderWidth: 2,
-            pointBackgroundColor: accentColor,
-            pointBorderWidth: 0,
-            pointRadius: 2.5,
-            pointHoverRadius: 5,
-            fill: false,
-            tension: 0.3,
-            hidden: this.isMetricHidden(0),
-            yAxisID: 'y'
-          },
-          {
-            label: 'Estimated 1RM (Avg)',
-            data: est1rmData,
-            borderColor: est1rmColor,
-            backgroundColor: est1rmColor + '33',
-            borderWidth: 2,
-            pointBackgroundColor: est1rmColor,
-            pointBorderWidth: 0,
-            pointRadius: 2.5,
-            pointHoverRadius: 5,
-            fill: false,
-            tension: 0.3,
-            hidden: this.isMetricHidden(1),
-            yAxisID: 'y'
-          },
-          {
-            label: 'Total Volume',
-            data: totalVolumeData,
-            borderColor: volumeColor,
-            backgroundColor: volumeColor + '33',
-            borderWidth: 2,
-            pointBackgroundColor: volumeColor,
-            pointBorderWidth: 0,
-            pointRadius: 2.5,
-            pointHoverRadius: 5,
-            fill: false,
-            tension: 0.3,
-            hidden: this.isMetricHidden(2),
-            yAxisID: 'y1'
-          }
+          this.line('Average Weight', avgWeightData, '#3b82f6', 0, 'y'), // jim-accent roughly
+          this.line('Estimated 1RM (Avg)', est1rmData, '#10b981', 1, 'y'), // emerald-500
+          this.line('Total Volume', totalVolumeData, '#8b5cf6', 2, 'y1') // violet-500
         ]
       },
       options: {
@@ -251,6 +196,31 @@ class ExerciseHistoryChart {
       },
       plugins: [gymBandsPlugin(gymBands)]
     })
+  }
+
+  // One metric's line, which its button in the header hides and shows.
+  private line(
+    label: string,
+    data: number[],
+    color: string,
+    metric: number,
+    yAxisID: 'y' | 'y1'
+  ): ChartDataset<'line'> {
+    return {
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: color + '33', // 20% opacity
+      borderWidth: 2,
+      pointBackgroundColor: color,
+      pointBorderWidth: 0,
+      pointRadius: 2.5,
+      pointHoverRadius: 5,
+      fill: false,
+      tension: 0.3,
+      hidden: this.isMetricHidden(metric),
+      yAxisID
+    }
   }
 
   private isMetricHidden(index: number) {

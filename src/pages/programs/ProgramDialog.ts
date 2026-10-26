@@ -21,15 +21,11 @@ class ProgramDialog {
   constructor(signal: AbortSignal) {
     this.programExercisesSortableList = new ProgramExercisesSortableList('#selected-exercises-list', signal)
 
+    // The exercises still picked keep their order, and a newly picked one goes last.
     this.programExercisesMultiselect.on('exercise-selected', ({ detail: { selectedExerciseIds } }) => {
-      const selectedIdsSet = new Set(selectedExerciseIds)
-      selectedExerciseIds.forEach((id) => this.selectedExercises.add(id))
-      const currentSelectedExercises = Array.from(this.selectedExercises)
-      currentSelectedExercises.forEach((id) => {
-        if (!selectedIdsSet.has(id)) {
-          this.selectedExercises.delete(id)
-        }
-      })
+      const picked = new Set(selectedExerciseIds)
+      for (const id of this.selectedExercises) if (!picked.has(id)) this.selectedExercises.delete(id)
+      for (const id of picked) this.selectedExercises.add(id)
       this.programExercisesSortableList.render({ selectedExercises: this.selectedExercises })
     })
 

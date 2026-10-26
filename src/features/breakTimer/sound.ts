@@ -1,7 +1,6 @@
 export const playDingSound = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContext) return
+    if (typeof AudioContext !== 'function') return
 
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -19,6 +18,8 @@ export const playDingSound = () => {
 
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.5)
+    // Each ding makes its own context, which holds on to the audio output until it closes.
+    osc.addEventListener('ended', () => void ctx.close())
   } catch (err) {
     console.error('Failed to play sound', err)
   }

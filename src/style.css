@@ -748,7 +748,7 @@
   .toast-message-popup {
     @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 top-4 w-11/12 max-w-md z-50;
     transform: translateX(-50%);
-    /* It slides in from the top edge and leaves the same way (ToastMessage.ts), at the gentler pace a toast has. */
+    /* It slides in from the top edge and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
     transition:
       opacity 400ms ease,
       translate 400ms ease;

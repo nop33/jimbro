@@ -76,7 +76,7 @@ class ProgramExercisesSortableList extends EventEmitter<ProgramExercisesSortable
 
       if (isMoved) {
         const reorderedExerciseIds = Array.from(this.selectedExercisesList.children)
-          .map((child) => child.attributes.getNamedItem('data-exercise-id')?.value)
+          .map((child) => (child as HTMLElement).dataset.exerciseId)
           .filter((id) => id !== undefined)
         this.emit('reordered-exercises', { reorderedExerciseIds })
       }

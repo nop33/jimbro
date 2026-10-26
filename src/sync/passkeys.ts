@@ -13,7 +13,7 @@ import { replacesLocalRows } from './bootstrap'
 import { outbox, pushLock } from './outbox'
 import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
 import { restartFirstSync } from './queue'
-import { PULL_LIMIT, type PullPage } from './server'
+import { errorCodeOf, PULL_LIMIT, type PullPage } from './server'
 import { clearLastSyncAt, setSyncProblem } from './status'
 import { sync } from './syncClient'
 
@@ -48,14 +48,7 @@ class PasskeyServerError extends Error {
 
 const answer = async (response: Response) => {
   if (response.ok) return (await response.json()) as unknown
-  let code = String(response.status)
-  try {
-    const body = (await response.json()) as { error?: unknown }
-    if (typeof body.error === 'string') code = body.error
-  } catch {
-    // The body was not JSON, so the status stands.
-  }
-  throw new PasskeyServerError(code)
+  throw new PasskeyServerError(await errorCodeOf(response))
 }
 
 const post = (path: string, body: unknown, token?: string) => {

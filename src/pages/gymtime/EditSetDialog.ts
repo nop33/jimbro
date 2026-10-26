@@ -3,7 +3,7 @@ import type { Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { OpenSession } from './openSession'
-import { readSetFromForm, renderSetInputs } from './setSlots'
+import { confirmZeroSet, readSetFromForm, renderSetInputs } from './setSlots'
 
 interface EditSetData {
   set: ExerciseSetExecution
@@ -41,11 +41,7 @@ class EditSetDialog {
     if (!this.editedSetData) throw new Error('No edited set data found')
 
     const updatedSet = readSetFromForm(this.form, this.editedSetData.set.preset)
-    const values = setValues(updatedSet)
-
-    if (values.reps === 0 || (updatedSet.preset === 'lifting' && updatedSet.weight === 0)) {
-      if (!confirm(`Are you sure you want to submit a set with 0 ${values.reps === 0 ? 'reps' : 'weight'}?`)) return
-    }
+    if (!confirmZeroSet(updatedSet)) return
 
     const { exerciseId, index } = this.editedSetData
     await this.session.apply((session) => workoutSessionsStore.updateSet(session, exerciseId, index, updatedSet))
