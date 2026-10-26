@@ -4,8 +4,8 @@ import { toBase64Url } from '../../src/sync/base64url'
 // getPublicKey(), so no CBOR parser is needed: the worker reads the public key as SPKI, and only the fixed-layout
 // prefix of the authenticator data.
 
-export const ES256 = -7
-export const RS256 = -257
+const ES256 = -7
+const RS256 = -257
 export const ALGORITHMS = [ES256, RS256] as const
 
 const FLAG_USER_PRESENT = 0x01
@@ -52,7 +52,7 @@ export interface AuthenticatorData {
 
 // The fixed-layout start of the authenticator data: rpIdHash (32 bytes), flags (1), signCount (4), then, when the
 // attested credential flag is set, the AAGUID (16), the credential ID length (2) and the credential ID.
-export const readAuthenticatorData = (bytes: Uint8Array<ArrayBuffer>): AuthenticatorData | null => {
+const readAuthenticatorData = (bytes: Uint8Array<ArrayBuffer>): AuthenticatorData | null => {
   if (bytes.length < 37) return null
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const flags = bytes[32]
@@ -125,7 +125,7 @@ const readInteger = (der: Uint8Array, offset: number): { value: Uint8Array; next
 }
 
 // Authenticators sign ES256 as DER, SEQUENCE { INTEGER r, INTEGER s }, and WebCrypto verifies r || s.
-export const derToRaw = (der: Uint8Array): Uint8Array<ArrayBuffer> | null => {
+const derToRaw = (der: Uint8Array): Uint8Array<ArrayBuffer> | null => {
   if (der[0] !== 0x30 || der[1] !== der.length - 2) return null
   const r = readInteger(der, 2)
   if (!r) return null

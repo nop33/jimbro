@@ -12,11 +12,6 @@ class ProgramsStore extends CatalogStore<'programs'> {
     return upgradeProgramRecord(program as unknown as Record<string, unknown>, nowIso())
   }
 
-  async getNameMap(): Promise<Record<string, string>> {
-    const programs = await this.load()
-    return Object.fromEntries(programs.map((program) => [program.id, program.name]))
-  }
-
   async seed(): Promise<void> {
     const { default: seedPrograms } = await import('./seed-programs.json')
     const now = nowIso()

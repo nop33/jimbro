@@ -1,6 +1,5 @@
 import { legacySetId, rowsFromSession, sessionFromRows } from '../../sync/rows'
 import {
-  SESSION_STATUSES,
   type ExerciseExecution,
   type ExerciseSnapshot,
   type SessionHeader,
@@ -85,10 +84,8 @@ export const nextUnfinished = (session: WorkoutSession, exerciseId: Exercise['id
 }
 
 // A session holds each exercise once.
-export const hasExercise = (
-  session: { exercises: ReadonlyArray<ExerciseSnapshot> },
-  exerciseId: Exercise['id']
-): boolean => session.exercises.some((exercise) => exercise.exerciseId === exerciseId)
+const hasExercise = (session: { exercises: ReadonlyArray<ExerciseSnapshot> }, exerciseId: Exercise['id']): boolean =>
+  session.exercises.some((exercise) => exercise.exerciseId === exerciseId)
 
 // Whether a session came before the given one, which it is not, and has the exercise.
 const isEarlierWith = (
@@ -128,7 +125,7 @@ const tombstones = (sets: Array<SetRow>, updatedAt: string): Array<SetRow> =>
 // Workout sessions, each read as its header joined with its live sets. A write takes the session it changes and
 // resolves to the next one once it is stored. It never changes the session it was given, and every write but
 // remove goes through save, which recomputes the status.
-export class WorkoutSessionsStore {
+class WorkoutSessionsStore {
   private storeName = OBJECT_STORES.WORKOUT_SESSIONS
 
   // A session that exists and is not deleted.
@@ -191,10 +188,7 @@ export class WorkoutSessionsStore {
   }
 
   async getLatestSaved(): Promise<WorkoutSession | undefined> {
-    const header = await this.firstHeader(
-      'prev',
-      (candidate) => !candidate.isDeleted && SESSION_STATUSES.includes(candidate.status)
-    )
+    const header = await this.firstHeader('prev', (candidate) => !candidate.isDeleted)
     if (!header) return undefined
     return this.assemble(header)
   }
@@ -229,11 +223,6 @@ export class WorkoutSessionsStore {
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
       .map((candidate) => lastTimeIn(candidate, exerciseId))
       .filter((lastTime): lastTime is LastTime => lastTime !== undefined)
-  }
-
-  async getDateOfFirst(): Promise<string | undefined> {
-    const earliest = await this.firstHeader('next', (header) => !header.isDeleted)
-    return earliest?.date
   }
 
   // Each exercise starts with the target startingTargetSets gives for last time at the session's gym.

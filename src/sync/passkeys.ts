@@ -37,7 +37,7 @@ export const passkeysSupported = () => {
 }
 
 // The error the worker answered with, such as invalid_challenge, or the status.
-export class PasskeyServerError extends Error {
+class PasskeyServerError extends Error {
   readonly code: string
 
   constructor(code: string) {
@@ -255,7 +255,7 @@ export const createPasskeyAccount = async () => {
 }
 
 // Whether this device holds any exercise, program or workout, which signing in can replace with the account's copy.
-export const hasLocalRows = async () => {
+const hasLocalRows = async () => {
   for (const store of [OBJECT_STORES.EXERCISES, OBJECT_STORES.PROGRAMS, OBJECT_STORES.WORKOUT_SESSIONS]) {
     if ((await storage.count(store)) > 0) return true
   }

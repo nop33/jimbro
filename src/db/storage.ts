@@ -75,13 +75,12 @@ export class Storage {
   private db: IDBDatabase | null = null
   private opening: Promise<IDBDatabase> | null = null
 
-  private async init(): Promise<IDBDatabase> {
+  async connection(): Promise<IDBDatabase> {
     if (this.db) return this.db
     if (!this.opening) {
       this.opening = openDatabase().then((db) => {
-        // Another page is deleting or upgrading the database. Pages Chromium prerendered from the speculation rules
-        // and pages in the back/forward cache hold a connection too, and nobody can close those by hand, so every
-        // connection steps aside, and the next read opens a new one.
+        // Another page is deleting or upgrading the database. Pages in the back/forward cache hold a connection too,
+        // and nobody can close those by hand, so every connection steps aside, and the next read opens a new one.
         db.onversionchange = () => {
           db.close()
           if (this.db === db) {
@@ -96,14 +95,10 @@ export class Storage {
     return this.opening
   }
 
-  async connection(): Promise<IDBDatabase> {
-    return this.init()
-  }
-
   // Stores the rows, queues each one for the next push and updates setGroups, all in one transaction.
   async writeRows(writes: Array<Row>): Promise<void> {
     if (writes.length === 0) return
-    const db = await this.init()
+    const db = await this.connection()
     const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
     storeNames.push(...QUEUE_STORES)
     const setWrites = writes.filter((write): write is { table: 'sets'; row: SetRow } => write.table === 'sets')
@@ -143,21 +138,13 @@ export class Storage {
   }
 
   private async getStore(storeName: string): Promise<IDBObjectStore> {
-    let db = this.db
-
-    if (!db) {
-      db = await this.init()
-    }
-
-    const transaction = db.transaction([storeName], 'readonly')
-
-    return transaction.objectStore(storeName)
+    const db = await this.connection()
+    return db.transaction([storeName], 'readonly').objectStore(storeName)
   }
 
   async get<T>(storeName: string, key: string | number): Promise<T | undefined> {
     const store = await this.getStore(storeName)
-    const result = await promisifyRequest<T | undefined>(store.get(key))
-    return result
+    return promisifyRequest<T | undefined>(store.get(key))
   }
 
   async getAllByIndex<T>(storeName: string, indexName: string, key: string | number): Promise<Array<T>> {

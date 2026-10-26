@@ -15,7 +15,7 @@ export interface PasskeyEnv extends OriginEnv {
 }
 
 // How long a challenge stays good, which is also the timeout the browser gets.
-export const CHALLENGE_TTL_MS = 5 * 60_000
+const CHALLENGE_TTL_MS = 5 * 60_000
 
 type Purpose = 'register' | 'signin' | 'add'
 
@@ -82,7 +82,7 @@ const readBody = async (request: Request, fields: string[]) => {
 
 // The name a password manager lists the passkey under, from the day the account was made, so two accounts on one
 // phone read apart: "Jimbro · 12 Oct 2026".
-export const accountName = (createdAt: Date) =>
+const accountName = (createdAt: Date) =>
   `Jimbro · ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(createdAt)}`
 
 // What the browser's navigator.credentials.create() takes, with every buffer as base64url.

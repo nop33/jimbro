@@ -7,7 +7,7 @@ import { canonical } from './rows'
 import type { PullPage } from './server'
 
 // A pulled entry without its revision.
-export const rowFromWire = (entry: Row & { rev: number }): Row => {
+const rowFromWire = (entry: Row & { rev: number }): Row => {
   switch (entry.table) {
     case 'exercises':
       return { table: 'exercises', row: entry.row }

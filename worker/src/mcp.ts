@@ -48,7 +48,7 @@ const PROGRAMS_SQL = `SELECT data FROM programs
 WHERE user_id = ?1 AND json_extract(data, '$.isDeleted') = 0
 ORDER BY id ASC`
 
-export const MCP_TOOLS = [
+const MCP_TOOLS = [
   {
     name: 'recent_sessions',
     description:
