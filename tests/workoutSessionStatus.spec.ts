@@ -164,7 +164,9 @@ test.describe('Workout session status reconciliation', () => {
     await expect(sessionCard).toHaveClass(/card-warning/)
   })
 
-  test('the workout celebrates each time it goes from incomplete to completed', async ({ page }) => {
+  test('the workout celebrates each time it goes from incomplete to completed, and exports once a week', async ({
+    page
+  }) => {
     const sessionId = crypto.randomUUID()
     const exercises = await buildCompletedExercisesFor(page, PUSH_DAY_PROGRAM_ID)
     const last = exercises[exercises.length - 1]
@@ -185,6 +187,8 @@ test.describe('Workout session status reconciliation', () => {
       }).observe(document.body, { childList: true })
     })
     const workoutsDone = () => page.evaluate(() => Reflect.get(window, '__workoutsDone') as number)
+    let downloads = 0
+    page.on('download', () => downloads++)
 
     const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
     await lastCard.scrollIntoViewIfNeeded()
@@ -198,6 +202,10 @@ test.describe('Workout session status reconciliation', () => {
 
     await lastCard.getByRole('button', { name: 'Finished set' }).click()
     await expect.poll(workoutsDone).toBe(2)
+
+    // Without cloud backup the first finish downloads a JSON export, and the second, within the week, doesn't.
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+    expect(downloads).toBe(1)
   })
 
   test('the set that finishes the workout ends a minimized break', async ({ page }) => {
