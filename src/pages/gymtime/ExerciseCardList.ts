@@ -1,5 +1,4 @@
-import { exercisesStore } from '../../db/stores/exercisesStore'
-import { snapshotFromExercise, type PlannedSession } from '../../db/stores/workoutSessionsStore'
+import { catalogSnapshots, type PlannedSession } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import ExerciseCard, { type CardActions } from './ExerciseCard'
 import { keptLastTimes, planExercise, type ExercisePlan } from './exercisePlan'
@@ -43,15 +42,16 @@ class ExerciseCardList {
 
   private async draw(session: WorkoutSession | undefined, generation: number): Promise<void> {
     const planned = this.planned()
-    const exerciseIds = session ? session.exercises.map(({ exerciseId }) => exerciseId) : this.programExerciseIds
+    // Before the start, the cards show the exercises the start will store.
+    const snapshots = session ? session.exercises : await catalogSnapshots(this.programExerciseIds)
 
     const plans = await Promise.all(
-      exerciseIds.map(async (exerciseId): Promise<[ExerciseSnapshot, ExercisePlan] | undefined> => {
-        const snapshot =
-          session?.exercises.find((e) => e.exerciseId === exerciseId) ?? (await catalogSnapshot(exerciseId))
-        if (!snapshot) return undefined
-        return [snapshot, await planExercise(snapshot, session ?? planned, this.lastTimes)]
-      })
+      snapshots.map(
+        async (snapshot): Promise<[ExerciseSnapshot, ExercisePlan]> => [
+          snapshot,
+          await planExercise(snapshot, session ?? planned, this.lastTimes)
+        ]
+      )
     )
 
     // A later session is on its way to the screen.
@@ -61,7 +61,7 @@ class ExerciseCardList {
     const scrollY = window.scrollY
     const cards = new Map<ExerciseSnapshot['exerciseId'], ExerciseCard>()
     const traced: Array<Promise<void>> = []
-    for (const [snapshot, plan] of plans.filter((shown) => shown !== undefined)) {
+    for (const [snapshot, plan] of plans) {
       const card = this.cards.get(snapshot.exerciseId) ?? new ExerciseCard(snapshot, this.actions)
       traced.push(card.show(snapshot, session, plan))
       cards.set(snapshot.exerciseId, card)
@@ -81,12 +81,6 @@ class ExerciseCardList {
     // A set just logged draws its border before what the change means, like the break timer, covers it.
     await Promise.all(traced)
   }
-}
-
-// Before a session starts, the card shows the exercise as the catalog has it.
-const catalogSnapshot = async (exerciseId: string): Promise<ExerciseSnapshot | undefined> => {
-  const exercise = await exercisesStore.getById(exerciseId)
-  return exercise && snapshotFromExercise(exercise)
 }
 
 export default ExerciseCardList

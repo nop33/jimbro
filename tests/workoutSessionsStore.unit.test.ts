@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vite-plus/test'
 import { OBJECT_STORES } from '../src/db/constants'
 import type { Exercise } from '../src/db/stores/exercisesStore'
 import {
+  catalogSnapshots,
   nextUnfinished,
   progressOf,
   snapshotFromExercise,
@@ -48,6 +49,15 @@ const storeStaleStatus = async (session: WorkoutSession, status: SessionHeader['
 }
 
 describe('workoutSessionsStore', () => {
+  it('plans a program with the exercises the catalog has, a deleted one included, and leaves out an unknown ID', async () => {
+    const bench = exercise('plan-bench', 3)
+    const gone = { ...exercise('plan-gone', 2), isDeleted: true }
+    await storage.writeRows([bench, gone].map((row) => ({ table: 'exercises' as const, row })))
+    const snapshots = await catalogSnapshots(['plan-bench', 'plan-missing', 'plan-gone'])
+    expect(snapshots.map(({ exerciseId }) => exerciseId)).toEqual(['plan-bench', 'plan-gone'])
+    expect(snapshots[0]).toEqual(snapshotFromExercise(bench))
+  })
+
   it('stores the status the sets give with every change', async () => {
     let session = await start(exercise('bench', 1))
     expect(session.status).toBe('incomplete')

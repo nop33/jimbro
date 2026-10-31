@@ -12,7 +12,7 @@ import type { ExerciseSetExecution } from '../exerciseLogging'
 import { nowIso } from '../nowIso'
 import { transactionDone } from '../promisifyRequest'
 import { storage } from '../storage'
-import type { Exercise } from './exercisesStore'
+import { exercisesStore, type Exercise } from './exercisesStore'
 
 // What starting a workout provides. The store adds the id, the status and updatedAt, and sets each exercise's
 // starting target.
@@ -45,15 +45,17 @@ export const snapshotFromExercise = (exercise: Exercise): ExerciseSnapshot => ({
   defaults: { ...exercise.defaults }
 })
 
-export const placeholderSnapshot = (exerciseId: string): ExerciseSnapshot => ({
-  exerciseId,
-  name: '(deleted)',
-  kind: 'lifting',
-  preset: 'lifting',
-  muscle: 'core',
-  targetSets: 1,
-  defaults: {}
-})
+// The exercises a workout started from these IDs holds, as the catalog has them now: a deleted exercise still counts,
+// and an ID the database lacks is left out. The cards before a start show them, and the start stores them, so the two
+// always agree.
+export const catalogSnapshots = async (
+  exerciseIds: ReadonlyArray<Exercise['id']>
+): Promise<Array<ExerciseSnapshot>> => {
+  const exercises = await Promise.all(
+    exerciseIds.map(async (id) => exercisesStore.find(id) ?? (await exercisesStore.getById(id)))
+  )
+  return exercises.filter((exercise) => exercise !== undefined).map(snapshotFromExercise)
+}
 
 // The target an exercise starts with when a session starts or it joins one: as many sets as the exercise asks for,
 // or as last time had when more.
