@@ -598,8 +598,11 @@
   @supports (position-area: top) {
     .set-badge-details {
       inset: auto;
-      margin: 0 0 6px;
-      position-area: top span-left;
+      /* Centred on the pill, and pushed back inside the screen's 1rem gutters where it would leave them, as by the
+         reps pill on the left and the weight pill on the right. */
+      margin: 0 1rem 6px;
+      position-area: top span-all;
+      justify-self: anchor-center;
       position-try-fallbacks: flip-block;
     }
   }

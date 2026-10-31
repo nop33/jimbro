@@ -144,6 +144,48 @@ test.describe('Gymtime Page', () => {
     await expect(weight).not.toHaveAttribute('aria-describedby')
   })
 
+  test('prefills the most reps at the heaviest weight and says so when those reps differed', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const exerciseId = await card.getAttribute('data-exercise-id')
+    await page.evaluate(async (id) => {
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      const { snapshotFromExercise, workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
+      const exercise = await exercisesStore.getById(id ?? '')
+      if (!exercise) throw new Error('exercise not seeded')
+      let session = await workoutSessionsStore.create({
+        date: '2020-01-01',
+        programId: 'past',
+        location: '',
+        exercises: [snapshotFromExercise(exercise)]
+      })
+      for (const reps of [10, 8, 6]) {
+        session = await workoutSessionsStore.addSet(session, id ?? '', { preset: 'lifting', reps, weight: 50 })
+      }
+    }, exerciseId)
+    // The page reads last time once, so it loads again to see the workout just stored.
+    await page.reload()
+
+    await card.locator('.exercise-details > summary').click()
+
+    const reps = card.locator('.next-set-form input[name="set-reps"]')
+    await expect(reps).toHaveValue('10')
+    await expect(reps).toHaveAccessibleDescription('Most reps last time at 50 kg: 10')
+    // Every set was at 50 kg, so the weight has no pill.
+    await expect(card.getByRole('button', { name: 'Max' })).toHaveCount(1)
+
+    const badge = card.getByRole('button', { name: 'Max' })
+    await badge.click()
+    const details = card.getByText('Most reps last time at 50 kg: 10')
+    await expect(details).toBeVisible()
+    await expect(details).toBeInViewport({ ratio: 1 })
+    await page.keyboard.press('Escape')
+    await expect(details).toBeHidden()
+
+    await reps.fill('9')
+    await expect(badge).toHaveCount(0)
+    await expect(reps).not.toHaveAttribute('aria-describedby')
+  })
+
   test('Previous sets opens on last time and steps to older and newer workouts at any gym', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const exerciseId = await card.getAttribute('data-exercise-id')

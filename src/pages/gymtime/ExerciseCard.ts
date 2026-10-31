@@ -2,7 +2,8 @@ import {
   emptySet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
-  type ExerciseSetExecution
+  type ExerciseSetExecution,
+  type SetSlot
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
 import {
@@ -29,7 +30,8 @@ import {
   confirmZeroSet,
   readSetFromForm,
   renderSetFields,
-  renderSetInputs
+  renderSetInputs,
+  type SetSlotBadge
 } from './setSlots'
 
 // Room a menu needs below what it opens from: the actions menu's four 48px items and a margin, or the set menu's one.
@@ -188,9 +190,13 @@ class ExerciseCard {
       )
     )
 
-    const badges = plan.prefillIsMax
-      ? { weight: { label: 'Max', details: `Heaviest set last time: ${plan.prefill.weight} kg` } }
-      : {}
+    const badges: Partial<Record<SetSlot, SetSlotBadge>> = {}
+    if (plan.prefillIsMax.weight) {
+      badges.weight = { label: 'Max', details: `Heaviest set last time: ${plan.prefill.weight} kg` }
+    }
+    if (plan.prefillIsMax.reps) {
+      badges.reps = { label: 'Max', details: `Most reps last time at ${plan.prefill.weight} kg: ${plan.prefill.reps}` }
+    }
     const fillWith = JSON.stringify([preset, plan.prefill, badges])
     const onInputs = this.typedIn || this.nextSetForm.contains(document.activeElement)
     if (presetChanged || (fillWith !== this.filledWith && !onInputs)) {

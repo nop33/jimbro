@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Exercise } from '../src/db/stores/exercisesStore'
 import { snapshotFromExercise, workoutSessionsStore } from '../src/db/stores/workoutSessionsStore'
-import { keptLastTimes, nextSetValues, planExercise, prefillIsMaxWeight } from '../src/pages/gymtime/exercisePlan'
+import { keptLastTimes, nextSetValues, planExercise, prefillMaxima } from '../src/pages/gymtime/exercisePlan'
 
 // storage.ts announces writes on window. Node has no window, so an EventTarget stands in.
 vi.stubGlobal('window', new EventTarget())
@@ -20,7 +20,7 @@ const exercise = (id: string, targetSets = 3): Exercise => ({
   updatedAt: '2026-10-01T00:00:00.000Z'
 })
 
-const lift = (weight: number) => ({ preset: 'lifting' as const, reps: 5, weight })
+const lift = (weight: number, reps = 5) => ({ preset: 'lifting' as const, reps, weight })
 
 const workout = async (lifted: Exercise, date: string, location: string, weights: Array<number>) => {
   let session = await workoutSessionsStore.create({
@@ -46,7 +46,7 @@ describe('planExercise', () => {
       sets: [lift(40), lift(45), lift(50), lift(50), lift(50)]
     })
     expect(plan.prefill).toEqual({ reps: 5, weight: 40 })
-    expect(plan.prefillIsMax).toBe(false)
+    expect(plan.prefillIsMax).toEqual({ weight: false, reps: false })
   })
 
   it('prefers last time at the same gym, and falls back to any gym', async () => {
@@ -151,20 +151,35 @@ describe('nextSetValues', () => {
 
   it("starts from last time's heaviest weight, and says so when the weights differed", () => {
     expect(nextSetValues(snapshot, [], lastTime)).toEqual({ reps: 5, weight: 50 })
-    expect(prefillIsMaxWeight(snapshot, [], lastTime)).toBe(true)
+    expect(prefillMaxima(snapshot, [], lastTime)).toEqual({ weight: true, reps: false })
 
     const even = { ...lastTime, sets: [lift(50), lift(50), lift(50)] }
     expect(nextSetValues(snapshot, [], even)).toEqual({ reps: 5, weight: 50 })
-    expect(prefillIsMaxWeight(snapshot, [], even)).toBe(false)
+    expect(prefillMaxima(snapshot, [], even)).toEqual({ weight: false, reps: false })
+  })
+
+  it('starts from the most reps at the heaviest weight, and says so when those reps differed', () => {
+    const dropping = { ...lastTime, sets: [lift(50, 10), lift(50, 8), lift(50, 6)] }
+    expect(nextSetValues(snapshot, [], dropping)).toEqual({ reps: 10, weight: 50 })
+    expect(prefillMaxima(snapshot, [], dropping)).toEqual({ weight: false, reps: true })
+
+    // Only the sets at the heaviest weight count, so a lighter set's extra reps never land on the heavier weight.
+    const pyramid = { ...lastTime, sets: [lift(40, 12), lift(50, 8), lift(50, 6), lift(45, 10)] }
+    expect(nextSetValues(snapshot, [], pyramid)).toEqual({ reps: 8, weight: 50 })
+    expect(prefillMaxima(snapshot, [], pyramid)).toEqual({ weight: true, reps: true })
+
+    const single = { ...lastTime, sets: [lift(40, 12), lift(50, 8)] }
+    expect(nextSetValues(snapshot, [], single)).toEqual({ reps: 8, weight: 50 })
+    expect(prefillMaxima(snapshot, [], single)).toEqual({ weight: true, reps: false })
   })
 
   it("repeats today's latest set once there is one, with no max to tell", () => {
     expect(nextSetValues(snapshot, [lift(42.5)], lastTime)).toEqual({ reps: 5, weight: 42.5 })
-    expect(prefillIsMaxWeight(snapshot, [lift(42.5)], lastTime)).toBe(false)
+    expect(prefillMaxima(snapshot, [lift(42.5)], lastTime)).toEqual({ weight: false, reps: false })
   })
 
   it("uses the exercise's defaults with no last time", () => {
     expect(nextSetValues(snapshot, [], undefined)).toEqual({ reps: 5 })
-    expect(prefillIsMaxWeight(snapshot, [], undefined)).toBe(false)
+    expect(prefillMaxima(snapshot, [], undefined)).toEqual({ weight: false, reps: false })
   })
 })
