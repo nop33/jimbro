@@ -140,3 +140,55 @@ test('a page reached by its address, or reloaded, still loads in full and works'
   await expect(page.getByText('Push day')).toBeVisible()
   expect(await sameDocument(page)).toBe(false)
 })
+
+test('choosing a workout mode draws the workouts page again in the same document', async ({ page }) => {
+  await page.goto('/workouts/')
+  await expect(page.locator('#workout-mode-name')).toHaveText('Rotation')
+  await markDocument(page)
+
+  await page.locator('#week-progress').click()
+  // Choosing a mode draws the page again at once, so a click stands in for check().
+  await page.locator('dialog#workout-mode-dialog').getByRole('radio', { name: 'Freestyle' }).click()
+
+  await expect(page.locator('#workout-mode-name')).toHaveText('Freestyle')
+  await expect(page.locator('dialog#workout-mode-dialog')).toBeHidden()
+  expect(await sameDocument(page)).toBe(true)
+})
+
+test('a page draws again in place when the rows change behind it, as a first sync restoring does', async ({ page }) => {
+  await page.goto('/exercises/')
+  await expect(page.getByText('Bench press')).toBeVisible()
+  await markDocument(page)
+
+  // A row written past writeRows and a moved seq, the way a first sync commits what it restored, then the sync settles.
+  await page.evaluate(async () => {
+    const { storage } = await import('/src/db/storage.ts')
+    const db = await storage.connection()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['exercises', 'meta'], 'readwrite')
+      tx.objectStore('exercises').put({
+        id: 'restored-curl',
+        name: 'Restored curl',
+        kind: 'lifting',
+        preset: 'lifting',
+        targetSets: 3,
+        defaults: { reps: 10 },
+        isDeleted: false,
+        updatedAt: new Date().toISOString()
+      })
+      const seq = tx.objectStore('meta').get('seq')
+      seq.onsuccess = () => {
+        tx.objectStore('meta').put({
+          name: 'seq',
+          value: ((seq.result as { value: number } | undefined)?.value ?? 0) + 1
+        })
+      }
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+    window.dispatchEvent(new CustomEvent('jimbro:sync-settled'))
+  })
+
+  await expect(page.getByText('Restored curl')).toBeVisible()
+  expect(await sameDocument(page)).toBe(true)
+})

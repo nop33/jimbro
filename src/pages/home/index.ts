@@ -3,7 +3,7 @@ import { programsStore } from '../../db/stores/programsStore'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { getWorkoutModeSettings } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import { reloadWhenStale } from '../reloadWhenStale'
+import { redrawOnNewDay } from '../../redraw'
 import { onAppInstalled, promptInstall } from '../../features/installPrompt'
 import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
 
@@ -130,5 +130,5 @@ export const mount = async (signal: AbortSignal) => {
   if (sessions.length > 0) renderHighlights(overview)
   renderPicks(overview)
 
-  reloadWhenStale(today, signal)
+  redrawOnNewDay(today, signal)
 }

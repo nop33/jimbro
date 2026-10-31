@@ -1,3 +1,4 @@
+import { redraw } from '../../redraw'
 import { getWorkoutModeSettings, storeWorkoutModeSettings, type WorkoutMode } from '../../settings'
 
 const MODE_DESCRIPTIONS: Record<WorkoutMode, string> = {
@@ -35,7 +36,7 @@ class WorkoutModeDialog {
     const settings = getWorkoutModeSettings()
     storeWorkoutModeSettings({ ...settings, mode: selected })
     this.updateUI(selected)
-    window.location.reload()
+    void redraw()
   }
 
   private handleGoalChange() {
@@ -43,7 +44,7 @@ class WorkoutModeDialog {
     this.goalInput.value = String(value)
     const settings = getWorkoutModeSettings()
     storeWorkoutModeSettings({ ...settings, weeklyGoal: value })
-    window.location.reload()
+    void redraw()
   }
 
   private getSelectedMode(): WorkoutMode {

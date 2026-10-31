@@ -134,6 +134,7 @@ export async function commitFirstSync(
         const seqRequest = tx.objectStore(OBJECT_STORES.META).get('seq')
         seqRequest.onsuccess = () => {
           let seq = (seqRequest.result as MetaRecord | undefined)?.value ?? 0
+          let rowsChanged = false
           const keptSets: SetRow[] = []
           const keptSessionExercises = new Map<string, Set<string>>()
           for (const [key, action] of input.actions) {
@@ -145,6 +146,7 @@ export async function commitFirstSync(
               if (!pulled) continue
               if (serverStillHasPushedBody(entry, pulled)) continue
               putRow(tx, pulled)
+              rowsChanged = true
               if (pulled.table === 'sets') keptSets.push(pulled.row)
               if (pulled.table === 'sessions') {
                 keptSessionExercises.set(
@@ -174,12 +176,15 @@ export async function commitFirstSync(
             if (entry && entry.seq > input.seqAtStart) continue
             if (input.pulledByKey.has(key)) continue
             tx.objectStore(OBJECT_STORES.SETS).delete(set.id)
+            rowsChanged = true
             outbox.delete(key)
             const dropped = droppedBySession.get(set.sessionId) ?? []
             dropped.push(set.id)
             droppedBySession.set(set.sessionId, dropped)
           }
           syncSetGroups(tx, keptSets, droppedBySession)
+          // seq moves with every change of rows, local or restored, which tells a page on screen that it is stale.
+          if (rowsChanged) seq += 1
           tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
           tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: input.cursor })
         }
