@@ -10,14 +10,16 @@
   view-transition-name: app-header;
 }
 
-/* The minimized break timer is a bar fixed to the top of the screen. While it shows, the page starts below it, so the
-   bar never covers the header's title or its buttons. */
+/* The minimized break timer is a bar that sits on the bottom nav, where the thumb is, so it covers neither the header's
+   title and buttons nor the nav. While it shows, the page ends that much later, so the bar never hides its last row.
+   Room at the bottom moves nothing on screen, where room at the top would push the page down under the finger. */
 :root {
+  --bottom-nav-height: calc(5rem + 1px);
   --break-bar-height: calc(4.5rem + 1px);
 }
 
-:root:has(#break-countdown-dialog.dialog-minimized[open]) body {
-  padding-top: var(--break-bar-height);
+:root:has(#break-countdown-dialog.dialog-minimized[open]) .app-page {
+  margin-bottom: var(--break-bar-height);
 }
 
 .bottom-nav {
@@ -524,8 +526,10 @@
   }
 
   .dialog-minimized {
-    @apply fixed top-0 z-50 w-full max-w-full rounded-none rounded-b-2xl p-4 cursor-pointer m-0 border-t-0 border-x-0 border-b border-neutral-700/50 shadow-lg flex items-center justify-center;
+    @apply fixed z-50 w-full max-w-full rounded-none rounded-t-2xl p-4 cursor-pointer m-0 border-b-0 border-x-0 border-t border-neutral-700/50 shadow-lg flex items-center justify-center;
     box-sizing: border-box;
+    top: auto;
+    bottom: var(--bottom-nav-height);
     height: var(--break-bar-height);
   }
 
@@ -533,7 +537,7 @@
     display: none;
   }
 
-  /* Minimizing shrinks the break timer into its bar at the top, and the countdown with it, and maximizing grows it
+  /* Minimizing shrinks the break timer into its bar on the bottom nav, and the countdown with it, and maximizing grows it
      back (BreakTimerDialog.ts runs the swap as a view transition). The box moves on screen, so it eases in and out. */
   #break-countdown-dialog {
     view-transition-name: break-timer;

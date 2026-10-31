@@ -14,7 +14,7 @@ export interface Break {
   exercise: { id: string; name: string; kind: ExerciseKind }
 }
 
-// The countdown between sets, full screen or as a bar at the top. One timer serves the whole document, so a break
+// The countdown between sets, full screen or as a bar on the bottom nav. One timer serves the whole document, so a break
 // keeps counting down whatever page shows under it.
 class BreakTimer {
   private dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
@@ -54,7 +54,7 @@ class BreakTimer {
     this.viewHistoryButton.addEventListener('click', () => {
       if (this.currentExercise) this.openHistory?.(this.currentExercise)
     })
-    // The link goes to the workout with the break running, as the bar at the top, so the workout shows under it.
+    // The link goes to the workout with the break running, as the bar on the bottom nav, so the workout shows with it.
     this.backToWorkoutLink.addEventListener('click', (event) => {
       event.stopPropagation()
       this.showMinimized()
