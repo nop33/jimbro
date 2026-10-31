@@ -10,6 +10,16 @@
   view-transition-name: app-header;
 }
 
+/* The minimized break timer is a bar fixed to the top of the screen. While it shows, the page starts below it, so the
+   bar never covers the header's title or its buttons. */
+:root {
+  --break-bar-height: calc(4.5rem + 1px);
+}
+
+:root:has(#break-countdown-dialog.dialog-minimized[open]) body {
+  padding-top: var(--break-bar-height);
+}
+
 .bottom-nav {
   view-transition-name: bottom-nav;
 }
@@ -135,8 +145,9 @@
     }
   }
 
+  /* A destructive button is outlined, so it never looks like the safe primary action beside it. */
   .btn-danger {
-    @apply bg-jim-error text-white;
+    @apply border-jim-accent/50 text-jim-accent hover:bg-jim-error hover:text-white;
   }
 
   /* A button whose tap is still being worked on (whileBusy in src/pages/busyButton.ts). Under reduced motion the ring
@@ -514,6 +525,8 @@
 
   .dialog-minimized {
     @apply fixed top-0 z-50 w-full max-w-full rounded-none rounded-b-2xl p-4 cursor-pointer m-0 border-t-0 border-x-0 border-b border-neutral-700/50 shadow-lg flex items-center justify-center;
+    box-sizing: border-box;
+    height: var(--break-bar-height);
   }
 
   .dialog-minimized::backdrop {

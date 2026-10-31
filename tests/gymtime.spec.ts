@@ -331,6 +331,11 @@ test.describe('Gymtime Page', () => {
     expect(bar.y).toBe(0)
     expect(countdown.y).toBeGreaterThanOrEqual(bar.y)
     expect(countdown.y + countdown.height).toBeLessThanOrEqual(bar.y + bar.height)
+
+    // The page makes room for the bar, so at the top of the page its header shows under it.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    const header = (await page.locator('.app-header').boundingBox())!
+    expect(header.y).toBeGreaterThanOrEqual(bar.y + bar.height)
   })
 
   test('set rows spread their fields across the row, in columns', async ({ page }) => {
