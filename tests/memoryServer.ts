@@ -1,3 +1,4 @@
+import type { Account, Accounts } from '../src/sync/account'
 import { rowKey } from '../src/sync/bootstrap'
 import type { PushLock } from '../src/sync/outbox'
 import { canonical } from '../src/sync/rows'
@@ -72,7 +73,8 @@ export const sharedLock = () => {
   return { lock, requests: () => requests }
 }
 
-// The page a sync runs on, recording what the sync tells it.
+// The page a sync runs on and the account it runs for, recording what the sync tells them. The account is always
+// saved, so tests that switch accounts use createAccounts instead.
 export const testPage = () => {
   const notices: string[] = []
   const synced: string[] = []
@@ -82,16 +84,22 @@ export const testPage = () => {
     announce: (notice) => {
       notices.push(notice)
     },
+    leaving: () => leaving
+  }
+  const saved: Account = { userId: 'user', token: 'token', method: 'token' }
+  const accounts: Pick<Accounts, 'current' | 'use' | 'synced' | 'failed'> = {
+    current: () => saved,
+    use: (task) => task(saved),
     synced: (at) => {
       synced.push(at)
     },
     failed: (error) => {
       failures.push(error)
-    },
-    leaving: () => leaving
+    }
   }
   return {
     page,
+    accounts,
     notices,
     synced,
     failures,

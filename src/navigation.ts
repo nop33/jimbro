@@ -1,7 +1,7 @@
 import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
 import { isOutOfDate } from './sync/freshness'
-import { getSyncProblem } from './sync/status'
+import { account } from './sync/account'
 import Toasts from './features/toasts'
 import { PROBLEM_MESSAGES } from './pages/syncProblems'
 
@@ -12,7 +12,7 @@ let toldProblem = false
 // device stops this one syncing, so the page says so, once.
 const startSync = () => {
   void sync().catch(() => {
-    const problem = getSyncProblem()
+    const { problem } = account.status()
     if (toldProblem || !problem) return
     toldProblem = true
     Toasts.show({ message: PROBLEM_MESSAGES[problem], type: 'error', duration: 'long' })

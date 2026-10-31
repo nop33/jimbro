@@ -65,7 +65,7 @@ const countLocal = (page: Page, store: string) =>
   }, store)
 
 const assertLocalWorker = async (page: Page) => {
-  const base = await page.evaluate(async () => (await import('/src/db/cloudBackup.ts')).API_BASE as string)
+  const base = await page.evaluate(async () => (await import('/src/sync/server.ts')).API_BASE as string)
   expect(base, 'The app must talk to the local worker. Stop any dev server of your own so Playwright starts one.').toBe(
     API_BASE
   )

@@ -1,8 +1,8 @@
-import { getCloudBackupConfig } from '../../db/cloudBackup'
+import { account } from '../../sync/account'
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
 import { storage } from '../../db/storage'
-import { getMeta } from '../../sync/queue'
+import { firstSyncDue } from '../../sync/queue'
 import { passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
@@ -35,11 +35,7 @@ export const mount = async (signal: AbortSignal) => {
   const [sessions, programs] = await Promise.all([workoutSessionsStore.getAll(), programsStore.load()])
   const programNames = Object.fromEntries(programs.map((program) => [program.id, program.name]))
   const empty = await isDbEmpty()
-  const canRestore =
-    empty &&
-    getCloudBackupConfig() !== null &&
-    (await getMeta(storage, 'cursor')) === 0 &&
-    (await getMeta(storage, 'bootstrapped')) === 0
+  const canRestore = empty && account.current() !== null && (await firstSyncDue(storage))
   const settings = getWorkoutModeSettings()
   const today = getSimpleDate(new Date())
   const { goal, weeks, programs: programStatuses } = trainingWeeks(sessions, programs, settings, today)

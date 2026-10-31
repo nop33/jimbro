@@ -28,6 +28,12 @@ export const getMeta = async (storage: Storage, name: MetaRecord['name']): Promi
   return record?.value ?? 0
 }
 
+// Whether this database has never synced with the saved account, after a fresh install, a reset or a switch of
+// account, so the next sync is a first sync, which restores. A first sync that pulled rows records the cursor it
+// reached, and one that found nothing on either side marks the database bootstrapped.
+export const firstSyncDue = async (storage: Storage) =>
+  (await getMeta(storage, 'cursor')) === 0 && (await getMeta(storage, 'bootstrapped')) === 0
+
 // The stores a transaction must include to call queueRows.
 export const QUEUE_STORES = [OBJECT_STORES.OUTBOX, OBJECT_STORES.META]
 

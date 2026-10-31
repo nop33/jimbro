@@ -140,7 +140,7 @@ Sync is optional. Without credentials the app sends nothing to the worker. With 
 - A passkey is the account. "Create passkey" makes a new account on the worker and a passkey for it, which the phone's password manager (iCloud Keychain, Google Password Manager) keeps and brings to a new phone. "Sign in with passkey" there restores the account. There is no email, password or recovery code: losing every passkey loses the backup, though the phone keeps its data.
 - The passkey ceremony is the browser's own WebAuthn API (`src/sync/passkeys.ts`), and the worker checks it. The worker hands back a user ID and a bearer token, which the app saves as its credentials, marked as set up by a passkey. A user ID and token typed into Settings are marked as a token, as are credentials saved before passkeys existed.
 - Creating a passkey always makes a new account. A device that synced with a token account leaves that account's server data behind.
-- Signing up or signing in switches the device to the account: under the push lock it resets the sync state (`restartFirstSync` in `src/sync/queue.ts`) and then saves the credentials, so the next sync is a first sync with the new account. That sync pulls the account's rows and pushes every row only the device has, so a device that synced with another account backs everything up to the new one. Like any first sync it keeps the account's copy of a row both sides have, even one the phone edited: the sample exercises have fixed IDs and every row of a phone without a backup waits in the outbox, so the phone winning would let a freshly seeded phone overwrite the account's exercises. So signing in on a phone with data asks first, and sign-out pushes first and warns about what could not go.
+- Signing up, signing in or saving a typed token switches the device to the account (`account.switchTo` in `src/sync/account.ts`): it waits for running syncs, then under the push lock resets the sync state (`restartFirstSync` in `src/sync/queue.ts`) and saves the credentials, so the next sync is a first sync with the new account. That sync pulls the account's rows and pushes every row only the device has, so a device that synced with another account backs everything up to the new one. Like any first sync it keeps the account's copy of a row both sides have, even one the phone edited: the sample exercises have fixed IDs and every row of a phone without a backup waits in the outbox, so the phone winning would let a freshly seeded phone overwrite the account's exercises. So signing in on a phone with data asks first, and sign-out pushes first and warns about what could not go.
 - Safari lets a page open the passkey sheet only shortly after the tap. Pages fetch a ceremony's options when they show its button, and fetch new ones before the worker's 5-minute challenge expires, so the tap opens the sheet without waiting for the network.
 - Each user runs the app on one device, as the installed PWA, and the worker holds to it for passkey accounts: a passkey sign-in reports how many devices are signed in to the account already (`otherDevices`), and once the user agrees, the app claims the account (`POST /api/claim`), which forgets every other token a passkey handed out. The old device's next push answers 401, and the app takes a 401 on passkey credentials as the move: it forgets the credentials, marks itself signed out and records the `moved` sync problem. So a lost or replaced phone migrates by signing in on the new one, and signing in on a laptop says first that the phone will stop backing up. `AUTH_TOKENS` tokens are never claimed, so two devices with one typed token still share an account: neither sees the other's changes, and each push overwrites the server's copy of the rows it changed. Nor are two tabs supported: a page hears only its own notices, so another tab's changes show only after a reload.
 - Every write lands in IndexedDB first, in one transaction with an outbox entry for each changed row. Nothing waits for the network.
@@ -276,21 +276,20 @@ src/
     schemaUpgrade.ts   Upgrades records from older exports
     export.ts          JSON export, version 4
     import.ts          JSON import, versions 1 to 4
-    cloudBackup.ts     Credentials and authenticated requests to the worker
     reactiveStore.ts   ReactiveStore<T>, the observable value behind the stores' state
   sync/                Cloud sync
+    account.ts         The account: credentials, switch, sign-out, sync status
     syncClient.ts      The app's sync(), wired to the worker and the open page
     passkeys.ts        Passkey sign-up, sign-in, another passkey and sign-out, with the browser's WebAuthn API
     syncEngine.ts      createSync: the first sync (restore), the push and reruns, behind a server port
-    server.ts          The server port, and httpServer, its adapter for the worker's API
-    queue.ts           Outbox entries and meta, queueRows, which writeRows calls in its transaction, and restartFirstSync
+    server.ts          The server port, httpServer, its adapter for the worker's API, and requestJson
+    queue.ts           Outbox entries and meta, queueRows, which writeRows calls in its transaction, firstSyncDue and restartFirstSync
     outbox.ts          The push: take a chunk, send it, ack it under a Web Lock
     pull.ts            The first sync's commit of what it pulled
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Page notices, as jimbro: window events
     freshness.ts       Whether the database changed since this page rendered it
-    status.ts          Last sync time
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback
   navigation.ts        Back button and sync triggers

@@ -1,4 +1,4 @@
-import type { SyncProblem } from '../sync/status'
+import type { SyncProblem } from '../sync/account'
 
 // What the pages tell the user about a sync problem: a toast once per page, and Settings after "Sync now".
 export const PROBLEM_MESSAGES: Record<SyncProblem, string> = {

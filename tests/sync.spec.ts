@@ -5,6 +5,7 @@ import { test } from './fixtures'
 import { rowsFromExport } from '../src/sync/rows'
 import type { ExportShape, Row } from '../src/db/types'
 import { API_BASE, claimUser, type WorkerUser } from './localWorker'
+import { seedDatabase } from './seed'
 
 // syncEngine.unit.test.ts and outbox.unit.test.ts cover the sync rules: the first sync, which restores, the push, the
 // outbox and the reruns. These tests run the app against the real local worker, for what needs a browser or the worker.
@@ -103,7 +104,7 @@ const seedFixture = async (user: WorkerUser) => {
 const signIn = async (page: Page, user: WorkerUser) => {
   await page.goto('/settings/')
   const base = await page.evaluate(async () => {
-    const backup = await import('/src/db/cloudBackup.ts')
+    const backup = await import('/src/sync/server.ts')
     return backup.API_BASE as string
   })
   expect(base, 'The app must talk to the local worker. Stop any dev server of your own so Playwright starts one.').toBe(
@@ -308,4 +309,28 @@ test('an open settings page shows the outbox count after an offline write', asyn
   await page.context().setOffline(true)
   await writeSet(page, set)
   await expect(page.locator('#cloud-summary-status')).toHaveText('1 pending')
+})
+
+// Saving a typed token switches accounts the way a passkey sign-in does: the next sync is a first sync with the new
+// account, so it gets every row the device backed up to the account before.
+test('saving another token backs everything up to the new account', async ({ page }) => {
+  const before = claimUser()
+  const after = claimUser()
+  await seedDatabase(page)
+  const saveToken = async (user: WorkerUser) => {
+    await page.goto('/settings/')
+    await page.locator('#cloud-backup-details > summary').click()
+    await page.getByText('Use a token').click()
+    await page.getByLabel('User ID').fill(user.userId)
+    await page.getByLabel('Token').fill(user.token)
+    await page.getByRole('button', { name: 'Save credentials' }).click()
+  }
+  const keysOf = async (user: WorkerUser) =>
+    (await pullAll(user.token)).map((row) => `${row.table}:${row.row.id}`).sort()
+
+  await saveToken(before)
+  await expect.poll(async () => (await keysOf(before)).length).toBe(24)
+
+  await saveToken(after)
+  await expect.poll(() => keysOf(after)).toEqual(await keysOf(before))
 })
