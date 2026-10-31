@@ -13,7 +13,7 @@ import renderIntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
 import renderWeekProgress from './WeekProgress'
-import { reloadWhenStale } from '../reloadWhenStale'
+import { redraw, redrawOnNewDay } from '../../redraw'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
 import { getWorkoutModeSettings } from '../../settings'
@@ -120,7 +120,7 @@ export const mount = async (signal: AbortSignal) => {
       restoreButton.addEventListener('click', async () => {
         try {
           await whileBusy(restoreButton, 'Restoring…', () => sync({ again: false }))
-          window.location.reload()
+          await redraw()
         } catch (error) {
           console.error('Error restoring from cloud:', error)
           Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
@@ -135,7 +135,7 @@ export const mount = async (signal: AbortSignal) => {
         try {
           await exercisesStore.seed()
           await programsStore.seed()
-          window.location.reload()
+          await redraw()
         } catch (error) {
           console.error('Error seeding database:', error)
           Toasts.show({ message: 'Failed to seed database.', type: 'error' })
@@ -165,7 +165,7 @@ export const mount = async (signal: AbortSignal) => {
               }
               try {
                 await sync({ again: false })
-                window.location.reload()
+                await redraw()
               } catch (error) {
                 console.error('Error restoring from cloud:', error)
                 Toasts.show({ message: 'Failed to restore from cloud.', type: 'error' })
@@ -219,6 +219,6 @@ export const mount = async (signal: AbortSignal) => {
     })
   }
 
-  // The list is drawn once, so a new day, changed settings or a changed database need the page loaded again.
-  reloadWhenStale(today, signal)
+  // The list is drawn once, so a new day draws it again. A restore or a changed workout mode redraws it right away.
+  redrawOnNewDay(today, signal)
 }

@@ -202,13 +202,11 @@ test.describe('passkeys with a virtual authenticator', () => {
       })
       // The old phone still backs up to the account, so the sign-in asks before it moves the backup here.
       const moving = restoring.waitForEvent('dialog')
-      const reloaded = restoring.waitForEvent('framenavigated')
       await restoring.getByRole('button', { name: 'Sign in with passkey' }).click()
       const move = await moving
       expect(move.message()).toContain('Your account is signed in on another device.')
       expect(move.message()).not.toContain("replace this device's copy")
       await move.accept()
-      await reloaded
       await expect(restoring.locator('.workout-week').first()).toBeVisible()
       await expect(restoring.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
       expect(await countLocal(restoring, 'exercises')).toBe(21)
@@ -480,9 +478,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     const offer = page.getByRole('region', { name: 'Back up your workouts' })
     await expect(offer).toBeVisible()
     page.once('dialog', (dialog) => dialog.accept())
-    const reloaded = page.waitForEvent('framenavigated')
     await offer.getByRole('button', { name: 'Already have a passkey? Sign in' }).click()
-    await reloaded
     await expect(offer).toBeHidden()
     const signedIn = await credentialsOf(page)
     expect(signedIn?.method).toBe('passkey')

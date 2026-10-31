@@ -289,9 +289,11 @@ src/
     bootstrap.ts       The first sync's plan for each row
     rows.ts            Row comparison and export conversion, shared with the worker
     pageChannel.ts     Page notices, as jimbro: window events
-    freshness.ts       Whether the database changed since this page rendered it
+    freshness.ts       Whether the rows changed since this page rendered them
   pages/               One folder per route
   features/            Toasts, confetti, haptic feedback
+  router.ts            Shows each page in this document, and redraws the page on screen
+  redraw.ts            redraw(), and when a page on screen draws again
   navigation.ts        Back button and sync triggers
   settings.ts          Device settings in localStorage
   eventEmitter.ts      Typed EventTarget subclass

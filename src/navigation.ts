@@ -1,6 +1,5 @@
 import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
-import { isOutOfDate } from './sync/freshness'
 import { account } from './sync/account'
 import Toasts from './features/toasts'
 import { PROBLEM_MESSAGES } from './pages/syncProblems'
@@ -31,10 +30,10 @@ function initNavigation() {
   }
 
   startSync()
-  // A page Back or Forward restored from the back/forward cache shows the database as it was then. When it changed
-  // meanwhile, the page loads fresh instead.
+  // A page Back or Forward restored from the back/forward cache syncs again. The router redraws it when the database
+  // changed meanwhile (src/redraw.ts).
   window.addEventListener('pageshow', (event) => {
-    if (event.persisted) void isOutOfDate().then((outOfDate) => (outOfDate ? window.location.reload() : startSync()))
+    if (event.persisted) startSync()
   })
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {

@@ -1,3 +1,4 @@
+import { redraw } from '../../redraw'
 import { account } from '../../sync/account'
 import Toasts from '../../features/toasts'
 import { createPasskeyAccount, passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
@@ -65,7 +66,7 @@ class PasskeyOfferCard {
     void sync().catch(() => undefined)
   }
 
-  // Signing in restores the account's rows, which can replace what this page shows, so the page loads again after.
+  // Signing in restores the account's rows, which can replace what this page shows, so the page draws again after.
   // This workout is only on this phone, so it stays and backs up.
   private async signIn() {
     const signedIn = await this.run(this.signInBtn, 'Signing in…', async () => {
@@ -73,7 +74,7 @@ class PasskeyOfferCard {
       await sync({ again: false }).catch(() => undefined)
       return true
     })
-    if (signedIn) window.location.reload()
+    if (signedIn) await redraw()
   }
 }
 

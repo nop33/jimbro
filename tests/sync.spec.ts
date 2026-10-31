@@ -115,11 +115,14 @@ const signIn = async (page: Page, user: WorkerUser) => {
   }, user)
 }
 
-const runSync = (page: Page) =>
-  page.evaluate(async () => {
+// Syncs, and waits for the page to draw again when the sync restored rows, so nothing the test does next races it.
+const runSync = async (page: Page) => {
+  await page.evaluate(async () => {
     const client = await import('/src/sync/syncClient.ts')
     await client.sync()
   })
+  await expect.poll(() => page.evaluate(async () => (await import('/src/sync/freshness.ts')).isOutOfDate())).toBe(false)
+}
 
 const outbox = (page: Page) =>
   page.evaluate(async () => {
@@ -160,9 +163,7 @@ test('wipe and restore matches the server export', async ({ page }) => {
   })
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
-  const restored = page.waitForEvent('framenavigated')
   await page.getByRole('button', { name: 'Restore from cloud' }).click()
-  await restored
   await expect
     .poll(async () =>
       page.evaluate(async () => {
@@ -281,10 +282,10 @@ test('restore joins the in-flight sync without logging an aborted rerun', async 
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore from cloud' }).click()
   await expect.poll(() => pulls).toBe(1)
-  // The restore reloads the page once it is done.
-  const reloaded = page.waitForEvent('load')
+  // The restore draws the page again once it is done.
   release?.()
-  await reloaded
+  // The account holds nothing, so the page offers the sample programs instead.
+  await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toHaveCount(0)
   // One pull: the restore took the running sync's instead of pulling again.
   expect(pulls).toBe(1)

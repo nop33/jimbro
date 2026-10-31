@@ -1,5 +1,6 @@
 import { breakTimer } from './features/breakTimer'
 import './features/installPrompt'
+import { keepPagesFresh } from './redraw'
 import { markRendered } from './sync/freshness'
 
 // A page's module draws the page into the document and wires it, until signal aborts as the next page replaces it.
@@ -26,11 +27,17 @@ const pagePath = (url: URL) => {
 // The page on screen, which aborts when the next one replaces it.
 let shown: AbortController | undefined
 
+// Mounts the page into the body in place, and resolves to false when its mount threw, which leaves the body drawn
+// but not wired, so the caller loads the page in full instead.
 const mount = async (page: Page) => {
   shown?.abort()
   shown = new AbortController()
   try {
     await page.mount(shown.signal)
+    return true
+  } catch (error) {
+    console.error('The page failed to mount:', error)
+    return false
   } finally {
     markRendered()
   }
@@ -94,7 +101,10 @@ const show = async (url: URL, page: () => Promise<Page>, event: NavigateEvent) =
 
   const update = async () => {
     replaceBody(next)
-    await mount(module)
+    if (!(await mount(module))) {
+      loadInFull(url)
+      return
+    }
     // Back and Forward bring the page back where it was. A new page starts at its top. The router scrolls there itself,
     // since event.scroll() in CI's Chromium left a page shorter than the last one scrolled to its bottom.
     if (event.navigationType === 'traverse') event.scroll()
@@ -128,8 +138,42 @@ window.navigation?.addEventListener('navigate', (event) => {
   event.intercept({ scroll: 'manual', handler: () => show(url, page, event) })
 })
 
+// Draws the page on screen again from fresh markup and the database, where it is, without a view transition. The
+// scroll position and the sections the user opened stay as they were, so a redraw changes only what the data changed.
+// It needs no Navigation API, so WebKit without it redraws in place too. A failed load or mount loads the page in full.
+const redrawInPlace = async () => {
+  const url = new URL(window.location.href)
+  const page = PAGES[pagePath(url)]
+  if (inFull || !page) {
+    window.location.reload()
+    return
+  }
+  let next: Document
+  let module: Page
+  try {
+    ;[next, module] = await Promise.all([loadPage(url), page()])
+  } catch (error) {
+    console.error('Could not redraw the page, so it loads in full:', error)
+    window.location.reload()
+    return
+  }
+  const scrolled = window.scrollY
+  const opened = [...document.querySelectorAll<HTMLDetailsElement>('details[open][id]')].map((details) => details.id)
+  replaceBody(next)
+  for (const id of opened) {
+    const details = document.getElementById(id)
+    if (details instanceof HTMLDetailsElement) details.open = true
+  }
+  if (!(await mount(module))) {
+    window.location.reload()
+    return
+  }
+  window.scrollTo(0, scrolled)
+}
+
 // The break timer outlives every page, so the document wires it once.
 breakTimer()
+keepPagesFresh(redrawInPlace)
 
 const first = PAGES[pagePath(new URL(window.location.href))]
 if (first) void first().then(mount)

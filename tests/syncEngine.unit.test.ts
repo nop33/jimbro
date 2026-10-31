@@ -152,6 +152,18 @@ describe('first sync', () => {
     expect(page.synced).toEqual([AT])
   })
 
+  it('moves seq when it restores rows, so a page on screen knows it is stale, and a push leaves it', async () => {
+    const server = memoryServer()
+    server.seed([exercise('a', 'a')])
+    await syncFor(device, server).sync()
+    expect(await getMeta(device, 'seq')).toBe(1)
+
+    await device.writeRows([exercise('b', 'b')])
+    expect(await getMeta(device, 'seq')).toBe(2)
+    await syncFor(device, server).sync()
+    expect(await getMeta(device, 'seq')).toBe(2)
+  })
+
   it('restores rows the caller pulled already without pulling again, and ignores them once synced', async () => {
     const server = memoryServer({ pageSize: 2 })
     server.seed(['a', 'b', 'c'].map((id) => exercise(id, id)))
