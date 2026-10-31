@@ -2,7 +2,7 @@ import { OBJECT_STORES } from '../db/constants'
 import { transactionDone } from '../db/promisifyRequest'
 import { STORE_FOR_TABLE, storage, type Storage } from '../db/storage'
 import type { Row, RowTable } from '../db/types'
-import { getMeta, type OutboxEntry } from './queue'
+import { firstSyncDue, type OutboxEntry } from './queue'
 import { canonical } from './rows'
 
 const PUSH_CHUNK = 500
@@ -120,8 +120,7 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
   pending: () => deps.storage.count(OBJECT_STORES.OUTBOX),
   async drain(push) {
     const db = await deps.storage.connection()
-    const unsynced =
-      (await getMeta(deps.storage, 'cursor')) === 0 && (await getMeta(deps.storage, 'bootstrapped')) === 0
+    const unsynced = await firstSyncDue(deps.storage)
     let acked = false
     for (;;) {
       // Skip the lock when nothing is queued, so an idle page never waits on another page's push.

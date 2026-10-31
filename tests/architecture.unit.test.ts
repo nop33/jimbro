@@ -89,14 +89,26 @@ const markupFromValues: Detector = (file, text) => {
 }
 
 // The schema creates the outbox and meta stores. Everything else reaches them through src/sync, so the rules for an
-// entry's seq and inflight stamp live next to the push and pull that depend on them.
+// entry's seq and inflight stamp live next to the push and pull that depend on them. A page that read the meta records
+// through getMeta spelled out "never synced" a third time, so pages ask firstSyncDue instead.
 const syncStoresOutsideSync: Detector = (file, source) => {
   const schema = ['src/db/constants.ts', 'src/db/migrations.ts'].map((one) => path.normalize(one))
-  const syncStore = /OBJECT_STORES\.(?:OUTBOX|META)\b|['"](?:outbox|meta)['"]/
+  const syncStore = /OBJECT_STORES\.(?:OUTBOX|META)\b|['"](?:outbox|meta)['"]|\bgetMeta\b/
   return !file.startsWith(path.join('src', 'sync')) && !schema.includes(file) && syncStore.test(source)
     ? [
         `${file} reads or writes the outbox or meta store. Use storage.writeRows to queue a row, and the src/sync modules for the rest.`
       ]
+    : []
+}
+
+// The saved account, its sync status and the signed-out hint change together: a switch or sign-out that missed one
+// left a device syncing with the token it typed but never restoring that account, or showing the account before's
+// last sync. So only the Account module reads or writes them.
+const accountKeysOutsideAccount: Detector = (file, source) => {
+  const accountFile = path.normalize('src/sync/account.ts')
+  const accountKey = /['"`]jimbro\.(?:cloudBackup|sync\.)/
+  return file !== accountFile && accountKey.test(source)
+    ? [`${file} reads or writes the saved account or its status. Use account from src/sync/account.ts.`]
     : []
 }
 
@@ -337,6 +349,16 @@ const rules: Array<{
     flags: 1,
     flagged: /reads or writes the outbox or meta store/,
     good: "db.transaction('workoutSessions')"
+  },
+  {
+    rule: 'leaves the saved account and its status to the Account module',
+    detector: accountKeysOutsideAccount,
+    files: () => sourceFiles('src'),
+    file: page,
+    bad: "localStorage.getItem('jimbro.cloudBackup')",
+    flags: 1,
+    flagged: /reads or writes the saved account/,
+    good: "account.current()\nlocalStorage.getItem('jimbro.passkeyOffer.snoozedUntil')"
   },
   {
     rule: 'leaves page notices to pageChannel, custom events to EventEmitter, and opens no BroadcastChannel',

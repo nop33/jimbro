@@ -1,19 +1,16 @@
 import type { Storage } from '../db/storage'
+import type { Account, Accounts } from './account'
 import { planBootstrap, rowKey } from './bootstrap'
 import { createOutbox, type PushLock } from './outbox'
 import type { PageNotice } from './pageChannel'
 import { commitFirstSync, pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
-import { getMeta } from './queue'
+import { firstSyncDue } from './queue'
 import type { SyncServer } from './server'
 
 // What a sync needs from the page that runs it.
 export interface SyncPage {
   // Tells the page.
   announce(notice: Extract<PageNotice, 'sync-settled'>): void
-  // Records the time a sync succeeded, before its sync-settled.
-  synced(at: string): void
-  // Hears why a sync failed, before its sync-settled, unless the page is leaving.
-  failed(error: unknown): void
   // Whether the page is going away. Leaving aborts the sync's requests, so a sync that fails then resolves quietly.
   leaving(): boolean
 }
@@ -31,11 +28,19 @@ export interface Sync {
   sync: (options?: { again?: boolean; restoring?: PulledAccount }) => Promise<void>
 }
 
-export const createSync = (deps: { storage: Storage; server: SyncServer; lock: PushLock; page: SyncPage }): Sync => {
-  const { storage, server, page } = deps
+// Each run talks to the account saved when it starts, from start to end, through the server for that account. The
+// account hears each run's outcome, before its sync-settled, and a failure only while the page is not leaving.
+export const createSync = (deps: {
+  storage: Storage
+  accounts: Pick<Accounts, 'current' | 'use' | 'synced' | 'failed'>
+  server: (account: Account) => SyncServer
+  lock: PushLock
+  page: SyncPage
+}): Sync => {
+  const { storage, accounts, page } = deps
   const outbox = createOutbox({ storage, lock: deps.lock })
 
-  const firstSync = async (restoring?: PulledAccount) => {
+  const firstSync = async (server: SyncServer, restoring?: PulledAccount) => {
     const snapshot = await readFirstSyncSnapshot(storage)
     const { rows: pulled, cursor } = restoring ?? (await pullAll((at) => server.pull(at)))
 
@@ -45,11 +50,14 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
     await outbox.drain(server.push)
   }
 
-  const runSync = async (restoring?: PulledAccount) => {
-    const cursor = await getMeta(storage, 'cursor')
-    const bootstrapped = await getMeta(storage, 'bootstrapped')
-    if (cursor === 0 && bootstrapped === 0) await firstSync(restoring)
+  const runSync = async (server: SyncServer, restoring?: PulledAccount) => {
+    if (await firstSyncDue(storage)) await firstSync(server, restoring)
     else await outbox.drain(server.push)
+  }
+
+  const reachable = () => {
+    const account = accounts.current()
+    return account !== null && deps.server(account).reachable()
   }
 
   let running = false
@@ -57,7 +65,7 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
   let tail: Promise<void> = Promise.resolve()
 
   const sync: Sync['sync'] = (options) => {
-    if (!server.reachable()) {
+    if (!reachable()) {
       page.announce('sync-settled')
       return Promise.resolve()
     }
@@ -68,13 +76,17 @@ export const createSync = (deps: { storage: Storage; server: SyncServer; lock: P
     running = true
     tail = (async () => {
       try {
-        await runSync(options?.restoring)
-        page.synced(new Date().toISOString())
-      } catch (error) {
-        if (page.leaving()) return
-        page.failed(error)
-        console.error('sync failed', error)
-        throw error
+        await accounts.use(async (account) => {
+          try {
+            await runSync(deps.server(account), options?.restoring)
+            accounts.synced(new Date().toISOString())
+          } catch (error) {
+            if (page.leaving()) return
+            accounts.failed(error)
+            console.error('sync failed', error)
+            throw error
+          }
+        })
       } finally {
         running = false
         page.announce('sync-settled')
