@@ -1,6 +1,6 @@
 import { OBJECT_STORES } from '../db/constants'
 import { transactionDone } from '../db/promisifyRequest'
-import { cloneForIdb, putRow, type Storage } from '../db/storage'
+import { putRow, updateSetGroups, type Storage } from '../db/storage'
 import type { ExerciseRow, ProgramRow, Row, SessionHeader, SetRow } from '../db/types'
 import { splitRowKey, type BootstrapAction } from './bootstrap'
 import type { MetaRecord, OutboxEntry } from './queue'
@@ -44,24 +44,6 @@ const serverStillHasPushedBody = (entry: OutboxEntry | undefined, pulled: Row) =
   entry.inflightCanonical !== undefined &&
   entry.seq > entry.inflightSeq &&
   canonical(pulled.row) === entry.inflightCanonical
-
-const syncSetGroups = (tx: IDBTransaction, kept: Array<SetRow>, droppedBySession: Map<string, string[]>) => {
-  const sessions = new Set<string>([...droppedBySession.keys(), ...kept.map((set) => set.sessionId)])
-  if (sessions.size === 0) return
-  const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
-  for (const sessionId of sessions) {
-    const request = groupStore.get(sessionId)
-    request.onsuccess = () => {
-      const drop = new Set(droppedBySession.get(sessionId) ?? [])
-      const current = ((request.result?.sets ?? []) as Array<SetRow>).filter((set) => !drop.has(set.id))
-      const merged = new Map(current.map((set) => [set.id, set]))
-      for (const row of kept) {
-        if (row.sessionId === sessionId) merged.set(row.id, cloneForIdb(row))
-      }
-      groupStore.put({ sessionId, sets: [...merged.values()] })
-    }
-  }
-}
 
 export async function readFirstSyncSnapshot(storage: Storage): Promise<{ seq: number; rows: Row[] }> {
   const db = await storage.connection()
@@ -182,7 +164,7 @@ export async function commitFirstSync(
             dropped.push(set.id)
             droppedBySession.set(set.sessionId, dropped)
           }
-          syncSetGroups(tx, keptSets, droppedBySession)
+          updateSetGroups(tx, keptSets, droppedBySession)
           // seq moves with every change of rows, local or restored, which tells a page on screen that it is stale.
           if (rowsChanged) seq += 1
           tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })

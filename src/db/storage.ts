@@ -18,23 +18,25 @@ export const putRow = (tx: IDBTransaction, row: Row) => {
   tx.objectStore(STORE_FOR_TABLE[row.table]).put(cloneForIdb(row.row))
 }
 
-// setGroups caches each session's set rows, so the history reads one record per session. Every transaction that
-// writes set rows updates it.
-const mergeSetGroups = (tx: IDBTransaction, sets: Array<SetRow>) => {
-  if (sets.length === 0) return
-  const bySession = new Map<string, Array<SetRow>>()
-  for (const set of sets) {
-    const list = bySession.get(set.sessionId) ?? []
-    list.push(cloneForIdb(set))
-    bySession.set(set.sessionId, list)
-  }
+// setGroups caches each session's set rows, so reading every session takes one record per session instead of one per
+// set, which measured about twice as fast. It holds the same rows as the sets store, so every transaction that writes
+// or deletes set rows updates it here, in that transaction: writeRows, and the first sync's commit.
+export const updateSetGroups = (
+  tx: IDBTransaction,
+  written: ReadonlyArray<SetRow>,
+  deleted: ReadonlyMap<string, ReadonlyArray<SetRow['id']>> = new Map()
+) => {
+  const sessions = new Set([...deleted.keys(), ...written.map((set) => set.sessionId)])
   const groupStore = tx.objectStore(OBJECT_STORES.SET_GROUPS)
-  for (const [sessionId, rows] of bySession) {
+  for (const sessionId of sessions) {
     const request = groupStore.get(sessionId)
     request.onsuccess = () => {
-      const current = (request.result?.sets ?? []) as Array<SetRow>
+      const drop = new Set(deleted.get(sessionId) ?? [])
+      const current = ((request.result?.sets ?? []) as Array<SetRow>).filter((set) => !drop.has(set.id))
       const merged = new Map(current.map((set) => [set.id, set]))
-      for (const row of rows) merged.set(row.id, row)
+      for (const set of written) {
+        if (set.sessionId === sessionId) merged.set(set.id, cloneForIdb(set))
+      }
       groupStore.put({ sessionId, sets: [...merged.values()] })
     }
   }
@@ -125,10 +127,11 @@ export class Storage {
       tx.onabort = () => fail(tx.error ?? new Error('writeRows aborted'))
       try {
         for (const write of writes) putRow(tx, write)
-        mergeSetGroups(
-          tx,
-          setWrites.map((write) => write.row)
-        )
+        if (setWrites.length > 0)
+          updateSetGroups(
+            tx,
+            setWrites.map((write) => write.row)
+          )
         queueRows(tx, writes)
       } catch (error) {
         fail(error)
