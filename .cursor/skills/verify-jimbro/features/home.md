@@ -29,6 +29,6 @@ Preconditions: `control-jimbro doctor` passes.
 ## Gotchas
 
 - The week, the streak and `Start` versus `Continue` follow today's date in Athens (the tour's time zone). `tests/home.spec.ts` fixes the clock with `page.clock.setFixedTime`; a by-hand drive uses the real clock, so check counts against today.
-- Seeding adds programs but no sessions, so after `Seed Database` the picks show and highlights stay hidden.
+- Seeding adds programs but no sessions, so after `Start with the 3-day split` the picks show and highlights stay hidden.
 - Home reloads itself when it becomes visible again after the day, the workout mode or the database changed (`src/pages/reloadWhenStale.ts`), so a tab switch mid-drive can reload it.
 - The Settings link uses `exact: true` because other copy can include the word Settings.

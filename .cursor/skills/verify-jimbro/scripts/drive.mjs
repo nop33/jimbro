@@ -237,7 +237,7 @@ const STOPS = [
   }],
   ['workouts-empty', async (page) => {
     await page.getByRole('link', { name: 'Get started' }).click()
-    await see(page.getByRole('button', { name: 'Seed Database' }))
+    await see(page.getByRole('button', { name: 'Start with the 3-day split' }))
     await see(page.getByRole('button', { name: 'Sign in with passkey' }))
   }],
   ['settings-import', async (page, { fixture }) => {

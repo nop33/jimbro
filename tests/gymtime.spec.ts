@@ -325,12 +325,25 @@ test.describe('Gymtime Page', () => {
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
 
-    // The bar sits at the top of the screen with the countdown inside it, not drawn over the header under it.
+    // The bar sits on the bottom nav with the countdown inside it, so it covers neither the nav nor the header.
     const bar = (await breakTimer.boundingBox())!
     const countdown = (await breakTimer.locator('#countdown').boundingBox())!
-    expect(bar.y).toBe(0)
+    const nav = (await page.locator('.bottom-nav').boundingBox())!
+    const header = (await page.locator('.app-header').boundingBox())!
+    expect(Math.abs(bar.y + bar.height - nav.y)).toBeLessThanOrEqual(1)
+    expect(header.y + header.height).toBeLessThanOrEqual(bar.y)
     expect(countdown.y).toBeGreaterThanOrEqual(bar.y)
     expect(countdown.y + countdown.height).toBeLessThanOrEqual(bar.y + bar.height)
+
+    // The page ends that much later, so its last row scrolls clear of the bar.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    const addExercise = page.getByText('Add exercise', { exact: true }).first()
+    await expect
+      .poll(async () => {
+        const box = (await addExercise.boundingBox())!
+        return box.y + box.height
+      })
+      .toBeLessThanOrEqual(bar.y)
   })
 
   test('set rows spread their fields across the row, in columns', async ({ page }) => {

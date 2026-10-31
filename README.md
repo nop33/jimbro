@@ -79,7 +79,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - Completed cards are green with a check mark, incomplete ones amber, pending ones gray and skipped ones red. Incomplete and pending cards have a dashed border.
 - "New" lists the programs with this week's status and when each was last completed, or that it never was. Picking one starts a workout.
 - Until a program exists, an intro line tells a new user what to do next, matching the button when there is one.
-- With no exercise or program rows stored, deleted ones included, the page offers "Seed Database", which adds 21 exercises and a push, pull and legs split, and "Sign in with passkey" where the browser has passkeys. Signing in restores the account's workouts, so a returning user on a new phone picks up where they left off. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
+- With no exercise or program rows stored, deleted ones included, the page offers "Start with the 3-day split", which adds 21 exercises and a push, pull and legs split, and "Sign in with passkey" where the browser has passkeys. Signing in restores the account's workouts, so a returning user on a new phone picks up where they left off. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 
 ### Gymtime (`/gymtime/`)
 
@@ -96,8 +96,8 @@ The page you keep open during a workout.
 - "Previous sets" opens on last time's sets, with arrows (and the arrow keys) to step to the older and newer workouts before this one that logged the exercise, at any gym. "View History" charts average weight, estimated 1RM and total volume per workout. The gym with the most of those workouts stays unshaded, and each other gym tints the stretch of the chart behind its workouts, with a key under the chart. The metric names in the header hide and show their lines. Cardio exercises have no chart.
 - "Add exercise" adds any exercise from the library. When the workout's exercise list no longer matches its program, "Save to program" copies the list to the program.
 - A logged set's row draws its solid green border around itself before anything else happens, unless the phone asks for reduced motion.
-- For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. Minimized, it stays as a bar at the top of every page the lifter goes to and keeps counting, and opened on another page it links back to the workout. At 0:00 it plays a ding and closes itself. A set logged during a break starts a fresh one, and finishing the exercise or the workout ends it.
-- A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise bursts confetti from its card with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, stamps "Workout done!" on the screen instead, with rings and sparks and a longer, happier vibration, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, or shows an error toast if that fails. Without a passkey backup (no backup, or a typed token), and where the browser has passkeys, a card under the exercises offers one: "Create passkey" signs up and backs up, "Not now" hides the offer for 14 days, and "Already have a passkey? Sign in" signs in, asks first since the phone has data, and loads the page again once the account's rows are in. The card sits in the page, not in a dialog, so it never blocks the workout.
+- For lifting and treadmill exercises, a set that doesn't finish the exercise starts the break timer. It counts down the break time from Settings, 2:30 by default, and shows the sets done and the next unfinished exercise. It can be minimized or skipped. Minimized, it stays as a bar on the bottom nav of every page the lifter goes to and keeps counting, and opened on another page it links back to the workout. At 0:00 it plays a ding and closes itself. A set logged during a break starts a fresh one, and finishing the exercise or the workout ends it. With break alerts on, a break that goes out of sight (the phone locked, or another app on screen) asks the worker to send a push notification at 0:00, "Break over" with the next exercise, and coming back to Jimbro cancels it, since the page rings itself again. A tap on the notification opens Jimbro.
+- A workout is completed when every exercise in it has its target sets, so an added set or exercise makes it incomplete again. Finishing an exercise bursts confetti from its card with "Exercise done!" and a short sound, vibrates where the browser supports it, and turns the card green. Any change that takes the workout from incomplete to completed, a set or a deleted exercise, stamps "Workout done!" on the screen instead, with rings and sparks and a longer, happier vibration, again after each Add set or added exercise. Without cloud backup, it also downloads a JSON export, at most once a week so the download doesn't interrupt every workout, or shows an error toast if that fails. Without a passkey backup (no backup, or a typed token), and where the browser has passkeys, a card under the exercises offers one: "Create passkey" signs up and backs up, "Not now" hides the offer for 14 days, and "Already have a passkey? Sign in" signs in, asks first since the phone has data, and loads the page again once the account's rows are in. The card sits in the page, not in a dialog, so it never blocks the workout.
 - "Delete" in the header, shown once the workout has started, deletes it after a confirmation.
 - Each change to the workout updates the cards in place, so they keep the scroll position, the open card and a value typed into the next set's form.
 
@@ -118,7 +118,7 @@ Totals over completed workouts: the first workout's date and how long ago it was
 
 ### Settings (`/settings/`)
 
-- Workout settings hold the break timer's length.
+- Workout settings hold the break timer's length, and "Break alerts" where the browser has push notifications (on an iPhone, only in the app added to the Home Screen). Turning them on asks for permission to notify, subscribes the service worker to push and hands the subscription to the worker, so they need cloud backup; without it the button is disabled and says so.
 - Cloud backup's status line shows how many changes wait to sync and when the last sync ran.
   - Without a passkey backup, "Back up your workouts" explains the backup and offers "Create passkey" and "Sign in with passkey", with "Sign in with passkey" first on a phone that signed out. A browser without passkeys says it can't back up.
   - Signing in keeps the account's copy of every row both the phone and the account have, and rows only on the phone stay and back up. When that would replace a row on the phone with a different copy, it asks first. A phone that signed out after backing up signs in again without asking.
@@ -126,7 +126,7 @@ Totals over completed workouts: the first workout's date and how long ago it was
   - A phone whose backup moved to another device finds out on its next push: the page says so in a toast, Settings reads "Moved to another device" with a note above the offer, and "Sign in with passkey" comes first, which moves the backup back. The phone keeps its workouts.
   - Signed in with a passkey, it says so and offers "Sync now", "Add another passkey" (for another password manager) and "Sign out". Sign out pushes what waits first, then asks, and warns when changes could not back up, since signing in again would replace them with the backup's copy. Signing out keeps the workouts on the phone and stops the backup.
   - When the backup holds as many rows as the worker takes, the status reads "Backup full · N pending", and each page says so once when its sync hits the limit.
-  - "Use a token", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
+  - "Use a token (developers)", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
 - Gyms renames a gym on every workout after a confirmation. Giving it another gym's name merges the two, which also fixes workouts saved under a city.
 - Manage local data:
   - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
@@ -185,13 +185,22 @@ Since anyone can sign up, each user also has limits: `PUSH_LIMITER` allows 60 pu
 | `POST /api/passkeys/verify`            | Takes the registration and stores the passkey on the account                                                            |
 | `POST /api/signout`                    | Deletes the token, when a passkey handed it out, and returns `{ ok: true }`                                             |
 | `POST /api/claim`                      | Moves the account to this device: deletes the account's other passkey tokens and returns `{ signedOut }`                |
+| `GET /api/break-alerts`                | Returns `{ publicKey }`, the VAPID key the app subscribes to push with, or 503 `not_configured` without the keys        |
+| `POST /api/break-alerts/subscribe`     | Takes the device's `PushSubscription` JSON, on a known push service, and keeps it                                       |
+| `POST /api/break-alerts/unsubscribe`   | Forgets the subscription and any break waiting                                                                          |
+| `POST /api/break-alerts/schedule`      | Takes `{ endsAt, title, body, url }` for a break ending within an hour, and returns `{ scheduled }`                     |
+| `POST /api/break-alerts/cancel`        | Forgets the break waiting                                                                                               |
 | `POST /mcp`                            | A read-only MCP server over JSON-RPC, with the tools `recent_sessions`, `get_session`, `exercise_history` and `catalog` |
 
 CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_ORIGIN` when a local run sets it.
 
+Break alerts run on the `BreakAlarm` Durable Object (`worker/src/breakAlerts.ts`), one per user. It keeps the device's push subscription and the break waiting, and its alarm sends the push at the break's end, encrypted for the browser (RFC 8291) and signed with the worker's VAPID key (RFC 8292) in `worker/src/webPush.ts`, on WebCrypto alone. It sends only to the push services of Chrome, Safari, Firefox and Edge, forgets a subscription the push service answers 404 or 410 for, and retries nothing, since a late alert is worth nothing.
+
 ### Deploying
 
 Deploy the worker and its D1 migrations before an app version that needs them. For passkeys, that is `vp exec wrangler d1 migrations apply jimbro --remote`, then `vp run deploy`, both in `worker/`, then the app.
+
+Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-keys.mjs`, then `vp exec wrangler secret put VAPID_PUBLIC_KEY`, the same for `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` with a `mailto:` address the push services can reach you at. Keep the pair: a new one invalidates every subscription. Without the secrets the worker answers `not_configured` and Settings says break alerts aren't set up yet.
 
 ## PWA features
 

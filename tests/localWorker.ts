@@ -104,12 +104,19 @@ const assertPortFree = () =>
     server.listen(WORKER_PORT, '127.0.0.1', () => server.close(() => resolve()))
   })
 
+// The break alert keys worker/vitest.config.mts tests with, made for tests and used nowhere else.
+const VAPID_TEST_KEYS = [
+  'VAPID_PUBLIC_KEY=BBicmIbnj-sUud1yyryaCwebjCivs6B3iSfrUR0UzBuwQwKdOhG2bgnLT9jDWFElNSVyyiwiHxywQsGM8VHRMNY',
+  'VAPID_PRIVATE_KEY=mhdoxbp3NylHls-aUeOLKum1EN6EB5pE1sDH-pWM6TE',
+  'VAPID_SUBJECT=mailto:test@example.com'
+]
+
 const workerVars = (probe: WorkerUser, pageOrigin: string | undefined) => {
   const users = [probe, ...Array.from({ length: USER_POOL }, (_, index) => userAt(index))]
   const tokens = Object.fromEntries(users.map((user) => [user.token, user.userId]))
   // Every browser of the run calls the passkey routes from one address, and the app asks for passkey options whenever
   // it shows a passkey button, so the per-address limit is off. worker/test/passkeys.spec.ts covers it.
-  const lines = [`AUTH_TOKENS='${JSON.stringify(tokens)}'`, 'AUTH_RATE_LIMIT=off']
+  const lines = [`AUTH_TOKENS='${JSON.stringify(tokens)}'`, 'AUTH_RATE_LIMIT=off', ...VAPID_TEST_KEYS]
   // The dev server may run on any port, so the worker has to accept its origin.
   if (pageOrigin) lines.push(`DEV_ORIGIN=${pageOrigin}`)
   return `${lines.join('\n')}\n`
