@@ -1,5 +1,6 @@
 import type { ExerciseKind } from '../../db/exerciseLogging'
 import { historyChartEnabled } from '../../db/exerciseLogging'
+import { breakAlertsOn, cancelBreakAlert, scheduleBreakAlert } from '../../sync/breakAlerts'
 import { playDingSound } from './sound'
 
 // A break after a set in a workout: its length, the exercise's sets logged and to do, and the next exercise with sets
@@ -32,6 +33,10 @@ class BreakTimer {
   private currentExercise: Break['exercise'] | null = null
   private sessionId: Break['sessionId'] | null = null
   private isMinimized = false
+  // The next exercise's name, for the alert at the end of the break.
+  private next: string | undefined
+  // Whether the worker holds an alert for this break, which it sends unless the page comes back first.
+  private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
 
@@ -119,10 +124,32 @@ class BreakTimer {
     })
   }
 
+  // Out of sight, the page can't ring at the end of the break, so it asks the worker to notify the phone then. Back in
+  // sight, the page rings itself again, and the alert is cancelled.
   private handleVisibilityChange() {
-    if (document.visibilityState === 'visible' && this.targetTime !== null) {
-      this.updateTimerDisplay()
+    if (document.visibilityState === 'hidden') {
+      this.scheduleAlert()
+      return
     }
+    this.cancelAlert()
+    if (this.targetTime !== null) this.updateTimerDisplay()
+  }
+
+  private scheduleAlert() {
+    if (this.targetTime === null || this.targetTime <= Date.now() || this.sessionId === null || !breakAlertsOn()) return
+    scheduleBreakAlert({
+      endsAt: this.targetTime,
+      title: 'Break over',
+      body: this.next ? `Next: ${this.next}` : `Back to ${this.currentExercise?.name ?? 'your workout'}`,
+      url: `/gymtime/?id=${this.sessionId}`
+    })
+    this.alertScheduled = true
+  }
+
+  private cancelAlert() {
+    if (!this.alertScheduled) return
+    this.alertScheduled = false
+    cancelBreakAlert()
   }
 
   private updateTimerDisplay() {
@@ -157,6 +184,7 @@ class BreakTimer {
     this.showWayToWorkout()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
+    this.next = next
 
     this.updateTimerDisplay()
 
@@ -194,7 +222,9 @@ class BreakTimer {
       clearInterval(this.countdownInterval)
       this.countdownInterval = null
     }
+    this.cancelAlert()
     this.targetTime = null
+    this.next = undefined
     this.hasPlayedSound = false
     this.currentExercise = null
     this.sessionId = null

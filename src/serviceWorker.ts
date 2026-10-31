@@ -55,3 +55,29 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return
   event.respondWith(respond(request))
 })
+
+// A break alert from the worker (src/sync/breakAlerts.ts): it shows even while Jimbro is in the background, which is
+// the only time the app asks for one.
+self.addEventListener('push', (event) => {
+  const alert = (event.data?.json() ?? {}) as { title?: string; body?: string; url?: string }
+  event.waitUntil(
+    self.registration.showNotification(alert.title ?? 'Break over', {
+      body: alert.body ?? '',
+      icon: '/icons/logo-192.png',
+      tag: 'break-alert',
+      data: { url: alert.url ?? '/gymtime/' }
+    })
+  )
+})
+
+// A tap on the alert brings Jimbro back, or opens the workout when it was closed.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data as { url?: string } | null)?.url ?? '/gymtime/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin)
+      return open ? open.focus() : self.clients.openWindow(url)
+    })
+  )
+})
