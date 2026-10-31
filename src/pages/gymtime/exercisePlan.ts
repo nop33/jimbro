@@ -14,8 +14,8 @@ export interface ExercisePlan {
   progress: ExerciseProgress
   // The next set's form, from nextSetValues.
   prefill: ExerciseDefaults
-  // The prefilled weight is the heaviest of last time's differing weights.
-  prefillIsMax: boolean
+  // Which prefilled values are last time's max out of several that differed.
+  prefillIsMax: PrefillMaxima
   lastTime: LastTime | undefined
   // The session, or the planned one, that last time came before: Previous sets steps through what else did.
   before: PlannedSession & { id?: WorkoutSession['id'] }
@@ -63,14 +63,14 @@ export async function planExercise(
   return {
     progress: progressOf(exercise),
     prefill: nextSetValues(snapshot, exercise.sets, lastTime),
-    prefillIsMax: prefillIsMaxWeight(snapshot, exercise.sets, lastTime),
+    prefillIsMax: prefillMaxima(snapshot, exercise.sets, lastTime),
     lastTime,
     before: { id: 'id' in session ? session.id : undefined, date: session.date, location: session.location }
   }
 }
 
-// The next set's values: today's latest set, else last time's last set with the heaviest weight of last time for
-// lifting, else the exercise's defaults.
+// The next set's values: today's latest set, else last time's last set, with last time's heaviest weight and the
+// most reps at that weight for lifting, else the exercise's defaults.
 export const nextSetValues = (
   { preset, defaults }: ExerciseSnapshot,
   today: ReadonlyArray<ExerciseSetExecution>,
@@ -81,26 +81,42 @@ export const nextSetValues = (
 
   const previous = previousSetsOf(preset, lastTime)
   const values = { ...defaults, ...previous.at(-1) }
-  const heaviest = maxWeight(previous)
-  if (preset === 'lifting' && heaviest > 0) values.weight = heaviest
+  if (preset === 'lifting' && previous.length > 0) {
+    const { heaviest, atHeaviest } = heaviestSets(previous)
+    values.weight = heaviest
+    values.reps = Math.max(...atHeaviest.map((set) => set.reps ?? 0))
+  }
   if (preset === 'cardioTreadmill' && values.incline === undefined) values.incline = 0
 
   return values
 }
 
-// Whether the prefilled weight is last time's heaviest out of several, so the form says so. With no set today and
-// every set of last time at one weight, there is nothing to tell.
-export const prefillIsMaxWeight = (
+export interface PrefillMaxima {
+  weight: boolean
+  reps: boolean
+}
+
+// Whether the prefilled weight is last time's heaviest out of several, and whether the prefilled reps are the most of
+// several at that weight, so the form says so. With no set today and every set of last time alike, there is nothing
+// to tell.
+export const prefillMaxima = (
   { preset }: ExerciseSnapshot,
   today: ReadonlyArray<ExerciseSetExecution>,
   lastTime: LastTime | undefined
-): boolean => {
-  if (preset !== 'lifting' || today.length > 0) return false
-  const weights = new Set(previousSetsOf(preset, lastTime).map((set) => set.weight ?? 0))
-  return weights.size > 1
+): PrefillMaxima => {
+  const previous = previousSetsOf(preset, lastTime)
+  if (preset !== 'lifting' || today.length > 0 || previous.length === 0) return { weight: false, reps: false }
+  const { atHeaviest } = heaviestSets(previous)
+  return {
+    weight: new Set(previous.map((set) => set.weight ?? 0)).size > 1,
+    reps: new Set(atHeaviest.map((set) => set.reps ?? 0)).size > 1
+  }
 }
 
 const previousSetsOf = (preset: ExerciseSnapshot['preset'], lastTime: LastTime | undefined) =>
   (lastTime?.sets ?? []).filter((set) => set.preset === preset).map(setValues)
 
-const maxWeight = (sets: ReadonlyArray<ExerciseDefaults>) => Math.max(0, ...sets.map((set) => set.weight ?? 0))
+const heaviestSets = (sets: ReadonlyArray<ExerciseDefaults>) => {
+  const heaviest = Math.max(0, ...sets.map((set) => set.weight ?? 0))
+  return { heaviest, atHeaviest: sets.filter((set) => (set.weight ?? 0) === heaviest) }
+}
