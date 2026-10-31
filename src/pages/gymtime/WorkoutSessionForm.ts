@@ -1,12 +1,6 @@
 import { formatShortDate, getSimpleDate, parseSimpleDate } from '../../dateUtils'
-import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../db/stores/programsStore'
-import {
-  placeholderSnapshot,
-  snapshotFromExercise,
-  workoutSessionsStore,
-  type PlannedSession
-} from '../../db/stores/workoutSessionsStore'
+import { catalogSnapshots, workoutSessionsStore, type PlannedSession } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 import type { OpenSession } from './openSession'
 
@@ -78,12 +72,7 @@ class WorkoutSessionForm {
     const program = await programsStore.getById(this.programId)
     if (!program) throw new Error('Program not found')
 
-    const exercises = await Promise.all(
-      program.exercises.map(async (exerciseId) => {
-        const exercise = exercisesStore.find(exerciseId) ?? (await exercisesStore.getById(exerciseId))
-        return exercise ? snapshotFromExercise(exercise) : placeholderSnapshot(exerciseId)
-      })
-    )
+    const exercises = await catalogSnapshots(program.exercises)
 
     const { date, location } = this.planned()
     const notes = this.notesInput.value
