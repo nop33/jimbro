@@ -11,7 +11,7 @@ test.describe('Workouts Page', () => {
   })
 
   test('Greets a new user with the onboarding intro, and seeds the sample programs', async ({ page }) => {
-    const seedBtn = page.getByRole('button', { name: 'Seed Database' })
+    const seedBtn = page.getByRole('button', { name: 'Start with the 3-day split' })
     await expect(seedBtn).toBeVisible()
     // A returning user on a new phone signs in with their passkey instead, where the browser has passkeys.
     await expect(page.getByRole('button', { name: 'Sign in with passkey' })).toHaveCount(
@@ -36,7 +36,7 @@ test.describe('Workouts Page', () => {
 
     await page.goto('/workouts/')
     await expect(page.getByRole('button', { name: 'Restore from cloud' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toHaveCount(0)
     await expect(page.locator('#intro')).toHaveText(
       'Your workouts are backed up in the cloud. Restore them to pick up where you left off.'
     )
@@ -62,7 +62,7 @@ test.describe('Workouts Page', () => {
     await restoreButton.click()
     releasePull()
 
-    await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeVisible()
     await expect(restoreButton).toHaveCount(0)
     await expect(page.locator('#intro')).toHaveText(
       "Let's start by defining your exercises and programs! Would you like to start with a simple 3-day split program?"
@@ -117,7 +117,7 @@ test.describe('Workouts Page', () => {
     await expect(page.locator('#exercise-dialog')).toBeHidden()
 
     await page.goto('/workouts/')
-    await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toHaveCount(0)
     await expect(page.locator('#intro')).toHaveText("Let's start by defining your exercises and programs!")
   })
 

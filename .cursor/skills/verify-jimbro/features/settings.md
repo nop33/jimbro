@@ -28,6 +28,6 @@ Preconditions: `control-jimbro doctor` passes.
 
 - `launch` points the app at a dead API, so `Sync now` with any credentials ends in `Sync failed.`. A real sync needs the local worker that `tests/localWorker.ts` starts, never production or real tokens.
 - A passkey needs a domain origin: WebAuthn refuses `127.0.0.1`, so drive passkeys on `http://localhost:<port>` (its own empty IndexedDB), and only in Chromium with a virtual authenticator (`WebAuthn.addVirtualAuthenticator` over CDP). The tour answers the worker's `/auth/register/*`, `/auth/signin/*`, `/api/claim`, `/api/push`, `/api/pull` and `/api/signout` with canned JSON, since it reaches no worker. `tests/passkeys.spec.ts` covers the real thing.
-- Saving credentials turns on syncing on every page, and on `/workouts/` an empty database then offers `Restore from cloud` instead of `Seed Database`.
+- Saving credentials turns on syncing on every page, and on `/workouts/` an empty database then offers `Restore from cloud` instead of `Start with the 3-day split`.
 - Import never overwrites a stored row. Reset first to import into an empty database.
 - Register the confirm handler before clicking Reset or Rename.

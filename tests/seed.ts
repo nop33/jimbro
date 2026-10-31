@@ -4,6 +4,6 @@ import { expect, type Page } from '@playwright/test'
 // exercises and programs, the way a new user does from the workouts page.
 export const seedDatabase = async (page: Page) => {
   await page.goto('/workouts/')
-  await page.getByRole('button', { name: 'Seed Database' }).click()
+  await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
   await expect(page.locator('.workout-week').first()).toBeVisible()
 }

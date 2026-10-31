@@ -83,7 +83,7 @@ Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locat
 | New (exercises/programs) | `getByRole('button', { name: 'New' })` |
 | New workout | `getByRole('button', { name: 'New' })` (accessible name is `Add new workout`) |
 | Close dialog | `getByRole('button', { name: 'Close dialog' })` |
-| Seed Database | `getByRole('button', { name: 'Seed Database' })` (only when IndexedDB has no exercise or program rows) |
+| Start with the 3-day split | `getByRole('button', { name: 'Start with the 3-day split' })` (only when IndexedDB has no exercise or program rows) |
 | Passkey offer | `getByRole('button', { name: 'Create passkey' })`; in gymtime `getByRole('region', { name: 'Back up your workouts' })` |
 | Reset Database | open `Manage local data`, then `getByRole('button', { name: 'Reset Database' })`, accept `window.confirm` |
 | Toast | `.toast-message-popup` |
