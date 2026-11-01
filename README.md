@@ -32,7 +32,7 @@ The data lives in the browser's IndexedDB. Anyone can use the app without an acc
 | `/gymtime/`   | The active workout: log sets, break timer, completion              |
 | `/exercises/` | Exercise library: create, edit, delete                             |
 | `/programs/`  | Programs built from exercises                                      |
-| `/stats/`     | Totals across completed workouts                                   |
+| `/stats/`     | Training totals                                                    |
 | `/settings/`  | Break time, passkey backup, JSON export and import, database reset |
 
 ## Data model
@@ -114,7 +114,7 @@ The page you keep open during a workout.
 
 ### Stats (`/stats/`)
 
-Totals over completed workouts: the first workout's date and how long ago it was, days active, workouts with a count of incomplete ones, exercises, sets, reps, volume as weight × reps, and average workouts per week.
+Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile shares. Every logged set counts, in a finished workout or not: the first day with a set and how long ago it was, days active, exercises, sets, reps and volume as weight × reps. Workouts count completed ones, with a count of incomplete ones, and the average per week divides them by the calendar weeks, Monday to Sunday, from the first day's week through this one.
 
 ### Settings (`/settings/`)
 

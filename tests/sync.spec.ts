@@ -161,9 +161,11 @@ test('wipe and restore matches the server export', async ({ page }) => {
       request.onerror = () => reject(request.error)
     })
   })
+  // Opening the app syncs, and on an empty database with an account that sync is the restore. It can finish before a
+  // tap on Restore from cloud lands, and the page then redraws with the restored rows and no button, so the spec waits
+  // for the rows instead of tapping. Other specs tap the button.
   await page.goto('/workouts/')
   await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Restore from cloud' }).click()
   await expect
     .poll(async () =>
       page.evaluate(async () => {
@@ -172,6 +174,7 @@ test('wipe and restore matches the server export', async ({ page }) => {
       })
     )
     .toBe(21)
+  await expect(page.getByRole('button', { name: 'Restore from cloud' })).toHaveCount(0)
   expect(sortExport((await localStores(page)) as ExportFile)).toEqual(sortExport(fixture as unknown as ExportFile))
 })
 
