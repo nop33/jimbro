@@ -1,7 +1,7 @@
 import { getSimpleDate } from '../../dateUtils'
-import { isRepsSet } from '../../db/exerciseLogging'
 import type { ProgramRow, SessionStatus, WorkoutSession } from '../../db/types'
 import type { WorkoutModeSettings } from '../../settings'
+import { volumeOf } from '../../trainingNumbers'
 import { addDays, trainingWeeks, type ProgramStatus, type WeekOfSessions } from '../../weeks'
 
 // What the home page shows: this week's days and goal, three highlights, and the programs to pick from. The weeks
@@ -34,13 +34,6 @@ export interface PersonalRecord {
 }
 
 const STATUS_RANK: Record<SessionStatus, number> = { incomplete: 1, completed: 2 }
-
-const volumeOf = (session: WorkoutSession) =>
-  session.exercises.reduce(
-    (total, exercise) =>
-      total + exercise.sets.reduce((sum, set) => (isRepsSet(set) ? sum + set.reps * (set.weight ?? 0) : sum), 0),
-    0
-  )
 
 // Weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the
 // streak never drops before the week is over. The weeks are newest first, this week first.

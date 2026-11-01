@@ -36,7 +36,7 @@ test.describe('Stats Page', () => {
     await seedDatabase(page)
   })
 
-  test('counts the completed workouts and leaves out an unfinished one', async ({ page }) => {
+  test('counts every logged set, and only completed workouts as workouts', async ({ page }) => {
     await page.goto('/stats/')
     await logBench(page, '2026-03-15', [
       { reps: 5, weight: 60 },
@@ -47,14 +47,22 @@ test.describe('Stats Page', () => {
 
     await expect(page.getByRole('heading', { name: 'Stats', exact: true })).toBeVisible()
     await expect(page.locator('#stat-completed-sessions')).toHaveText('1')
-    // 5 × 60 + 8 × 50
-    await expect(page.locator('#stat-total-volume')).toHaveText('700')
-    await expect(page.locator('#stat-total-exercises')).toHaveText('1')
-    await expect(page.locator('#stat-total-sets')).toHaveText('2')
-    await expect(page.locator('#stat-total-reps')).toHaveText('13')
-    await expect(page.locator('#stat-days-active')).toHaveText('1')
-    // One workout over the shortest span counted, a day, is 7 a week.
-    await expect(page.locator('#stat-avg-workouts')).toHaveText('7')
+    await expect(page.locator('#stat-uncompleted-sessions')).toHaveText('+1 incomplete')
+    // 5 × 60 + 8 × 50, and the unfinished workout's 10 × 100
+    await expect(page.locator('#stat-total-volume')).toHaveText('1,700')
+    await expect(page.locator('#stat-total-exercises')).toHaveText('2')
+    await expect(page.locator('#stat-total-sets')).toHaveText('3')
+    await expect(page.locator('#stat-total-reps')).toHaveText('23')
+    await expect(page.locator('#stat-days-active')).toHaveText('2')
+    // One completed workout over the calendar weeks from mid-March 2026 through this week.
+    const weeks = await page.evaluate(() => {
+      const monday = (day: Date) =>
+        new Date(day.getFullYear(), day.getMonth(), day.getDate() - ((day.getDay() + 6) % 7))
+      return Math.round((monday(new Date()).getTime() - monday(new Date(2026, 2, 15)).getTime()) / (7 * 864e5)) + 1
+    })
+    await expect(page.locator('#stat-avg-workouts')).toHaveText(
+      new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(1 / weeks)
+    )
   })
 })
 
