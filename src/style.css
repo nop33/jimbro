@@ -770,9 +770,10 @@
   }
 
   /* A toast sits just above the bottom nav, and above the break timer's bar while it shows, so it never covers the
-     header's back button and title. */
+     header's back button and title. Down there it can sit over the button the thumb goes for next, such as Finished
+     set, so taps pass through it: a toast only tells, and never catches a tap meant for the page. */
   .toast-message-popup {
-    @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 w-11/12 max-w-md z-50;
+    @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 w-11/12 max-w-md z-50 pointer-events-none;
     bottom: calc(var(--bottom-nav-height) + 0.75rem);
     transform: translateX(-50%);
     /* It rises into place and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
@@ -786,7 +787,6 @@
     }
 
     &.leaving {
-      @apply pointer-events-none;
       opacity: 0;
       translate: 0 100%;
     }

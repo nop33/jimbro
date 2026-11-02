@@ -51,6 +51,13 @@ test.describe('Gymtime Page', () => {
         return box.y >= header.y + header.height && box.y + box.height <= nav.y
       })
       .toBe(true)
+    // A tap on it reaches the page under it, so it never swallows a tap meant for Finished set.
+    expect(
+      await toast.evaluate((popup) => {
+        const { x, y, width, height } = popup.getBoundingClientRect()
+        return popup.contains(document.elementFromPoint(x + width / 2, y + height / 2))
+      })
+    ).toBe(false)
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')

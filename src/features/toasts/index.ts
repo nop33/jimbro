@@ -7,7 +7,8 @@ interface Toast {
 const queue: Array<Required<Toast>> = []
 let showing = false
 
-// Shows a toast until its time is up or it is tapped. It slides out the way it came in, and resolves once it has gone.
+// Shows a toast until its time is up. It slides out the way it came in, and resolves once it has gone. Taps pass through
+// it to the page (style.css), so it has no tap to dismiss.
 const showOne = ({ message, type, duration }: Required<Toast>) =>
   new Promise<void>((resolve) => {
     const popup = document.createElement('div')
@@ -26,15 +27,7 @@ const showOne = ({ message, type, duration }: Required<Toast>) =>
       resolve()
     }
 
-    const timeout = setTimeout(() => void dismiss(), duration === 'short' ? 3000 : 5000)
-    popup.addEventListener(
-      'click',
-      () => {
-        clearTimeout(timeout)
-        void dismiss()
-      },
-      { once: true }
-    )
+    setTimeout(() => void dismiss(), duration === 'short' ? 3000 : 5000)
   })
 
 // Shows the queued toasts one after another, the next once the last has gone.
