@@ -86,7 +86,7 @@ Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locat
 | Start with the 3-day split | `getByRole('button', { name: 'Start with the 3-day split' })` (only when IndexedDB has no exercise or program rows) |
 | Passkey offer | `getByRole('button', { name: 'Create passkey' })`; in gymtime `getByRole('region', { name: 'Back up your workouts' })` |
 | Reset Database | open `Manage local data`, then `getByRole('button', { name: 'Reset Database' })`, accept `window.confirm` |
-| Toast | `.toast-message-popup` |
+| Toast | `.toast-message-popup`, above the bottom nav and the break timer's bar |
 
 Native `<dialog>` for modals. Native `window.confirm` for delete and reset. `page.once('dialog', d => d.accept())` must be registered before the click.
 

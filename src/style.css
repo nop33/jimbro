@@ -22,6 +22,10 @@
   margin-bottom: var(--break-bar-height);
 }
 
+:root:has(#break-countdown-dialog.dialog-minimized[open]) .toast-message-popup {
+  bottom: calc(var(--bottom-nav-height) + var(--break-bar-height) + 0.75rem);
+}
+
 .bottom-nav {
   view-transition-name: bottom-nav;
 }
@@ -765,23 +769,26 @@
     @apply border-jim-neutral/50 border-dashed opacity-50;
   }
 
+  /* A toast sits just above the bottom nav, and above the break timer's bar while it shows, so it never covers the
+     header's back button and title. */
   .toast-message-popup {
-    @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 top-4 w-11/12 max-w-md z-50;
+    @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 w-11/12 max-w-md z-50;
+    bottom: calc(var(--bottom-nav-height) + 0.75rem);
     transform: translateX(-50%);
-    /* It slides in from the top edge and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
+    /* It rises into place and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
     transition:
       opacity 400ms ease,
       translate 400ms ease;
 
     @starting-style {
       opacity: 0;
-      translate: 0 -100%;
+      translate: 0 100%;
     }
 
     &.leaving {
       @apply pointer-events-none;
       opacity: 0;
-      translate: 0 -100%;
+      translate: 0 100%;
     }
 
     &.success {

@@ -9,6 +9,8 @@ test('missing program shows the load error', async ({ page }) => {
     'Could not load workout. The program or session may no longer exist.'
   )
   await expect(page.getByRole('link', { name: 'Back to workouts' })).toBeVisible()
+  // There is no workout to delete.
+  await expect(page.locator('#delete-workout-session-btn')).toBeHidden()
 })
 
 test.describe('Gymtime Page', () => {
@@ -37,9 +39,18 @@ test.describe('Gymtime Page', () => {
     await expect(finishBtn).toBeVisible()
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
-    // The first set starts the workout.
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
+    // The first set starts the workout. The toast sits above the bottom nav, clear of the header's back button and title.
+    const toast = page.locator('.toast-message-popup')
+    await expect(toast).toContainText('Workout started')
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
+    const header = (await page.locator('.app-header').boundingBox())!
+    const nav = (await page.locator('.bottom-nav').boundingBox())!
+    await expect
+      .poll(async () => {
+        const box = (await toast.boundingBox())!
+        return box.y >= header.y + header.height && box.y + box.height <= nav.y
+      })
+      .toBe(true)
 
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')
@@ -91,6 +102,8 @@ test.describe('Gymtime Page', () => {
     await addExerciseCard.click()
     await expect(addExerciseDialog).toBeVisible()
     await expect(addExerciseDialog.getByRole('heading', { name: 'Add exercise' })).toBeFocused()
+    // The close button cancels, so the dialog has no Cancel.
+    await expect(addExerciseDialog.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
 
     const cardNames = page.locator('#exercises-list > .card .exercise-name')
     const cardsBefore = await cardNames.count()

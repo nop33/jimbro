@@ -13,15 +13,10 @@ class NewWorkoutDialog {
   private newWorkoutDialog = document.querySelector('#new-workout-dialog') as HTMLDialogElement
   private programsList = document.querySelector('#programs-list') as HTMLUListElement
   private newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
-  private dialogCancel = document.querySelector('#dialog-cancel') as HTMLButtonElement
 
   constructor(programs: Array<ProgramStatus>) {
     this.newWorkoutButton.addEventListener('click', () => {
       this.open()
-    })
-
-    this.dialogCancel.addEventListener('click', () => {
-      this.closeDialog()
     })
 
     this.newWorkoutDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {

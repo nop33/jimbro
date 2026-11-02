@@ -512,7 +512,7 @@ const STOPS = [
     await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
     await page.waitForURL('**/exercises/')
     await see(page.locator('#exercises-grid .card').first())
-    // The "Workout started" toast covers the bar at the top until it goes.
+    // Wait for the "Workout started" toast to go, so the shot shows the bar alone.
     await gone(page.locator('.toast-message-popup'))
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
   }],

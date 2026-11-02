@@ -216,7 +216,7 @@ Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-k
 
 ## UI features
 
-- Toasts for success, error, warning and info. They last 3 or 5 seconds, queue up, and close on a tap.
+- Toasts for success, error, warning and info. They sit above the bottom nav, and above the break timer's bar while it shows, so they never cover the header. They last 3 or 5 seconds, queue up, and close on a tap.
 - Confetti and a stamped message on the Web Animations API, in a popover above any dialog, with a random sound effect made with the Web Audio API. Under reduced motion only the message fades in and out.
 - A dark theme with a custom palette (`jim-dark`, `jim-primary`, `jim-accent`, …) in `src/style.css`.
 - Mobile first, with touch targets of at least 44×44 px.

@@ -9,7 +9,7 @@ Workouts is the calendar of training weeks. An empty database offers seeding. We
 - `workouts-progress` replaces `#intro` once a program exists: `#week-progress` shows the mode (`#workout-mode-name`, `Rotation` or `Freestyle`, and `#workout-mode-rule`, `Every program` or `Goal N`), `#week-progress-count` (`N of M programs done` or `N of M workouts done`), the goal bar `#week-progress-goal` and a note: none done yet, workouts left, or all done.
 - `workouts-restore` shows `Restore from cloud` instead of `Start with the 3-day split` when the database is empty, cloud credentials are saved and the database has never synced.
 - `workouts-weeks` shows one `.workout-week` per week (`Week N of YYYY`) with a card per program: `.card-success` completed, `.card-warning` incomplete, `.card-pending` this week and not started, `.card-danger` skipped in a past week.
-- `workouts-new` opens `dialog#new-workout-dialog` (`Select program`). Each `a.program-link` shows this week's status and `.last-completed-date`, and opens `/gymtime/?programId=`.
+- `workouts-new` opens `dialog#new-workout-dialog` (`Select program`), closed with ✕ only. Each `a.program-link` shows this week's status and `.last-completed-date`, and opens `/gymtime/?programId=`.
 - `workouts-mode` opens `dialog#workout-mode-dialog` from `#week-progress`. Freestyle shows `Weekly workout goal` (1 to 7). A change saves to localStorage and reloads the page. In freestyle the calendar drops the per-program pending and skipped cards, and this week shows an empty `.open-slot` button (`Start a workout`, a `+`, the first one also labelled `Start`) per workout still to do toward the goal, which opens the program picker.
 
 ## How to get to it (user POV)

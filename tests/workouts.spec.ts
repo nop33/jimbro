@@ -129,6 +129,8 @@ test.describe('Workouts Page', () => {
 
     const dialog = page.locator('dialog#new-workout-dialog')
     await expect(dialog).toBeVisible()
+    // The close button cancels, so the dialog has no Cancel.
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
     await dialog.locator('.close-dialog-btn').click()
     await expect(dialog).not.toBeVisible()
 
