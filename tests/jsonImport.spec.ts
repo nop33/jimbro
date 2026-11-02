@@ -132,7 +132,7 @@ const importFile = async (page: Page, name: string, data: unknown) => {
   })
   const toast = page.locator('.toast-message-popup')
   await expect(toast).toHaveText('Database imported!')
-  await toast.click()
+  // A toast takes no taps, so wait for it to go on its own.
   await expect(toast).toHaveCount(0)
 }
 

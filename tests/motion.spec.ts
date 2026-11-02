@@ -2,8 +2,9 @@ import { expect } from '@playwright/test'
 import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
-test('a tapped toast slides out before it leaves the page', async ({ page }) => {
+test('a toast slides out when its time is up, before it leaves the page', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.clock.install()
   await page.goto('/exercises/')
   await page.getByRole('button', { name: 'New' }).click()
   await page.getByLabel('Name').fill('Bench Press')
@@ -14,12 +15,12 @@ test('a tapped toast slides out before it leaves the page', async ({ page }) => 
 
   const toast = page.locator('.toast-message-popup')
   await expect(toast).toHaveText('Exercise saved!')
-  // The toast waits for its exit transitions, so it is still there, leaving, when the tap returns. The tap comes once
-  // the toast has slid in, as a person sees it before tapping it.
-  const leaving = await toast.evaluate(async (element: HTMLElement) => {
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+  // Once it has slid in, its 3 seconds run out, and it waits for its exit transitions, so it is still there, leaving.
+  await toast.evaluate(async (element: HTMLElement) => {
     await Promise.all(element.getAnimations().map(({ finished }) => finished))
-    element.click()
+  })
+  await page.clock.runFor(3000)
+  const leaving = await toast.evaluate((element: HTMLElement) => {
     return {
       leaving: element.classList.contains('leaving'),
       transitions: element.getAnimations().length
