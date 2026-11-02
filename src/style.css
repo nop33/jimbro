@@ -16,14 +16,12 @@
 :root {
   --bottom-nav-height: calc(5rem + 1px);
   --break-bar-height: calc(4.5rem + 1px);
+  /* The tallest header: its padding, a 44px back button or action, and its border. */
+  --app-header-height: calc(5.25rem + 1px);
 }
 
 :root:has(#break-countdown-dialog.dialog-minimized[open]) .app-page {
   margin-bottom: var(--break-bar-height);
-}
-
-:root:has(#break-countdown-dialog.dialog-minimized[open]) .toast-message-popup {
-  bottom: calc(var(--bottom-nav-height) + var(--break-bar-height) + 0.75rem);
 }
 
 .bottom-nav {
@@ -769,26 +767,25 @@
     @apply border-jim-neutral/50 border-dashed opacity-50;
   }
 
-  /* A toast sits just above the bottom nav, and above the break timer's bar while it shows, so it never covers the
-     header's back button and title. Down there it can sit over the button the thumb goes for next, such as Finished
-     set, so taps pass through it: a toast only tells, and never catches a tap meant for the page. */
+  /* A toast sits just below the header's height, so it never covers the back button and title, away from the bottom
+     where the thumb works. Taps pass through it: a toast only tells, and never catches a tap meant for the page. */
   .toast-message-popup {
     @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 w-11/12 max-w-md z-50 pointer-events-none;
-    bottom: calc(var(--bottom-nav-height) + 0.75rem);
+    top: calc(var(--app-header-height) + 0.5rem);
     transform: translateX(-50%);
-    /* It rises into place and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
+    /* It slides down into place and leaves the same way (toasts/index.ts), at the gentler pace a toast has. */
     transition:
       opacity 400ms ease,
       translate 400ms ease;
 
     @starting-style {
       opacity: 0;
-      translate: 0 100%;
+      translate: 0 -50%;
     }
 
     &.leaving {
       opacity: 0;
-      translate: 0 100%;
+      translate: 0 -50%;
     }
 
     &.success {

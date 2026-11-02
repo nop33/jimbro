@@ -39,7 +39,7 @@ test.describe('Gymtime Page', () => {
     await expect(finishBtn).toBeVisible()
     await expect(finishBtn).toBeEnabled()
     await finishBtn.click()
-    // The first set starts the workout. The toast sits above the bottom nav, clear of the header's back button and title.
+    // The first set starts the workout. The toast sits below the header, clear of its back button and title.
     const toast = page.locator('.toast-message-popup')
     await expect(toast).toContainText('Workout started')
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
