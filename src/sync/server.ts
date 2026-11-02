@@ -40,11 +40,12 @@ export class ServerError extends Error {
 // ServerError with the error the worker answered, or the status, when it refused.
 export const requestJson = async (
   path: string,
-  options: { method?: 'GET' | 'POST'; token?: string; body?: unknown } = {}
+  options: { method?: 'GET' | 'POST'; token?: string; body?: unknown; keepalive?: boolean } = {}
 ): Promise<unknown> => {
   const headers = new Headers()
   if (options.token !== undefined) headers.set('Authorization', `Bearer ${options.token}`)
-  const init: RequestInit = { method: options.method ?? 'GET', headers }
+  // keepalive lets a request sent as the page goes to the background finish after the browser suspends it.
+  const init: RequestInit = { method: options.method ?? 'GET', headers, keepalive: options.keepalive }
   if (options.method === 'POST') {
     headers.set('Content-Type', 'application/json')
     init.body = JSON.stringify(options.body ?? {})

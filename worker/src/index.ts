@@ -1,4 +1,5 @@
 import { AuthEnv, resolveUserId } from './auth'
+import { BreakAlarm, handleBreakAlerts, type BreakAlertsEnv } from './breakAlerts'
 import { handleMcp } from './mcp'
 import { isAllowedOrigin, type OriginEnv } from './origins'
 import {
@@ -26,7 +27,7 @@ const withCors = (request: Request, response: Response, env: Env) => {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
-interface Env extends AuthEnv, OriginEnv {
+interface Env extends AuthEnv, OriginEnv, BreakAlertsEnv {
   jimbro: D1Database
   // Limits the public passkey routes per client address. See wrangler.jsonc.
   AUTH_LIMITER: RateLimit
@@ -53,6 +54,9 @@ export default {
     return withCors(request, response, env)
   }
 } satisfies ExportedHandler<Env>
+
+// workerd finds a Durable Object's class among the main module's exports.
+export { BreakAlarm }
 
 const finish = (request: Request, response: Response) => {
   if (request.headers.get('x-d1-count') !== '1' || response.headers.has('x-d1-statements')) return response
@@ -142,6 +146,9 @@ const handleRequest = async (request: Request, env: Env) => {
     if (path === '/api/passkeys/verify' && request.method === 'POST') return addPasskeyVerify(request, env, userId)
     if (path === '/api/signout' && request.method === 'POST') return signOut(request, env)
     if (path === '/api/claim' && request.method === 'POST') return claimAccount(request, env, userId)
+    if (path === '/api/break-alerts' || path.startsWith('/api/break-alerts/')) {
+      return handleBreakAlerts(request, env, userId, path)
+    }
   }
 
   return Response.json({ error: 'not found' }, { status: 404 })

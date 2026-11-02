@@ -130,7 +130,7 @@ export const mount = async (signal: AbortSignal) => {
     } else {
       const seedDbButton = document.createElement('button')
       seedDbButton.classList.add('btn-primary', 'mx-auto')
-      seedDbButton.textContent = 'Seed Database'
+      seedDbButton.textContent = 'Start with the 3-day split'
       seedDbButton.addEventListener('click', async () => {
         try {
           await exercisesStore.seed()
@@ -138,7 +138,7 @@ export const mount = async (signal: AbortSignal) => {
           await redraw()
         } catch (error) {
           console.error('Error seeding database:', error)
-          Toasts.show({ message: 'Failed to seed database.', type: 'error' })
+          Toasts.show({ message: 'Could not add the 3-day split.', type: 'error' })
         }
       })
       workoutWeeksContainer.appendChild(seedDbButton)

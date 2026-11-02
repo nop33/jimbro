@@ -129,6 +129,8 @@ class GymtimePage {
   }
 
   private showError(message: string) {
+    // There is no workout to delete.
+    this.deleteWorkoutSessionBtn.classList.add('hidden')
     this.pageContent.innerHTML = `
       <div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
         <p class="text-lg text-jim-error"></p>

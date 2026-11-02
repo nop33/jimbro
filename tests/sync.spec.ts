@@ -165,7 +165,7 @@ test('wipe and restore matches the server export', async ({ page }) => {
   // tap on Restore from cloud lands, and the page then redraws with the restored rows and no button, so the spec waits
   // for the rows instead of tapping. Other specs tap the button.
   await page.goto('/workouts/')
-  await expect(page.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toHaveCount(0)
   await expect
     .poll(async () =>
       page.evaluate(async () => {
@@ -288,7 +288,7 @@ test('restore joins the in-flight sync without logging an aborted rerun', async 
   // The restore draws the page again once it is done.
   release?.()
   // The account holds nothing, so the page offers the sample programs instead.
-  await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Restore from cloud' })).toHaveCount(0)
   // One pull: the restore took the running sync's instead of pulling again.
   expect(pulls).toBe(1)

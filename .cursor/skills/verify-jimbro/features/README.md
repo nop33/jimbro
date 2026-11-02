@@ -9,7 +9,7 @@ This directory is the maintained source for verifying Jimbro's user-facing behav
 - Never drive an instance this run did not start.
 - Playwright `tour` / `snapshot` start with empty IndexedDB. Browser tools (Cursor's, or Claude in Chrome) reuse profile storage on that origin.
 - To empty storage through the UI: open `/settings/`, expand `Manage local data`, accept the confirm dialog, click `Reset Database`, wait for toast `Database reset`.
-- To load the built-in 3-day split: open `/workouts/` on an empty database and click `Seed Database`. Seeded programs are `Push day`, `Pull day`, and `Legs day`.
+- To load the built-in 3-day split: open `/workouts/` on an empty database and click `Start with the 3-day split`. Seeded programs are `Push day`, `Pull day`, and `Legs day`.
 - Do not use Cloud Backup, real tokens, real passkeys, or the Cloudflare worker during ordinary proof. The tour's passkey stop uses a virtual authenticator and canned worker answers. `launch` points the app at a dead local API (`JIMBRO_VERIFY_API_BASE`), never production.
 
 ## Driving conventions

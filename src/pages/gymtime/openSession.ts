@@ -8,6 +8,7 @@ import { getBreakTimeSeconds } from '../../settings'
 import { breakTimer } from '../../features/breakTimer'
 import type PasskeyOfferCard from './PasskeyOfferCard'
 import { outcomeOf, type Outcome } from './outcome'
+import { autoExportDue, readLastExportAt, recordExport } from './autoExport'
 
 // Shows the open session on screen, and resolves once the screen shows it or a later one.
 type View = (session: WorkoutSession | undefined) => void | Promise<void>
@@ -124,7 +125,8 @@ export class OpenSession {
 
   // A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or
   // set added afterwards makes it incomplete again. Without cloud backup, a finished workout also downloads a JSON
-  // export, the only copy outside this browser. Without a passkey backup, it also offers one.
+  // export, the only copy outside this browser, at most once a week (autoExport.ts). Without a passkey backup, it also
+  // offers one.
   private async actOn(outcome: Outcome): Promise<void> {
     switch (outcome.kind) {
       case 'workout-done':
@@ -132,9 +134,14 @@ export class OpenSession {
         breakTimer().close()
         stampConfetti('Workout done!')
         this.passkeyOffer.offer()
-        if (account.current()) return
+        if (
+          !autoExportDue({ backedUp: account.current() !== null, lastExportAt: readLastExportAt(), now: new Date() })
+        ) {
+          return
+        }
         try {
           await exportIndexedDbToJson()
+          recordExport(new Date())
         } catch (error) {
           console.error('Error exporting database:', error)
           Toasts.show({ message: 'Could not download the JSON export.', type: 'error' })

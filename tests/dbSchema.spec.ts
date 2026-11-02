@@ -190,7 +190,7 @@ const readDatabase = (page: Page) =>
 
 test('a fresh install creates the version 9 schema', async ({ page }) => {
   await page.goto('/workouts/')
-  await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeVisible()
   expect(await readDatabase(page)).toEqual({ version: 9, stores: VERSION_9, records: EMPTY_VERSION_9 })
 })
 
@@ -215,7 +215,7 @@ for (const stale of STALE_DATABASES) {
     await page.goto('/icons/favicon.ico')
     await seed(page, stale.version, stale.stores, stale.records)
     await page.goto('/workouts/')
-    await expect(page.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeVisible()
     expect(await readDatabase(page)).toEqual({ version: 9, stores: VERSION_9, records: EMPTY_VERSION_9 })
   })
 }

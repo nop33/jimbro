@@ -18,6 +18,12 @@
   ],
   // The public passkey routes (/auth/*) allow each client address 20 calls a minute, in each Cloudflare location.
   // A sign-up or a sign-in takes two calls.
+  // One BreakAlarm per user keeps their push subscription and sends the alert at the end of a break (src/breakAlerts.ts).
+  // It needs the secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT (README, "Break alerts").
+  "durable_objects": {
+    "bindings": [{ "name": "BREAK_ALARMS", "class_name": "BreakAlarm" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BreakAlarm"] }],
   "ratelimits": [
     {
       "name": "AUTH_LIMITER",

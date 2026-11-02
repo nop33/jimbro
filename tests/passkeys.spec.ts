@@ -194,7 +194,7 @@ test.describe('passkeys with a virtual authenticator', () => {
         credential: credentials[0]
       })
       await restoring.goto('/workouts/')
-      await expect(restoring.getByRole('button', { name: 'Seed Database' })).toBeVisible()
+      await expect(restoring.getByRole('button', { name: 'Start with the 3-day split' })).toBeVisible()
       // The sign-in downloads the account once, for the comparison and the restore alike.
       const fullPulls: string[] = []
       restoring.on('request', (request) => {
@@ -208,7 +208,7 @@ test.describe('passkeys with a virtual authenticator', () => {
       expect(move.message()).not.toContain("replace this device's copy")
       await move.accept()
       await expect(restoring.locator('.workout-week').first()).toBeVisible()
-      await expect(restoring.getByRole('button', { name: 'Seed Database' })).toHaveCount(0)
+      await expect(restoring.getByRole('button', { name: 'Start with the 3-day split' })).toHaveCount(0)
       expect(await countLocal(restoring, 'exercises')).toBe(21)
       expect(await countLocal(restoring, 'programs')).toBe(3)
       expect(fullPulls).toHaveLength(1)
@@ -530,7 +530,8 @@ test('a finished workout offers a passkey until "Not now", where the browser has
   await lastCard.locator('.exercise-details > summary').click()
   await lastCard.getByRole('button', { name: 'Add set' }).click()
   await expect(lastCard.getByRole('button', { name: 'Finished set' })).toBeVisible()
-  await finishWorkout(page, lastCard, true)
+  // The export downloaded with the first finish, and the next is a week away.
+  await finishWorkout(page, lastCard, false)
   await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy', 'true')
   await expect(offer).toBeHidden()
 })

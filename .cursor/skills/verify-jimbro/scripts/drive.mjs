@@ -237,7 +237,7 @@ const STOPS = [
   }],
   ['workouts-empty', async (page) => {
     await page.getByRole('link', { name: 'Get started' }).click()
-    await see(page.getByRole('button', { name: 'Seed Database' }))
+    await see(page.getByRole('button', { name: 'Start with the 3-day split' }))
     await see(page.getByRole('button', { name: 'Sign in with passkey' }))
   }],
   ['settings-import', async (page, { fixture }) => {
@@ -512,7 +512,7 @@ const STOPS = [
     await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
     await page.waitForURL('**/exercises/')
     await see(page.locator('#exercises-grid .card').first())
-    // The "Workout started" toast covers the bar at the top until it goes.
+    // Wait for the "Workout started" toast to go, so the shot shows the bar alone.
     await gone(page.locator('.toast-message-popup'))
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
   }],
