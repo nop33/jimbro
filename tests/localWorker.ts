@@ -117,8 +117,9 @@ const workerVars = (probe: WorkerUser, pageOrigin: string | undefined) => {
   // Every browser of the run calls the passkey routes from one address, and the app asks for passkey options whenever
   // it shows a passkey button, so the per-address limit is off. worker/test/passkeys.spec.ts covers it.
   const lines = [`AUTH_TOKENS='${JSON.stringify(tokens)}'`, 'AUTH_RATE_LIMIT=off', ...VAPID_TEST_KEYS]
-  // The dev server may run on any port, so the worker has to accept its origin.
-  if (pageOrigin) lines.push(`DEV_ORIGIN=${pageOrigin}`)
+  // The dev server may run on any port, so the worker has to accept its origin, and sends an assistant's connect
+  // request to its /connect/ page.
+  if (pageOrigin) lines.push(`DEV_ORIGIN=${pageOrigin}`, `APP_ORIGIN=${pageOrigin}`)
   return `${lines.join('\n')}\n`
 }
 

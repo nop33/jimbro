@@ -27,3 +27,17 @@ _Avoid_: bootstrap, initial sync, restore
 **Sign out**:
 Forgetting the account on this phone. Its data stays on the phone and stops backing up.
 _Avoid_: log out, disconnect
+
+## AI assistants
+
+**Assistant**:
+An AI app, such as Claude, that reads the account's workouts through the MCP server to answer questions about them. It can't change anything.
+_Avoid_: client, agent, bot
+
+**Connect**:
+Letting an assistant read the account: paste the link into the assistant, then approve on the Connect page with a passkey. It makes no device token, so the phone keeps backing up.
+_Avoid_: authorize, sign in, log in
+
+**Connection**:
+One assistant's access to the account, which Settings lists and Disconnect ends. Its tokens work on the MCP server only.
+_Avoid_: grant, session, integration

@@ -40,6 +40,7 @@ export default defineConfig({
         workouts: 'workouts/index.html',
         gymtime: 'gymtime/index.html',
         stats: 'stats/index.html',
+        connect: 'connect/index.html',
         sw: 'src/serviceWorker.ts'
       },
       output: {

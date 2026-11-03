@@ -5,8 +5,8 @@ import { pagePathOf, renderPage } from '../partials/plugin'
 
 const root = path.resolve(import.meta.dirname, '..')
 
-// Each page and the nav link it marks as current. Stats, settings and gymtime are reached from other pages and mark
-// none.
+// Each page and the nav link it marks as current. Stats, settings and gymtime are reached from other pages, and an
+// assistant sends the browser to connect, so they mark none.
 const PAGES: Record<string, string | null> = {
   'index.html': '/',
   'workouts/index.html': '/workouts/',
@@ -14,7 +14,8 @@ const PAGES: Record<string, string | null> = {
   'programs/index.html': '/programs/',
   'stats/index.html': null,
   'settings/index.html': null,
-  'gymtime/index.html': null
+  'gymtime/index.html': null,
+  'connect/index.html': null
 }
 
 const sourceOf = (file: string) => readFileSync(path.join(root, file), 'utf8')
@@ -31,7 +32,8 @@ describe('page shell', () => {
       '/programs/',
       '/stats/',
       '/settings/',
-      '/gymtime/'
+      '/gymtime/',
+      '/connect/'
     ])
   })
 
