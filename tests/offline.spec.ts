@@ -9,18 +9,45 @@ import { startWorkout } from './startWorkout'
 // closes the proxy to go offline. WebKit's emulated offline mode also stops the service worker from answering, so
 // the server really has to go away. A port per test also gives each test its own origin, worker and database.
 const openPreview = async () => {
+  // After deploy(), the proxy serves a next build: a service worker of another version, whose Chart.js chunk has
+  // another name, and the old chunk is gone from the server, as after a real deploy.
+  let deployed = false
   const proxy = createServer((incoming, outgoing) => {
+    const url = incoming.url ?? '/'
+    if (deployed && url.startsWith('/assets/auto-')) {
+      outgoing.writeHead(404).end()
+      return
+    }
+    // The next service worker is rewritten below, so it comes whole and uncompressed.
+    const headers = { ...incoming.headers }
+    if (deployed && url === '/sw.js') {
+      delete headers['accept-encoding']
+      delete headers['if-none-match']
+      delete headers['if-modified-since']
+    }
     const upstream = request(
       {
         host: PREVIEW_HOST,
         port: PREVIEW_PORT,
-        path: incoming.url,
+        path: deployed ? url.replace('/assets/next-auto-', '/assets/auto-') : url,
         method: incoming.method,
-        headers: incoming.headers
+        headers
       },
       (response) => {
-        outgoing.writeHead(response.statusCode ?? 502, response.headers)
-        response.pipe(outgoing)
+        if (!(deployed && url === '/sw.js')) {
+          outgoing.writeHead(response.statusCode ?? 502, response.headers)
+          response.pipe(outgoing)
+          return
+        }
+        const chunks: Buffer[] = []
+        response.on('data', (chunk: Buffer) => chunks.push(chunk))
+        response.on('end', () => {
+          const next = Buffer.concat(chunks)
+            .toString()
+            .replace(/"[0-9a-f]{16}"/g, '"0000000000000000"')
+            .replaceAll('/assets/auto-', '/assets/next-auto-')
+          outgoing.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-cache' }).end(next)
+        })
       }
     )
     upstream.on('error', () => outgoing.destroy())
@@ -32,7 +59,10 @@ const openPreview = async () => {
     proxy.close()
     proxy.closeAllConnections()
   }
-  return { origin, goOffline }
+  const deploy = () => {
+    deployed = true
+  }
+  return { origin, goOffline, deploy }
 }
 
 const waitForServiceWorker = (page: Page) =>
@@ -97,4 +127,33 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
   // Starting the workout with a set to do stores its header, and no set row yet.
   await page.goto(`${origin}/settings/`)
   await expect(status).toHaveText('25 pending')
+})
+
+test('a page that opened before a deploy still draws the history chart', async ({ page }) => {
+  const { origin, deploy } = await openPreview()
+  await page.goto(`${origin}/workouts/`)
+  await waitForServiceWorker(page)
+  await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+  // The next build's service worker takes over this page, which still runs the build it opened with.
+  deploy()
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    const replaced = new Promise((resolve) => navigator.serviceWorker.addEventListener('controllerchange', resolve))
+    await registration.update()
+    await replaced
+  })
+
+  const firstExercise = page.locator('details.exercise-details').first()
+  await firstExercise.locator('summary').click()
+  const chartDrawn = page.waitForFunction(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
+    return canvas !== null && canvas.width > 0 && canvas.hasAttribute('style')
+  })
+  await firstExercise.locator('.view-history-btn').click()
+  await expect(page.locator('#exercise-history-dialog')).toBeVisible()
+  await chartDrawn
 })

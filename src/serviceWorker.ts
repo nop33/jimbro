@@ -19,11 +19,13 @@ const precache = async () => {
   )
 }
 
+// A page that opened before this build took over still loads its own build's files later, such as Chart.js when the
+// history chart first opens. So the build before this one stays cached until the next one takes over, and only older
+// builds go.
 const dropOldCaches = async () => {
-  const keys = await caches.keys()
-  await Promise.all(
-    keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE).map((key) => caches.delete(key))
-  )
+  const builds = (await caches.keys()).filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+  // Caches list in the order they were made, so the last one left is the build this one replaces.
+  await Promise.all(builds.slice(0, -1).map((key) => caches.delete(key)))
 }
 
 // '/gymtime', '/gymtime/index.html' and '/gymtime/?id=1' all open the page cached as '/gymtime/'.
@@ -35,8 +37,9 @@ const pagePath = (url: URL) => {
 const respond = async (request: Request) => {
   const url = new URL(request.url)
   const cache = await caches.open(CACHE)
-  const cached = await cache.match(request.mode === 'navigate' ? pagePath(url) : url.pathname)
-  return cached ?? fetch(request)
+  if (request.mode === 'navigate') return (await cache.match(pagePath(url))) ?? fetch(request)
+  // A file this build doesn't have may be the previous build's, asked for by a page that opened before this one.
+  return (await cache.match(url.pathname)) ?? (await caches.match(url.pathname)) ?? fetch(request)
 }
 
 self.addEventListener('install', (event) => {
