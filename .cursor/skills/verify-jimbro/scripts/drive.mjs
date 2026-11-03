@@ -508,28 +508,25 @@ const STOPS = [
     await gone(page.locator('.toast-message-popup'))
   }],
   ['connect', async (page) => {
-    // An assistant sends the browser here to ask to read the workouts. Canned answers stand in for the worker.
-    const answers = {
-      '/auth/connect/request': { clientName: 'Claude', redirectHost: 'claude.ai', onThisComputer: false },
-      '/auth/connect/options': {
-        challenge: base64Url(crypto.getRandomValues(new Uint8Array(32))),
-        rpId: 'localhost',
-        userVerification: 'required',
-        timeout: 300_000
-      }
-    }
-    await page.route(
-      (url) => url.pathname in answers,
-      (route) => {
-        const headers = {
-          'Access-Control-Allow-Origin': route.request().headers().origin ?? '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    // An assistant sends the browser here to ask to read the workouts. Canned answers stand in for the worker. WebKit
+    // refuses the tour's dead API port before page.route sees the request, so the page's fetch answers them instead.
+    await page.addInitScript(() => {
+      if (location.pathname !== '/connect/') return
+      const answers = {
+        '/auth/connect/request': { clientName: 'Claude', redirectHost: 'claude.ai', onThisComputer: false },
+        '/auth/connect/options': {
+          challenge: 'dG91ci1jaGFsbGVuZ2UtdG91ci1jaGFsbGVuZ2UtMDA',
+          rpId: location.hostname,
+          userVerification: 'required',
+          timeout: 300_000
         }
-        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
-        return route.fulfill({ json: answers[new URL(route.request().url()).pathname], headers })
       }
-    )
+      const realFetch = window.fetch.bind(window)
+      window.fetch = (input, init) => {
+        const path = new URL(input instanceof Request ? input.url : String(input), location.href).pathname
+        return path in answers ? Promise.resolve(Response.json(answers[path])) : realFetch(input, init)
+      }
+    })
     await page.goto(`${base}/connect/?request=tour`)
     await see(page.getByRole('button', { name: 'Allow with passkey' }))
   }],
