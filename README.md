@@ -63,7 +63,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - "This week" counts the completed workouts against the goal (every program in rotation mode, the weekly goal in freestyle mode), with one bar per workout and a Monday to Sunday strip that marks each day's workout and today.
 - Three highlights, once any workout exists:
   - The streak: weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the streak never drops before the week ends.
-  - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday.
+  - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday. Before this week's first lift it shows last week's total by now in plain text instead of a red drop.
   - Personal records this week: a lifting exercise whose top set beat its heaviest earlier weight, or matched it with more reps. An exercise's first workout is not a record. With none this week, it shows the date of the latest one.
 - "Pick your workout" lists every program, each opening gymtime. A workout started this week and not finished comes first with "Continue". Otherwise, until the week meets its goal, the program done longest ago comes first with "Start", in rotation mode only among the programs not started this week. The programs still open follow, then the ones done this week.
 - With no programs, the list gives way to "Let's set up your first workout." and a centred "Get started" button that opens `/workouts/`, which offers the seed or the restore.

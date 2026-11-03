@@ -100,6 +100,24 @@ test.describe('Home Page', () => {
     await expect(page.locator('h1')).toContainText('Hey, gymbro.')
   })
 
+  test('shows last week by now until this week has lifted, then compares', async ({ page }) => {
+    await seedDatabase(page)
+    // Tuesday last week, so it counts toward last week up to Friday.
+    await logWorkout(page, 0, '2026-09-29', true)
+
+    await page.goto('/')
+    const delta = page.locator('#volume-delta')
+    await expect(page.locator('#volume-value')).toHaveText('0 kg')
+    await expect(delta).toHaveText('Last week by now: 300 kg')
+    await expect(delta).not.toHaveAttribute('data-trend')
+
+    await logWorkout(page, 1, '2026-10-06', true)
+    await page.reload()
+    await expect(page.locator('#volume-value')).toHaveText('300 kg')
+    await expect(delta).toHaveText('= 0% vs last week')
+    await expect(delta).toHaveAttribute('data-trend', 'flat')
+  })
+
   test('offers to continue a workout started this week', async ({ page }) => {
     await seedDatabase(page)
     const started = await logWorkout(page, 1, '2026-10-08', false)
