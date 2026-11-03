@@ -455,10 +455,9 @@
     min-width: 44px;
   }
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
-  }
+  /* No smooth scrolling: the app's own scrolls (the router restoring a page's position, a redraw or the workout's
+     cards keeping it) must land at once, and so must a tap after a scroll, which a smooth scroll moves the page under
+     (WebKit's lost Finished set taps in the specs). */
 
   details {
     &[open] {
@@ -870,7 +869,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }
 
