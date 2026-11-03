@@ -1,6 +1,24 @@
 import { AuthEnv, resolveUserId } from './auth'
 import { BreakAlarm, handleBreakAlerts, type BreakAlertsEnv } from './breakAlerts'
 import { handleMcp } from './mcp'
+import {
+  authorizationServerMetadata,
+  authorize,
+  connectDeny,
+  connectOptions,
+  connectRequest,
+  connectVerify,
+  isOpenPath,
+  listConnections,
+  mcpUnauthorized,
+  protectedResourceMetadata,
+  registerClient,
+  resolveAccessToken,
+  revoke,
+  revokeConnection,
+  token,
+  type OAuthEnv
+} from './oauth'
 import { isAllowedOrigin, type OriginEnv } from './origins'
 import {
   addPasskeyOptions,
@@ -17,19 +35,27 @@ import { countStatements, loadRowSet, parsePushBody, pullRows, upsertRows, ROW_C
 
 const withCors = (request: Request, response: Response, env: Env) => {
   const origin = request.headers.get('Origin')
-  if (!isAllowedOrigin(origin, env)) return response
+  // An assistant running in a browser may call /mcp and the OAuth endpoints from any origin. It sends its token in a
+  // header, never a cookie, so allowing every origin there gives a page nothing it doesn't hold already.
+  const open = isOpenPath(new URL(request.url).pathname)
+  if (!open && !isAllowedOrigin(origin, env)) return response
+  if (origin === null) return response
 
   const headers = new Headers(response.headers)
-  headers.set('Access-Control-Allow-Origin', origin)
+  headers.set('Access-Control-Allow-Origin', open ? '*' : origin)
   headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  headers.set(
+    'Access-Control-Allow-Headers',
+    open ? 'Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id' : 'Content-Type, Authorization'
+  )
+  if (open) headers.set('Access-Control-Expose-Headers', 'WWW-Authenticate')
   headers.set('Access-Control-Max-Age', '86400')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
-interface Env extends AuthEnv, OriginEnv, BreakAlertsEnv {
+interface Env extends AuthEnv, OriginEnv, BreakAlertsEnv, OAuthEnv {
   jimbro: D1Database
-  // Limits the public passkey routes per client address. See wrangler.jsonc.
+  // Limits the public passkey and OAuth routes per client address. See wrangler.jsonc.
   AUTH_LIMITER: RateLimit
   // Limits each user's pushes. See wrangler.jsonc.
   PUSH_LIMITER: RateLimit
@@ -100,8 +126,37 @@ const PUBLIC_AUTH_ROUTES = new Map<string, (request: Request, env: Env) => Promi
   ['/auth/register/options', registerOptions],
   ['/auth/register/verify', registerVerify],
   ['/auth/signin/options', signInOptions],
-  ['/auth/signin/verify', signInVerify]
+  ['/auth/signin/verify', signInVerify],
+  ['/auth/connect/request', connectRequest],
+  ['/auth/connect/options', connectOptions],
+  ['/auth/connect/verify', connectVerify],
+  ['/auth/connect/deny', connectDeny]
 ])
+
+// The OAuth routes an assistant calls, with the method each takes. They have a budget of their own per address, apart
+// from the app's passkey routes.
+const OAUTH_ROUTES = new Map<
+  string,
+  { method: 'GET' | 'POST'; handle: (request: Request, env: Env) => Promise<Response> }
+>([
+  ['/oauth/register', { method: 'POST', handle: registerClient }],
+  ['/oauth/authorize', { method: 'GET', handle: authorize }],
+  ['/oauth/token', { method: 'POST', handle: token }],
+  ['/oauth/revoke', { method: 'POST', handle: revoke }]
+])
+
+const DISCOVERY_ROUTES = new Map<string, (request: Request) => Response>([
+  ['/.well-known/oauth-protected-resource', protectedResourceMetadata],
+  ['/.well-known/oauth-protected-resource/mcp', protectedResourceMetadata],
+  ['/.well-known/oauth-authorization-server', authorizationServerMetadata]
+])
+
+const withinBudget = async (request: Request, env: Env, prefix: string) => {
+  if (env.AUTH_RATE_LIMIT === 'off') return true
+  const client = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+  const { success } = await env.AUTH_LIMITER.limit({ key: `${prefix}:${client}` })
+  return success
+}
 
 const handlePublicAuth = async (
   request: Request,
@@ -109,11 +164,7 @@ const handlePublicAuth = async (
   handle: (request: Request, env: Env) => Promise<Response>
 ) => {
   if (request.method !== 'POST') return Response.json({ error: 'method not allowed' }, { status: 405 })
-  if (env.AUTH_RATE_LIMIT !== 'off') {
-    const client = request.headers.get('CF-Connecting-IP') ?? 'unknown'
-    const { success } = await env.AUTH_LIMITER.limit({ key: `auth:${client}` })
-    if (!success) return Response.json({ error: 'rate_limited' }, { status: 429 })
-  }
+  if (!(await withinBudget(request, env, 'auth'))) return Response.json({ error: 'rate_limited' }, { status: 429 })
   return handle(request, env)
 }
 
@@ -124,15 +175,26 @@ const handleRequest = async (request: Request, env: Env) => {
   const publicAuth = PUBLIC_AUTH_ROUTES.get(path)
   if (publicAuth) return handlePublicAuth(request, env, publicAuth)
 
-  // Auth: Resolve userId from bearer token
+  const discovery = DISCOVERY_ROUTES.get(path)
+  if (discovery && request.method === 'GET') return discovery(request)
+
+  const oauth = OAUTH_ROUTES.get(path)
+  if (oauth) {
+    if (request.method !== oauth.method) return Response.json({ error: 'method not allowed' }, { status: 405 })
+    if (!(await withinBudget(request, env, 'oauth'))) return Response.json({ error: 'rate_limited' }, { status: 429 })
+    return oauth.handle(request, env)
+  }
+
+  // Auth: Resolve userId from bearer token. An OAuth access token resolves to nobody here, so it never reaches /api/.
   const userId = await resolveUserId(request.headers.get('Authorization'), env)
 
   if (path === '/mcp') {
     if (request.method !== 'POST') {
       return finish(request, Response.json({ error: 'method not allowed' }, { status: 405 }))
     }
-    if (!userId) return finish(request, Response.json({ error: 'unauthorized' }, { status: 401 }))
-    return finish(request, await handleMcp(request, env.jimbro, userId))
+    const reader = userId ?? (await resolveAccessToken(request, env))
+    if (!reader) return finish(request, mcpUnauthorized(request, request.headers.has('Authorization')))
+    return finish(request, await handleMcp(request, env.jimbro, reader))
   }
 
   if (path.startsWith('/api/')) {
@@ -146,6 +208,8 @@ const handleRequest = async (request: Request, env: Env) => {
     if (path === '/api/passkeys/verify' && request.method === 'POST') return addPasskeyVerify(request, env, userId)
     if (path === '/api/signout' && request.method === 'POST') return signOut(request, env)
     if (path === '/api/claim' && request.method === 'POST') return claimAccount(request, env, userId)
+    if (path === '/api/connections' && request.method === 'GET') return listConnections(env, userId)
+    if (path === '/api/connections/revoke' && request.method === 'POST') return revokeConnection(request, env, userId)
     if (path === '/api/break-alerts' || path.startsWith('/api/break-alerts/')) {
       return handleBreakAlerts(request, env, userId, path)
     }

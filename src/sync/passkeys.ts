@@ -35,12 +35,13 @@ const postSignedIn = async (path: string, body?: unknown) => {
   return requestJson(path, { method: 'POST', token: saved.token, body })
 }
 
-// A passkey ceremony: signing up, signing in, or adding a passkey to the signed-in account.
-export type Ceremony = 'register' | 'signin' | 'add'
+// A passkey ceremony: signing up, signing in, adding a passkey to the signed-in account, or approving an AI assistant.
+export type Ceremony = 'register' | 'signin' | 'add' | 'connect'
 
 const fetchOptions = (ceremony: Ceremony) => {
   if (ceremony === 'register') return postPublic('/auth/register/options')
   if (ceremony === 'signin') return postPublic('/auth/signin/options')
+  if (ceremony === 'connect') return postPublic('/auth/connect/options')
   return postSignedIn('/api/passkeys/options')
 }
 
@@ -184,6 +185,36 @@ const register = async (options: CreationOptionsJson) => {
   }
 }
 
+// Uses any passkey this phone has for Jimbro, which the browser lets the user pick, and resolves to the assertion the
+// worker checks.
+const assert = async (options: unknown) => {
+  const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
+  const credential = await navigator.credentials.get({
+    publicKey: { challenge: bytes(challenge), rpId, allowCredentials: [], userVerification, timeout }
+  })
+  if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser used no passkey')
+  const response = credential.response as AuthenticatorAssertionResponse
+  return {
+    id: credential.id,
+    clientDataJSON: toBase64Url(response.clientDataJSON),
+    authenticatorData: toBase64Url(response.authenticatorData),
+    signature: toBase64Url(response.signature)
+  }
+}
+
+// Approves an AI assistant's request to read the account of the passkey the user picks, and resolves to the URL that
+// takes the browser back to the assistant. It makes no device token, so the device backing up is left as it is.
+export const approveConnection = async (request: string) => {
+  const answer = await withOptions('connect', async (options) =>
+    postPublic('/auth/connect/verify', { request, ...(await assert(options)) })
+  )
+  if (!isRedirect(answer)) throw new ServerError(200, 'invalid_answer')
+  return answer.redirect
+}
+
+export const isRedirect = (value: unknown): value is { redirect: string } =>
+  typeof value === 'object' && value !== null && 'redirect' in value && typeof value.redirect === 'string'
+
 // Saves the account and has the next sync run a first sync with it, which restores the account's rows and pushes every
 // row only this device has. A device that synced with another account, through a token or another passkey, leaves
 // that account's backup behind.
@@ -240,20 +271,9 @@ export const signInWithPasskey = async ({
 }: {
   confirmSignIn: (effects: SignInEffects) => boolean | Promise<boolean>
 }) => {
-  const issued = await withOptions('signin', async (options) => {
-    const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
-    const credential = await navigator.credentials.get({
-      publicKey: { challenge: bytes(challenge), rpId, allowCredentials: [], userVerification, timeout }
-    })
-    if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser used no passkey')
-    const response = credential.response as AuthenticatorAssertionResponse
-    return postPublic('/auth/signin/verify', {
-      id: credential.id,
-      clientDataJSON: toBase64Url(response.clientDataJSON),
-      authenticatorData: toBase64Url(response.authenticatorData),
-      signature: toBase64Url(response.signature)
-    })
-  })
+  const issued = await withOptions('signin', async (options) =>
+    postPublic('/auth/signin/verify', await assert(options))
+  )
   if (!isIssued(issued)) throw new ServerError(200, 'invalid_answer')
   const forget = async () => {
     await requestJson('/api/signout', { method: 'POST', token: issued.token }).catch(() => undefined)
