@@ -30,6 +30,25 @@ export const test = base.extend<RouterOptions>({
       if (frame === page.mainFrame()) log.push(`${at()} navigated: ${frame.url()}`)
     })
     page.on('dialog', (dialog) => log.push(`${at()} dialog ${dialog.type()}: ${dialog.message()}`))
+    // The page logs the taps, submits and failed validations it sees, and the app's notices, with where they landed and
+    // whether anything cancelled them, so a lost tap shows which step dropped it.
+    await page.addInitScript(() => {
+      const describe = (target: EventTarget | null) => {
+        if (!(target instanceof Element))
+          return target === window ? 'window' : target === document ? 'document' : 'other'
+        const text = target.textContent?.trim().slice(0, 30) ?? ''
+        return `${target.tagName.toLowerCase()}${target.className ? `.${String(target.className).split(' ')[0]}` : ''} "${text}"`
+      }
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'submit', 'invalid']) {
+        window.addEventListener(type, (event) => console.debug(`trace ${type} on ${describe(event.target)}`), true)
+        window.addEventListener(type, (event) => {
+          if (event.defaultPrevented) console.debug(`trace ${type} cancelled`)
+        })
+      }
+      for (const notice of ['rows-written', 'sync-settled']) {
+        window.addEventListener(`jimbro:${notice}`, () => console.debug(`trace ${notice}`))
+      }
+    })
     await use(page)
     if (testInfo.status === testInfo.expectedStatus) return
     const state = await page
