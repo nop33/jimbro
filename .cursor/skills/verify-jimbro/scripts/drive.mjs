@@ -206,7 +206,17 @@ async function withPasskeyWorker(page) {
     '/api/claim': () => ({ signedOut: 1 }),
     '/api/signout': () => ({ ok: true }),
     '/api/pull': () => ({ rows: [], cursor: 0, more: false }),
-    '/api/push': () => ({ revision: 1 })
+    '/api/push': () => ({ revision: 1 }),
+    '/api/connections': () => ({
+      connections: [
+        {
+          id: 'tour-connection',
+          name: 'Claude',
+          connectedAt: '2026-11-01T09:00:00.000Z',
+          lastUsedAt: '2026-11-03T08:30:00.000Z'
+        }
+      ]
+    })
   }
   await page.route(
     (url) => url.pathname in answers,
@@ -461,8 +471,16 @@ const STOPS = [
     await see(page.getByRole('button', { name: 'Sign out' }))
     await gone(page.locator('.toast-message-popup'))
   }],
+  ['settings-assistants', async (page) => {
+    // With a passkey backup, AI Assistants shows the link to connect with and the connected assistants.
+    await page.locator('#assistants-details > summary').click()
+    await see(page.getByRole('button', { name: 'Disconnect Claude' }))
+    await page.locator('#assistants-details').scrollIntoViewIfNeeded()
+  }],
   ['settings-signed-out', async (page) => {
     // The tour accepts the sign-out confirm. A phone that signed out offers signing in first.
+    await page.locator('#assistants-details > summary').click()
+    await page.locator('#cloud-backup-details').scrollIntoViewIfNeeded()
     await page.getByRole('button', { name: 'Sign out' }).click()
     await see(page.locator('#cloud-backup-details .btn-primary', { hasText: 'Sign in with passkey' }))
     await gone(page.locator('.toast-message-popup'))
@@ -488,6 +506,32 @@ const STOPS = [
     await page.getByRole('button', { name: 'Sync now' }).click()
     await see(page.getByText('Your backup moved to another device, so this phone stopped backing up.'))
     await gone(page.locator('.toast-message-popup'))
+  }],
+  ['connect', async (page) => {
+    // An assistant sends the browser here to ask to read the workouts. Canned answers stand in for the worker.
+    const answers = {
+      '/auth/connect/request': { clientName: 'Claude', redirectHost: 'claude.ai', onThisComputer: false },
+      '/auth/connect/options': {
+        challenge: base64Url(crypto.getRandomValues(new Uint8Array(32))),
+        rpId: 'localhost',
+        userVerification: 'required',
+        timeout: 300_000
+      }
+    }
+    await page.route(
+      (url) => url.pathname in answers,
+      (route) => {
+        const headers = {
+          'Access-Control-Allow-Origin': route.request().headers().origin ?? '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+        }
+        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+        return route.fulfill({ json: answers[new URL(route.request().url()).pathname], headers })
+      }
+    )
+    await page.goto(`${base}/connect/?request=tour`)
+    await see(page.getByRole('button', { name: 'Allow with passkey' }))
   }],
   ['gymtime-error', async (page) => {
     await page.goto('/gymtime/?programId=missing')
@@ -529,6 +573,7 @@ const STOPS = [
 const CHROMIUM_ONLY = new Map([
   ['settings-passkey', "it needs Chromium's virtual authenticator."],
   ['settings-signed-out', "it needs Chromium's virtual authenticator."],
+  ['settings-assistants', "it needs a passkey backup, made with Chromium's virtual authenticator."],
   ['settings-moved', "it needs Chromium's virtual authenticator."],
   ['break-timer-other-page', 'the WebKit tour loads every page in full, which ends the break.'],
   ['break-timer-off-gymtime', 'the WebKit tour loads every page in full, which ends the break.']

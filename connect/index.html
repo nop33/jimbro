@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- partial:head -->
+    <title>Jimbro - Connect an assistant</title>
+    <script type="module" src="/src/pages/connect/index.ts"></script>
+  </head>
+  <body class="app">
+    <div class="app-page pb-20 md:pb-0">
+      <header class="app-header">
+        <!-- partial:back-button -->
+        <h1 class="app-header-title">Connect</h1>
+      </header>
+
+      <div class="app-page-content">
+        <p id="connect-loading" class="text-jim-neutral-secondary">Loading…</p>
+
+        <section id="connect-ask" class="card flex flex-col gap-4" aria-labelledby="connect-title" hidden>
+          <h2 id="connect-title" class="text-xl font-bold text-jim-neutral">
+            Allow <span id="connect-client"></span> to read your workouts?
+          </h2>
+          <ul class="flex flex-col gap-2 text-jim-neutral-secondary list-disc pl-5">
+            <li>It can read your workouts, exercises and programs, to answer your questions about them.</li>
+            <li>It can't change or delete anything.</li>
+            <li>You can disconnect it any time in Settings.</li>
+          </ul>
+          <p class="text-sm text-jim-neutral-tertiary">
+            After you allow it, you go back to <strong id="connect-host" class="text-jim-neutral-secondary"></strong>.
+          </p>
+          <p id="connect-local" class="text-sm text-jim-warning" hidden>
+            This assistant runs on this computer. Only allow it if you just started connecting it yourself.
+          </p>
+          <p id="connect-passkey-hint" class="text-sm text-jim-neutral-secondary">
+            Approve with the passkey you back up Jimbro with. No passkey yet? Create one in Jimbro's Settings under
+            Cloud Backup first.
+          </p>
+          <button type="button" id="connect-allow" class="btn-primary">Allow with passkey</button>
+          <button type="button" id="connect-deny" class="btn-secondary">Don't allow</button>
+        </section>
+
+        <section id="connect-gone" class="card flex flex-col gap-2" hidden>
+          <h2 class="text-xl font-bold text-jim-neutral">This link has expired</h2>
+          <p class="text-jim-neutral-secondary">
+            Connecting links work once, for 10 minutes. Start connecting again from your assistant.
+          </p>
+        </section>
+
+        <section id="connect-unsupported" class="card flex flex-col gap-2" hidden>
+          <h2 class="text-xl font-bold text-jim-neutral">This browser can't use passkeys</h2>
+          <p class="text-jim-neutral-secondary">Open the link in Safari or Chrome to approve the connection.</p>
+        </section>
+
+        <p id="connect-failed" class="text-jim-neutral-secondary" hidden>
+          Jimbro couldn't load this request. Check your connection and reload the page.
+        </p>
+      </div>
+    </div>
+
+    <!-- partial:break-timer -->
+    <!-- partial:bottom-nav -->
+  </body>
+</html>
