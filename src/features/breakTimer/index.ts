@@ -40,9 +40,12 @@ class BreakTimer {
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
+  // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the bar.
+  private dragged = false
   private alertsBell = new AlertsBell(this.dialog)
 
   constructor() {
+    this.pullDownToMinimize()
     this.skipBreakButton.addEventListener('click', () => this.close())
     this.minimizeButton.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -87,12 +90,72 @@ class BreakTimer {
     if (this.sessionId !== null) this.backToWorkoutLink.href = `/gymtime/?id=${this.sessionId}`
   }
 
+  // The full timer follows a finger that pulls it down, as a sheet does, and minimizes once it is pulled far or flicked.
+  // Let go before then, it slides back up. A move under the slop is still a tap on whatever it started on, so the timer
+  // takes the pointer only once it moves further.
+  private pullDownToMinimize() {
+    const slop = 10
+    let pull: { pointerId: number; startY: number; dragging: boolean; y: number; time: number; speed: number } | null =
+      null
+
+    this.dialog.addEventListener('pointerdown', (event) => {
+      this.dragged = false
+      if (this.isMinimized || !event.isPrimary) return
+      pull = { pointerId: event.pointerId, startY: event.clientY, dragging: false, y: event.clientY, time: 0, speed: 0 }
+    })
+    this.dialog.addEventListener('pointermove', (event) => {
+      if (pull?.pointerId !== event.pointerId) return
+      const distance = event.clientY - pull.startY
+      if (!pull.dragging) {
+        if (distance < -slop) {
+          pull = null
+          return
+        }
+        if (distance <= slop) return
+        pull.dragging = true
+        this.dialog.setPointerCapture(event.pointerId)
+        this.dialog.style.transition = 'none'
+      }
+      // Pixels per millisecond over the last move, to tell a flick from a slow pull.
+      if (pull.time > 0) pull.speed = (event.clientY - pull.y) / Math.max(event.timeStamp - pull.time, 1)
+      pull.y = event.clientY
+      pull.time = event.timeStamp
+      this.dialog.style.translate = `0 ${Math.max(distance, 0)}px`
+    })
+    const release = (event: PointerEvent) => {
+      if (pull?.pointerId !== event.pointerId) return
+      const { dragging, startY, speed } = pull
+      pull = null
+      if (!dragging) return
+      this.dragged = true
+      this.dialog.style.transition = ''
+      const distance = event.type === 'pointerup' ? event.clientY - startY : 0
+      if (distance > Math.min(120, innerHeight / 5) || (distance > 40 && speed > 0.5)) {
+        this.minimizeDialog()
+      } else {
+        this.dialog.style.translate = ''
+      }
+    }
+    this.dialog.addEventListener('pointerup', release)
+    this.dialog.addEventListener('pointercancel', release)
+    this.dialog.addEventListener(
+      'click',
+      (event) => {
+        if (!this.dragged) return
+        this.dragged = false
+        event.stopImmediatePropagation()
+      },
+      { capture: true }
+    )
+  }
+
   private minimizeDialog() {
     this.morph(() => this.showMinimized())
   }
 
   private showMinimized() {
     this.isMinimized = true
+    this.dialog.style.translate = ''
     this.dialog.close()
     this.dialog.classList.remove('dialog-full-screen')
     this.dialog.classList.add('dialog-minimized')
@@ -102,6 +165,7 @@ class BreakTimer {
   private maximizeDialog() {
     this.isMinimized = false
     this.morph(() => {
+      this.dialog.style.translate = ''
       this.dialog.close()
       this.dialog.classList.remove('dialog-minimized')
       this.dialog.classList.add('dialog-full-screen')

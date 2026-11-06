@@ -340,6 +340,59 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
+  test('pulling the break timer down minimizes it, a short pull slides back, and the bar expands it', async ({
+    page
+  }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    await card.locator('.exercise-details > summary').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+
+    // While the timer morphs between its two looks, the page under the transition takes the pointer.
+    const settled = () => expect(page.locator('html')).not.toHaveClass(/morphing-break-timer/)
+    const pull = async (distance: number) => {
+      await settled()
+      const box = (await breakTimer.locator('#countdown').boundingBox())!
+      const x = box.x + box.width / 2
+      const y = box.y + box.height / 2
+      await page.mouse.move(x, y)
+      await page.mouse.down()
+      await page.mouse.move(x, y + distance, { steps: 10 })
+      await page.mouse.up()
+    }
+
+    // A short pull is let go before the timer minimizes, and the release taps nothing.
+    await pull(30)
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(breakTimer).toHaveCSS('translate', 'none')
+
+    await pull(200)
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    await expect(breakTimer).toHaveCSS('translate', 'none')
+
+    // The release that minimized it doesn't count as a tap on the bar, which would open it again.
+    await expect(breakTimer).not.toHaveClass(/dialog-full-screen/)
+
+    // The bar's Expand button opens the full timer, which hides it again.
+    const expand = breakTimer.getByRole('button', { name: 'Expand' })
+    await expect(expand).toBeVisible()
+    await settled()
+    await expand.click()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(expand).toBeHidden()
+
+    // A tap anywhere else on the bar still opens it too.
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    await settled()
+    await breakTimer.click()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+  })
+
   test('the minimized break timer is a bar that holds its countdown', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')

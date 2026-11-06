@@ -526,6 +526,13 @@
     }
   }
 
+  /* The full timer pulls down into its bar (src/features/breakTimer), so the finger moves it instead of scrolling the
+     page under the modal or selecting its text, which a drag would carry off instead. Nothing in it scrolls. */
+  #break-countdown-dialog.dialog-full-screen {
+    @apply select-none;
+    touch-action: none;
+  }
+
   .dialog-minimized {
     @apply fixed z-50 w-full max-w-full rounded-none rounded-t-2xl p-4 cursor-pointer m-0 border-b-0 border-x-0 border-t border-neutral-700/50 shadow-lg flex items-center justify-center;
     box-sizing: border-box;
@@ -582,6 +589,10 @@
   }
 
   .dialog-minimized .hide-when-minimized {
+    display: none !important;
+  }
+
+  :not(.dialog-minimized) > .show-when-minimized {
     display: none !important;
   }
 
