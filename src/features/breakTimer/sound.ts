@@ -1,8 +1,8 @@
-export const playDingSound = () => {
-  try {
-    if (typeof AudioContext !== 'function') return
+import { playSound } from '../audio'
 
-    const ctx = new AudioContext()
+// The ding at the end of a break.
+export const playDingSound = () =>
+  playSound((ctx) => {
     const osc = ctx.createOscillator()
     const gainNode = ctx.createGain()
 
@@ -18,9 +18,4 @@ export const playDingSound = () => {
 
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.5)
-    // Each ding makes its own context, which holds on to the audio output until it closes.
-    osc.addEventListener('ended', () => void ctx.close())
-  } catch (err) {
-    console.error('Failed to play sound', err)
-  }
-}
+  })

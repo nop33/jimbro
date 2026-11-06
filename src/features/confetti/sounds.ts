@@ -1,11 +1,4 @@
-let audioCtx: AudioContext | null = null
-
-function getAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new AudioContext()
-  }
-  return audioCtx
-}
+import { playSound } from '../audio'
 
 function playChime(ctx: AudioContext) {
   const duration = 0.5
@@ -152,19 +145,8 @@ function playVictoryFanfare(ctx: AudioContext) {
   })
 }
 
-// Main function to randomly select and play a funny sound
+// Plays one of the sounds above at random.
 export function playFunnySound() {
-  try {
-    const ctx = getAudioContext()
-    if (ctx.state === 'suspended') {
-      // The context's clock stands still until it resumes, so the notes scheduled below still play in full.
-      void ctx.resume()
-    }
-
-    const sounds = [playMarioSuccess, playChime, playCoin, playLevelStart, playQuestComplete, playVictoryFanfare]
-    const randomSound = sounds[Math.floor(Math.random() * sounds.length)]
-    randomSound(ctx)
-  } catch (error) {
-    console.warn('Web Audio API play failed:', error)
-  }
+  const sounds = [playMarioSuccess, playChime, playCoin, playLevelStart, playQuestComplete, playVictoryFanfare]
+  playSound(sounds[Math.floor(Math.random() * sounds.length)])
 }

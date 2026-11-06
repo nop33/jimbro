@@ -1,3 +1,4 @@
+import { unlockAudio } from './features/audio'
 import { breakTimer } from './features/breakTimer'
 import './features/installPrompt'
 import { keepPagesFresh } from './redraw'
@@ -172,8 +173,9 @@ const redrawInPlace = async () => {
   window.scrollTo(0, scrolled)
 }
 
-// The break timer outlives every page, so the document wires it once.
+// The break timer outlives every page, so the document wires it once, and the taps on any page let its ding play.
 breakTimer()
+unlockAudio()
 keepPagesFresh(redrawInPlace)
 
 const first = PAGES[pagePath(new URL(window.location.href))]
