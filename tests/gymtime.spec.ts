@@ -346,6 +346,8 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
 
     const pull = async (distance: number) => {
+      // While the timer morphs between its two looks, the page under the transition takes the pointer.
+      await expect(page.locator('html')).not.toHaveClass(/morphing-break-timer/)
       const box = (await breakTimer.locator('#countdown').boundingBox())!
       const x = box.x + box.width / 2
       const y = box.y + box.height / 2
