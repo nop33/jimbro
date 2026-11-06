@@ -1,6 +1,7 @@
 import type { ExerciseKind } from '../../db/exerciseLogging'
 import { historyChartEnabled } from '../../db/exerciseLogging'
 import { breakAlertsOn, cancelBreakAlert, scheduleBreakAlert } from '../../sync/breakAlerts'
+import AlertsBell from './alertsBell'
 import { playDingSound } from './sound'
 
 // A break after a set in a workout: its length, the exercise's sets logged and to do, and the next exercise with sets
@@ -39,6 +40,7 @@ class BreakTimer {
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
+  private alertsBell = new AlertsBell(this.dialog)
 
   constructor() {
     this.skipBreakButton.addEventListener('click', () => this.close())
@@ -185,6 +187,7 @@ class BreakTimer {
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
     this.next = next
+    this.alertsBell.reset()
 
     this.updateTimerDisplay()
 

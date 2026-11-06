@@ -549,6 +549,11 @@
     view-transition-name: countdown;
   }
 
+  /* The break alerts bell is struck through while the alerts are off. */
+  #break-alerts-bell[aria-pressed='true'] .bell-strike {
+    display: none;
+  }
+
   .dialog-minimized .hide-when-minimized {
     display: none !important;
   }
