@@ -28,6 +28,8 @@ export class OpenSession {
   private starter: Starter | undefined
   // The start on its way, so changes made before it lands write to the one workout it creates.
   private starting: Promise<WorkoutSession> | undefined
+  // When the workout started, until the change that started it has run its effects and the lifter has been told.
+  private startedAt: Date | undefined
   // Writes and the views showing their result, still running. The region is aria-busy while any is.
   private running = 0
   private busyRegion: HTMLElement | undefined
@@ -84,6 +86,7 @@ export class OpenSession {
       return [session, next] as const
     })
     await this.actOn(outcomeOf(session, next, loggedFor, getBreakTimeSeconds()))
+    this.announceStart()
     return next
   }
 
@@ -115,12 +118,21 @@ export class OpenSession {
     this.starting ??= (async () => {
       const session = await start()
       await this.showNow(session)
-      Toasts.show({ message: 'Workout started.' })
+      this.startedAt = new Date()
       return session
     })().finally(() => {
       this.starting = undefined
     })
     return this.starting
+  }
+
+  // Tells the lifter the workout started, after the change that started it ran its effects, so the toast shows above
+  // the break timer that a first set opens. It also reminds them to start the workout on their watch.
+  private announceStart(): void {
+    if (!this.startedAt) return
+    const time = this.startedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    this.startedAt = undefined
+    Toasts.show({ message: `Workout started · ${time}`, detail: 'Start it on your watch too', duration: 'long' })
   }
 
   // A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or
