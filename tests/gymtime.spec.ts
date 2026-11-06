@@ -333,7 +333,9 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
-  test('pulling the break timer down minimizes it, and a short pull lets it slide back', async ({ page }) => {
+  test('swiping the timer down minimizes it, swiping the bar up opens it, and a short swipe slides back', async ({
+    page
+  }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
     await card.locator('.exercise-details > summary').click()
@@ -364,6 +366,18 @@ test.describe('Gymtime Page', () => {
 
     // The release that minimized it doesn't count as a tap on the bar, which would open it again.
     await expect(breakTimer).not.toHaveClass(/dialog-full-screen/)
+
+    // Swiped up, the bar opens the full timer, and a short swipe slides it back down without opening it.
+    await pull(-20)
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    await expect(breakTimer).toHaveCSS('translate', 'none')
+    await pull(-100)
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(breakTimer).toHaveCSS('translate', 'none')
+
+    // A tap on the bar still opens it.
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
     await breakTimer.click()
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
   })
