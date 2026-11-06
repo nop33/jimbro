@@ -39,11 +39,11 @@ class BreakTimer {
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
-  // Whether the last pointer dragged the timer, so the click its release fires taps nothing, not even the bar.
+  // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the bar.
   private dragged = false
 
   constructor() {
-    this.swipeToResize()
+    this.pullDownToMinimize()
     this.skipBreakButton.addEventListener('click', () => this.close())
     this.minimizeButton.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -88,68 +88,48 @@ class BreakTimer {
     if (this.sessionId !== null) this.backToWorkoutLink.href = `/gymtime/?id=${this.sessionId}`
   }
 
-  // The timer follows a finger that swipes it, as a sheet does: the full timer down into its bar, and the bar up into the
-  // full timer. Pulled far enough or flicked, it changes; let go before then, it slides back. A move under the slop is
-  // still a tap on whatever it started on, so the timer takes the pointer only once it moves further.
-  private swipeToResize() {
+  // The full timer follows a finger that pulls it down, as a sheet does, and minimizes once it is pulled far or flicked.
+  // Let go before then, it slides back up. A move under the slop is still a tap on whatever it started on, so the timer
+  // takes the pointer only once it moves further.
+  private pullDownToMinimize() {
     const slop = 10
-    // Down (1) minimizes the full timer, and up (-1) opens the bar.
-    let swipe: {
-      pointerId: number
-      direction: 1 | -1
-      startY: number
-      dragging: boolean
-      y: number
-      time: number
-      speed: number
-    } | null = null
+    let pull: { pointerId: number; startY: number; dragging: boolean; y: number; time: number; speed: number } | null =
+      null
 
     this.dialog.addEventListener('pointerdown', (event) => {
       this.dragged = false
-      if (!event.isPrimary) return
-      swipe = {
-        pointerId: event.pointerId,
-        direction: this.isMinimized ? -1 : 1,
-        startY: event.clientY,
-        dragging: false,
-        y: event.clientY,
-        time: 0,
-        speed: 0
-      }
+      if (this.isMinimized || !event.isPrimary) return
+      pull = { pointerId: event.pointerId, startY: event.clientY, dragging: false, y: event.clientY, time: 0, speed: 0 }
     })
     this.dialog.addEventListener('pointermove', (event) => {
-      if (swipe?.pointerId !== event.pointerId) return
-      // How far, and how fast in pixels per millisecond over the last move, the finger went the way that changes it.
-      const distance = (event.clientY - swipe.startY) * swipe.direction
-      if (!swipe.dragging) {
+      if (pull?.pointerId !== event.pointerId) return
+      const distance = event.clientY - pull.startY
+      if (!pull.dragging) {
         if (distance < -slop) {
-          swipe = null
+          pull = null
           return
         }
         if (distance <= slop) return
-        swipe.dragging = true
+        pull.dragging = true
         this.dialog.setPointerCapture(event.pointerId)
         this.dialog.style.transition = 'none'
       }
-      if (swipe.time > 0) {
-        swipe.speed = ((event.clientY - swipe.y) * swipe.direction) / Math.max(event.timeStamp - swipe.time, 1)
-      }
-      swipe.y = event.clientY
-      swipe.time = event.timeStamp
-      this.dialog.style.translate = `0 ${Math.max(distance, 0) * swipe.direction}px`
+      // Pixels per millisecond over the last move, to tell a flick from a slow pull.
+      if (pull.time > 0) pull.speed = (event.clientY - pull.y) / Math.max(event.timeStamp - pull.time, 1)
+      pull.y = event.clientY
+      pull.time = event.timeStamp
+      this.dialog.style.translate = `0 ${Math.max(distance, 0)}px`
     })
     const release = (event: PointerEvent) => {
-      if (swipe?.pointerId !== event.pointerId) return
-      const { dragging, direction, startY, speed } = swipe
-      swipe = null
+      if (pull?.pointerId !== event.pointerId) return
+      const { dragging, startY, speed } = pull
+      pull = null
       if (!dragging) return
       this.dragged = true
       this.dialog.style.transition = ''
-      const distance = event.type === 'pointerup' ? (event.clientY - startY) * direction : 0
-      const far = direction === 1 ? Math.min(120, innerHeight / 5) : 60
-      if (distance > far || (distance > 40 && speed > 0.5)) {
-        if (direction === 1) this.minimizeDialog()
-        else this.maximizeDialog()
+      const distance = event.type === 'pointerup' ? event.clientY - startY : 0
+      if (distance > Math.min(120, innerHeight / 5) || (distance > 40 && speed > 0.5)) {
+        this.minimizeDialog()
       } else {
         this.dialog.style.translate = ''
       }

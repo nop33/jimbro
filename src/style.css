@@ -526,10 +526,9 @@
     }
   }
 
-  /* The full timer swipes down into its bar and the bar up into the full timer (src/features/breakTimer), so the finger
-     moves the timer instead of scrolling the page under it or selecting its text, which a drag would carry off instead.
-     Nothing in it scrolls. */
-  #break-countdown-dialog {
+  /* The full timer pulls down into its bar (src/features/breakTimer), so the finger moves it instead of scrolling the
+     page under the modal or selecting its text, which a drag would carry off instead. Nothing in it scrolls. */
+  #break-countdown-dialog.dialog-full-screen {
     @apply select-none;
     touch-action: none;
   }
@@ -557,6 +556,10 @@
   }
 
   .dialog-minimized .hide-when-minimized {
+    display: none !important;
+  }
+
+  :not(.dialog-minimized) > .show-when-minimized {
     display: none !important;
   }
 

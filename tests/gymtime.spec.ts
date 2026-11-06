@@ -333,7 +333,7 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
-  test('swiping the timer down minimizes it, swiping the bar up opens it, and a short swipe slides back', async ({
+  test('pulling the break timer down minimizes it, a short pull slides back, and the bar expands it', async ({
     page
   }) => {
     const card = page.locator('#exercises-list > .card').first()
@@ -345,9 +345,10 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
 
+    // While the timer morphs between its two looks, the page under the transition takes the pointer.
+    const settled = () => expect(page.locator('html')).not.toHaveClass(/morphing-break-timer/)
     const pull = async (distance: number) => {
-      // While the timer morphs between its two looks, the page under the transition takes the pointer.
-      await expect(page.locator('html')).not.toHaveClass(/morphing-break-timer/)
+      await settled()
       const box = (await breakTimer.locator('#countdown').boundingBox())!
       const x = box.x + box.width / 2
       const y = box.y + box.height / 2
@@ -369,17 +370,18 @@ test.describe('Gymtime Page', () => {
     // The release that minimized it doesn't count as a tap on the bar, which would open it again.
     await expect(breakTimer).not.toHaveClass(/dialog-full-screen/)
 
-    // Swiped up, the bar opens the full timer, and a short swipe slides it back down without opening it.
-    await pull(-20)
-    await expect(breakTimer).toHaveClass(/dialog-minimized/)
-    await expect(breakTimer).toHaveCSS('translate', 'none')
-    await pull(-100)
+    // The bar's Expand button opens the full timer, which hides it again.
+    const expand = breakTimer.getByRole('button', { name: 'Expand' })
+    await expect(expand).toBeVisible()
+    await settled()
+    await expand.click()
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
-    await expect(breakTimer).toHaveCSS('translate', 'none')
+    await expect(expand).toBeHidden()
 
-    // A tap on the bar still opens it.
+    // A tap anywhere else on the bar still opens it too.
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    await settled()
     await breakTimer.click()
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
   })
