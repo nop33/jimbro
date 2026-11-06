@@ -9,6 +9,11 @@ import { requestJson, ServerError } from './server'
 
 const ENABLED_KEY = 'jimbro.breakAlerts'
 
+// The account this document last handed the subscription to. Another account's worker may hold it, after a switch, or
+// none, after a sign-out, or another device's, after the account moved away and back, so each document hands it over
+// once, at its first break, and again after each switch.
+let handedTo: string | null = null
+
 export interface BreakAlert {
   endsAt: number
   title: string
@@ -33,7 +38,7 @@ const writeEnabled = (on: boolean) => {
     if (on) localStorage.setItem(ENABLED_KEY, 'on')
     else localStorage.removeItem(ENABLED_KEY)
   } catch {
-    // Without storage the alerts stay off, which the Settings toggle then shows.
+    // Without storage the alerts stay off, which the bell then shows.
   }
 }
 
@@ -81,11 +86,58 @@ export const enableBreakAlerts = async () => {
     body: subscription.toJSON()
   })
   writeEnabled(true)
+  handedTo = current.userId
+}
+
+// Hands this device's subscription to the account it backs up to now, when alerts are on and this document has not
+// yet. A new break calls it while the page is in sight, so the alert it schedules out of sight reaches this device.
+export const keepBreakAlertsWithAccount = async () => {
+  const current = account.current()
+  if (!current || handedTo === current.userId || !breakAlertsOn()) return
+  try {
+    const registration = await navigator.serviceWorker.getRegistration()
+    const subscription = await registration?.pushManager.getSubscription()
+    if (!subscription) {
+      // The browser dropped the subscription, so turning alerts on again makes a new one.
+      writeEnabled(false)
+      return
+    }
+    await requestJson('/api/break-alerts/subscribe', {
+      method: 'POST',
+      token: current.token,
+      body: subscription.toJSON()
+    })
+    handedTo = current.userId
+  } catch (error) {
+    // The next break tries again.
+    console.error('break alerts could not follow the account', error)
+  }
+}
+
+// Before a sign-out, while the token still works: the account's worker forgets this device. Alerts stay on, for the
+// next account this device signs in to.
+export const releaseBreakAlerts = async () => {
+  const current = account.current()
+  if (!current || !readEnabled()) return
+  handedTo = null
+  await requestJson('/api/break-alerts/unsubscribe', { method: 'POST', token: current.token }).catch((error: unknown) =>
+    console.error('break alerts could not be released', error)
+  )
+}
+
+// The worker had no subscription to notify, as when the push service said it was gone. Alerts go off on this device,
+// with its subscription, so the bell shows them off and turning them on again subscribes afresh.
+const lostSubscription = async () => {
+  writeEnabled(false)
+  handedTo = null
+  const registration = await navigator.serviceWorker.getRegistration()
+  await (await registration?.pushManager.getSubscription())?.unsubscribe()
 }
 
 // Stops the alerts on this device, and tells the worker to forget its subscription when there is an account.
 export const disableBreakAlerts = async () => {
   writeEnabled(false)
+  handedTo = null
   const registration = await navigator.serviceWorker.getRegistration()
   await (await registration?.pushManager.getSubscription())?.unsubscribe()
   const current = account.current()
@@ -93,14 +145,24 @@ export const disableBreakAlerts = async () => {
 }
 
 // Sent as the page goes out of sight, so the request outlives the page's suspension, and nothing waits for it.
-const send = (path: string, body: unknown) => {
+const send = async (path: string, body: unknown) => {
   const current = account.current()
-  if (!current) return
-  void requestJson(path, { method: 'POST', token: current.token, body, keepalive: true }).catch((error: unknown) =>
-    console.error('break alert request failed', error)
-  )
+  if (!current) return null
+  return requestJson(path, { method: 'POST', token: current.token, body, keepalive: true })
 }
 
-export const scheduleBreakAlert = (alert: BreakAlert) => send('/api/break-alerts/schedule', alert)
+const unscheduled = (answer: unknown) =>
+  typeof answer === 'object' && answer !== null && 'scheduled' in answer && answer.scheduled === false
 
-export const cancelBreakAlert = () => send('/api/break-alerts/cancel', {})
+// Asks the worker for an alert at the end of the break. When it holds no subscription for this device, alerts go off.
+export const scheduleBreakAlert = (alert: BreakAlert) =>
+  void send('/api/break-alerts/schedule', alert)
+    .then(async (answer) => {
+      if (unscheduled(answer)) await lostSubscription()
+    })
+    .catch((error: unknown) => console.error('break alert request failed', error))
+
+export const cancelBreakAlert = () =>
+  void send('/api/break-alerts/cancel', {}).catch((error: unknown) =>
+    console.error('break alert request failed', error)
+  )

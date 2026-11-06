@@ -2,6 +2,7 @@ import { OBJECT_STORES } from '../db/constants'
 import { storage } from '../db/storage'
 import { account } from './account'
 import { fromBase64Url, toBase64Url } from './base64url'
+import { releaseBreakAlerts } from './breakAlerts'
 import { replacesLocalRows } from './bootstrap'
 import { outbox } from './outbox'
 import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
@@ -319,6 +320,7 @@ export const backUpBeforeSignOut = async () => {
 // Signs out: the worker forgets this device's token, and the device stops syncing. Its data stays on the device.
 export const signOut = async () => {
   if (account.current()) {
+    await releaseBreakAlerts()
     try {
       await postSignedIn('/api/signout')
     } catch (error) {
