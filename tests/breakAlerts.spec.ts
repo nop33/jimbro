@@ -46,28 +46,14 @@ const standInPush = (page: Page) =>
     Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => registration })
   })
 
-const openWorkoutSettings = async (page: Page) => {
-  await page.goto('/settings/')
-  await page.locator('summary', { hasText: 'Workout Settings' }).click()
-}
-
 const setVisibility = (page: Page, state: 'hidden' | 'visible') =>
   page.evaluate((state) => {
     Object.defineProperty(document, 'visibilityState', { value: state, configurable: true })
     document.dispatchEvent(new Event('visibilitychange'))
   }, state)
 
-test('break alerts wait for cloud backup', async ({ page }) => {
-  await standInPush(page)
-  await openWorkoutSettings(page)
-  await expect(page.locator('#break-alerts-status')).toHaveText(/need cloud backup/)
-  await expect(page.getByRole('button', { name: 'Turn on break alerts' })).toBeDisabled()
-})
-
-test('a break that goes out of sight asks the worker for an alert, and coming back cancels it', async ({ page }) => {
+const signIn = async (page: Page) => {
   const user = claimUser()
-  await standInPush(page)
-  await seedDatabase(page)
   await page.goto('/settings/')
   await page.locator('#cloud-backup-details > summary').click()
   await page.getByText('Use a token').click()
@@ -76,24 +62,59 @@ test('a break that goes out of sight asks the worker for an alert, and coming ba
   await page.getByRole('button', { name: 'Save credentials' }).click()
   // Saving waits for the account switch, so leaving before Sync now shows can drop the credentials.
   await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
+}
 
-  await openWorkoutSettings(page)
-  const subscribed = page.waitForResponse((response) => response.url().endsWith('/api/break-alerts/subscribe'))
-  await page.getByRole('button', { name: 'Turn on break alerts' }).click()
-  expect((await subscribed).status()).toBe(200)
-  await expect(page.locator('#break-alerts-status')).toHaveText(/^On\./)
-  await expect(page.getByRole('button', { name: 'Turn off break alerts' })).toBeVisible()
-
+// Opens the first program's workout and logs a set of its first exercise, which starts a break.
+const startBreak = async (page: Page) => {
   await page.goto('/')
   await page.locator('.program-pick').first().click()
   await page.waitForURL('**/gymtime/?*')
+  await logSet(page)
+}
+
+const logSet = async (page: Page) => {
   const card = page.locator('#exercises-list > .card').first()
-  await card.locator('.exercise-details > summary').click()
   const form = card.locator('.next-set-form')
+  if (!(await form.isVisible())) await card.locator('.exercise-details > summary').click()
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('100')
   await form.getByRole('button', { name: 'Finished set' }).click()
   await expect(page.locator('#break-countdown-dialog')).toBeVisible()
+}
+
+test('without cloud backup the bell is struck through and says what it needs', async ({ page }) => {
+  await standInPush(page)
+  await seedDatabase(page)
+  await startBreak(page)
+  const timer = page.locator('#break-countdown-dialog')
+  const bell = timer.getByRole('button', { name: 'Break alerts' })
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+  await expect(timer.locator('#break-alerts-tip')).toBeHidden()
+  await expect(bell).not.toContainClass('highlighted')
+  await bell.click()
+  await expect(timer.getByRole('status')).toHaveText(/need cloud backup/)
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('a break points at the bell, and once on, a break out of sight asks the worker for one', async ({ page }) => {
+  await standInPush(page)
+  await seedDatabase(page)
+  await signIn(page)
+  await startBreak(page)
+
+  const timer = page.locator('#break-countdown-dialog')
+  const bell = timer.getByRole('button', { name: 'Break alerts' })
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+  const tip = timer.locator('#break-alerts-tip')
+  await expect(tip).toBeVisible()
+  await expect(bell).toContainClass('highlighted')
+  const subscribed = page.waitForResponse((response) => response.url().endsWith('/api/break-alerts/subscribe'))
+  await bell.click()
+  expect((await subscribed).status()).toBe(200)
+  await expect(bell).toHaveAttribute('aria-pressed', 'true')
+  await expect(timer.getByRole('status')).toHaveText('Break alerts on.')
+  await expect(tip).toBeHidden()
+  await expect(bell).not.toContainClass('highlighted')
 
   const scheduled = page.waitForResponse((response) => response.url().endsWith('/api/break-alerts/schedule'))
   await setVisibility(page, 'hidden')
@@ -108,4 +129,38 @@ test('a break that goes out of sight asks the worker for an alert, and coming ba
   const cancelled = page.waitForResponse((response) => response.url().endsWith('/api/break-alerts/cancel'))
   await setVisibility(page, 'visible')
   expect((await cancelled).status()).toBe(200)
+
+  // The bell turns them off again.
+  const unsubscribed = page.waitForResponse((response) => response.url().endsWith('/api/break-alerts/unsubscribe'))
+  await bell.click()
+  expect((await unsubscribed).status()).toBe(200)
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+  await expect(timer.getByRole('status')).toHaveText('Break alerts off.')
+
+  // Turning them off was a choice, so the next break doesn't point at the bell again.
+  await timer.getByRole('button', { name: 'Skip' }).click()
+  await logSet(page)
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+  await expect(tip).toBeHidden()
+  await expect(bell).not.toContainClass('highlighted')
+})
+
+test('"Not now" keeps the tip away from the next breaks', async ({ page }) => {
+  await standInPush(page)
+  await seedDatabase(page)
+  await signIn(page)
+  await startBreak(page)
+
+  const timer = page.locator('#break-countdown-dialog')
+  const tip = timer.locator('#break-alerts-tip')
+  await tip.getByRole('button', { name: 'Not now' }).click()
+  await expect(tip).toBeHidden()
+  await timer.getByRole('button', { name: 'Skip' }).click()
+  await expect(timer).toBeHidden()
+
+  await logSet(page)
+  const bell = timer.getByRole('button', { name: 'Break alerts' })
+  await expect(bell).toHaveAttribute('aria-pressed', 'false')
+  await expect(tip).toBeHidden()
+  await expect(bell).not.toContainClass('highlighted')
 })

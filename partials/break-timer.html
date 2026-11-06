@@ -1,7 +1,50 @@
 <!-- The break timer. Every page has it, and the router keeps the one on screen when it shows the next page, so a break
      keeps counting down wherever the lifter goes (src/features/breakTimer). -->
 <dialog id="break-countdown-dialog" data-persist>
-  <div class="w-full flex flex-col items-center justify-between">
+  <div class="relative w-full flex flex-col items-center justify-between">
+    <!-- Break alerts: a notification when the break ends with Jimbro in the background. The bell is struck through
+         while they are off, and shows only where the browser has push (src/features/breakTimer/alertsBell.ts).
+         Icon: Lucide (https://lucide.dev) bell, ISC License, inlined like the nav's. -->
+    <div class="absolute top-0 right-0 flex flex-col items-end gap-1 hide-when-minimized">
+      <button
+        id="break-alerts-bell"
+        type="button"
+        aria-label="Break alerts"
+        aria-pressed="false"
+        class="flex items-center justify-center rounded-xl border border-neutral-600/50 p-3 transition-colors hover:bg-neutral-700 hover:text-white aria-pressed:text-jim-accent aria-busy:opacity-50"
+        hidden
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="size-5"
+          aria-hidden="true"
+        >
+          <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+          <path
+            d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+          />
+          <path class="bell-strike" d="m2 2 20 20" />
+        </svg>
+      </button>
+      <p id="break-alerts-message" role="status" class="max-w-56 text-right text-sm text-jim-neutral-secondary"></p>
+      <!-- While break alerts are off, a tip points at the bell, until "Not now" (src/features/breakTimer/alertsOffer.ts). -->
+      <div id="break-alerts-tip" class="break-alerts-tip" hidden>
+        <p class="text-sm">Tap the bell to get a notification when the break ends, even with the phone locked.</p>
+        <button
+          id="break-alerts-tip-later"
+          type="button"
+          class="self-end min-h-11 px-2 text-sm font-semibold text-jim-accent"
+        >
+          Not now
+        </button>
+      </div>
+    </div>
     <p class="text-4xl font-bold hide-when-minimized"><span id="sets-done" class="text-jim-accent"></span> done.</p>
     <h2 id="countdown" class="text-[min(8rem,28vw)] leading-none font-bold font-mono">
       <!-- -->
