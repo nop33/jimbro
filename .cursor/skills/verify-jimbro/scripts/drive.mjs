@@ -380,7 +380,12 @@ const STOPS = [
     await see(page.locator('#break-countdown-dialog'))
   }],
   ['break-timer-minimized', async (page) => {
-    await page.locator('#minimize-break').click()
+    // Pulled down, as a thumb does, rather than tapped: Minimize has its own stop on the other page.
+    const box = await page.locator('#countdown').boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 200, { steps: 10 })
+    await page.mouse.up()
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
   }],
   ['edit-set-dialog', async (page) => {
