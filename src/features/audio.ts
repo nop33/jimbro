@@ -10,11 +10,21 @@ const audioContext = () => {
   return context
 }
 
+// A resume on its way, which the taps after it leave alone: a browser without an audio device may never settle it.
+let waking: Promise<void> | null = null
+
 // Makes the context, or wakes it, inside the tap.
 const wake = () => {
+  if (waking) return
   try {
     const ctx = audioContext()
-    if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => undefined)
+    if (!ctx || ctx.state === 'running') return
+    waking = ctx
+      .resume()
+      .catch(() => undefined)
+      .finally(() => {
+        waking = null
+      })
   } catch (error) {
     console.warn('Web Audio API unavailable:', error)
   }
