@@ -15,7 +15,8 @@ const PAGES: Record<string, () => Promise<Page>> = {
   '/workouts/': () => import('./pages/workouts/index'),
   '/gymtime/': () => import('./pages/gymtime/index'),
   '/stats/': () => import('./pages/stats/index'),
-  '/settings/': () => import('./pages/settings/index')
+  '/settings/': () => import('./pages/settings/index'),
+  '/connect/': () => import('./pages/connect/index')
 }
 
 // '/gymtime', '/gymtime/index.html' and '/gymtime/?id=1' are all the gymtime page.

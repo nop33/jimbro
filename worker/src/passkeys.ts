@@ -17,7 +17,7 @@ export interface PasskeyEnv extends OriginEnv {
 // How long a challenge stays good, which is also the timeout the browser gets.
 const CHALLENGE_TTL_MS = 5 * 60_000
 
-type Purpose = 'register' | 'signin' | 'add'
+type Purpose = 'register' | 'signin' | 'add' | 'connect'
 
 const fail = (error: string, status = 400) => Response.json({ error }, { status })
 
@@ -184,11 +184,12 @@ export const registerVerify = async (request: Request, env: PasskeyEnv) => {
   return Response.json({ userId: verified.userId, token })
 }
 
-// POST /auth/signin/options: a challenge for any of the site's passkeys, which the browser lets the user pick.
-export const signInOptions = async (request: Request, env: PasskeyEnv) => {
+// A challenge for any of the site's passkeys, which the browser lets the user pick: a sign-in, or an assistant's
+// connect approval.
+export const assertionOptions = async (request: Request, env: PasskeyEnv, purpose: 'signin' | 'connect') => {
   const rp = relyingParty(request, env)
   if (!rp) return fail('origin_not_allowed', 403)
-  const challenge = await newChallenge(env.jimbro, 'signin', null)
+  const challenge = await newChallenge(env.jimbro, purpose, null)
   return Response.json({
     challenge,
     rpId: rp.rpId,
@@ -198,49 +199,69 @@ export const signInOptions = async (request: Request, env: PasskeyEnv) => {
   })
 }
 
-// POST /auth/signin/verify: checks the assertion against the stored passkey, and hands out a new token.
-export const signInVerify = async (request: Request, env: PasskeyEnv) => {
+// POST /auth/signin/options
+export const signInOptions = (request: Request, env: PasskeyEnv) => assertionOptions(request, env, 'signin')
+
+// Checks an assertion the browser made for a challenge of this purpose against the stored passkey. Resolves to the
+// passkey's user and the statement that stores its new sign count, for the caller's batch.
+export const verifyAssertionFor = async (request: Request, env: PasskeyEnv, purpose: 'signin' | 'connect') => {
   const rp = relyingParty(request, env)
-  if (!rp) return fail('origin_not_allowed', 403)
+  if (!rp) return { ok: false as const, response: fail('origin_not_allowed', 403) }
   const body = await readBody(request, ['id', 'clientDataJSON', 'authenticatorData', 'signature'])
-  if (!body) return fail('invalid_body')
+  if (!body) return { ok: false as const, response: fail('invalid_body') }
+  const rejected = (error: string, status = 400) => ({ ok: false as const, response: fail(error, status) })
   const { id, clientDataJSON, authenticatorData, signature } = body.decoded
   const clientData = readClientData(clientDataJSON)
-  if (!clientData) return fail('invalid_client_data')
-  if (!(await takeChallenge(env.jimbro, clientData.challenge, 'signin'))) return fail('invalid_challenge')
-  if (clientData.type !== 'webauthn.get') return fail('wrong_type')
-  if (clientData.origin !== rp.origin) return fail('wrong_origin')
-  if (clientData.crossOrigin) return fail('cross_origin')
+  if (!clientData) return rejected('invalid_client_data')
+  if (!(await takeChallenge(env.jimbro, clientData.challenge, purpose))) return rejected('invalid_challenge')
+  if (clientData.type !== 'webauthn.get') return rejected('wrong_type')
+  if (clientData.origin !== rp.origin) return rejected('wrong_origin')
+  if (clientData.crossOrigin) return rejected('cross_origin')
   const checked = await checkAuthenticatorData(authenticatorData, rp.rpId)
-  if (!checked.ok) return fail(checked.error)
+  if (!checked.ok) return rejected(checked.error)
 
   const stored = await env.jimbro
     .prepare('SELECT user_id, rp_id, public_key, alg, sign_count FROM passkeys WHERE id = ?1')
     .bind(toBase64Url(id))
     .first<{ user_id: string; rp_id: string; public_key: string; alg: number; sign_count: number }>()
-  if (!stored) return fail('unknown_credential', 401)
+  if (!stored) return rejected('unknown_credential', 401)
   // A passkey works only for the RP ID it was made for.
-  if (stored.rp_id !== rp.rpId) return fail('wrong_rp')
+  if (stored.rp_id !== rp.rpId) return rejected('wrong_rp')
   const spki = fromBase64Url(stored.public_key)
   const key = spki && (await importPublicKey(spki, stored.alg))
   if (!key || !(await verifyAssertion(key, stored.alg, signature, authenticatorData, clientDataJSON))) {
-    return fail('bad_signature', 401)
+    return rejected('bad_signature', 401)
   }
   // Synced passkeys report 0. A counter that has started must grow, or the passkey may have been cloned.
   const signCount = checked.data.signCount
-  if ((signCount !== 0 || stored.sign_count !== 0) && signCount <= stored.sign_count) return fail('sign_count', 401)
+  if ((signCount !== 0 || stored.sign_count !== 0) && signCount <= stored.sign_count) {
+    return rejected('sign_count', 401)
+  }
+  return {
+    ok: true as const,
+    userId: stored.user_id,
+    body: body.record,
+    storeSignCount: env.jimbro
+      .prepare('UPDATE passkeys SET sign_count = ?1 WHERE id = ?2')
+      .bind(signCount, toBase64Url(id))
+  }
+}
 
-  const { token, statement } = await newToken(env.jimbro, stored.user_id, new Date().toISOString())
+// POST /auth/signin/verify: checks the assertion against the stored passkey, and hands out a new token.
+export const signInVerify = async (request: Request, env: PasskeyEnv) => {
+  const verified = await verifyAssertionFor(request, env, 'signin')
+  if (!verified.ok) return verified.response
+  const { token, statement } = await newToken(env.jimbro, verified.userId, new Date().toISOString())
   const [, , others] = await env.jimbro.batch<{ n: number }>([
-    env.jimbro.prepare('UPDATE passkeys SET sign_count = ?1 WHERE id = ?2').bind(signCount, toBase64Url(id)),
+    verified.storeSignCount,
     statement,
     env.jimbro
       .prepare('SELECT COUNT(*) AS n FROM auth_tokens WHERE user_id = ?1 AND token_hash != ?2')
-      .bind(stored.user_id, await hashToken(token))
+      .bind(verified.userId, await hashToken(token))
   ])
   // otherDevices counts the devices signed in to the account already, which a claim signs out, so the app can say so
   // before it moves the account here.
-  return Response.json({ userId: stored.user_id, token, otherDevices: others.results[0]?.n ?? 0 })
+  return Response.json({ userId: verified.userId, token, otherDevices: others.results[0]?.n ?? 0 })
 }
 
 // POST /api/passkeys/options: a challenge for one more passkey on the signed-in account.

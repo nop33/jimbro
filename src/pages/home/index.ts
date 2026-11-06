@@ -55,7 +55,10 @@ const renderHighlights = ({ streak, volume, personalRecords }: WeekOverview) => 
 
   setTextContent('#volume-value', kilograms(volume.thisWeek))
   const delta = document.getElementById('volume-delta') as HTMLSpanElement
-  if (volume.lastWeekSoFar > 0) {
+  if (volume.lastWeekSoFar > 0 && volume.thisWeek === 0) {
+    // Before the week's first lift a red "▼ 100%" reads as a telling-off, so say where last week stood instead.
+    delta.textContent = `Last week by now: ${kilograms(volume.lastWeekSoFar)}`
+  } else if (volume.lastWeekSoFar > 0) {
     const change = Math.round(((volume.thisWeek - volume.lastWeekSoFar) / volume.lastWeekSoFar) * 100)
     delta.dataset.trend = change > 0 ? 'up' : change < 0 ? 'down' : 'flat'
     delta.textContent = `${change > 0 ? '▲' : change < 0 ? '▼' : '='} ${Math.abs(change)}% vs last week`

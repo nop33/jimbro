@@ -25,15 +25,16 @@ The data lives in the browser's IndexedDB. Anyone can use the app without an acc
 
 ## Pages
 
-| Route         | Purpose                                                            |
-| ------------- | ------------------------------------------------------------------ |
-| `/`           | This week at a glance, highlights, and the next workout to start   |
-| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode       |
-| `/gymtime/`   | The active workout: log sets, break timer, completion              |
-| `/exercises/` | Exercise library: create, edit, delete                             |
-| `/programs/`  | Programs built from exercises                                      |
-| `/stats/`     | Training totals                                                    |
-| `/settings/`  | Break time, passkey backup, JSON export and import, database reset |
+| Route         | Purpose                                                                           |
+| ------------- | --------------------------------------------------------------------------------- |
+| `/`           | This week at a glance, highlights, and the next workout to start                  |
+| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode                      |
+| `/gymtime/`   | The active workout: log sets, break timer, completion                             |
+| `/exercises/` | Exercise library: create, edit, delete                                            |
+| `/programs/`  | Programs built from exercises                                                     |
+| `/stats/`     | Training totals                                                                   |
+| `/settings/`  | Break time, passkey backup, AI assistants, JSON export and import, database reset |
+| `/connect/`   | Where an AI assistant asks to read the workouts, approved with a passkey          |
 
 ## Data model
 
@@ -63,7 +64,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - "This week" counts the completed workouts against the goal (every program in rotation mode, the weekly goal in freestyle mode), with one bar per workout and a Monday to Sunday strip that marks each day's workout and today.
 - Three highlights, once any workout exists:
   - The streak: weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the streak never drops before the week ends.
-  - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday.
+  - The kilograms lifted this week (reps × weight over every reps set), against last week up to the same weekday. Before this week's first lift it shows last week's total by now in plain text instead of a red drop.
   - Personal records this week: a lifting exercise whose top set beat its heaviest earlier weight, or matched it with more reps. An exercise's first workout is not a record. With none this week, it shows the date of the latest one.
 - "Pick your workout" lists every program, each opening gymtime. A workout started this week and not finished comes first with "Continue". Otherwise, until the week meets its goal, the program done longest ago comes first with "Start", in rotation mode only among the programs not started this week. The programs still open follow, then the ones done this week.
 - With no programs, the list gives way to "Let's set up your first workout." and a centred "Get started" button that opens `/workouts/`, which offers the seed or the restore.
@@ -127,6 +128,7 @@ Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile s
   - Signed in with a passkey, it says so and offers "Sync now", "Add another passkey" (for another password manager) and "Sign out". Sign out pushes what waits first, then asks, and warns when changes could not back up, since signing in again would replace them with the backup's copy. Signing out keeps the workouts on the phone and stops the backup.
   - When the backup holds as many rows as the worker takes, the status reads "Backup full · N pending", and each page says so once when its sync hits the limit.
   - "Use a token (developers)", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
+- AI Assistants, with a passkey backup, shows the link an assistant such as Claude connects with (`https://api.jimbro.nop33.com/mcp`), "Copy link", and the connected assistants with when each connected and was last used, each with "Disconnect". Without a passkey backup it says to set one up first. See [AI assistants](#ai-assistants).
 - Gyms renames a gym on every workout after a confirmation. Giving it another gym's name merges the two, which also fixes workouts saved under a city.
 - Manage local data:
   - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
@@ -149,16 +151,37 @@ Sync is optional. Without credentials the app sends nothing to the worker. With 
 - A database that has never synced, after a fresh install or a reset, runs a first sync instead, which restores the backup. It pulls everything, pushes the rows only it has, and takes the server's copy of any row that differs. The seed exercises have fixed IDs, so a device that seeded before saving credentials keeps the server's copies of them.
 - A Web Lock keeps one push at a time, and an edit made while its row is on the wire stays queued for the next push.
 
+## AI assistants
+
+An AI assistant such as Claude reads the account's workouts, exercises and programs through the worker's read-only MCP server at `/mcp`. Connecting takes the link and a passkey:
+
+1. In Claude, open Settings, then Connectors, and add a custom connector with `https://api.jimbro.nop33.com/mcp` (Settings' AI Assistants has it, with "Copy link"). Claude Code takes `claude mcp add --transport http jimbro https://api.jimbro.nop33.com/mcp`.
+2. The assistant finds the worker's OAuth metadata, registers, and opens the browser on `/oauth/authorize`, which sends it to the app's `/connect/` page.
+3. `/connect/` asks "Allow <assistant> to read your workouts?", names the site the browser goes back to, and warns when that is an app on this computer. "Allow with passkey" approves with the passkey the account backs up with, on any device the password manager brings it to. "Don't allow" sends the assistant `access_denied`. A request that is answered, unknown or older than 10 minutes says the link has expired.
+4. The browser goes back to the assistant with a code, which it swaps for tokens.
+
+The worker is an OAuth 2.1 authorization server for `/mcp`, following the MCP authorization spec (2026-07-28) in `worker/src/oauth.ts`, on WebCrypto and D1 alone:
+
+- Discovery: `/mcp` without a token it takes answers 401 with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp", scope="workouts:read"`. That protected resource metadata (RFC 9728, also at `/.well-known/oauth-protected-resource`) names the worker as the authorization server, whose metadata (RFC 8414) is at `/.well-known/oauth-authorization-server`. Every URL comes from the request's own origin.
+- Clients: an assistant registers through `POST /oauth/register` (Dynamic Client Registration, RFC 7591) as a public client, or names itself with an https `client_id` that serves its metadata (a Client ID Metadata Document), which the worker reads at authorization. Redirect URIs are https or http on `localhost`, `127.0.0.1` or `[::1]`, where any port matches, as desktop apps pick a free one.
+- Authorization: PKCE with S256 is required, the redirect URI must match a registered one, and a `resource` must be the server's own `/mcp`. Errors before the redirect URI is known show a plain error page; later ones go back to the assistant. The response carries `iss` (RFC 9207). The approval is the `connect` passkey ceremony, which checks the assertion as a sign-in does but hands out no device token and claims nothing, so the phone keeps backing up.
+- Tokens: a code is good once, for 60 seconds, and a second exchange revokes what the first got. An access token (`jba_…`) lasts an hour and a refresh token (`jbr_…`) 60 days from its last use. A refresh replaces both. Tokens are bound to the `/mcp` resource, work there only (never on `/api/`), and only their SHA-256 is stored. A claim or sign-out leaves them alone. Connecting the same assistant again replaces its connection. `POST /oauth/revoke` (RFC 7009), or Disconnect in Settings, ends one.
+- `/mcp` still takes the tokens it took before: an `AUTH_TOKENS` token or a device's passkey token.
+- Any origin may call `/mcp`, the metadata and the OAuth endpoints, which send tokens in a header and never use cookies; the app's routes keep to the app's origins. The OAuth routes have a budget of their own per client address on `AUTH_LIMITER`.
+
 ## Worker API
 
-`worker/` is a Cloudflare Worker with a D1 database. `worker/migrations/0001_rows.sql` has one table per row type keyed by user and row ID, and `0002_passkeys.sql` the accounts:
+`worker/` is a Cloudflare Worker with a D1 database. `worker/migrations/0001_rows.sql` has one table per row type keyed by user and row ID, `0002_passkeys.sql` the accounts, and `0003_oauth.sql` the AI assistants:
 
-| Table             | Holds                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `users`           | One row per account a passkey signed up: `id`, `created_at`                                                               |
-| `passkeys`        | `id` (credential ID), `user_id`, `rp_id`, `public_key` (SPKI), `alg` (-7 ES256 or -257 RS256), `sign_count`, `created_at` |
-| `auth_tokens`     | `token_hash` (SHA-256 of a bearer token, hex), `user_id`, `created_at`. The token itself is never stored                  |
-| `auth_challenges` | `challenge`, `purpose` (`register`, `signin` or `add`), `user_id`, `expires_at`. Each is used once, within 5 minutes      |
+| Table             | Holds                                                                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`           | One row per account a passkey signed up: `id`, `created_at`                                                                                                                                                                 |
+| `passkeys`        | `id` (credential ID), `user_id`, `rp_id`, `public_key` (SPKI), `alg` (-7 ES256 or -257 RS256), `sign_count`, `created_at`                                                                                                   |
+| `auth_tokens`     | `token_hash` (SHA-256 of a bearer token, hex), `user_id`, `created_at`. The token itself is never stored                                                                                                                    |
+| `auth_challenges` | `challenge`, `purpose` (`register`, `signin`, `add` or `connect`), `user_id`, `expires_at`. Each is used once, within 5 minutes                                                                                             |
+| `oauth_clients`   | Assistants that registered: `id`, `name`, `redirect_uris` (JSON), `created_at`                                                                                                                                              |
+| `oauth_requests`  | An assistant's request from `/oauth/authorize` until its code is exchanged: the client, redirect URI, state, PKCE challenge, scope and resource, then the approving `user_id`, the code's hash and the `grant_id` it became |
+| `oauth_grants`    | One per connected assistant: `user_id`, client, scope, resource, the hashes and expiries of its access and refresh tokens, `created_at`, `last_used_at`                                                                     |
 
 The routes under `/api/` and `/mcp` need an `Authorization: Bearer <token>` header. A token is one from the worker's `AUTH_TOKENS` variable, a JSON object that maps each token to a user ID (for tests, local runs and MCP), or one a passkey sign-up or sign-in handed out. Every query is scoped to the token's user.
 
@@ -170,35 +193,50 @@ The passkey routes take the RP ID from the request's `Origin`, which must be an 
 | `POST /auth/register/verify`  | Takes the registration, stores the account and its passkey, and returns `{ userId, token }`                                                                                   |
 | `POST /auth/signin/options`   | Returns the options for `navigator.credentials.get()`, with no `allowCredentials`                                                                                             |
 | `POST /auth/signin/verify`    | Takes the assertion, checks it against the stored passkey, and returns `{ userId, token, otherDevices }` with a new token and the count of the account's other passkey tokens |
+| `POST /auth/connect/request`  | Takes `{ request }` and returns `{ clientName, redirectHost, onThisComputer }` for the `/connect/` page, or 404 `unknown_request`                                             |
+| `POST /auth/connect/options`  | Returns the options for `navigator.credentials.get()` that approve an assistant                                                                                               |
+| `POST /auth/connect/verify`   | Takes `{ request }` and the assertion, gives the request a code for the passkey's account, and returns `{ redirect }`                                                         |
+| `POST /auth/connect/deny`     | Takes `{ request }`, forgets it, and returns `{ redirect }` with `error=access_denied`                                                                                        |
+
+| OAuth route                                     | What it does                                                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /.well-known/oauth-protected-resource/mcp` | The protected resource metadata, also at `/.well-known/oauth-protected-resource`                      |
+| `GET /.well-known/oauth-authorization-server`   | The authorization server metadata                                                                     |
+| `POST /oauth/register`                          | Registers a public client and returns 201 with its `client_id`                                        |
+| `GET /oauth/authorize`                          | Checks an authorization request, keeps it for 10 minutes and redirects to the app's `/connect/` page  |
+| `POST /oauth/token`                             | Swaps a code (`authorization_code`) or a refresh token (`refresh_token`) for new tokens, form-encoded |
+| `POST /oauth/revoke`                            | Ends the connection of an access or refresh token                                                     |
 
 The public routes allow each client address 20 calls a minute, through the `AUTH_LIMITER` rate limiting binding in `wrangler.jsonc`, and answer 429 past that. The limit counts per Cloudflare location and is approximate, as Cloudflare's rate limiting is. The Playwright run's local worker sets `AUTH_RATE_LIMIT=off`, since all its browsers share one address.
 
 Since anyone can sign up, each user also has limits: `PUSH_LIMITER` allows 60 pushes a minute (429 `rate_limited`, which the outbox retries later), and an account stores at most 50,000 rows (`ROW_CAP` in `worker/src/rows.ts`, which the `ROW_CAP` variable can override). A push that would pass the cap stores nothing and answers 413 `{ error: 'row_limit', cap }`; the check runs inside the push's one batch. Any error the worker does not expect answers 500 with the CORS headers.
 
-| Route                                  | What it does                                                                                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/ping`                        | Returns `{ ok: true, userId }`                                                                                          |
-| `POST /api/push`                       | Takes `{ rows: [{ table, row }] }` with up to 1000 rows, validates and stores them, and returns `{ revision }`          |
-| `GET /api/pull?cursor=<rev>&limit=<n>` | Returns `{ rows, cursor, more }` with the rows above `cursor`, up to 1000 per page                                      |
-| `GET /api/export`                      | Downloads every row as a version 4 export file                                                                          |
-| `POST /api/passkeys/options`           | Returns the options to add another passkey to the signed-in account, excluding its passkeys                             |
-| `POST /api/passkeys/verify`            | Takes the registration and stores the passkey on the account                                                            |
-| `POST /api/signout`                    | Deletes the token, when a passkey handed it out, and returns `{ ok: true }`                                             |
-| `POST /api/claim`                      | Moves the account to this device: deletes the account's other passkey tokens and returns `{ signedOut }`                |
-| `GET /api/break-alerts`                | Returns `{ publicKey }`, the VAPID key the app subscribes to push with, or 503 `not_configured` without the keys        |
-| `POST /api/break-alerts/subscribe`     | Takes the device's `PushSubscription` JSON, on a known push service, and keeps it                                       |
-| `POST /api/break-alerts/unsubscribe`   | Forgets the subscription and any break waiting                                                                          |
-| `POST /api/break-alerts/schedule`      | Takes `{ endsAt, title, body, url }` for a break ending within an hour, and returns `{ scheduled }`                     |
-| `POST /api/break-alerts/cancel`        | Forgets the break waiting                                                                                               |
-| `POST /mcp`                            | A read-only MCP server over JSON-RPC, with the tools `recent_sessions`, `get_session`, `exercise_history` and `catalog` |
+| Route                                  | What it does                                                                                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/ping`                        | Returns `{ ok: true, userId }`                                                                                                                           |
+| `POST /api/push`                       | Takes `{ rows: [{ table, row }] }` with up to 1000 rows, validates and stores them, and returns `{ revision }`                                           |
+| `GET /api/pull?cursor=<rev>&limit=<n>` | Returns `{ rows, cursor, more }` with the rows above `cursor`, up to 1000 per page                                                                       |
+| `GET /api/export`                      | Downloads every row as a version 4 export file                                                                                                           |
+| `POST /api/passkeys/options`           | Returns the options to add another passkey to the signed-in account, excluding its passkeys                                                              |
+| `POST /api/passkeys/verify`            | Takes the registration and stores the passkey on the account                                                                                             |
+| `POST /api/signout`                    | Deletes the token, when a passkey handed it out, and returns `{ ok: true }`                                                                              |
+| `POST /api/claim`                      | Moves the account to this device: deletes the account's other passkey tokens and returns `{ signedOut }`                                                 |
+| `GET /api/connections`                 | Returns `{ connections: [{ id, name, connectedAt, lastUsedAt }] }`, the assistants connected to the account                                              |
+| `POST /api/connections/revoke`         | Takes `{ id }` and ends that connection                                                                                                                  |
+| `GET /api/break-alerts`                | Returns `{ publicKey }`, the VAPID key the app subscribes to push with, or 503 `not_configured` without the keys                                         |
+| `POST /api/break-alerts/subscribe`     | Takes the device's `PushSubscription` JSON, on a known push service, and keeps it                                                                        |
+| `POST /api/break-alerts/unsubscribe`   | Forgets the subscription and any break waiting                                                                                                           |
+| `POST /api/break-alerts/schedule`      | Takes `{ endsAt, title, body, url }` for a break ending within an hour, and returns `{ scheduled }`                                                      |
+| `POST /api/break-alerts/cancel`        | Forgets the break waiting                                                                                                                                |
+| `POST /mcp`                            | A read-only MCP server over JSON-RPC, with the tools `recent_sessions`, `get_session`, `exercise_history` and `catalog`. Takes an OAuth access token too |
 
-CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_ORIGIN` when a local run sets it.
+CORS allows `https://jimbro.nop33.com` and `http://localhost:5173`, plus `DEV_ORIGIN` when a local run sets it, and any origin on `/mcp`, the metadata and `/oauth/register|token|revoke`. `/oauth/authorize` sends the browser to `APP_ORIGIN`'s `/connect/`, production unless a local run sets it.
 
 Break alerts run on the `BreakAlarm` Durable Object (`worker/src/breakAlerts.ts`), one per user. It keeps the device's push subscription and the break waiting, and its alarm sends the push at the break's end, encrypted for the browser (RFC 8291) and signed with the worker's VAPID key (RFC 8292) in `worker/src/webPush.ts`, on WebCrypto alone. It sends only to the push services of Chrome, Safari, Firefox and Edge, forgets a subscription the push service answers 404 or 410 for, and retries nothing, since a late alert is worth nothing.
 
 ### Deploying
 
-Deploy the worker and its D1 migrations before an app version that needs them. For passkeys, that is `vp exec wrangler d1 migrations apply jimbro --remote`, then `vp run deploy`, both in `worker/`, then the app.
+Deploy the worker and its D1 migrations before an app version that needs them. For passkeys or AI assistants, that is `vp exec wrangler d1 migrations apply jimbro --remote`, then `vp run deploy`, both in `worker/`, then the app.
 
 Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-keys.mjs`, then `vp exec wrangler secret put VAPID_PUBLIC_KEY`, the same for `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` with a `mailto:` address the push services can reach you at. Keep the pair: a new one invalidates every subscription. Without the secrets the worker answers `not_configured`, and the break timer's bell says break alerts aren't set up yet.
 
@@ -226,7 +264,7 @@ Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-k
 
 - Every page has a bottom bar with Home, Workouts, Exercises, Programs, and highlights the current page. Its icons are inline [Lucide](https://lucide.dev) SVGs (ISC License).
 - Stats opens from any highlight tile on Home.
-- The pages outside the bottom bar (gymtime, stats and settings) have a back button that calls `window.history.back()`.
+- The pages outside the bottom bar (gymtime, stats, settings and connect) have a back button that calls `window.history.back()`.
 - Every page is a static `index.html` that works on its own when opened by URL. Where the browser has the Navigation API (Chromium, Safari 26.2+), the router in `src/router.ts` shows the next page in the same document: it loads the page's HTML from the service worker cache, swaps the body under a view transition and mounts the page's module. The break timer, toasts and confetti stay on screen across it. Elsewhere every link is a full page load.
 
 ## Import and export

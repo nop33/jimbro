@@ -3,11 +3,13 @@ import { importIndexedDbFromJson } from '../../db/import'
 import { storage } from '../../db/storage'
 import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds, storeBreakTimeSeconds } from '../../settings'
+import AssistantsSetting from './AssistantsSetting'
 import CloudBackup from './CloudBackup'
 import GymsSettings from './GymsSettings'
 
 export const mount = async (signal: AbortSignal) => {
   new CloudBackup(signal)
+  new AssistantsSetting()
   const gyms = new GymsSettings()
 
   const breakMinutesInput = document.querySelector('#break-minutes') as HTMLInputElement

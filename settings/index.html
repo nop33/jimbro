@@ -92,6 +92,43 @@
           </div>
 
           <div class="card card-hover">
+            <details id="assistants-details">
+              <summary class="text-xl font-bold text-jim-neutral">🤖 AI Assistants</summary>
+              <div class="flex flex-col gap-3 mt-4">
+                <p id="assistants-need-passkey" class="text-sm text-jim-neutral-secondary">
+                  Ask an AI assistant like Claude about your workouts. It needs a passkey backup: set one up under Cloud
+                  Backup first.
+                </p>
+                <div id="assistants-setup" class="flex flex-col gap-3" hidden>
+                  <p class="text-sm text-jim-neutral-secondary">
+                    Ask an AI assistant like Claude about your workouts. In Claude, open Settings, then Connectors, and
+                    add a custom connector with this link. Then approve with your passkey.
+                  </p>
+                  <label class="text-jim-neutral-secondary">
+                    Link
+                    <input type="text" id="assistants-url" readonly class="mt-2" />
+                  </label>
+                  <button type="button" id="assistants-copy" class="btn-primary">Copy link</button>
+                  <h3 class="text-lg font-bold">Connected</h3>
+                  <p id="assistants-status" class="text-sm text-jim-neutral-secondary" aria-live="polite"></p>
+                  <ul id="assistants-list" class="flex flex-col gap-2"></ul>
+                  <template id="assistant-item">
+                    <li class="flex items-center justify-between gap-3">
+                      <div class="flex flex-col min-w-0">
+                        <span class="assistant-name font-bold text-jim-neutral truncate"></span>
+                        <span class="assistant-used text-sm text-jim-neutral-tertiary"></span>
+                      </div>
+                      <button type="button" class="assistant-disconnect btn-secondary btn-danger shrink-0">
+                        Disconnect
+                      </button>
+                    </li>
+                  </template>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="card card-hover">
             <details id="gyms-details">
               <summary class="text-xl font-bold text-jim-neutral">🏋️ Gyms</summary>
               <p id="no-gyms" class="mt-4 text-jim-neutral-secondary" hidden>No workout names a gym yet.</p>

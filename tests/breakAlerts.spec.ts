@@ -60,6 +60,7 @@ const signIn = async (page: Page) => {
   await page.getByLabel('User ID').fill(user.userId)
   await page.getByLabel('Token').fill(user.token)
   await page.getByRole('button', { name: 'Save credentials' }).click()
+  // Saving waits for the account switch, so leaving before Sync now shows can drop the credentials.
   await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
 }
 
