@@ -11,7 +11,7 @@
         type="button"
         aria-label="Break alerts"
         aria-pressed="false"
-        class="flex items-center justify-center rounded-xl border border-neutral-600/50 p-3 transition-colors hover:bg-neutral-700 hover:text-white aria-pressed:text-jim-accent aria-busy:opacity-50"
+        class="group flex items-center justify-center rounded-xl border border-neutral-600/50 p-3 transition-colors hover:bg-neutral-700 hover:text-white aria-pressed:text-jim-accent aria-busy:cursor-progress"
         hidden
       >
         <svg
@@ -22,7 +22,7 @@
           stroke="currentColor"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="size-5"
+          class="size-5 group-aria-busy:hidden"
           aria-hidden="true"
         >
           <path d="M10.268 21a2 2 0 0 0 3.464 0" />
@@ -31,6 +31,11 @@
           />
           <path class="bell-strike" d="m2 2 20 20" />
         </svg>
+        <!-- In the bell's place while turning alerts on or off waits for the browser and the worker. -->
+        <span
+          class="bell-spinner hidden size-5 animate-spin rounded-full border-2 border-current border-r-transparent group-aria-busy:block"
+          aria-hidden="true"
+        ></span>
       </button>
       <p id="break-alerts-message" role="status" class="max-w-56 text-right text-sm text-jim-neutral-secondary"></p>
       <!-- While break alerts are off, a tip points at the bell, until "Not now" (src/features/breakTimer/alertsOffer.ts). -->

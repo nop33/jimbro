@@ -192,10 +192,13 @@ test('after a switch to another account, the next break hands the alerts to it',
   await startBreak(page)
   await turnOn(page)
 
-  const other = await signIn(page)
+  // A passkey sign-in switches the account in the same document, as Settings and the workout's offer do.
+  const other = claimUser()
+  await page.evaluate(async ({ userId, token }) => {
+    const { account } = await import('/src/sync/account.ts')
+    await account.switchTo({ userId, token, method: 'token' })
+  }, other)
   const handedOver = page.waitForRequest((request) => request.url().endsWith('/api/break-alerts/subscribe'))
-  await page.goBack()
-  await page.goBack()
   await logSet(page)
   expect((await handedOver).headers().authorization).toBe(`Bearer ${other.token}`)
   const bell = page.locator('#break-countdown-dialog').getByRole('button', { name: 'Break alerts' })
@@ -221,4 +224,30 @@ test('when the worker holds no subscription for the device, the bell shows the a
   await timer.getByRole('button', { name: 'Skip' }).click()
   await logSet(page)
   await expect(timer.getByRole('button', { name: 'Break alerts' })).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('the bell shows a spinner while it turns alerts on', async ({ page }) => {
+  await standInPush(page)
+  await seedDatabase(page)
+  await signIn(page)
+  await startBreak(page)
+  // The worker answers only once the spinner has been seen.
+  let answer: () => void = () => undefined
+  const answered = new Promise<void>((resolve) => (answer = resolve))
+  await page.route('**/api/break-alerts/subscribe', async (route) => {
+    await answered
+    await route.continue()
+  })
+
+  const timer = page.locator('#break-countdown-dialog')
+  const bell = timer.getByRole('button', { name: 'Break alerts' })
+  await bell.click()
+  await expect(bell).toHaveAttribute('aria-busy', 'true')
+  await expect(bell.locator('.bell-spinner')).toBeVisible()
+  await expect(bell.locator('svg')).toBeHidden()
+
+  answer()
+  await expect(bell).toHaveAttribute('aria-pressed', 'true')
+  await expect(bell.locator('.bell-spinner')).toBeHidden()
+  await expect(bell.locator('svg')).toBeVisible()
 })
