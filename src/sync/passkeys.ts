@@ -59,10 +59,15 @@ interface Prefetched {
 
 const prefetched = new Map<Ceremony, Prefetched>()
 
+// The signal of the page that last prepared each ceremony. A tap uses its options up, so the ceremony prepares new ones
+// for that page, which stop when it goes too.
+const owners = new Map<Ceremony, AbortSignal>()
+
 // Fetches the ceremony's options now, for a tap to come, and keeps them fresh until signal aborts, as when the page
 // with the button goes.
-export const preparePasskey = (ceremony: Ceremony, signal?: AbortSignal) => {
-  if (signal?.aborted) return
+export const preparePasskey = (ceremony: Ceremony, signal: AbortSignal) => {
+  if (signal.aborted) return
+  owners.set(ceremony, signal)
   const previous = prefetched.get(ceremony)
   if (previous) window.clearTimeout(previous.refresh)
   const options = fetchOptions(ceremony)
@@ -71,9 +76,10 @@ export const preparePasskey = (ceremony: Ceremony, signal?: AbortSignal) => {
     options,
     refresh: window.setTimeout(() => preparePasskey(ceremony, signal), FRESH_MS)
   }
-  signal?.addEventListener(
+  signal.addEventListener(
     'abort',
     () => {
+      if (owners.get(ceremony) === signal) owners.delete(ceremony)
       if (prefetched.get(ceremony) !== entry) return
       window.clearTimeout(entry.refresh)
       prefetched.delete(ceremony)
@@ -87,6 +93,13 @@ export const preparePasskey = (ceremony: Ceremony, signal?: AbortSignal) => {
     prefetched.delete(ceremony)
   })
   prefetched.set(ceremony, entry)
+}
+
+// Prepares the ceremony again for the page that showed its button, after a tap used its options up. Without such a page
+// there is no button left to tap.
+const prepareAgain = (ceremony: Ceremony) => {
+  const signal = owners.get(ceremony)
+  if (signal) preparePasskey(ceremony, signal)
 }
 
 // The options for this tap: the prefetched ones while fresh, else fetched now. A challenge is good once, so either way
@@ -112,7 +125,7 @@ const withOptions = async <T>(ceremony: Ceremony, run: (options: unknown) => Pro
   try {
     return await run(await takeOptions(ceremony))
   } catch (error) {
-    preparePasskey(ceremony)
+    prepareAgain(ceremony)
     throw error
   }
 }
@@ -277,7 +290,7 @@ export const signInWithPasskey = async ({
   if (!isIssued(issued)) throw new ServerError(200, 'invalid_answer')
   const forget = async () => {
     await requestJson('/api/signout', { method: 'POST', token: issued.token }).catch(() => undefined)
-    preparePasskey('signin')
+    prepareAgain('signin')
   }
   const pulled = await pullAccount(issued.token)
   const effects: SignInEffects = {
@@ -306,7 +319,7 @@ export const addPasskey = async () => {
   await withOptions('add', async (options) =>
     postSignedIn('/api/passkeys/verify', await register(options as CreationOptionsJson))
   )
-  preparePasskey('add')
+  prepareAgain('add')
 }
 
 // Before a sign-out: pushes what waits, and resolves to the rows still not backed up, which a sign-out would leave out
