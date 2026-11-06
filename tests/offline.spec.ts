@@ -138,7 +138,9 @@ test('a page that opened before a deploy still draws the history chart', async (
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
-  // The next build's service worker takes over this page, which still runs the build it opened with.
+  // The next build's service worker takes over this page, which still runs the build it opened with: a field being typed
+  // in keeps the app from reloading into the new build.
+  await page.getByLabel('Date').focus()
   deploy()
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready
@@ -156,4 +158,49 @@ test('a page that opened before a deploy still draws the history chart', async (
   await firstExercise.locator('.view-history-btn').click()
   await expect(page.locator('#exercise-history-dialog')).toBeVisible()
   await chartDrawn
+})
+
+// The app checks for a new build as it comes back into view, as when the lifter switches back to it.
+const comeBackIntoView = (page: Page) => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+
+const newBuildCached = (page: Page) =>
+  page.evaluate(async () => (await caches.keys()).includes('jimbro-0000000000000000'))
+
+test('a new build replaces the page as the app comes back into view', async ({ page }) => {
+  const { origin, deploy } = await openPreview()
+  await page.goto(`${origin}/workouts/`)
+  await waitForServiceWorker(page)
+
+  deploy()
+  const reloaded = page.waitForEvent('load')
+  await comeBackIntoView(page)
+  await reloaded
+  await expect(page.locator('.app-header-title')).toContainText('Workouts')
+  expect(await newBuildCached(page)).toBe(true)
+})
+
+test('a new build waits until no dialog is open', async ({ page }) => {
+  const { origin, deploy } = await openPreview()
+  await page.goto(`${origin}/workouts/`)
+  await waitForServiceWorker(page)
+  await page.getByRole('button', { name: 'New' }).click()
+  const dialog = page.locator('dialog#new-workout-dialog')
+  await expect(dialog).toBeVisible()
+
+  deploy()
+  await page.evaluate(async () => {
+    const replaced = new Promise((resolve) => navigator.serviceWorker.addEventListener('controllerchange', resolve))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await replaced
+  })
+  // The new build took over, and the open dialog stays as it was.
+  expect(await newBuildCached(page)).toBe(true)
+  await expect(dialog).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  const reloaded = page.waitForEvent('load')
+  await comeBackIntoView(page)
+  await reloaded
+  await expect(page.locator('.app-header-title')).toContainText('Workouts')
 })

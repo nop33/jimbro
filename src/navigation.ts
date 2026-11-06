@@ -1,3 +1,4 @@
+import { followNewBuilds } from './appUpdates'
 import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
 import { account } from './sync/account'
@@ -24,9 +25,10 @@ function initNavigation() {
     if (event.target instanceof Element && event.target.closest('#back-button')) window.history.back()
   })
 
-  // The service worker caches every page and asset, so the app opens offline. The dev server has no build to cache.
+  // The service worker caches every page and asset, so the app opens offline, and brings each new build soon after it
+  // deploys. The dev server has no build to cache.
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch((error: unknown) => console.error('Service worker failed:', error))
+    followNewBuilds().catch((error: unknown) => console.error('Service worker failed:', error))
   }
 
   startSync()

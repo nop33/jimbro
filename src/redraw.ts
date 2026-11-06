@@ -27,7 +27,7 @@ export const redrawOnNewDay = (day: string, signal: AbortSignal) => {
 }
 
 // What a redraw would throw away: an open dialog, or a field the user is typing in.
-const busy = () =>
+export const busy = () =>
   document.querySelector('dialog[open]') !== null ||
   document.activeElement?.matches('input, textarea, select, [contenteditable]') === true
 

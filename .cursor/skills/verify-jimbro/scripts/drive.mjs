@@ -330,7 +330,9 @@ const STOPS = [
   ['settings-gyms', async (page) => {
     await page.locator('#gyms-details summary').click()
     await see(page.locator('#rename-gym-form'))
-    await page.locator('#gyms-details').scrollIntoViewIfNeeded()
+    // The version line at the foot of the page shows under the gyms.
+    await see(page.locator('#app-version'))
+    await page.locator('#app-version').scrollIntoViewIfNeeded()
   }],
   ['gymtime-new', async (page) => {
     await page.goto('/')

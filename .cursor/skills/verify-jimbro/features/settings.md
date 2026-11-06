@@ -13,6 +13,7 @@ Settings is `/settings/`: break time, the passkey cloud backup, AI assistants, g
 - `connect` is `/connect/?request=<id>`, where an assistant's OAuth request lands: `Allow <name> to read your workouts?`, the host it goes back to, a warning when that is an app on this computer, `Allow with passkey` and `Don't allow`, which both send the browser back to the assistant. An unknown, answered or expired request shows `This link has expired`, and a browser without passkeys `This browser can't use passkeys`. `tests/connect.spec.ts` covers the whole flow against the local worker.
 - `settings-gyms` in `Gyms`: `No workout names a gym yet.` with no gyms. Otherwise a gym picker (`Name (N workouts)`), `New name` and `Rename`, which confirms and shows `Renamed on N workout(s).`. Picking another gym's name merges them.
 - `settings-data` in `Manage local data`: `Export to JSON` downloads a file, `Import from JSON file` (`#import-input`) adds rows not stored yet and shows `Database imported!`, `Reset Database` confirms and shows `Database reset.`.
+- `settings-version` at the foot of the page: `Version <short hash>` linked to the commit on GitHub, then `· <date>` of that commit (`#app-version`). It stays hidden when the build could not tell its commit.
 
 ## How to get to it (user POV)
 
@@ -22,7 +23,7 @@ Settings is `/settings/`: break time, the passkey cloud backup, AI assistants, g
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history), `34-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `35-settings-assistants` (AI Assistants open, with one canned connection), `36-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first), `37-settings-moved` (signed in again over a canned account that another device backs up, then that device takes it back, so `Sync now` is refused), `38-connect` (the `/connect/` page for a canned request from Claude, on both phones).
+- **Tour stops.** `03-settings-import` (the import itself, which loads the tour's history), `16-settings`, `17-settings-expanded` (break time and the passkey offer), `18-settings-token` (`Use a token` open), `19-settings-gyms` (gyms from the imported history, scrolled down to the version line), `34-settings-passkey` (signed in with a passkey, after `Create passkey` with Chromium's virtual authenticator, on `localhost` with canned worker answers), `35-settings-assistants` (AI Assistants open, with one canned connection), `36-settings-signed-out` (after `Sign out`, with `Sign in with passkey` first), `37-settings-moved` (signed in again over a canned account that another device backs up, then that device takes it back, so `Sync now` is refused), `38-connect` (the `/connect/` page for a canned request from Claude, on both phones).
 - **By hand: reset.** Open `Manage local data`, register `page.once('dialog', d => d.accept())`, click `Reset Database`, and wait for `Database reset.`.
 - **By hand: export.** Wait for Playwright's `download` event while clicking `Export to JSON`, and read the file.
 
