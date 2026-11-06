@@ -33,24 +33,23 @@
         </svg>
       </button>
       <p id="break-alerts-message" role="status" class="max-w-56 text-right text-sm text-jim-neutral-secondary"></p>
+      <!-- While break alerts are off, a tip points at the bell, until "Not now" (src/features/breakTimer/alertsOffer.ts). -->
+      <div id="break-alerts-tip" class="break-alerts-tip" hidden>
+        <p class="text-sm">Tap the bell to get a notification when the break ends, even with the phone locked.</p>
+        <button
+          id="break-alerts-tip-later"
+          type="button"
+          class="self-end min-h-11 px-2 text-sm font-semibold text-jim-accent"
+        >
+          Not now
+        </button>
+      </div>
     </div>
     <p class="text-4xl font-bold hide-when-minimized"><span id="sets-done" class="text-jim-accent"></span> done.</p>
     <h2 id="countdown" class="text-[min(8rem,28vw)] leading-none font-bold font-mono">
       <!-- -->
     </h2>
     <div class="w-full flex flex-col gap-4 items-center hide-when-minimized">
-      <!-- Offered while break alerts are off, until "Not now" (src/features/breakTimer/alertsOffer.ts). -->
-      <div
-        id="break-alerts-offer"
-        class="w-full flex flex-col gap-2 rounded-2xl border border-neutral-700/50 p-4"
-        hidden
-      >
-        <p class="text-sm">Get a notification when the break ends, even with the phone locked?</p>
-        <div class="flex gap-2">
-          <button id="break-alerts-offer-on" type="button" class="btn-primary flex-1">Turn on</button>
-          <button id="break-alerts-offer-later" type="button" class="btn-secondary flex-1">Not now</button>
-        </div>
-      </div>
       <p id="next-exercise-message" class="text-xl font-bold">
         Coming up: <span id="next-exercise-name" class="text-jim-accent"></span>
       </p>

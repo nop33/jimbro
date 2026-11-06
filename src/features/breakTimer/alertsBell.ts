@@ -15,42 +15,49 @@ const UNAVAILABLE = {
 } as const
 
 // Break alerts on the full break timer: a notification when a break ends with Jimbro in the background. The bell at
-// the top turns them on and off, and is struck through while they are off. While they are off, a break also offers
-// them, until "Not now". Turning them on asks for permission to notify, which browsers allow only from a tap, so they
-// can't be on by default. Both show only where the browser has push, which on an iPhone means the app added to the
-// Home Screen. The timer is a modal, over any toast, so the bell says what happened in the line under it.
+// the top turns them on and off, and is struck through while they are off. While they are off, the bell glows and a tip
+// under it says what it does, until "Not now". Turning them on asks for permission to notify, which browsers allow only
+// from a tap, so they can't be on by default. The bell shows only where the browser has push, which on an iPhone means
+// the app added to the Home Screen. The timer is a modal, over any toast, so the bell says what happened in the line
+// under it.
 export default class AlertsBell {
   private button: HTMLButtonElement
   private message: HTMLParagraphElement
-  private offer: HTMLDivElement
+  private tip: HTMLDivElement
   private supported = breakAlertsSupported()
 
   constructor(dialog: HTMLDialogElement) {
     this.button = dialog.querySelector('#break-alerts-bell') as HTMLButtonElement
     this.message = dialog.querySelector('#break-alerts-message') as HTMLParagraphElement
-    this.offer = dialog.querySelector('#break-alerts-offer') as HTMLDivElement
+    this.tip = dialog.querySelector('#break-alerts-tip') as HTMLDivElement
     if (!this.supported) return
     this.button.hidden = false
     this.button.addEventListener('click', () => void this.flip())
-    dialog.querySelector('#break-alerts-offer-on')?.addEventListener('click', () => void this.flip())
-    dialog.querySelector('#break-alerts-offer-later')?.addEventListener('click', () => {
+    dialog.querySelector('#break-alerts-tip-later')?.addEventListener('click', () => {
       snoozeAlertsOffer(new Date())
-      this.offer.hidden = true
+      this.showTip(false)
     })
   }
 
-  // A new break: the bell shows whether the alerts are on, and the offer shows when it is due.
+  // A new break: the bell shows whether the alerts are on, and the tip shows when it is due.
   reset() {
     this.message.textContent = ''
     this.render()
-    this.offer.hidden = !alertsOfferDue({
-      supported: this.supported,
-      hasAccount: account.current() !== null,
-      on: breakAlertsOn(),
-      permission: this.supported ? Notification.permission : 'default',
-      snoozedUntil: readOfferSnoozedUntil(),
-      now: new Date()
-    })
+    this.showTip(
+      alertsOfferDue({
+        supported: this.supported,
+        hasAccount: account.current() !== null,
+        on: breakAlertsOn(),
+        permission: this.supported ? Notification.permission : 'default',
+        snoozedUntil: readOfferSnoozedUntil(),
+        now: new Date()
+      })
+    )
+  }
+
+  private showTip(show: boolean) {
+    this.tip.hidden = !show
+    this.button.classList.toggle('highlighted', show)
   }
 
   private render() {
@@ -71,7 +78,7 @@ export default class AlertsBell {
     try {
       await (turningOn ? enableBreakAlerts() : disableBreakAlerts())
       this.message.textContent = turningOn ? 'Break alerts on.' : 'Break alerts off.'
-      this.offer.hidden = true
+      this.showTip(false)
       if (!turningOn) snoozeAlertsOffer(new Date(), 365)
     } catch (error) {
       console.error('break alerts failed', error)
