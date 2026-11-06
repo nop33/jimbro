@@ -65,6 +65,28 @@ const openPreview = async () => {
   return { origin, goOffline, deploy }
 }
 
+const NEXT_BUILD_CACHE = 'jimbro-0000000000000000'
+
+// Listens for the next build taking over the page, which the page may hear a moment after the browser installed it.
+// Call it before deploy(), since the browser may find the next build on its own, as it checks on each full page load.
+const watchForTakeOver = (page: Page) =>
+  page.evaluate(() => {
+    ;(window as unknown as { tookOver: Promise<void> }).tookOver = new Promise((resolve) => {
+      navigator.serviceWorker.addEventListener('controllerchange', async () => {
+        if ((await caches.keys()).includes('jimbro-0000000000000000')) resolve()
+      })
+    })
+  })
+
+// Asks for the next build, and waits until the page heard it take over.
+const takeOver = (page: Page) =>
+  page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    // An update the browser runs already makes this one fail, and the page still hears that one take over.
+    await registration.update().catch(() => undefined)
+    await (window as unknown as { tookOver: Promise<void> }).tookOver
+  })
+
 const waitForServiceWorker = (page: Page) =>
   page.waitForFunction(async () => {
     await navigator.serviceWorker.ready
@@ -138,16 +160,16 @@ test('a page that opened before a deploy still draws the history chart', async (
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
-  // The next build's service worker takes over this page, which still runs the build it opened with: a field being typed
-  // in keeps the app from reloading into the new build.
-  await page.getByLabel('Date').focus()
+  // The next build's service worker takes over this page, which still runs the build it opened with: an open dialog
+  // keeps the app from reloading into the new build.
+  await page.locator('#add-exercise-card').click()
+  const addExerciseDialog = page.locator('#add-exercise-dialog')
+  await expect(addExerciseDialog).toBeVisible()
+  await watchForTakeOver(page)
   deploy()
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready
-    const replaced = new Promise((resolve) => navigator.serviceWorker.addEventListener('controllerchange', resolve))
-    await registration.update()
-    await replaced
-  })
+  await takeOver(page)
+  await addExerciseDialog.locator('.close-dialog-btn').click()
+  await expect(addExerciseDialog).toBeHidden()
 
   const firstExercise = page.locator('details.exercise-details').first()
   await firstExercise.locator('summary').click()
@@ -164,7 +186,7 @@ test('a page that opened before a deploy still draws the history chart', async (
 const comeBackIntoView = (page: Page) => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 
 const newBuildCached = (page: Page) =>
-  page.evaluate(async () => (await caches.keys()).includes('jimbro-0000000000000000'))
+  page.evaluate(async (cache) => (await caches.keys()).includes(cache), NEXT_BUILD_CACHE)
 
 test('a new build replaces the page as the app comes back into view', async ({ page }) => {
   const { origin, deploy } = await openPreview()
@@ -187,12 +209,10 @@ test('a new build waits until no dialog is open', async ({ page }) => {
   const dialog = page.locator('dialog#new-workout-dialog')
   await expect(dialog).toBeVisible()
 
+  await watchForTakeOver(page)
   deploy()
-  await page.evaluate(async () => {
-    const replaced = new Promise((resolve) => navigator.serviceWorker.addEventListener('controllerchange', resolve))
-    document.dispatchEvent(new Event('visibilitychange'))
-    await replaced
-  })
+  await comeBackIntoView(page)
+  await takeOver(page)
   // The new build took over, and the open dialog stays as it was.
   expect(await newBuildCached(page)).toBe(true)
   await expect(dialog).toBeVisible()
