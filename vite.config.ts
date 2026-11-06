@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite-plus'
@@ -28,7 +29,26 @@ const serviceWorker = (): Plugin => ({
   }
 })
 
+// The commit the app was built from, and its time, which Settings shows. Netlify builds a clone of the repository, and
+// also names the commit in COMMIT_REF, as GitHub Actions does in GITHUB_SHA, in case git can't answer. CI checks out
+// the repository as another user than the one that builds in its container, which git refuses unless the directory
+// is marked safe.
+const git = (command: string) => {
+  try {
+    return execSync(`git -c safe.directory='*' ${command}`, { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+  } catch {
+    return ''
+  }
+}
+const BUILD = {
+  commit: git('rev-parse HEAD') || process.env.COMMIT_REF || process.env.GITHUB_SHA || '',
+  committedAt: git('log -1 --format=%cI')
+}
+
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(BUILD) },
   plugins: [partials(), tailwindcss(), serviceWorker()],
   build: {
     rolldownOptions: {
