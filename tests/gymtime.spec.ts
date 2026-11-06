@@ -62,6 +62,13 @@ test.describe('Gymtime Page', () => {
     // 4. Wait for break timer dialog
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toBeVisible()
+    // The toast reminds about the watch. It is a popover the first set shows after it opens the break timer, so the
+    // top layer draws it above the timer. A modal dialog makes the page under it inert, popovers included, so no hit
+    // test can see the order: the tour's screenshot shows it.
+    await expect(toast).toContainText('Start it on your watch too')
+    await expect(toast).toBeVisible()
+    await expect(toast).toHaveJSProperty('popover', 'manual')
+    expect(await toast.evaluate((popup) => popup.matches(':popover-open'))).toBe(true)
 
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
     await expect(breakTimer).not.toBeVisible()

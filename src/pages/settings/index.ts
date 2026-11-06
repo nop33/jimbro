@@ -4,13 +4,11 @@ import { storage } from '../../db/storage'
 import Toasts from '../../features/toasts'
 import { getBreakTimeSeconds, storeBreakTimeSeconds } from '../../settings'
 import AssistantsSetting from './AssistantsSetting'
-import BreakAlertsSetting from './BreakAlertsSetting'
 import CloudBackup from './CloudBackup'
 import GymsSettings from './GymsSettings'
 
 export const mount = async (signal: AbortSignal) => {
   new CloudBackup(signal)
-  new BreakAlertsSetting()
   new AssistantsSetting()
   const gyms = new GymsSettings()
 

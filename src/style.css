@@ -555,6 +555,39 @@
     view-transition-name: countdown;
   }
 
+  /* The break alerts bell is struck through while the alerts are off. */
+  #break-alerts-bell[aria-pressed='true'] .bell-strike {
+    display: none;
+  }
+
+  /* While the tip points at it, the bell glows in the accent colour and pulses gently. Reduced motion keeps the glow
+     and drops the pulse, as every animation stops under it. */
+  #break-alerts-bell.highlighted {
+    @apply border-jim-accent text-jim-accent;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-jim-accent) 25%, transparent);
+    animation: bell-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes bell-pulse {
+    50% {
+      box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-jim-accent) 10%, transparent);
+    }
+  }
+
+  /* A speech bubble under the bell, its arrow pointing up at it. */
+  .break-alerts-tip {
+    @apply relative mt-2 flex w-60 flex-col rounded-xl border border-jim-accent/60 bg-neutral-800 px-3 pt-2 text-left shadow-lg;
+
+    &::before {
+      content: '';
+      @apply absolute -top-1.5 right-5 size-3 rotate-45 border-l border-t border-jim-accent/60 bg-neutral-800;
+    }
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
   .dialog-minimized .hide-when-minimized {
     display: none !important;
   }
@@ -780,6 +813,11 @@
   /* A toast sits just below the header's height, so it never covers the back button and title, away from the bottom
      where the thumb works. Taps pass through it: a toast only tells, and never catches a tap meant for the page. */
   .toast-message-popup {
+    /* A manual popover in the top layer (toasts/index.ts): inset and margin undo the popover's own centring. */
+    inset: auto;
+    margin: 0;
+    color: inherit;
+    overflow: visible;
     @apply bg-jim-dark-blue/50 border border-neutral-700/10 rounded-2xl p-4 py-3 fixed left-1/2 w-11/12 max-w-md z-50 pointer-events-none;
     top: calc(var(--app-header-height) + 0.5rem);
     transform: translateX(-50%);
@@ -812,6 +850,32 @@
 
     &.info {
       @apply bg-jim-info border-jim-info/20;
+    }
+
+    /* A toast with a detail line, such as "Workout started", stands out: a check badge, a bold title and a shadow. */
+    &.prominent {
+      @apply flex items-center gap-3 rounded-[20px] text-white;
+      box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+    }
+
+    .toast-badge {
+      @apply grid place-items-center size-10 shrink-0 rounded-full bg-white/20;
+
+      svg {
+        @apply size-[22px];
+      }
+    }
+
+    .toast-title {
+      @apply text-[17px] leading-snug font-bold;
+    }
+
+    .toast-detail {
+      @apply flex items-center gap-1.5 text-sm text-white/90;
+    }
+
+    .toast-detail-icon svg {
+      @apply size-4;
     }
   }
 

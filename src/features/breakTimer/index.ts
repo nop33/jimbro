@@ -1,6 +1,7 @@
 import type { ExerciseKind } from '../../db/exerciseLogging'
 import { historyChartEnabled } from '../../db/exerciseLogging'
 import { breakAlertsOn, cancelBreakAlert, scheduleBreakAlert } from '../../sync/breakAlerts'
+import AlertsBell from './alertsBell'
 import { playDingSound } from './sound'
 
 // A break after a set in a workout: its length, the exercise's sets logged and to do, and the next exercise with sets
@@ -41,6 +42,7 @@ class BreakTimer {
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
   // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the bar.
   private dragged = false
+  private alertsBell = new AlertsBell(this.dialog)
 
   constructor() {
     this.pullDownToMinimize()
@@ -249,6 +251,7 @@ class BreakTimer {
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
     this.next = next
+    this.alertsBell.reset()
 
     this.updateTimerDisplay()
 
