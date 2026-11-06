@@ -4,7 +4,8 @@ import {
   breakAlertsOn,
   breakAlertsSupported,
   disableBreakAlerts,
-  enableBreakAlerts
+  enableBreakAlerts,
+  keepBreakAlertsWithAccount
 } from '../../sync/breakAlerts'
 import { alertsOfferDue, readOfferSnoozedUntil, snoozeAlertsOffer } from './alertsOffer'
 
@@ -43,6 +44,7 @@ export default class AlertsBell {
   reset() {
     this.message.textContent = ''
     this.render()
+    void keepBreakAlertsWithAccount().then(() => this.render())
     this.showTip(
       alertsOfferDue({
         supported: this.supported,
