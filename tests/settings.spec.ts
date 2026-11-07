@@ -9,27 +9,60 @@ test.describe('Settings Page', () => {
     await page.goto('/settings/')
   })
 
-  test('displays correct title and sections', async ({ page }) => {
+  test('lists the settings, each larger one on a page of its own', async ({ page }) => {
     await expect(page).toHaveTitle(/Jimbro - Settings/)
     await expect(page.locator('h1')).toContainText('Settings')
+    await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
 
-    await page.getByText('Manage local data').click()
-    await expect(page.getByRole('heading', { name: 'Data Export' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Data Import' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Reset Database' })).toBeVisible()
+    for (const [row, path, title] of [
+      ['Cloud backup', '/settings/backup/', 'Cloud backup'],
+      ['AI assistants', '/settings/assistants/', 'AI assistants'],
+      ['Data on this phone', '/settings/data/', 'Data on this phone']
+    ]) {
+      await page.goto('/settings/')
+      await page.getByRole('link', { name: row }).click()
+      await expect(page).toHaveURL(path)
+      await expect(page.locator('h1')).toHaveText(title)
+    }
+    await expect(page.getByRole('button', { name: 'Export to JSON' })).toBeVisible()
+    await expect(page.getByText('Import from JSON')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reset database' })).toBeVisible()
+  })
+
+  test('steps the break time by 15 seconds and keeps it', async ({ page }) => {
+    const breakTime = page.locator('#break-time')
+    await expect(breakTime).toHaveText('2:30')
+    await page.getByRole('button', { name: '15 seconds less' }).click()
+    await page.getByRole('button', { name: '15 seconds less' }).click()
+    await expect(breakTime).toHaveText('2:00')
+    await page.reload()
+    await expect(breakTime).toHaveText('2:00')
+
+    // A time from the old minutes and seconds fields steps onto the 15 second grid.
+    await page.evaluate(() => localStorage.setItem('jimbro.breakTime', '100'))
+    await page.reload()
+    await expect(breakTime).toHaveText('1:40')
+    await page.getByRole('button', { name: '15 seconds more' }).click()
+    await expect(breakTime).toHaveText('1:45')
+
+    // It stops at 15 seconds.
+    await page.evaluate(() => localStorage.setItem('jimbro.breakTime', '20'))
+    await page.reload()
+    await page.getByRole('button', { name: '15 seconds less' }).click()
+    await expect(breakTime).toHaveText('0:15')
+    await expect(page.getByRole('button', { name: '15 seconds less' })).toBeDisabled()
   })
 
   test('reset database asks first, then empties the database', async ({ page }) => {
     await seedDatabase(page)
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
+    await page.goto('/settings/data/')
 
     const asked: string[] = []
     page.on('dialog', async (dialog) => {
       asked.push(dialog.message())
       await dialog.accept()
     })
-    await page.getByRole('button', { name: 'Reset Database' }).click()
+    await page.getByRole('button', { name: 'Reset database' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Database reset')
     expect(asked).toEqual([expect.stringContaining('Are you sure you want to reset the database?')])
 
@@ -42,8 +75,7 @@ test.describe('Settings Page', () => {
 
   test('exports the database as a version 4 JSON file', async ({ page }) => {
     await seedDatabase(page)
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
+    await page.goto('/settings/data/')
 
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Export to JSON' }).click()
@@ -62,7 +94,7 @@ test.describe('Settings Page', () => {
 
   test('cloud backup offers a passkey, and keeps the token form under "Use a token"', async ({ page }) => {
     const supported = await browserHasPasskeys(page)
-    await page.locator('#cloud-backup-details > summary').click()
+    await page.goto('/settings/backup/')
     await expect(page.locator('#cloud-summary-status')).toHaveText('Not set up yet')
     if (supported) {
       await expect(page.getByRole('heading', { name: 'Back up your workouts' })).toBeVisible()
@@ -87,7 +119,7 @@ test.describe('Settings Page', () => {
 
     // The page loads again set up with the token, and fills the token form back in.
     await page.reload()
-    await page.locator('#cloud-backup-details > summary').click()
+    await page.goto('/settings/backup/')
     await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
     await page.getByText('Use a token').click()
     await expect(page.getByLabel('User ID')).toHaveValue('someone')
@@ -97,8 +129,7 @@ test.describe('Settings Page', () => {
     await page.route('**/api/pull**', (route) => route.fulfill({ json: { rows: [], cursor: 0, more: false } }))
     await page.route('**/api/push', (route) => route.fulfill({ status: 413, json: { error: 'row_limit', cap: 50000 } }))
     await seedDatabase(page)
-    await page.goto('/settings/')
-    await page.locator('#cloud-backup-details > summary').click()
+    await page.goto('/settings/backup/')
     await page.getByText('Use a token').click()
     await page.getByLabel('User ID').fill('someone')
     await page.getByLabel('Token').fill('secret')

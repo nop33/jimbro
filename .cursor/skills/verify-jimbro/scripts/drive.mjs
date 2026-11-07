@@ -251,8 +251,7 @@ const STOPS = [
     await see(page.getByRole('button', { name: 'Sign in with passkey' }))
   }],
   ['settings-import', async (page, { fixture }) => {
-    await page.goto('/settings/')
-    await page.getByText('Manage local data').click()
+    await page.goto('/settings/data/')
     await page.locator('#import-input').setInputFiles(fixture)
     await see(page.locator('.toast-message-popup', { hasText: 'Database imported!' }))
   }],
@@ -313,12 +312,13 @@ const STOPS = [
     await see(page.locator('#stat-total-sets'))
   }],
   ['settings', async (page) => {
+    // The break time stepper, the rows that open the other settings pages, and the version at the foot.
     await page.goto('/settings/')
-    await see(page.locator('#cloud-backup-details'))
+    await see(page.locator('#break-time'))
+    await see(page.locator('#app-version'))
   }],
-  ['settings-expanded', async (page) => {
-    await page.locator('#workout-settings-details summary').click()
-    await page.locator('#cloud-backup-details > summary').click()
+  ['settings-backup', async (page) => {
+    await page.getByRole('link', { name: 'Cloud backup' }).click()
     await see(page.getByRole('button', { name: 'Create passkey' }))
   }],
   ['settings-token', async (page) => {
@@ -327,12 +327,10 @@ const STOPS = [
     // The bottom nav covers the end of the page, so the section scrolls to the top.
     await page.locator('#passkey-offer').evaluate((offer) => offer.scrollIntoView({ block: 'start' }))
   }],
-  ['settings-gyms', async (page) => {
-    await page.locator('#gyms-details summary').click()
-    await see(page.locator('#rename-gym-form'))
-    // The version line at the foot of the page shows under the gyms.
-    await see(page.locator('#app-version'))
-    await page.locator('#app-version').scrollIntoViewIfNeeded()
+  ['settings-data', async (page) => {
+    await page.goto('/settings/')
+    await page.getByRole('link', { name: 'Data on this phone' }).click()
+    await see(page.getByRole('button', { name: 'Reset database' }))
   }],
   ['gymtime-new', async (page) => {
     await page.goto('/')
@@ -471,25 +469,22 @@ const STOPS = [
     // database. Chromium's virtual authenticator stands in for the phone's password manager, and canned answers for
     // the worker, which a tour never reaches.
     await withPasskeyWorker(page)
-    await page.goto(base.replace('127.0.0.1', 'localhost') + '/settings/')
-    await page.locator('#cloud-backup-details > summary').click()
+    await page.goto(base.replace('127.0.0.1', 'localhost') + '/settings/backup/')
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await see(page.getByText('Your workouts are backed up with a passkey.'))
+    await see(page.getByRole('heading', { name: 'Backed up with a passkey' }))
     await see(page.getByRole('button', { name: 'Sign out' }))
     await gone(page.locator('.toast-message-popup'))
   }],
   ['settings-assistants', async (page) => {
-    // With a passkey backup, AI Assistants shows the link to connect with and the connected assistants.
-    await page.locator('#assistants-details > summary').click()
+    // With a passkey backup, AI assistants shows the prompt to connect with and the connected assistants.
+    await page.goto(base.replace('127.0.0.1', 'localhost') + '/settings/assistants/')
     await see(page.getByRole('button', { name: 'Disconnect Claude' }))
-    await page.locator('#assistants-details').scrollIntoViewIfNeeded()
   }],
   ['settings-signed-out', async (page) => {
     // The tour accepts the sign-out confirm. A phone that signed out offers signing in first.
-    await page.locator('#assistants-details > summary').click()
-    await page.locator('#cloud-backup-details').scrollIntoViewIfNeeded()
+    await page.goto(base.replace('127.0.0.1', 'localhost') + '/settings/backup/')
     await page.getByRole('button', { name: 'Sign out' }).click()
-    await see(page.locator('#cloud-backup-details .btn-primary', { hasText: 'Sign in with passkey' }))
+    await see(page.locator('#passkey-offer .btn-primary', { hasText: 'Sign in with passkey' }))
     await gone(page.locator('.toast-message-popup'))
   }],
   ['settings-moved', async (page) => {

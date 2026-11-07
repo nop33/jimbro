@@ -160,8 +160,7 @@ async function readStore<T>(page: Page, storeName: string): Promise<Array<T>> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/settings/')
-  await page.getByText('Manage local data').click()
+  await page.goto('/settings/data/')
   await importFile(page, 'export.json', {
     version: 4,
     exportDate: UPDATED_AT,

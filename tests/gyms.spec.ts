@@ -79,22 +79,6 @@ test('the cards before the start show the set slots the start stores for the gym
   await expect(card.locator('.completed-sets > .isCompleted')).toHaveCount(1)
 })
 
-test('renames a gym on every workout, merging it into another', async ({ page }) => {
-  await seedWorkoutsAt(page, ['Athens', 'Holmes Place Syntagma', 'Athens'])
-  await page.goto('/settings/')
-  await page.locator('#gyms-details summary').click()
-
-  const from = page.locator('#rename-gym-from')
-  await expect(from.locator('option')).toHaveText(['Athens (2 workouts)', 'Holmes Place Syntagma (1 workout)'])
-  await from.selectOption('Athens')
-  await page.getByLabel('New name').fill('Holmes Place Syntagma')
-  page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: 'Rename' }).click()
-
-  await expect(page.locator('.toast-message-popup')).toContainText('Renamed on 2 workouts')
-  await expect(from.locator('option')).toHaveText(['Holmes Place Syntagma (3 workouts)'])
-})
-
 test('the history chart keys the gyms under it and toggles a metric from its header', async ({ page }) => {
   const { sessionId } = await seedWorkoutsAt(page, ['Holmes Place Syntagma', 'Hotel gym', 'Holmes Place Syntagma'])
   // Without animation the chart repaints at once, so its pixels show what each toggle drew.

@@ -1,54 +1,54 @@
-import { formatShortDate } from '../../dateUtils'
-import Toasts from '../../features/toasts'
-import { account } from '../../sync/account'
-import { disconnect, listConnections, MCP_URL, type Connection } from '../../sync/connections'
-import { whileBusy } from '../busyButton'
+import { formatShortDate } from '../../../dateUtils'
+import Toasts from '../../../features/toasts'
+import { account } from '../../../sync/account'
+import { disconnect, listConnections, MCP_URL, type Connection } from '../../../sync/connections'
+import { whileBusy } from '../../busyButton'
 
-// AI Assistants: the link an assistant such as Claude connects with, and the assistants connected to the account,
-// each with Disconnect. An assistant approves with a passkey, so it needs a passkey backup.
+// What the user pastes into an assistant, whichever it is, so the assistant sets the connection up itself or says
+// where its settings take the link.
+export const connectPrompt = (url: string) =>
+  `Connect to Jimbro, my workout tracker, so you can answer questions about my workouts. ` +
+  `It is a remote MCP server at ${url} (Streamable HTTP, with OAuth sign-in). ` +
+  `Add it as a connector or MCP server, or tell me where to add it if I have to do it myself. ` +
+  `When it connects, Jimbro opens a page where I approve with my passkey. ` +
+  `It can read my exercises, programs and workouts, and can't change them.`
+
+// The AI assistants page: a prompt that connects an assistant such as Claude, and the assistants connected to the
+// account, each with Disconnect. An assistant approves with a passkey, so it needs a passkey backup.
 export default class AssistantsSetting {
-  private details = document.querySelector('#assistants-details') as HTMLDetailsElement
   private needPasskey = document.querySelector('#assistants-need-passkey') as HTMLParagraphElement
   private setup = document.querySelector('#assistants-setup') as HTMLDivElement
-  private url = document.querySelector('#assistants-url') as HTMLInputElement
+  private prompt = document.querySelector('#assistants-prompt') as HTMLTextAreaElement
   private copyBtn = document.querySelector('#assistants-copy') as HTMLButtonElement
   private status = document.querySelector('#assistants-status') as HTMLParagraphElement
   private list = document.querySelector('#assistants-list') as HTMLUListElement
   private item = document.querySelector('#assistant-item') as HTMLTemplateElement
 
   constructor() {
-    this.url.value = MCP_URL
+    this.prompt.value = connectPrompt(MCP_URL)
     this.copyBtn.addEventListener('click', () => void this.copy())
-    // The list is read from the worker when the section opens.
-    this.details.addEventListener('toggle', () => {
-      if (this.details.open) void this.render()
-    })
-    this.showState()
   }
 
   private hasPasskey() {
     return account.current()?.method === 'passkey'
   }
 
-  private showState() {
-    const passkey = this.hasPasskey()
-    this.needPasskey.hidden = passkey
-    this.setup.hidden = !passkey
-  }
-
   private async copy() {
     try {
-      await navigator.clipboard.writeText(MCP_URL)
-      Toasts.show({ message: 'Link copied.' })
+      await navigator.clipboard.writeText(this.prompt.value)
+      Toasts.show({ message: 'Prompt copied.' })
     } catch {
-      // Without clipboard access, the link is selected for the user to copy.
-      this.url.select()
+      // Without clipboard access, the prompt is selected for the user to copy.
+      this.prompt.select()
     }
   }
 
-  private async render() {
-    this.showState()
-    if (!this.hasPasskey()) return
+  // Shows the setup with a passkey backup, and reads the connected assistants from the worker.
+  async render() {
+    const passkey = this.hasPasskey()
+    this.needPasskey.hidden = passkey
+    this.setup.hidden = !passkey
+    if (!passkey) return
     this.status.textContent = 'Loading…'
     let connections: Connection[]
     try {

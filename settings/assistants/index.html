@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- partial:head -->
+    <title>Jimbro - AI assistants</title>
+    <script type="module" src="/src/pages/settings/assistants/index.ts"></script>
+  </head>
+  <body class="app">
+    <div class="app-page pb-20 md:pb-0">
+      <header class="app-header">
+        <!-- partial:back-button -->
+        <h1 class="app-header-title">AI assistants</h1>
+      </header>
+
+      <div class="app-page-content">
+        <div class="flex flex-col gap-6">
+          <p class="text-jim-neutral-secondary">
+            Ask an AI assistant about your workouts. It can read them, and never changes them.
+          </p>
+          <p id="assistants-need-passkey" class="text-jim-neutral-secondary">
+            An assistant signs in with your passkey, so it needs a
+            <a href="/settings/backup/" class="link-primary underline">cloud backup with a passkey</a> first.
+          </p>
+          <div id="assistants-setup" class="flex flex-col gap-6" hidden>
+            <section class="flex flex-col gap-3" aria-labelledby="assistants-prompt-title">
+              <h2 id="assistants-prompt-title" class="settings-group-title">Connect</h2>
+              <p class="text-sm text-jim-neutral-secondary">
+                Paste this into your assistant. When it connects, approve with your passkey.
+              </p>
+              <label class="sr-only" for="assistants-prompt">Prompt</label>
+              <textarea id="assistants-prompt" readonly rows="8" class="text-sm text-jim-neutral"></textarea>
+              <button type="button" id="assistants-copy" class="btn-primary">Copy prompt</button>
+            </section>
+            <section class="flex flex-col gap-2" aria-labelledby="assistants-connected-title">
+              <h2 id="assistants-connected-title" class="settings-group-title">Connected</h2>
+              <p id="assistants-status" class="text-sm text-jim-neutral-secondary" aria-live="polite"></p>
+              <ul id="assistants-list" class="settings-list empty:hidden"></ul>
+              <template id="assistant-item">
+                <li class="settings-row">
+                  <span class="settings-row-label">
+                    <span class="assistant-name truncate"></span>
+                    <span class="assistant-used settings-row-detail"></span>
+                  </span>
+                  <button type="button" class="assistant-disconnect btn-secondary btn-danger shrink-0 px-4 py-2">
+                    Disconnect
+                  </button>
+                </li>
+              </template>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- partial:break-timer -->
+    <!-- partial:bottom-nav -->
+  </body>
+</html>
