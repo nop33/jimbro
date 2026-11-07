@@ -149,6 +149,23 @@ describe('the saved account', () => {
     expect(device.accounts.signedOut()).toBe(true)
     expect(device.accounts.status()).toEqual({ lastSyncAt: null, problem: 'moved' })
   })
+
+  it('tells its listeners after each change of account, the same account again included, until they stop', async () => {
+    const heard: Array<Account | null> = []
+    const stop = new AbortController()
+    device.accounts.onChange(() => heard.push(device.accounts.current()), stop.signal)
+
+    await device.accounts.switchTo({ ...A, method: 'passkey' })
+    device.accounts.failed(new ServerError(401, 'unauthorized'))
+    await device.accounts.switchTo({ ...A, method: 'passkey' })
+    await device.accounts.signOut()
+    device.accounts.failed(new ServerError(413, 'row_limit'))
+    expect(heard).toEqual([{ ...A, method: 'passkey' }, null, { ...A, method: 'passkey' }, null])
+
+    stop.abort()
+    await device.accounts.switchTo(B)
+    expect(heard).toHaveLength(4)
+  })
 })
 
 describe('a sync with the saved account', () => {

@@ -9,10 +9,13 @@ import { requestJson, ServerError } from './server'
 
 const ENABLED_KEY = 'jimbro.breakAlerts'
 
-// The account this document last handed the subscription to. Another account's worker may hold it, after a switch, or
-// none, after a sign-out, or another device's, after the account moved away and back, so each document hands it over
-// once, at its first break, and again after each switch.
-let handedTo: string | null = null
+// Whether this document handed the subscription to the account it backs up to now. Another account's worker may hold
+// it, after a switch, or none, after a sign-out, or another device's, after the account moved away and back with the
+// same user ID, so each document hands it over once, at its first break, and again after each change of account.
+let handedOver = false
+account.onChange(() => {
+  handedOver = false
+})
 
 export interface BreakAlert {
   endsAt: number
@@ -86,14 +89,14 @@ export const enableBreakAlerts = async () => {
     body: subscription.toJSON()
   })
   writeEnabled(true)
-  handedTo = current.userId
+  handedOver = true
 }
 
 // Hands this device's subscription to the account it backs up to now, when alerts are on and this document has not
 // yet. A new break calls it while the page is in sight, so the alert it schedules out of sight reaches this device.
 export const keepBreakAlertsWithAccount = async () => {
   const current = account.current()
-  if (!current || handedTo === current.userId || !breakAlertsOn()) return
+  if (!current || handedOver || !breakAlertsOn()) return
   try {
     const registration = await navigator.serviceWorker.getRegistration()
     const subscription = await registration?.pushManager.getSubscription()
@@ -107,7 +110,8 @@ export const keepBreakAlertsWithAccount = async () => {
       token: current.token,
       body: subscription.toJSON()
     })
-    handedTo = current.userId
+    // A change of account while the request was on its way leaves it to the next break.
+    if (account.current()?.token === current.token) handedOver = true
   } catch (error) {
     // The next break tries again.
     console.error('break alerts could not follow the account', error)
@@ -119,7 +123,6 @@ export const keepBreakAlertsWithAccount = async () => {
 export const releaseBreakAlerts = async () => {
   const current = account.current()
   if (!current || !readEnabled()) return
-  handedTo = null
   await requestJson('/api/break-alerts/unsubscribe', { method: 'POST', token: current.token }).catch((error: unknown) =>
     console.error('break alerts could not be released', error)
   )
@@ -129,7 +132,7 @@ export const releaseBreakAlerts = async () => {
 // with its subscription, so the bell shows them off and turning them on again subscribes afresh.
 const lostSubscription = async () => {
   writeEnabled(false)
-  handedTo = null
+  handedOver = false
   const registration = await navigator.serviceWorker.getRegistration()
   await (await registration?.pushManager.getSubscription())?.unsubscribe()
 }
@@ -137,7 +140,7 @@ const lostSubscription = async () => {
 // Stops the alerts on this device, and tells the worker to forget its subscription when there is an account.
 export const disableBreakAlerts = async () => {
   writeEnabled(false)
-  handedTo = null
+  handedOver = false
   const registration = await navigator.serviceWorker.getRegistration()
   await (await registration?.pushManager.getSubscription())?.unsubscribe()
   const current = account.current()

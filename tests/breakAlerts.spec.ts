@@ -206,6 +206,29 @@ test('after a switch to another account, the next break hands the alerts to it',
   expect(await scheduleOutOfSight(page)).toEqual({ scheduled: true })
 })
 
+test('after the account moves away and back, the next break hands the alerts to it again', async ({ page }) => {
+  await standInPush(page)
+  await seedDatabase(page)
+  const user = await signIn(page)
+  await startBreak(page)
+  await turnOn(page)
+
+  // Another phone signed in to the account and took its alerts, so the worker no longer holds this one's. Signing in
+  // here again, in the same document, brings the account back with the same user ID.
+  await page.evaluate(async (user) => {
+    const { requestJson } = await import('/src/sync/server.ts')
+    await requestJson('/api/break-alerts/unsubscribe', { method: 'POST', token: user.token })
+    const { account } = await import('/src/sync/account.ts')
+    await account.switchTo({ ...user, method: 'token' })
+  }, user)
+  const handedOver = page.waitForRequest((request) => request.url().endsWith('/api/break-alerts/subscribe'))
+  await logSet(page)
+  expect((await handedOver).headers().authorization).toBe(`Bearer ${user.token}`)
+  const bell = page.locator('#break-countdown-dialog').getByRole('button', { name: 'Break alerts' })
+  await expect(bell).toHaveAttribute('aria-pressed', 'true')
+  expect(await scheduleOutOfSight(page)).toEqual({ scheduled: true })
+})
+
 test('when the worker holds no subscription for the device, the bell shows the alerts off', async ({ page }) => {
   await standInPush(page)
   await seedDatabase(page)

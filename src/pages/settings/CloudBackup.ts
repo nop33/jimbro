@@ -22,6 +22,9 @@ import { whileBusy } from '../busyButton'
 class CloudBackup {
   // Aborts when the page goes, which stops the passkey options refreshing and the status following syncs.
   private signal: AbortSignal
+  // Whether one of this page's own account steps is running. It shows its outcome when it ends, so a sign-in's button
+  // stays busy while it restores the account it switched to.
+  private acting = false
   private details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
   private summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
   private offer = document.querySelector('#passkey-offer') as HTMLElement
@@ -50,6 +53,14 @@ class CloudBackup {
     this.showState()
     void this.updateSummaryStatus()
     onPageNotice(() => {
+      void this.updateSummaryStatus()
+    }, signal)
+    // A sync that finds the account moved to another phone changes it too, and leaves no account to add a passkey to
+    // or sign out of.
+    account.onChange(() => {
+      if (this.acting) return
+      this.showState()
+      this.prepare()
       void this.updateSummaryStatus()
     }, signal)
 
@@ -124,11 +135,14 @@ class CloudBackup {
   // Resolves to false when it did not switch the account.
   private async runPasskeyStep(button: HTMLButtonElement, label: string, step: () => Promise<boolean>, done: string) {
     const beside = button === this.createBtn ? this.signInBtn : this.createBtn
+    this.acting = true
     try {
       if (!(await whileBusy(button, label, step, [beside]))) return
     } catch (error) {
       showPasskeyFailure(error)
       return
+    } finally {
+      this.acting = false
     }
     Toasts.show({ message: done })
     this.showState()
