@@ -302,6 +302,37 @@ test.describe('passkeys with a virtual authenticator', () => {
     expect(keysOf(await pullAll(created?.token ?? ''))).toEqual(keysOf(tokenAccount))
   })
 
+  test('Settings stops offering the account once a sync finds it moved', async ({ page }) => {
+    await authenticatorOn(page)
+    await seedDatabase(page)
+    await assertLocalWorker(page)
+    await openCloudBackup(page)
+    await page.getByRole('button', { name: 'Create passkey' }).click()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
+    const addPasskey = page.getByRole('button', { name: 'Add another passkey' })
+    await expect(addPasskey).toBeVisible()
+    const created = await credentialsOf(page)
+
+    // Another phone claimed the account, so the worker forgot this one's token, and a sync from the background, while
+    // Settings stays open, finds it gone.
+    await page.evaluate(async (token) => {
+      const { requestJson } = await import('/src/sync/server.ts')
+      await requestJson('/api/signout', { method: 'POST', token })
+      const { exercisesStore } = await import('/src/db/stores/exercisesStore.ts')
+      await exercisesStore.load()
+      const [first] = exercisesStore.all
+      await exercisesStore.update({ ...first, name: 'Renamed after the move' })
+      const { sync } = await import('/src/sync/syncClient.ts')
+      await sync().catch(() => undefined)
+    }, created?.token ?? '')
+
+    expect(await credentialsOf(page)).toBeNull()
+    await expect(page.locator('#cloud-summary-status')).toHaveText('Moved to another device')
+    await expect(addPasskey).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeHidden()
+    await expect(page.getByText('Your backup moved to another device, so this phone stopped backing up.')).toBeVisible()
+  })
+
   test('adds another passkey and signs out', async ({ page }) => {
     const { cdp, authenticatorId } = await authenticatorOn(page)
     await page.goto('/settings/backup/')

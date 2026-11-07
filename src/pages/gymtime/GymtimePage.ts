@@ -87,6 +87,8 @@ class GymtimePage {
       if (!confirm('Are you sure you want to delete this workout session?')) return
 
       await workoutSessionsStore.remove(session.id)
+      // The break belongs to the workout, so it goes with it, instead of offering "Back to workout" on the next page.
+      breakTimer().closeFor(session.id)
       Toasts.show({ message: 'Workout session deleted' })
       window.location.href = `/workouts/`
     })

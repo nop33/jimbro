@@ -26,8 +26,9 @@ export class OpenSession {
   private open: WorkoutSession | undefined
   private views = new Set<View>()
   private starter: Starter | undefined
-  // The start on its way, so changes made before it lands write to the one workout it creates.
-  private starting: Promise<WorkoutSession> | undefined
+  // The changes take turns: each write runs on the session the one before it stored, so two made at once, such as a
+  // quick second tap or a field saving as a set logs, never both start from one session and lose the first one's part.
+  private turns: Promise<unknown> = Promise.resolve()
   // When the workout started, until the change that started it has run its effects and the lifter has been told.
   private startedAt: Date | undefined
   // Writes and the views showing their result, still running. The region is aria-busy while any is.
@@ -58,7 +59,7 @@ export class OpenSession {
 
   // Shows the session the page loaded.
   async show(session: WorkoutSession | undefined): Promise<void> {
-    await this.whileBusy(() => this.showNow(session))
+    await this.whileBusy(() => this.inTurn(() => this.showNow(session)))
   }
 
   // How the first change starts the workout when the page opened none.
@@ -73,18 +74,21 @@ export class OpenSession {
 
   // Runs a workoutSessionsStore write on the open session and resolves once the screen shows the session it stored
   // and the lifter has heard what the change means. Nothing changes on screen before the write lands. With no session
-  // open, the write starts the workout first, so the first thing the lifter does starts it. loggedFor names the
-  // exercise when the write logs a set from its card, the only change that ends an exercise or starts a break.
+  // open, the write starts the workout first, so the first thing the lifter does starts it. A change made while another
+  // is on its way waits for it, and writes on the session it stored. loggedFor names the exercise when the write logs a
+  // set from its card, the only change that ends an exercise or starts a break.
   async apply(
     write: (session: WorkoutSession) => Promise<WorkoutSession>,
     { loggedFor }: { loggedFor?: Exercise['id'] } = {}
   ): Promise<WorkoutSession> {
-    const [session, next] = await this.whileBusy(async () => {
-      const session = this.open ?? (await this.started())
-      const next = await write(session)
-      await this.showNow(next)
-      return [session, next] as const
-    })
+    const [session, next] = await this.whileBusy(() =>
+      this.inTurn(async () => {
+        const session = this.open ?? (await this.started())
+        const next = await write(session)
+        await this.showNow(next)
+        return [session, next] as const
+      })
+    )
     await this.actOn(outcomeOf(session, next, loggedFor, getBreakTimeSeconds()))
     this.announceStart()
     return next
@@ -106,24 +110,25 @@ export class OpenSession {
     }
   }
 
+  // Runs work once every change before it has stored and shown its session, whether that change landed or failed.
+  private inTurn<T>(work: () => Promise<T>): Promise<T> {
+    const turn = this.turns.then(work)
+    this.turns = turn.catch(() => undefined)
+    return turn
+  }
+
   private async showNow(session: WorkoutSession | undefined): Promise<void> {
     this.open = session
     await Promise.all([...this.views].map(async (view) => view(session)))
   }
 
-  // Creates the workout and shows it, once, however many changes ask for it at the same time.
-  private started(): Promise<WorkoutSession> {
+  // Creates the workout and shows it. The changes take turns, so only the first one starts it.
+  private async started(): Promise<WorkoutSession> {
     if (!this.starter) throw new Error('No workout session is open')
-    const { start } = this.starter
-    this.starting ??= (async () => {
-      const session = await start()
-      await this.showNow(session)
-      this.startedAt = new Date()
-      return session
-    })().finally(() => {
-      this.starting = undefined
-    })
-    return this.starting
+    const session = await this.starter.start()
+    await this.showNow(session)
+    this.startedAt = new Date()
+    return session
   }
 
   // Tells the lifter the workout started, after the change that started it ran its effects, so the toast shows above

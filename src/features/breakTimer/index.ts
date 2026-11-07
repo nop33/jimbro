@@ -297,6 +297,11 @@ class BreakTimer {
     this.sessionId = null
   }
 
+  // Ends the break of this workout, when the timer counts one, as when the workout is deleted.
+  closeFor(sessionId: Break['sessionId']) {
+    if (this.sessionId === sessionId) this.close()
+  }
+
   // Ends the break, early or on time.
   close() {
     this.stopCountdown()

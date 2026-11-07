@@ -595,6 +595,52 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('textarea[name="notes"]')).toHaveValue('Felt strong')
   })
 
+  test('two changes made at once both reach the workout', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const rows = card.locator('.completed-sets > .set')
+    await card.locator('.exercise-details > summary').click()
+    const planned = await rows.count()
+
+    // Two taps on Add set land before the first one's write does: the first starts the workout and the second waits
+    // for it, then both slots are stored, each on the session the change before stored.
+    await card.locator('.add-set-btn').evaluate((button: HTMLButtonElement) => {
+      button.click()
+      button.click()
+    })
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
+    await expect(rows).toHaveCount(planned + 2)
+    await card.locator('.add-set-btn').evaluate((button: HTMLButtonElement) => {
+      button.click()
+      button.click()
+    })
+    await expect(rows).toHaveCount(planned + 4)
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+
+    await page.reload()
+    await card.locator('.exercise-details > summary').click()
+    await expect(rows).toHaveCount(planned + 4)
+  })
+
+  test('deleting the workout ends its break', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('.exercise-details > summary').click()
+    const setForm = card.locator('.next-set-form').first()
+    await setForm.locator('input[name="set-reps"]').first().fill('10')
+    await setForm.locator('input[name="set-weight"]').first().fill('100')
+    await setForm.getByRole('button', { name: 'Finished set' }).first().click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.locator('#delete-workout-session-btn').click()
+    // Without the Navigation API, as in the WebKit projects, the workouts page loads in full, so the toast and the old
+    // break go with the old document. With it, the router keeps the document, and the break has to end itself.
+    await expect(page).toHaveURL(/\/workouts\/$/)
+    await expect(breakTimer).toBeHidden()
+  })
+
   test('removes a set to do from its menu, and a logged set from Edit set', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const pending = card.locator('.completed-sets .set.isPending')

@@ -59,6 +59,10 @@ export interface Accounts {
   // The sync engine reports each run's outcome here, from inside use.
   synced(at: string): void
   failed(error: unknown): void
+  // Calls listener after each change of account: a switch, a sign-out, and a failed sync that found the account moved.
+  // What follows the account, such as break alerts and what Settings shows, hears it here instead of guessing from the
+  // user ID, which stays the same when the account moves away and back. Stops when signal aborts.
+  onChange(listener: () => void, signal?: AbortSignal): void
 }
 
 const parseAccount = (raw: string | null): Account | null => {
@@ -138,6 +142,18 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
 
   const current = () => parseAccount(read(KEYS.account))
 
+  const listeners = new Set<() => void>()
+  // A listener that throws doesn't stop the others, or the change.
+  const changed = () => {
+    for (const listener of listeners) {
+      try {
+        listener()
+      } catch (error) {
+        console.error('a change of account was not followed', error)
+      }
+    }
+  }
+
   return {
     current,
     async use(task) {
@@ -163,8 +179,8 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
           quietly(() => local().removeItem(KEYS.signedOut))
           clearStatus()
         })
-      ),
-    signOut: () => alone(async () => forget(null)),
+      ).then(changed),
+    signOut: () => alone(async () => forget(null)).then(changed),
     signedOut: () => read(KEYS.signedOut) === '1',
     status: () => {
       const problem = read(KEYS.problem)
@@ -182,7 +198,17 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
     failed: (error) => {
       if (!(error instanceof ServerError)) return
       if (error.code === 'row_limit') setProblem('row_limit')
-      if (error.status === 401 && current()?.method === 'passkey') quietly(() => forget('moved'))
+      if (error.status === 401 && current()?.method === 'passkey') {
+        quietly(() => forget('moved'))
+        changed()
+      }
+    },
+    onChange: (listener, signal) => {
+      if (signal?.aborted) return
+      // Each call adds its own entry, so one function added twice is called twice and one abort removes only its own.
+      const entry = () => listener()
+      listeners.add(entry)
+      signal?.addEventListener('abort', () => listeners.delete(entry), { once: true })
     }
   }
 }

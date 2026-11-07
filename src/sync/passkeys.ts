@@ -96,6 +96,16 @@ export const preparePasskey = (ceremony: Ceremony, signal: AbortSignal) => {
   prefetched.set(ceremony, entry)
 }
 
+// Adding a passkey signs its options with the saved token, so options prepared for the account before are no good
+// after a change of account: a tap on them would save a passkey on the phone that the worker never registers. The page
+// that shows the button prepares new ones when it hears the change.
+account.onChange(() => {
+  const entry = prefetched.get('add')
+  if (!entry) return
+  window.clearTimeout(entry.refresh)
+  prefetched.delete('add')
+})
+
 // Prepares the ceremony again for the page that showed its button, after a tap used its options up. Without such a page
 // there is no button left to tap.
 const prepareAgain = (ceremony: Ceremony) => {

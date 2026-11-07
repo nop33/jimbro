@@ -155,6 +155,8 @@ test('a page that opened before a deploy still draws the history chart', async (
   await page.goto(`${origin}/workouts/`)
   await waitForServiceWorker(page)
   await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
+  // The sample programs draw the page again once stored, which would take a dialog opened before it with the old page.
+  await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeHidden()
   await page.getByRole('button', { name: 'New' }).click()
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
@@ -222,4 +224,26 @@ test('a new build waits until no dialog is open', async ({ page }) => {
   await comeBackIntoView(page)
   await reloaded
   await expect(page.locator('.app-header-title')).toContainText('Workouts')
+})
+
+// A document that opened before any service worker controlled it, as at an installed app's first launch, hears the
+// first service worker take over from its own build. The next takeover is a new build, so the next tap loads in full.
+test('a tap after a new build took over loads the next page in full', async ({ page }) => {
+  const { origin, deploy } = await openPreview()
+  await page.goto(`${origin}/workouts/`)
+  await waitForServiceWorker(page)
+  await page.getByRole('button', { name: 'New' }).click()
+  const dialog = page.locator('dialog#new-workout-dialog')
+  await expect(dialog).toBeVisible()
+
+  await watchForTakeOver(page)
+  deploy()
+  await takeOver(page)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  const loaded = page.waitForEvent('load')
+  await page.locator('.bottom-nav').getByRole('link', { name: 'Exercises' }).click()
+  await loaded
+  await expect(page.locator('.app-header-title')).toContainText('Exercises')
 })

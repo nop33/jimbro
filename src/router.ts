@@ -1,3 +1,4 @@
+import { buildChanged } from './appUpdates'
 import { breakTimer } from './features/breakTimer'
 import './features/installPrompt'
 import { keepPagesFresh } from './redraw'
@@ -76,17 +77,13 @@ const loadPage = (url: URL) =>
   })
 
 // Once the document can't show a page itself, every navigation loads in full: after a failed load, and after a new
-// build's service worker took over, so the whole app moves to the new build together instead of mixing the two.
-let inFull = false
+// build's service worker took over (src/appUpdates.ts), so the whole app moves to the new build together instead of
+// mixing the two.
+let failed = false
+const inFull = () => failed || buildChanged()
 const loadInFull = (url: URL) => {
-  inFull = true
+  failed = true
   window.location.assign(url)
-}
-// The first service worker takes over a page it didn't serve, from the same build, so only a later one is a new build.
-if (navigator.serviceWorker?.controller) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    inFull = true
-  })
 }
 
 // Shows the page at url in this document. The old page stays on screen, frozen by the view transition, until the new
@@ -128,7 +125,7 @@ window.navigation?.addEventListener('navigate', (event) => {
   const page = PAGES[pagePath(url)]
   const here = new URL(window.location.href)
   if (
-    inFull ||
+    inFull() ||
     !page ||
     !event.canIntercept ||
     event.hashChange ||
@@ -148,7 +145,7 @@ window.navigation?.addEventListener('navigate', (event) => {
 const redrawInPlace = async () => {
   const url = new URL(window.location.href)
   const page = PAGES[pagePath(url)]
-  if (inFull || !page) {
+  if (inFull() || !page) {
     window.location.reload()
     return
   }

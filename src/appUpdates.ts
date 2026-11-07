@@ -17,22 +17,38 @@ const FRESH_VIEW_MS = 10 * 1000
 // from it. The page on screen moves to it sooner, with a reload, whenever nothing would be lost: no dialog open, the
 // break timer's included, and no field being typed in. It reloads when the new build takes over within moments of the
 // app coming into view, or else the next time the app goes out of view or comes back.
-export const followNewBuilds = async () => {
-  // The first service worker takes over a page it didn't serve, from the same build, so only a later takeover brings a
-  // new build.
-  let controlled = navigator.serviceWorker.controller !== null
-  const registration = await navigator.serviceWorker.register('/sw.js')
+//
+// The router asks buildChanged() before each tap, so the whole app follows this one rule for when the build on screen is
+// no longer the one the service worker serves.
+let newBuild = false
 
+// Whether a new build's service worker took over since this document loaded, so its pages and this document's scripts
+// come from two builds.
+export const buildChanged = () => newBuild
+
+export const followNewBuilds = async () => {
+  let lastCheck = Date.now()
+  let inViewSince = document.visibilityState === 'visible' ? Date.now() : 0
+  const reloadIfSafe = () => {
+    if (newBuild && !busy()) window.location.reload()
+  }
+
+  // The first service worker takes over a page it didn't serve, from the same build, so only a later takeover brings a
+  // new build. The listener goes on before the registration, so it hears every takeover.
+  let controlled = navigator.serviceWorker.controller !== null
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!controlled) {
+      controlled = true
+      return
+    }
+    newBuild = true
+    if (document.visibilityState === 'visible' && Date.now() - inViewSince < FRESH_VIEW_MS) reloadIfSafe()
+  })
+
+  const registration = await navigator.serviceWorker.register('/sw.js')
   const check = () => {
     // Offline, or when sw.js fails to load, the old build stays, and the next check tries again.
     registration.update().catch(() => undefined)
-  }
-  let lastCheck = Date.now()
-  let inViewSince = document.visibilityState === 'visible' ? Date.now() : 0
-  let newBuild = false
-
-  const reloadIfSafe = () => {
-    if (newBuild && !busy()) window.location.reload()
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -47,13 +63,4 @@ export const followNewBuilds = async () => {
     lastCheck = Date.now()
     check()
   }, 60 * 1000)
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!controlled) {
-      controlled = true
-      return
-    }
-    newBuild = true
-    if (document.visibilityState === 'visible' && Date.now() - inViewSince < FRESH_VIEW_MS) reloadIfSafe()
-  })
 }
