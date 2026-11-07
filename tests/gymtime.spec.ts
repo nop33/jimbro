@@ -595,6 +595,25 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('textarea[name="notes"]')).toHaveValue('Felt strong')
   })
 
+  test('deleting the workout ends its break', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('.exercise-details > summary').click()
+    const setForm = card.locator('.next-set-form').first()
+    await setForm.locator('input[name="set-reps"]').first().fill('10')
+    await setForm.locator('input[name="set-weight"]').first().fill('100')
+    await setForm.getByRole('button', { name: 'Finished set' }).first().click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.locator('#delete-workout-session-btn').click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Workout session deleted')
+    await expect(page).toHaveURL(/\/workouts\/$/)
+    await expect(breakTimer).toBeHidden()
+  })
+
   test('removes a set to do from its menu, and a logged set from Edit set', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const pending = card.locator('.completed-sets .set.isPending')
