@@ -139,8 +139,7 @@ class WorkoutSessionsStore {
   }
 
   async getAll(): Promise<Array<WorkoutSession>> {
-    const db = await storage.connection()
-    const tx = db.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
+    const tx = await storage.transaction([this.storeName, OBJECT_STORES.SET_GROUPS], 'readonly')
     const done = transactionDone(tx, 'session read')
     const headers = tx.objectStore(this.storeName).getAll() as IDBRequest<Array<SessionHeader>>
     const groups = tx.objectStore(OBJECT_STORES.SET_GROUPS).getAll() as IDBRequest<
@@ -391,7 +390,7 @@ class WorkoutSessionsStore {
     headerOk: (header: SessionHeader) => boolean,
     sessionOk: (session: WorkoutSession) => boolean
   ): Promise<WorkoutSession | undefined> {
-    const db = await storage.connection()
+    const tx = await storage.transaction([this.storeName, OBJECT_STORES.SETS], 'readonly')
     return new Promise((resolve, reject) => {
       let settled = false
       const ok = (value: WorkoutSession | undefined) => {
@@ -404,7 +403,6 @@ class WorkoutSessionsStore {
         settled = true
         reject(error)
       }
-      const tx = db.transaction([this.storeName, OBJECT_STORES.SETS], 'readonly')
       tx.onerror = () => fail(tx.error)
       tx.onabort = () => fail(tx.error ?? new Error('session read aborted'))
       const request = tx.objectStore(this.storeName).index('date').openCursor(null, direction)

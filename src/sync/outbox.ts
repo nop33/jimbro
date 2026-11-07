@@ -45,8 +45,8 @@ const rowOf = (table: RowTable, stored: IDBRequest): Row => {
 // the seq and body about to be sent, all in one transaction. A stamp already there stays: it records
 // a push that may have reached the server without an ack, and first sync compares against it.
 // Resolves to null when the outbox is empty, and to [] when every entry read pointed at a missing row.
-const takeChunk = async (db: IDBDatabase, limit: number): Promise<Taken[] | null> => {
-  const tx = db.transaction(
+const takeChunk = async (storage: Storage, limit: number): Promise<Taken[] | null> => {
+  const tx = await storage.transaction(
     [
       OBJECT_STORES.OUTBOX,
       OBJECT_STORES.EXERCISES,
@@ -88,11 +88,14 @@ const takeChunk = async (db: IDBDatabase, limit: number): Promise<Taken[] | null
 // The meta advance lands in the same transaction: a stop between the two would leave a database
 // that looks unsynced with nothing queued, and the next first sync could drop a later edit.
 const acknowledge = async (
-  db: IDBDatabase,
+  storage: Storage,
   sent: Taken[],
   advance: { name: 'cursor' | 'bootstrapped'; value: number } | null
 ) => {
-  const tx = db.transaction(advance ? [OBJECT_STORES.OUTBOX, OBJECT_STORES.META] : [OBJECT_STORES.OUTBOX], 'readwrite')
+  const tx = await storage.transaction(
+    advance ? [OBJECT_STORES.OUTBOX, OBJECT_STORES.META] : [OBJECT_STORES.OUTBOX],
+    'readwrite'
+  )
   const done = transactionDone(tx, 'outbox ack')
   const outbox = tx.objectStore(OBJECT_STORES.OUTBOX)
   if (advance) tx.objectStore(OBJECT_STORES.META).put(advance)
@@ -106,8 +109,8 @@ const acknowledge = async (
   await done
 }
 
-const markBootstrapped = async (db: IDBDatabase) => {
-  const tx = db.transaction([OBJECT_STORES.META], 'readwrite')
+const markBootstrapped = async (storage: Storage) => {
+  const tx = await storage.transaction([OBJECT_STORES.META], 'readwrite')
   const done = transactionDone(tx, 'outbox bootstrap mark')
   tx.objectStore(OBJECT_STORES.META).put({ name: 'bootstrapped', value: 1 })
   await done
@@ -119,15 +122,14 @@ const markBootstrapped = async (db: IDBDatabase) => {
 export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox => ({
   pending: () => deps.storage.count(OBJECT_STORES.OUTBOX),
   async drain(push) {
-    const db = await deps.storage.connection()
     const unsynced = await firstSyncDue(deps.storage)
     let acked = false
     for (;;) {
       // Skip the lock when nothing is queued, so an idle page never waits on another page's push.
       if ((await deps.storage.count(OBJECT_STORES.OUTBOX)) === 0) break
       const pushed = await deps.lock(async () => {
-        let taken = await takeChunk(db, PUSH_CHUNK)
-        while (taken !== null && taken.length === 0) taken = await takeChunk(db, PUSH_CHUNK)
+        let taken = await takeChunk(deps.storage, PUSH_CHUNK)
+        while (taken !== null && taken.length === 0) taken = await takeChunk(deps.storage, PUSH_CHUNK)
         if (taken === null) return null
         const result = await push(taken.map((item) => item.row))
         const advance = !unsynced
@@ -135,14 +137,14 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
           : result !== null && result > 0
             ? { name: 'cursor' as const, value: result }
             : { name: 'bootstrapped' as const, value: 1 }
-        await acknowledge(db, taken, advance)
+        await acknowledge(deps.storage, taken, advance)
         return true
       })
       if (!pushed) break
       acked = true
     }
     // Every ack above already recorded the sync, so only a drain that sent nothing is left to mark.
-    if (unsynced && !acked) await markBootstrapped(db)
+    if (unsynced && !acked) await markBootstrapped(deps.storage)
   }
 })
 

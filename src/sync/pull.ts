@@ -46,8 +46,7 @@ const serverStillHasPushedBody = (entry: OutboxEntry | undefined, pulled: Row) =
   canonical(pulled.row) === entry.inflightCanonical
 
 export async function readFirstSyncSnapshot(storage: Storage): Promise<{ seq: number; rows: Row[] }> {
-  const db = await storage.connection()
-  const tx = db.transaction(
+  const tx = await storage.transaction(
     [
       OBJECT_STORES.EXERCISES,
       OBJECT_STORES.PROGRAMS,
@@ -82,20 +81,19 @@ export async function commitFirstSync(
     pulledByKey: Map<string, Row>
   }
 ): Promise<void> {
-  const db = await storage.connection()
+  const tx = await storage.transaction(
+    [
+      OBJECT_STORES.EXERCISES,
+      OBJECT_STORES.PROGRAMS,
+      OBJECT_STORES.WORKOUT_SESSIONS,
+      OBJECT_STORES.SETS,
+      OBJECT_STORES.SET_GROUPS,
+      OBJECT_STORES.OUTBOX,
+      OBJECT_STORES.META
+    ],
+    'readwrite'
+  )
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(
-      [
-        OBJECT_STORES.EXERCISES,
-        OBJECT_STORES.PROGRAMS,
-        OBJECT_STORES.WORKOUT_SESSIONS,
-        OBJECT_STORES.SETS,
-        OBJECT_STORES.SET_GROUPS,
-        OBJECT_STORES.OUTBOX,
-        OBJECT_STORES.META
-      ],
-      'readwrite'
-    )
     const fail = (error: unknown) => {
       try {
         tx.abort()

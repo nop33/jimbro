@@ -621,6 +621,41 @@ test.describe('Gymtime Page', () => {
     await expect(rows).toHaveCount(planned + 4)
   })
 
+  test('a change that fails to save says so and can be made again', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const rows = card.locator('.completed-sets > .set')
+    await card.locator('.exercise-details > summary').click()
+    const stored = (await rows.count()) + 1
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
+    await expect(rows).toHaveCount(stored)
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+    // A fresh document, so no "Workout started" toast is queued ahead of the one the failure shows.
+    await page.reload()
+    await card.locator('.exercise-details > summary').click()
+    await expect(rows).toHaveCount(stored)
+
+    // The next write fails, as one does when the database went away under the page.
+    await page.evaluate(async () => {
+      const { storage } = await import('/src/db/storage.ts')
+      const writeRows = storage.writeRows.bind(storage)
+      storage.writeRows = async () => {
+        storage.writeRows = writeRows
+        throw new DOMException('Connection to Indexed Database server lost', 'UnknownError')
+      }
+    })
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Could not save that change')
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+    await expect(rows).toHaveCount(stored)
+
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await expect(rows).toHaveCount(stored + 1)
+    await page.reload()
+    await card.locator('.exercise-details > summary').click()
+    await expect(rows).toHaveCount(stored + 1)
+  })
+
   test('deleting the workout ends its break', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     await card.locator('.exercise-details > summary').click()

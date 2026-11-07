@@ -74,8 +74,7 @@ export const queueRows = (tx: IDBTransaction, writes: ReadonlyArray<Row>) => {
 // too, since they record pushes to the account before. Signing up or signing in with a passkey calls it, whether or
 // not the device synced with another account before.
 export const restartFirstSync = async (storage: Storage) => {
-  const db = await storage.connection()
-  const tx = db.transaction([OBJECT_STORES.OUTBOX, OBJECT_STORES.META], 'readwrite')
+  const tx = await storage.transaction([OBJECT_STORES.OUTBOX, OBJECT_STORES.META], 'readwrite')
   const done = transactionDone(tx, 'restartFirstSync')
   const meta = tx.objectStore(OBJECT_STORES.META)
   meta.put({ name: 'cursor', value: 0 })
