@@ -170,19 +170,6 @@ class WorkoutSessionsStore {
       .map(({ name, sessions }) => ({ name, sessions }))
   }
 
-  // Moves every live session at the gym to the new name, in one write. Naming another known gym merges the two.
-  async renameGym(from: string, to: string): Promise<number> {
-    const name = to.trim()
-    if (!name) throw new Error('A gym needs a name')
-    const headers = await storage.getAll<SessionHeader>(this.storeName)
-    const updatedAt = nowIso()
-    const renamed = headers
-      .filter((header) => !header.isDeleted && header.location.trim() === from && header.location !== name)
-      .map((header) => ({ table: 'sessions' as const, row: { ...header, location: name, updatedAt } }))
-    await storage.writeRows(renamed)
-    return renamed.length
-  }
-
   async getLatestSaved(): Promise<WorkoutSession | undefined> {
     const header = await this.firstHeader('prev', (candidate) => !candidate.isDeleted)
     if (!header) return undefined

@@ -9,7 +9,7 @@ const start = (date: string, location: string) =>
   workoutSessionsStore.create({ date, programId: 'program', location, notes: '', exercises: [] })
 
 describe('gyms', () => {
-  it('lists each named gym once, the most recently used first, and renames or merges them', async () => {
+  it('lists each named gym once, the most recently used first', async () => {
     await start('2026-09-01', 'Athens')
     await start('2026-09-03', 'Holmes Place Syntagma')
     await start('2026-09-05', 'Athens ')
@@ -21,10 +21,5 @@ describe('gyms', () => {
       { name: 'Athens', sessions: 2 },
       { name: 'Holmes Place Syntagma', sessions: 1 }
     ])
-
-    expect(await workoutSessionsStore.renameGym('Athens', ' Holmes Place Syntagma ')).toBe(2)
-    expect(await workoutSessionsStore.getGyms()).toEqual([{ name: 'Holmes Place Syntagma', sessions: 3 }])
-
-    await expect(workoutSessionsStore.renameGym('Holmes Place Syntagma', '  ')).rejects.toThrow('needs a name')
   })
 })

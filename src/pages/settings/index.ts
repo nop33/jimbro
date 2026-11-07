@@ -1,69 +1,23 @@
-import { exportIndexedDbToJson } from '../../db/export'
-import { importIndexedDbFromJson } from '../../db/import'
-import { storage } from '../../db/storage'
-import Toasts from '../../features/toasts'
-import { getBreakTimeSeconds, storeBreakTimeSeconds } from '../../settings'
+import { account } from '../../sync/account'
+import { onPageNotice } from '../../sync/pageChannel'
 import AppVersion from './AppVersion'
-import AssistantsSetting from './AssistantsSetting'
-import CloudBackup from './CloudBackup'
-import GymsSettings from './GymsSettings'
+import { backupStatus } from './backupStatus'
+import BreakTimeStepper from './BreakTimeStepper'
 
+// Settings: the break time, set here, and rows that open the cloud backup, the AI assistants and the data on this
+// phone, each on a page of its own, with the backup's status kept up to date as syncs settle.
 export const mount = async (signal: AbortSignal) => {
-  new CloudBackup(signal)
-  new AssistantsSetting()
-  const gyms = new GymsSettings()
+  new BreakTimeStepper()
   new AppVersion(__BUILD__)
 
-  const breakMinutesInput = document.querySelector('#break-minutes') as HTMLInputElement
-  const breakSecondsInput = document.querySelector('#break-seconds') as HTMLInputElement
-  const saveBreakTimeBtn = document.querySelector('#save-break-time') as HTMLButtonElement
+  const assistants = document.querySelector('#assistants-summary') as HTMLSpanElement
+  assistants.textContent =
+    account.current()?.method === 'passkey' ? 'Ask about your workouts' : 'Needs a passkey backup'
 
-  const currentBreakTime = getBreakTimeSeconds()
-  breakMinutesInput.value = Math.floor(currentBreakTime / 60).toString()
-  breakSecondsInput.value = (currentBreakTime % 60).toString()
-
-  saveBreakTimeBtn.addEventListener('click', () => {
-    const minutes = parseInt(breakMinutesInput.value, 10) || 0
-    const seconds = parseInt(breakSecondsInput.value, 10) || 0
-    const totalSeconds = minutes * 60 + seconds
-
-    if (totalSeconds < 0) {
-      Toasts.show({ message: 'Break time cannot be negative.', type: 'error' })
-      return
-    }
-
-    storeBreakTimeSeconds(totalSeconds)
-    Toasts.show({ message: 'Break time saved!', type: 'success' })
-  })
-
-  const exportJsonBtn = document.querySelector('#export-json') as HTMLButtonElement
-  exportJsonBtn.addEventListener('click', exportIndexedDbToJson)
-
-  const importInput = document.querySelector('#import-input') as HTMLInputElement
-  importInput.addEventListener('change', async (event) => {
-    const file = (event.target as HTMLInputElement).files?.[0]
-    if (file) {
-      try {
-        await importIndexedDbFromJson(file)
-        Toasts.show({ message: 'Database imported!' })
-      } catch (error) {
-        Toasts.show({ message: 'Failed to import database.', type: 'error' })
-        console.error('❌ Failed to import database', error)
-      }
-    }
-  })
-
-  const resetDatabaseBtn = document.querySelector('#reset-database') as HTMLButtonElement
-  resetDatabaseBtn.addEventListener('click', async () => {
-    if (!confirm('Are you sure you want to reset the database?')) return
-    try {
-      await storage.deleteDatabase()
-      Toasts.show({ message: 'Database reset.' })
-    } catch (error) {
-      console.error('reset failed', error)
-      Toasts.show({ message: 'Close other tabs and try again.', type: 'error' })
-    }
-  })
-
-  await gyms.render()
+  const status = document.querySelector('#cloud-summary-status') as HTMLSpanElement
+  const showStatus = async () => {
+    status.textContent = await backupStatus()
+  }
+  onPageNotice(() => void showStatus(), signal)
+  await showStatus()
 }

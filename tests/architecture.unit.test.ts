@@ -201,8 +201,8 @@ const utcCalendarDates: Detector = (file, source) => {
 // what it wired when the next page replaces it. A page module that ran at load drew once and never again, and a
 // listener on the document kept running on every page after it.
 const pagesDir = path.join('src', 'pages')
-const isPageEntry = (file: string) =>
-  path.dirname(path.dirname(file)) === pagesDir && path.basename(file) === 'index.ts'
+// A route's entry is the index.ts in its folder, such as src/pages/settings/backup/index.ts for /settings/backup/.
+const isPageEntry = (file: string) => file.startsWith(pagesDir + path.sep) && path.basename(file) === 'index.ts'
 const parse = (file: string, text: string) => ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
 const at = (file: string, source: ts.SourceFile, node: ts.Node) =>
   `${file}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`

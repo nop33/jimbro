@@ -54,8 +54,7 @@ const setVisibility = (page: Page, state: 'hidden' | 'visible') =>
 
 const signIn = async (page: Page) => {
   const user = claimUser()
-  await page.goto('/settings/')
-  await page.locator('#cloud-backup-details > summary').click()
+  await page.goto('/settings/backup/')
   await page.getByText('Use a token').click()
   await page.getByLabel('User ID').fill(user.userId)
   await page.getByLabel('Token').fill(user.token)

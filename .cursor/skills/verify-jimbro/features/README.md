@@ -8,7 +8,7 @@ This directory is the maintained source for verifying Jimbro's user-facing behav
 - Run `control-jimbro doctor` and require pid, port, and `<title>Jimbro</title>`.
 - Never drive an instance this run did not start.
 - Playwright `tour` / `snapshot` start with empty IndexedDB. Browser tools (Cursor's, or Claude in Chrome) reuse profile storage on that origin.
-- To empty storage through the UI: open `/settings/`, expand `Manage local data`, accept the confirm dialog, click `Reset Database`, wait for toast `Database reset`.
+- To empty storage through the UI: open `/settings/data/`, accept the confirm dialog, click `Reset database`, wait for toast `Database reset`.
 - To load the built-in 3-day split: open `/workouts/` on an empty database and click `Start with the 3-day split`. Seeded programs are `Push day`, `Pull day`, and `Legs day`.
 - Do not use Cloud Backup, real tokens, real passkeys, or the Cloudflare worker during ordinary proof. The tour's passkey stop uses a virtual authenticator and canned worker answers. `launch` points the app at a dead local API (`JIMBRO_VERIFY_API_BASE`), never production.
 
@@ -49,6 +49,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Exercises](./exercises.md) covers the library, the three kinds, create, edit, filter and delete.
 - [Programs](./programs.md) covers create, reorder, edit and delete.
 - [Stats](./stats.md) covers the lifetime totals.
-- [Settings](./settings.md) covers break time, the passkey cloud backup, gyms, and export, import and reset.
+- [Settings](./settings.md) covers break time, the passkey cloud backup, AI assistants, and export, import and reset.
 
 Not mapped: offline use and the installed app (they need `vp build` and `vp preview`, since only the build registers the service worker), and a real sync (it needs the local worker from `tests/localWorker.ts`). `tests/offline.spec.ts` and `tests/sync.spec.ts` cover them. Do not claim them verified here.
