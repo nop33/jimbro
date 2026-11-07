@@ -5,7 +5,7 @@ import { pagePathOf, renderPage } from '../partials/plugin'
 
 const root = path.resolve(import.meta.dirname, '..')
 
-// Each page and the nav link it marks as current. Stats, settings and gymtime are reached from other pages, and an
+// Each page and the nav link it marks as current. Stats, settings, its own pages and gymtime are reached from other pages, and an
 // assistant sends the browser to connect, so they mark none.
 const PAGES: Record<string, string | null> = {
   'index.html': '/',
@@ -14,6 +14,9 @@ const PAGES: Record<string, string | null> = {
   'programs/index.html': '/programs/',
   'stats/index.html': null,
   'settings/index.html': null,
+  'settings/backup/index.html': null,
+  'settings/assistants/index.html': null,
+  'settings/data/index.html': null,
   'gymtime/index.html': null,
   'connect/index.html': null
 }
@@ -32,6 +35,9 @@ describe('page shell', () => {
       '/programs/',
       '/stats/',
       '/settings/',
+      '/settings/backup/',
+      '/settings/assistants/',
+      '/settings/data/',
       '/gymtime/',
       '/connect/'
     ])

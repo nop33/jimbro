@@ -930,6 +930,113 @@
     line-height: 1.1;
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.55);
   }
+
+  /* Settings: grouped lists of rows, as in the phone's own settings. A row shows its value or a status, and only a
+     row that opens another page carries a chevron. */
+  /* A Lucide icon inlined in a page (https://lucide.dev), drawn in the text colour. */
+  .lucide {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .settings-group-title {
+    @apply mb-2 ml-1 text-xs font-semibold tracking-wider uppercase text-jim-neutral-tertiary;
+  }
+
+  .settings-list {
+    @apply rounded-2xl border border-neutral-700/10 bg-jim-dark-blue/50 overflow-hidden;
+  }
+
+  .settings-row {
+    @apply relative flex w-full min-h-14 items-center gap-3.5 px-4 py-2.5 text-left text-base font-normal text-jim-neutral;
+
+    & + & {
+      @apply border-t border-neutral-500/20;
+    }
+  }
+
+  a.settings-row:active,
+  button.settings-row:active {
+    @apply bg-white/5;
+  }
+
+  .settings-row-label {
+    @apply flex min-w-0 flex-1 flex-col font-medium;
+  }
+
+  .settings-row-detail {
+    @apply text-sm font-normal text-jim-neutral-tertiary;
+  }
+
+  .settings-row-chevron {
+    @apply size-5 shrink-0 text-jim-neutral-tertiary;
+  }
+
+  /* A list that opens in place: its summary is a row whose chevron turns down. */
+  details.settings-list > summary {
+    @apply mb-0! list-none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    .settings-row-chevron {
+      transition: rotate 200ms var(--ease-out);
+    }
+  }
+
+  details.settings-list[open] > summary .settings-row-chevron {
+    rotate: 90deg;
+  }
+
+  /* The row's icon, in a tinted square. */
+  .settings-icon {
+    @apply grid size-8 shrink-0 place-items-center rounded-[0.6rem];
+    color: var(--icon-color, var(--color-jim-accent));
+    background: color-mix(in srgb, var(--icon-color, var(--color-jim-accent)) 18%, transparent);
+
+    svg {
+      @apply size-[1.15rem];
+    }
+  }
+
+  .settings-icon-blue {
+    --icon-color: #7fb0f0;
+  }
+
+  .settings-icon-violet {
+    --icon-color: #b9a0f2;
+  }
+
+  .settings-icon-grey {
+    --icon-color: var(--color-jim-neutral-secondary);
+  }
+
+  /* Break time: 15 seconds less or more on each side of the value. */
+  .stepper {
+    @apply flex shrink-0 items-center gap-1;
+
+    button {
+      @apply grid size-11 place-items-center rounded-full border border-neutral-600/50 text-xl text-jim-accent disabled:opacity-40;
+      transition: scale 160ms var(--ease-out);
+
+      &:active {
+        scale: 0.92;
+      }
+    }
+
+    output {
+      @apply min-w-14 text-center text-lg font-semibold tabular-nums text-jim-neutral;
+    }
+  }
+
+  /* The version sits at the foot of the screen when the page is short, and after the content when it is long. */
+  .page-foot {
+    @apply mt-auto pt-8 text-center text-xs text-jim-neutral-tertiary;
+  }
 }
 
 /* Respect reduced motion preference */

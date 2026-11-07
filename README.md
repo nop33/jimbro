@@ -25,16 +25,19 @@ The data lives in the browser's IndexedDB. Anyone can use the app without an acc
 
 ## Pages
 
-| Route         | Purpose                                                                           |
-| ------------- | --------------------------------------------------------------------------------- |
-| `/`           | This week at a glance, highlights, and the next workout to start                  |
-| `/workouts/`  | Weekly workout calendar: history, new workouts, workout mode                      |
-| `/gymtime/`   | The active workout: log sets, break timer, completion                             |
-| `/exercises/` | Exercise library: create, edit, delete                                            |
-| `/programs/`  | Programs built from exercises                                                     |
-| `/stats/`     | Training totals                                                                   |
-| `/settings/`  | Break time, passkey backup, AI assistants, JSON export and import, database reset |
-| `/connect/`   | Where an AI assistant asks to read the workouts, approved with a passkey          |
+| Route                   | Purpose                                                                  |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `/`                     | This week at a glance, highlights, and the next workout to start         |
+| `/workouts/`            | Weekly workout calendar: history, new workouts, workout mode             |
+| `/gymtime/`             | The active workout: log sets, break timer, completion                    |
+| `/exercises/`           | Exercise library: create, edit, delete                                   |
+| `/programs/`            | Programs built from exercises                                            |
+| `/stats/`               | Training totals                                                          |
+| `/settings/`            | Break time, and rows that open the pages below and show their status     |
+| `/settings/backup/`     | Passkey cloud backup, sync now, token for developers                     |
+| `/settings/assistants/` | AI assistants: a prompt to connect one, and the connected ones           |
+| `/settings/data/`       | JSON export and import, database reset                                   |
+| `/connect/`             | Where an AI assistant asks to read the workouts, approved with a passkey |
 
 ## Data model
 
@@ -119,8 +122,8 @@ Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile s
 
 ### Settings (`/settings/`)
 
-- Workout settings hold the break timer's length.
-- Cloud backup's status line shows how many changes wait to sync and when the last sync ran.
+- Settings is a grouped list, like the phone's own settings. Break time is a stepper on the list itself: 15 seconds less or more, from 0:15 to 10:00, saved on each tap. The other rows open a page of their own, show their status underneath, and carry a chevron, and only they do. The build's version sits at the foot of the screen.
+- Cloud backup (`/settings/backup/`), whose status line, also on the Settings row, shows how many changes wait to sync and when the last sync ran.
   - Without a passkey backup, "Back up your workouts" explains the backup and offers "Create passkey" and "Sign in with passkey", with "Sign in with passkey" first on a phone that signed out. A browser without passkeys says it can't back up.
   - Signing in keeps the account's copy of every row both the phone and the account have, and rows only on the phone stay and back up. When that would replace a row on the phone with a different copy, it asks first. A phone that signed out after backing up signs in again without asking.
   - An account backs up one device at a time. When another device is signed in to the account, signing in asks first, in the same confirm, and then moves the backup here: the other device stops backing up. Declining leaves both devices as they were.
@@ -128,12 +131,11 @@ Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile s
   - Signed in with a passkey, it says so and offers "Sync now", "Add another passkey" (for another password manager) and "Sign out". Sign out pushes what waits first, then asks, and warns when changes could not back up, since signing in again would replace them with the backup's copy. Signing out keeps the workouts on the phone and stops the backup.
   - When the backup holds as many rows as the worker takes, the status reads "Backup full · N pending", and each page says so once when its sync hits the limit.
   - "Use a token (developers)", a nested section shown without a passkey backup, takes a user ID and a token from the worker's `AUTH_TOKENS`, for local runs, tests and the MCP server. "Sync now" shows once any credentials are saved.
-- AI Assistants, with a passkey backup, shows the link an assistant such as Claude connects with (`https://api.jimbro.nop33.com/mcp`), "Copy link", and the connected assistants with when each connected and was last used, each with "Disconnect". Without a passkey backup it says to set one up first. See [AI assistants](#ai-assistants).
-- Gyms renames a gym on every workout after a confirmation. Giving it another gym's name merges the two, which also fixes workouts saved under a city.
-- Manage local data:
+- AI assistants (`/settings/assistants/`), with a passkey backup, shows a prompt to paste into any assistant, which names the MCP link (`https://api.jimbro.nop33.com/mcp`) and asks the assistant to add it, "Copy prompt", and the connected assistants with when each connected and was last used, each with "Disconnect". Without a passkey backup it says to set one up first. See [AI assistants](#ai-assistants).
+- Data on this phone (`/settings/data/`):
   - "Export to JSON" downloads `jimbro-export-YYYY-MM-DD.json`.
-  - "Import from JSON file" merges an export into the database. See [Import and export](#import-and-export).
-  - "Reset Database" deletes the IndexedDB database after a confirmation. Saved credentials stay, so the next sync restores the data.
+  - "Import from JSON" merges an export into the database. See [Import and export](#import-and-export).
+  - "Reset database", apart under "Start over", deletes the IndexedDB database after a confirmation. Saved credentials stay, so the next sync restores the data.
 - The foot of the page shows the version: the short hash of the commit the build came from, linked to it on GitHub, and when that commit was made.
 
 ## Cloud sync
@@ -156,7 +158,7 @@ Sync is optional. Without credentials the app sends nothing to the worker. With 
 
 An AI assistant such as Claude reads the account's workouts, exercises and programs through the worker's read-only MCP server at `/mcp`. Connecting takes the link and a passkey:
 
-1. In Claude, open Settings, then Connectors, and add a custom connector with `https://api.jimbro.nop33.com/mcp` (Settings' AI Assistants has it, with "Copy link"). Claude Code takes `claude mcp add --transport http jimbro https://api.jimbro.nop33.com/mcp`.
+1. Paste the prompt from Settings' AI assistants into the assistant, which adds the link itself or says where to. In Claude, that is Settings, then Connectors, a custom connector with `https://api.jimbro.nop33.com/mcp`. Claude Code takes `claude mcp add --transport http jimbro https://api.jimbro.nop33.com/mcp`.
 2. The assistant finds the worker's OAuth metadata, registers, and opens the browser on `/oauth/authorize`, which sends it to the app's `/connect/` page.
 3. `/connect/` asks "Allow <assistant> to read your workouts?", names the site the browser goes back to, and warns when that is an app on this computer. "Allow with passkey" approves with the passkey the account backs up with, on any device the password manager brings it to. "Don't allow" sends the assistant `access_denied`. A request that is answered, unknown or older than 10 minutes says the link has expired.
 4. The browser goes back to the assistant with a code, which it swaps for tokens.
@@ -265,7 +267,7 @@ Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-k
 
 - Every page has a bottom bar with Home, Workouts, Exercises, Programs, and highlights the current page. Its icons are inline [Lucide](https://lucide.dev) SVGs (ISC License).
 - Stats opens from any highlight tile on Home.
-- The pages outside the bottom bar (gymtime, stats, settings and connect) have a back button that calls `window.history.back()`.
+- The pages outside the bottom bar (gymtime, stats, the settings pages and connect) have a back button that calls `window.history.back()`.
 - Every page is a static `index.html` that works on its own when opened by URL. Where the browser has the Navigation API (Chromium, Safari 26.2+), the router in `src/router.ts` shows the next page in the same document: it loads the page's HTML from the service worker cache, swaps the body under a view transition and mounts the page's module. The break timer, toasts and confetti stay on screen across it. Elsewhere every link is a full page load.
 
 ## Import and export
@@ -402,7 +404,7 @@ In another terminal at the repo root, start the app against it:
 VITE_API_BASE=http://localhost:8787 vp dev
 ```
 
-Then open http://localhost:5173 (not 127.0.0.1: WebAuthn takes no IP address as the RP ID) and tap "Create passkey" under Cloud Backup in Settings, or save user ID `dev` and token `dev-token` under "Use a token" and tap "Sync now".
+Then open http://localhost:5173 (not 127.0.0.1: WebAuthn takes no IP address as the RP ID) and tap "Create passkey" in Settings' Cloud backup, or save user ID `dev` and token `dev-token` under "Use a token" and tap "Sync now".
 
 If something else already listens on port 8787, start the worker with `vp run dev --port 8791` and put that port in `VITE_API_BASE`.
 

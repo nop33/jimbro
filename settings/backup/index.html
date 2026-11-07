@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- partial:head -->
+    <title>Jimbro - Cloud backup</title>
+    <script type="module" src="/src/pages/settings/backup/index.ts"></script>
+  </head>
+  <body class="app">
+    <!-- Icons: Lucide (https://lucide.dev), cloud, key-round, log-out and code, inlined. ISC License. -->
+    <div class="app-page pb-20 md:pb-0">
+      <header class="app-header">
+        <!-- partial:back-button -->
+        <h1 class="app-header-title">Cloud backup</h1>
+      </header>
+
+      <div class="app-page-content">
+        <div class="flex flex-col gap-6">
+          <div class="card py-5 flex flex-col items-center gap-1 text-center">
+            <span class="settings-icon settings-icon-blue size-12! rounded-2xl!">
+              <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+              </svg>
+            </span>
+            <h2 id="backup-state" class="mt-2 text-lg font-bold text-jim-neutral"></h2>
+            <p id="cloud-summary-status" class="text-sm text-jim-neutral-tertiary"></p>
+            <button type="button" id="cloud-sync-now" class="btn-primary mt-4 w-full" hidden>Sync now</button>
+          </div>
+
+          <p id="passkey-moved" class="text-sm text-jim-warning" hidden>
+            Your backup moved to another device, so this phone stopped backing up. Its workouts stay here. Sign in to
+            move the backup back to this phone.
+          </p>
+          <section id="passkey-offer" class="flex flex-col gap-2" aria-labelledby="passkey-offer-title" hidden>
+            <h2 id="passkey-offer-title" class="text-lg font-bold">Back up your workouts</h2>
+            <p class="text-sm text-jim-neutral-secondary">
+              Create a passkey to keep a copy of your workouts in the cloud. The backup follows you to a new phone:
+              signing in there moves it, and this phone stops backing up.
+            </p>
+            <button type="button" id="create-passkey" class="btn-primary">Create passkey</button>
+            <button type="button" id="sign-in-passkey" class="btn-secondary">Sign in with passkey</button>
+          </section>
+          <p id="passkey-unsupported" class="text-sm text-jim-neutral-secondary" hidden>
+            This browser can't use passkeys, so it can't back up your workouts.
+          </p>
+
+          <section id="passkey-account-actions" aria-labelledby="passkeys-group" hidden>
+            <h2 id="passkeys-group" class="settings-group-title">Passkeys</h2>
+            <div class="settings-list">
+              <button type="button" id="add-passkey" class="settings-row">
+                <span class="settings-icon settings-icon-blue">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+                    />
+                    <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Add another passkey
+                  <span class="settings-row-detail">For a password manager or another phone</span>
+                </span>
+              </button>
+              <button type="button" id="sign-out-passkey" class="settings-row">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" x2="9" y1="12" y2="12" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Sign out
+                  <span class="settings-row-detail">Your workouts stay on this phone</span>
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <section id="cloud-token-section" aria-labelledby="developers-group">
+            <h2 id="developers-group" class="settings-group-title">Developers</h2>
+            <details id="cloud-token-details" class="settings-list">
+              <summary class="settings-row">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Use a token
+                  <span class="settings-row-detail">A user ID and token set up on the server</span>
+                </span>
+                <!-- partial:chevron-right -->
+              </summary>
+              <div class="flex flex-col gap-2 px-4 pb-4">
+                <label class="text-jim-neutral-secondary">
+                  User ID
+                  <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
+                </label>
+                <label class="text-jim-neutral-secondary">
+                  Token
+                  <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
+                </label>
+                <button type="button" id="cloud-save" class="btn-primary">Save credentials</button>
+              </div>
+            </details>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- partial:break-timer -->
+    <!-- partial:bottom-nav -->
+  </body>
+</html>

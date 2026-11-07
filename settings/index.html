@@ -6,6 +6,7 @@
     <script type="module" src="/src/pages/settings/index.ts"></script>
   </head>
   <body class="app">
+    <!-- Icons: Lucide (https://lucide.dev), timer, cloud, bot and database, inlined. ISC License. -->
     <div class="app-page pb-20 md:pb-0">
       <header class="app-header">
         <!-- partial:back-button -->
@@ -14,184 +15,90 @@
 
       <div class="app-page-content">
         <div class="flex flex-col gap-6">
-          <div class="card card-hover">
-            <details id="workout-settings-details">
-              <summary class="flex items-center justify-between">
-                <span class="text-xl font-bold text-jim-neutral">⏱️ Workout Settings</span>
-              </summary>
-              <div class="flex flex-col gap-4 mt-4">
-                <div>
-                  <h3 class="text-lg font-bold mb-2">Break Time</h3>
-                  <div class="flex gap-4 items-center">
-                    <label class="text-jim-neutral-secondary flex flex-col flex-1">
-                      Minutes
-                      <input type="number" id="break-minutes" min="0" max="59" class="mt-2" />
-                    </label>
-                    <label class="text-jim-neutral-secondary flex flex-col flex-1">
-                      Seconds
-                      <input type="number" id="break-seconds" min="0" max="59" class="mt-2" />
-                    </label>
-                  </div>
-                  <button id="save-break-time" class="btn-primary mt-4 w-full">Save Break Time</button>
+          <section aria-labelledby="workout-group">
+            <h2 id="workout-group" class="settings-group-title">Workout</h2>
+            <div class="settings-list">
+              <div class="settings-row">
+                <span class="settings-icon">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="10" x2="14" y1="2" y2="2" />
+                    <line x1="12" x2="15" y1="14" y2="11" />
+                    <circle cx="12" cy="14" r="8" />
+                  </svg>
+                </span>
+                <span class="settings-row-label" id="break-time-label">
+                  Break time
+                  <span class="settings-row-detail">Between sets</span>
+                </span>
+                <div class="stepper" role="group" aria-labelledby="break-time-label">
+                  <button type="button" id="break-time-less" aria-label="15 seconds less">−</button>
+                  <output id="break-time" aria-live="polite"></output>
+                  <button type="button" id="break-time-more" aria-label="15 seconds more">+</button>
                 </div>
               </div>
-            </details>
-          </div>
+            </div>
+          </section>
 
-          <div class="card card-hover">
-            <details id="cloud-backup-details">
-              <summary class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span class="text-xl font-bold text-jim-neutral whitespace-nowrap">☁️ Cloud Backup</span>
-                <span id="cloud-summary-status" class="text-sm text-jim-neutral-tertiary"></span>
-              </summary>
-              <div class="flex flex-col gap-2 mt-4">
-                <p id="passkey-moved" class="text-sm text-jim-warning" hidden>
-                  Your backup moved to another device, so this phone stopped backing up. Its workouts stay here. Sign in
-                  to move the backup back to this phone.
-                </p>
-                <section id="passkey-offer" class="flex flex-col gap-2" aria-labelledby="passkey-offer-title" hidden>
-                  <h3 id="passkey-offer-title" class="text-lg font-bold">Back up your workouts</h3>
-                  <p class="text-sm text-jim-neutral-secondary">
-                    Create a passkey to keep a copy of your workouts in the cloud. The backup follows you to a new
-                    phone: signing in there moves it, and this phone stops backing up.
-                  </p>
-                  <button type="button" id="create-passkey" class="btn-primary">Create passkey</button>
-                  <button type="button" id="sign-in-passkey" class="btn-secondary">Sign in with passkey</button>
-                </section>
-                <p id="passkey-unsupported" class="text-sm text-jim-neutral-secondary" hidden>
-                  This browser can't use passkeys, so it can't back up your workouts.
-                </p>
-                <p id="passkey-account" class="text-jim-neutral-secondary" hidden>
-                  Your workouts are backed up with a passkey.
-                </p>
-                <button type="button" id="cloud-sync-now" class="btn-primary" hidden>Sync now</button>
-                <div id="passkey-account-actions" class="flex flex-col gap-2" hidden>
-                  <button type="button" id="add-passkey" class="btn-secondary">Add another passkey</button>
-                  <button type="button" id="sign-out-passkey" class="btn-secondary">Sign out</button>
-                </div>
-                <details id="cloud-token-details">
-                  <summary class="py-2 text-base text-jim-neutral-secondary">Use a token (developers)</summary>
-                  <div class="flex flex-col gap-2">
-                    <p class="text-sm text-jim-neutral-secondary">
-                      For developers: sign in with a user ID and token set up on the server. Most people want a passkey
-                      above.
-                    </p>
-                    <label class="text-jim-neutral-secondary">
-                      User ID
-                      <input type="text" id="cloud-userid" placeholder="e.g. ilias" class="mt-2" />
-                    </label>
-                    <label class="text-jim-neutral-secondary">
-                      Token
-                      <input type="text" id="cloud-token" placeholder="your secret token" class="mt-2" />
-                    </label>
-                    <button type="button" id="cloud-save" class="btn-primary">Save credentials</button>
-                  </div>
-                </details>
-              </div>
-            </details>
-          </div>
+          <section aria-labelledby="account-group">
+            <h2 id="account-group" class="settings-group-title">Account</h2>
+            <div class="settings-list">
+              <a class="settings-row" href="/settings/backup/">
+                <span class="settings-icon settings-icon-blue">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Cloud backup
+                  <span id="cloud-summary-status" class="settings-row-detail"></span>
+                </span>
+                <!-- partial:chevron-right -->
+              </a>
+              <a class="settings-row" href="/settings/assistants/">
+                <span class="settings-icon settings-icon-violet">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 8V4H8" />
+                    <rect width="16" height="12" x="4" y="8" rx="2" />
+                    <path d="M2 14h2" />
+                    <path d="M20 14h2" />
+                    <path d="M15 13v2" />
+                    <path d="M9 13v2" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  AI assistants
+                  <span id="assistants-summary" class="settings-row-detail"></span>
+                </span>
+                <!-- partial:chevron-right -->
+              </a>
+            </div>
+          </section>
 
-          <div class="card card-hover">
-            <details id="assistants-details">
-              <summary class="text-xl font-bold text-jim-neutral">🤖 AI Assistants</summary>
-              <div class="flex flex-col gap-3 mt-4">
-                <p id="assistants-need-passkey" class="text-sm text-jim-neutral-secondary">
-                  Ask an AI assistant like Claude about your workouts. It needs a passkey backup: set one up under Cloud
-                  Backup first.
-                </p>
-                <div id="assistants-setup" class="flex flex-col gap-3" hidden>
-                  <p class="text-sm text-jim-neutral-secondary">
-                    Ask an AI assistant like Claude about your workouts. In Claude, open Settings, then Connectors, and
-                    add a custom connector with this link. Then approve with your passkey.
-                  </p>
-                  <label class="text-jim-neutral-secondary">
-                    Link
-                    <input type="text" id="assistants-url" readonly class="mt-2" />
-                  </label>
-                  <button type="button" id="assistants-copy" class="btn-primary">Copy link</button>
-                  <h3 class="text-lg font-bold">Connected</h3>
-                  <p id="assistants-status" class="text-sm text-jim-neutral-secondary" aria-live="polite"></p>
-                  <ul id="assistants-list" class="flex flex-col gap-2"></ul>
-                  <template id="assistant-item">
-                    <li class="flex items-center justify-between gap-3">
-                      <div class="flex flex-col min-w-0">
-                        <span class="assistant-name font-bold text-jim-neutral truncate"></span>
-                        <span class="assistant-used text-sm text-jim-neutral-tertiary"></span>
-                      </div>
-                      <button type="button" class="assistant-disconnect btn-secondary btn-danger shrink-0">
-                        Disconnect
-                      </button>
-                    </li>
-                  </template>
-                </div>
-              </div>
-            </details>
-          </div>
-
-          <div class="card card-hover">
-            <details id="gyms-details">
-              <summary class="text-xl font-bold text-jim-neutral">🏋️ Gyms</summary>
-              <p id="no-gyms" class="mt-4 text-jim-neutral-secondary" hidden>No workout names a gym yet.</p>
-              <form id="rename-gym-form" class="flex flex-col gap-2 mt-4">
-                <p class="text-sm text-jim-neutral-secondary">
-                  Rename a gym on every workout. Pick another gym's name to merge the two.
-                </p>
-                <label class="text-jim-neutral-secondary">
-                  Gym
-                  <select id="rename-gym-from" name="from" required class="mt-2 w-full"></select>
-                </label>
-                <label class="text-jim-neutral-secondary">
-                  New name
-                  <input
-                    type="text"
-                    id="rename-gym-to"
-                    name="to"
-                    list="rename-gym-options"
-                    autocomplete="off"
-                    required
-                    class="mt-2"
-                  />
-                </label>
-                <datalist id="rename-gym-options"></datalist>
-                <button type="submit" class="btn-primary">Rename</button>
-              </form>
-            </details>
-          </div>
-
-          <div class="card card-hover">
-            <details>
-              <summary class="text-xl font-bold text-jim-neutral">Manage local data</summary>
-              <div class="flex flex-col gap-6 mt-4">
-                <div>
-                  <h3 class="text-lg font-bold mb-2">Data Export</h3>
-                  <button id="export-json" class="btn-primary w-full">Export to JSON</button>
-                </div>
-                <div>
-                  <h3 class="text-lg font-bold mb-2">Data Import</h3>
-                  <label for="import-input" class="block text-sm font-medium mb-2">Import from JSON file</label>
-                  <input
-                    type="file"
-                    id="import-input"
-                    accept=".json"
-                    class="w-full p-2 rounded border border-neutral-600"
-                  />
-                </div>
-                <div>
-                  <h3 class="text-lg font-bold mb-2">Reset Database</h3>
-                  <p class="text-sm text-jim-neutral-secondary mb-2">
-                    Erases every workout, exercise and program on this phone.
-                  </p>
-                  <button id="reset-database" class="btn-secondary btn-danger w-full">Reset Database</button>
-                </div>
-              </div>
-            </details>
-          </div>
-
-          <p id="app-version" class="text-sm text-center text-jim-neutral-secondary" hidden>
-            Version <a id="app-version-commit" class="underline" target="_blank" rel="noopener"></a>
-            <span id="app-version-date"></span>
-          </p>
+          <section aria-labelledby="data-group">
+            <h2 id="data-group" class="settings-group-title">Data</h2>
+            <div class="settings-list">
+              <a class="settings-row" href="/settings/data/">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+                    <path d="M3 12A9 3 0 0 0 21 12" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Data on this phone
+                  <span class="settings-row-detail">Export, import or reset</span>
+                </span>
+                <!-- partial:chevron-right -->
+              </a>
+            </div>
+          </section>
         </div>
+
+        <p id="app-version" class="page-foot" hidden>
+          Version <a id="app-version-commit" class="underline" target="_blank" rel="noopener"></a>
+          <span id="app-version-date"></span>
+        </p>
       </div>
     </div>
 

@@ -84,15 +84,13 @@ const savedToken = (page: Page) =>
 
 // Signs up with a passkey in Settings, which backs the sample data up.
 const createPasskey = async (page: Page) => {
-  await page.goto('/settings/')
-  await page.locator('#cloud-backup-details > summary').click()
+  await page.goto('/settings/backup/')
   await page.getByRole('button', { name: 'Create passkey' }).click()
   await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
 }
 
 const openAssistants = async (page: Page) => {
-  await page.goto('/settings/')
-  await page.locator('#assistants-details > summary').click()
+  await page.goto('/settings/assistants/')
 }
 
 test.describe('connecting an AI assistant', () => {
@@ -105,10 +103,10 @@ test.describe('connecting an AI assistant', () => {
     await seedDatabase(page)
   })
 
-  test('asks for a passkey backup before showing the link', async ({ page }) => {
+  test('asks for a passkey backup before showing the prompt', async ({ page }) => {
     await openAssistants(page)
-    await expect(page.getByText('It needs a passkey backup')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Copy link' })).toBeHidden()
+    await expect(page.getByText('An assistant signs in with your passkey')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Copy prompt' })).toBeHidden()
   })
 
   test('connects with a passkey, reads the backup, and disconnects from Settings', async ({ page }) => {
@@ -116,7 +114,8 @@ test.describe('connecting an AI assistant', () => {
     const deviceToken = await savedToken(page)
 
     await openAssistants(page)
-    await expect(page.getByLabel('Link')).toHaveValue(`${API_BASE}/mcp`)
+    // The prompt names the link, for any assistant to connect with.
+    expect(await page.getByLabel('Prompt').inputValue()).toContain(` ${API_BASE}/mcp `)
     await expect(page.getByText('No assistant is connected yet.')).toBeVisible()
 
     const assistant = await prepareAssistant()

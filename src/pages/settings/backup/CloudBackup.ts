@@ -1,7 +1,5 @@
-import { formatShortDate } from '../../dateUtils'
-import Toasts from '../../features/toasts'
-import { account } from '../../sync/account'
-import { outbox } from '../../sync/outbox'
+import Toasts from '../../../features/toasts'
+import { account } from '../../../sync/account'
 import {
   addPasskey,
   backUpBeforeSignOut,
@@ -10,29 +8,29 @@ import {
   preparePasskey,
   signInWithPasskey,
   signOut
-} from '../../sync/passkeys'
-import { sync } from '../../sync/syncClient'
-import { onPageNotice } from '../../sync/pageChannel'
-import { PROBLEM_MESSAGES } from '../syncProblems'
-import { confirmSignIn, confirmSignOut, showPasskeyFailure } from '../passkeyPrompts'
-import { whileBusy } from '../busyButton'
+} from '../../../sync/passkeys'
+import { sync } from '../../../sync/syncClient'
+import { onPageNotice } from '../../../sync/pageChannel'
+import { PROBLEM_MESSAGES } from '../../syncProblems'
+import { confirmSignIn, confirmSignOut, showPasskeyFailure } from '../../passkeyPrompts'
+import { whileBusy } from '../../busyButton'
+import { backupStatus } from '../backupStatus'
 
-// Cloud Backup: the passkey offer while no passkey backs this device up, the account once one does, and the manual
-// user ID and token under "Use a token" for local runs, tests and MCP.
+// The Cloud backup page: the passkey offer while no passkey backs this device up, the account once one does, and the
+// manual user ID and token under "Use a token" for local runs, tests and MCP.
 class CloudBackup {
   // Aborts when the page goes, which stops the passkey options refreshing and the status following syncs.
   private signal: AbortSignal
   // Whether one of this page's own account steps is running. It shows its outcome when it ends, so a sign-in's button
   // stays busy while it restores the account it switched to.
   private acting = false
-  private details = document.querySelector('#cloud-backup-details') as HTMLDetailsElement
-  private summaryStatus = document.querySelector('#cloud-summary-status') as HTMLSpanElement
+  private state = document.querySelector('#backup-state') as HTMLHeadingElement
+  private summaryStatus = document.querySelector('#cloud-summary-status') as HTMLParagraphElement
   private offer = document.querySelector('#passkey-offer') as HTMLElement
   private moved = document.querySelector('#passkey-moved') as HTMLParagraphElement
   private unsupported = document.querySelector('#passkey-unsupported') as HTMLParagraphElement
-  private accountInfo = document.querySelector('#passkey-account') as HTMLParagraphElement
   private accountActions = document.querySelector('#passkey-account-actions') as HTMLDivElement
-  private tokenDetails = document.querySelector('#cloud-token-details') as HTMLDetailsElement
+  private tokenSection = document.querySelector('#cloud-token-section') as HTMLElement
   private createBtn = document.querySelector('#create-passkey') as HTMLButtonElement
   private signInBtn = document.querySelector('#sign-in-passkey') as HTMLButtonElement
   private addBtn = document.querySelector('#add-passkey') as HTMLButtonElement
@@ -51,7 +49,7 @@ class CloudBackup {
     }
 
     this.showState()
-    void this.updateSummaryStatus()
+    this.prepare()
     onPageNotice(() => {
       void this.updateSummaryStatus()
     }, signal)
@@ -64,8 +62,6 @@ class CloudBackup {
       void this.updateSummaryStatus()
     }, signal)
 
-    // The passkey buttons show once the section opens, so that is when their options are fetched.
-    this.details.addEventListener('toggle', () => this.prepare())
     this.createBtn.addEventListener('click', () => void this.handleCreate())
     this.signInBtn.addEventListener('click', () => void this.handleSignIn())
     this.addBtn.addEventListener('click', () => void this.handleAddPasskey())
@@ -74,8 +70,14 @@ class CloudBackup {
     this.syncNowBtn.addEventListener('click', () => void this.handleSync())
   }
 
+  // Resolves once the status shows, which the page waits for before it counts as drawn.
+  showStatus() {
+    return this.updateSummaryStatus()
+  }
+
+  // Fetches the options of the passkey buttons on show, so a tap opens the passkey sheet at once.
   private prepare() {
-    if (!this.details.open || !passkeysSupported()) return
+    if (!passkeysSupported()) return
     if (account.current()?.method === 'passkey') {
       preparePasskey('add', this.signal)
       return
@@ -93,10 +95,14 @@ class CloudBackup {
     this.offer.hidden = passkey || !supported
     this.moved.hidden = passkey || account.status().problem !== 'moved'
     this.unsupported.hidden = passkey || supported
-    this.accountInfo.hidden = !passkey
+    this.state.textContent = passkey
+      ? 'Backed up with a passkey'
+      : config
+        ? 'Backed up with a token'
+        : 'Your workouts are only on this phone'
     this.accountActions.hidden = !passkey
     this.addBtn.hidden = !supported
-    this.tokenDetails.hidden = passkey
+    this.tokenSection.hidden = passkey
     this.syncNowBtn.hidden = config === null
 
     const signInFirst = account.signedOut()
@@ -109,26 +115,7 @@ class CloudBackup {
   }
 
   private async updateSummaryStatus() {
-    const { lastSyncAt: lastSync, problem } = account.status()
-    if (!account.current()) {
-      this.summaryStatus.textContent = problem === 'moved' ? 'Moved to another device' : 'Not set up yet'
-      return
-    }
-
-    const pending = await outbox.pending()
-    if (problem === 'row_limit') {
-      this.summaryStatus.textContent = `Backup full · ${pending} pending`
-      return
-    }
-    if (!lastSync) {
-      this.summaryStatus.textContent = `${pending} pending`
-      return
-    }
-
-    const lastSyncDate = new Date(lastSync)
-    const time = lastSyncDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-    const formatted = `${formatShortDate(lastSyncDate)}, ${time}`
-    this.summaryStatus.textContent = `${pending} pending · ${formatted}`
+    this.summaryStatus.textContent = await backupStatus()
   }
 
   // Runs a sign-up or sign-in, then syncs, which backs this device up to the account and restores the account's rows.

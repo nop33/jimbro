@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- partial:head -->
+    <title>Jimbro - Data on this phone</title>
+    <script type="module" src="/src/pages/settings/data/index.ts"></script>
+  </head>
+  <body class="app">
+    <!-- Icons: Lucide (https://lucide.dev), download, upload and trash-2, inlined. ISC License. -->
+    <div class="app-page pb-20 md:pb-0">
+      <header class="app-header">
+        <!-- partial:back-button -->
+        <h1 class="app-header-title">Data on this phone</h1>
+      </header>
+
+      <div class="app-page-content">
+        <div class="flex flex-col gap-6">
+          <section aria-labelledby="files-group">
+            <h2 id="files-group" class="settings-group-title">JSON file</h2>
+            <div class="settings-list">
+              <button type="button" id="export-json" class="settings-row">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Export to JSON
+                  <span class="settings-row-detail">Every workout, exercise and program</span>
+                </span>
+              </button>
+              <label class="settings-row cursor-pointer">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" x2="12" y1="3" y2="15" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Import from JSON
+                  <span class="settings-row-detail">Adds what this phone doesn't have yet</span>
+                </span>
+                <input type="file" id="import-input" accept=".json" class="sr-only" />
+              </label>
+            </div>
+          </section>
+
+          <section aria-labelledby="reset-group">
+            <h2 id="reset-group" class="settings-group-title">Start over</h2>
+            <div class="settings-list">
+              <button type="button" id="reset-database" class="settings-row">
+                <span class="settings-icon settings-icon-grey">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Reset database
+                  <span class="settings-row-detail">Erases every workout, exercise and program on this phone</span>
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- partial:break-timer -->
+    <!-- partial:bottom-nav -->
+  </body>
+</html>

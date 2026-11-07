@@ -72,8 +72,7 @@ const assertLocalWorker = async (page: Page) => {
 }
 
 const openCloudBackup = async (page: Page) => {
-  await page.goto('/settings/')
-  await page.locator('#cloud-backup-details > summary').click()
+  await page.goto('/settings/backup/')
 }
 
 // Stores a Push day workout dated today with every set logged but the last exercise's last one, and opens it.
@@ -156,7 +155,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await seedDatabase(page)
     await assertLocalWorker(page)
 
-    // Opening the section fetches the options, so the tap goes straight to the passkey sheet, as Safari needs.
+    // Opening the page fetches the options, so the tap goes straight to the passkey sheet, as Safari needs.
     const prefetched = page.waitForResponse((response) => response.url().endsWith('/auth/register/options'))
     await openCloudBackup(page)
     await prefetched
@@ -170,7 +169,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await expect(page.locator('.toast-message-popup').first()).toHaveText('Passkey created.')
     expect(fetchedOnTap).toEqual([])
     await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create passkey' })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Add another passkey' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
@@ -246,7 +245,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await assertLocalWorker(page)
     await openCloudBackup(page)
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     const created = await credentialsOf(page)
     const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
 
@@ -291,7 +290,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     // A token user gets the offer too, and keeps Sync now.
     await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible()
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     await expect(page.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
 
     const created = await credentialsOf(page)
@@ -309,7 +308,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await assertLocalWorker(page)
     await openCloudBackup(page)
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     const addPasskey = page.getByRole('button', { name: 'Add another passkey' })
     await expect(addPasskey).toBeVisible()
     const created = await credentialsOf(page)
@@ -336,11 +335,10 @@ test.describe('passkeys with a virtual authenticator', () => {
 
   test('adds another passkey and signs out', async ({ page }) => {
     const { cdp, authenticatorId } = await authenticatorOn(page)
-    await page.goto('/settings/')
+    await page.goto('/settings/backup/')
     await assertLocalWorker(page)
-    await page.locator('#cloud-backup-details > summary').click()
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     const created = await credentialsOf(page)
 
     // The authenticator holds one passkey for the account, so a second one has to come from another authenticator.
@@ -421,7 +419,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await expect(busy).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Create passkey' })).toBeDisabled()
     releasePull()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     expect(asksAgain).toEqual([])
     expect((await credentialsOf(page))?.userId).toBe(created?.userId)
   })
@@ -435,7 +433,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await assertLocalWorker(page)
     await openCloudBackup(page)
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     const created = await credentialsOf(page)
     const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
 
@@ -480,7 +478,7 @@ test.describe('passkeys with a virtual authenticator', () => {
 
       phone.once('dialog', (dialog) => dialog.accept())
       await phone.getByRole('button', { name: 'Sign in with passkey' }).click()
-      await expect(phone.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+      await expect(phone.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
       await expect(phone.locator('#cloud-summary-status')).toHaveText(/^0 pending · /)
       const signedIn = await credentialsOf(phone)
       expect(signedIn?.userId).toBe(created?.userId)
@@ -498,7 +496,7 @@ test.describe('passkeys with a virtual authenticator', () => {
     await assertLocalWorker(page)
     await openCloudBackup(page)
     await page.getByRole('button', { name: 'Create passkey' }).click()
-    await expect(page.getByText('Your workouts are backed up with a passkey.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Backed up with a passkey' })).toBeVisible()
     const created = await credentialsOf(page)
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: 'Sign out' }).click()

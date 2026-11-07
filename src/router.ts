@@ -17,6 +17,9 @@ const PAGES: Record<string, () => Promise<Page>> = {
   '/gymtime/': () => import('./pages/gymtime/index'),
   '/stats/': () => import('./pages/stats/index'),
   '/settings/': () => import('./pages/settings/index'),
+  '/settings/backup/': () => import('./pages/settings/backup/index'),
+  '/settings/assistants/': () => import('./pages/settings/assistants/index'),
+  '/settings/data/': () => import('./pages/settings/data/index'),
   '/connect/': () => import('./pages/connect/index')
 }
 
