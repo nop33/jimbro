@@ -156,6 +156,8 @@ test('a page that opened before a deploy still draws the history chart', async (
   await page.goto(`${origin}/workouts/`)
   await waitForServiceWorker(page)
   await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
+  // The sample programs draw the page again once stored, which would take a dialog opened before it with the old page.
+  await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeHidden()
   await page.getByRole('button', { name: 'New' }).click()
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
