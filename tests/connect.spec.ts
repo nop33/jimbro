@@ -149,6 +149,34 @@ test.describe('connecting an AI assistant', () => {
     expect((await callMcp(token)).status).toBe(401)
   })
 
+  test('opens the page before the worker lists the assistants', async ({ page }) => {
+    await createPasskey(page)
+    await page.goto('/settings/')
+    let answer = () => {}
+    const held = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    await page.route('**/api/connections', async (route) => {
+      await held
+      await route.continue()
+    })
+
+    // The navigation settles while the worker has not answered yet.
+    const navigated = page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const { navigation } = window as unknown as { navigation: EventTarget }
+          navigation.addEventListener('navigatesuccess', () => resolve(), { once: true })
+        })
+    )
+    await page.getByRole('link', { name: 'AI assistants' }).click()
+    await navigated
+    await expect(page.locator('#assistants-status')).toHaveText('Loading…')
+
+    answer()
+    await expect(page.getByText('No assistant is connected yet.')).toBeVisible()
+  })
+
   test("sends the assistant back with access_denied when the user doesn't allow it", async ({ page }) => {
     await createPasskey(page)
     const assistant = await prepareAssistant()

@@ -76,19 +76,30 @@ export class OpenSession {
   // and the lifter has heard what the change means. Nothing changes on screen before the write lands. With no session
   // open, the write starts the workout first, so the first thing the lifter does starts it. A change made while another
   // is on its way waits for it, and writes on the session it stored. loggedFor names the exercise when the write logs a
-  // set from its card, the only change that ends an exercise or starts a break.
+  // set from its card, the only change that ends an exercise or starts a break. A change that fails to store says so,
+  // and rejects.
   async apply(
     write: (session: WorkoutSession) => Promise<WorkoutSession>,
     { loggedFor }: { loggedFor?: Exercise['id'] } = {}
   ): Promise<WorkoutSession> {
-    const [session, next] = await this.whileBusy(() =>
-      this.inTurn(async () => {
-        const session = this.open ?? (await this.started())
-        const next = await write(session)
-        await this.showNow(next)
-        return [session, next] as const
-      })
-    )
+    let session: WorkoutSession
+    let next: WorkoutSession
+    try {
+      ;[session, next] = await this.whileBusy(() =>
+        this.inTurn(async () => {
+          const session = this.open ?? (await this.started())
+          const next = await write(session)
+          await this.showNow(next)
+          return [session, next] as const
+        })
+      )
+    } catch (error) {
+      // The screen still shows the session last stored, so the lifter can make the change again. The caller hears the
+      // failure too, so a dialog stays open instead of saying the change saved.
+      console.error('saving the workout failed', error)
+      Toasts.show({ message: 'Could not save that change. Try again.', type: 'error' })
+      throw error
+    }
     await this.actOn(outcomeOf(session, next, loggedFor, getBreakTimeSeconds()))
     this.announceStart()
     return next

@@ -85,28 +85,60 @@ export class Storage {
         // and nobody can close those by hand, so every connection steps aside, and the next read opens a new one.
         db.onversionchange = () => {
           db.close()
-          if (this.db === db) {
-            this.db = null
-            this.opening = null
-          }
+          this.forget(db)
         }
+        // The browser closed the connection itself, as when the user clears site data or the database process goes
+        // away while an installed app sits in the background. The next read or write opens a new one.
+        db.onclose = () => this.forget(db)
         this.db = db
         return db
+      })
+      // A failed open is not kept, so the next call tries again.
+      this.opening.catch(() => {
+        this.opening = null
       })
     }
     return this.opening
   }
 
+  private forget(db: IDBDatabase) {
+    if (this.db !== db) return
+    this.db = null
+    this.opening = null
+  }
+
+  // A transaction on the shared connection. A connection that closed under the page refuses new transactions with
+  // InvalidStateError, without always firing close first, so the transaction opens again on a new connection.
+  async transaction(storeNames: string[], mode: IDBTransactionMode): Promise<IDBTransaction> {
+    const db = await this.connection()
+    let tx: IDBTransaction
+    try {
+      tx = db.transaction(storeNames, mode)
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'InvalidStateError')) throw error
+      this.forget(db)
+      tx = (await this.connection()).transaction(storeNames, mode)
+    }
+    tx.addEventListener('abort', () => this.dropIfLost(tx))
+    return tx
+  }
+
+  // A transaction that failed because the connection went (Safari reports "Connection to Indexed Database server
+  // lost" as an UnknownError) leaves the connection unusable, so the next one opens a new connection.
+  private dropIfLost(tx: IDBTransaction) {
+    const name = tx.error?.name
+    if (name === 'UnknownError' || name === 'InvalidStateError') this.forget(tx.db)
+  }
+
   // Stores the rows, queues each one for the next push and updates setGroups, all in one transaction.
   async writeRows(writes: Array<Row>): Promise<void> {
     if (writes.length === 0) return
-    const db = await this.connection()
     const storeNames = [...new Set(writes.map((write) => STORE_FOR_TABLE[write.table]))]
     storeNames.push(...QUEUE_STORES)
     const setWrites = writes.filter((write): write is { table: 'sets'; row: SetRow } => write.table === 'sets')
     if (setWrites.length > 0) storeNames.push(OBJECT_STORES.SET_GROUPS)
+    const tx = await this.transaction(storeNames, 'readwrite')
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeNames, 'readwrite')
       let settled = false
       const fail = (error: unknown) => {
         if (settled) return
@@ -141,8 +173,8 @@ export class Storage {
   }
 
   private async getStore(storeName: string): Promise<IDBObjectStore> {
-    const db = await this.connection()
-    return db.transaction([storeName], 'readonly').objectStore(storeName)
+    const tx = await this.transaction([storeName], 'readonly')
+    return tx.objectStore(storeName)
   }
 
   async get<T>(storeName: string, key: string | number): Promise<T | undefined> {
