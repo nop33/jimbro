@@ -609,7 +609,8 @@ test.describe('Gymtime Page', () => {
 
     page.once('dialog', (dialog) => void dialog.accept())
     await page.locator('#delete-workout-session-btn').click()
-    await expect(page.locator('.toast-message-popup')).toContainText('Workout session deleted')
+    // Without the Navigation API, as in the WebKit projects, the workouts page loads in full, so the toast and the old
+    // break go with the old document. With it, the router keeps the document, and the break has to end itself.
     await expect(page).toHaveURL(/\/workouts\/$/)
     await expect(breakTimer).toBeHidden()
   })
