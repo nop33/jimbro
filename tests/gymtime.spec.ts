@@ -595,6 +595,32 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('textarea[name="notes"]')).toHaveValue('Felt strong')
   })
 
+  test('two changes made at once both reach the workout', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const rows = card.locator('.completed-sets > .set')
+    await card.locator('.exercise-details > summary').click()
+    const planned = await rows.count()
+
+    // Two taps on Add set land before the first one's write does: the first starts the workout and the second waits
+    // for it, then both slots are stored, each on the session the change before stored.
+    await card.locator('.add-set-btn').evaluate((button: HTMLButtonElement) => {
+      button.click()
+      button.click()
+    })
+    await expect(page).toHaveURL(/\/gymtime\/\?id=/)
+    await expect(rows).toHaveCount(planned + 2)
+    await card.locator('.add-set-btn').evaluate((button: HTMLButtonElement) => {
+      button.click()
+      button.click()
+    })
+    await expect(rows).toHaveCount(planned + 4)
+    await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
+
+    await page.reload()
+    await card.locator('.exercise-details > summary').click()
+    await expect(rows).toHaveCount(planned + 4)
+  })
+
   test('deleting the workout ends its break', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     await card.locator('.exercise-details > summary').click()
