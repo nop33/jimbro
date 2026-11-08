@@ -154,6 +154,7 @@ Each rule below has a check that fails when the rule is broken, and CI runs all 
 | Rows store dates as strings, never `Date` objects                                                         | TypeScript: the row types declare them as `string`                                                  |
 | Every page fills its head and bottom nav from `partials/`, and marks only its own nav link as current     | `tests/pageShell.unit.test.ts`                                                                      |
 | Calendar dates never come from `toISOString()`                                                            | `tests/architecture.unit.test.ts`                                                                   |
+| Pages scroll at once, never with `scroll-behavior: smooth`, so a tap lands where the page showed it       | `tests/architecture.unit.test.ts`                                                                   |
 | Specs wait for what the app shows or stores, never for a fixed time, and never force a click              | `tests/architecture.unit.test.ts`; on CI, `failOnFlakyTests` fails a run that needed a retry        |
 | Specs take `test` from `tests/fixtures.ts`, so the WebKit projects run without the Navigation API         | `tests/architecture.unit.test.ts`                                                                   |
 | Code is formatted                                                                                         | `vp check`, which `vp staged` runs on each commit                                                   |
