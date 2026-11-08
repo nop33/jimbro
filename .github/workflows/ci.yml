@@ -129,7 +129,7 @@ jobs:
           for file in "$HOME"/.config/.wrangler/logs/*.log; do
             [ -f "$file" ] || continue
             echo "::group::$file (reloads, restarts and errors)"
-            grep -iE 'reload|restart|error|exit' "$file" | tail -n 200
+            grep -E '"type":"reload|restarted|Error:|exited' "$file" | tail -n 200
             echo "::endgroup::"
           done
       - uses: actions/upload-artifact@v6
