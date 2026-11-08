@@ -144,6 +144,13 @@ test.describe('connecting an AI assistant', () => {
 
     const item = page.getByRole('listitem').filter({ hasText: 'Claude' })
     await expect(item).toBeVisible()
+    // Disconnecting asks first, and No keeps the assistant connected.
+    page.once('dialog', (dialog) => void dialog.dismiss())
+    await item.getByRole('button', { name: 'Disconnect Claude' }).click()
+    await expect(item).toBeVisible()
+    expect((await callMcp(token)).status).toBe(200)
+
+    page.once('dialog', (dialog) => void dialog.accept())
     await item.getByRole('button', { name: 'Disconnect Claude' }).click()
     await expect(page.getByText('No assistant is connected yet.')).toBeVisible()
     expect((await callMcp(token)).status).toBe(401)
