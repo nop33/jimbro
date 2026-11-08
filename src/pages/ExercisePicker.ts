@@ -1,7 +1,7 @@
 import { exercisesStore, type Exercise } from '../db/stores/exercisesStore'
 import { muscleGroupLabel } from '../db/muscleGroups'
 import { nodeFromTemplate, setTextContent } from '../utils'
-import { exerciseSections } from './exerciseSections'
+import { exerciseSections, KIND_SECTIONS } from './exerciseSections'
 
 const ALL = 'All'
 
@@ -26,6 +26,8 @@ class ExercisePicker {
   private submit = document.querySelector('#exercise-picker-submit') as HTMLButtonElement
   private noMatch = document.querySelector('#no-exercise-match') as HTMLParagraphElement
   private noExercises = document.querySelector('#no-exercises') as HTMLParagraphElement
+  private noSectionExercises = document.querySelector('#no-section-exercises') as HTMLParagraphElement
+  private section = ALL
   private body = this.dialog.querySelector('.dialog-sheet-body') as HTMLDivElement
   private checked: Array<Exercise['id']> = []
   private onAdd: (exercises: Array<Exercise>) => void = () => {}
@@ -34,10 +36,15 @@ class ExercisePicker {
   constructor() {
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.search.addEventListener('input', () => this.filter())
-    this.filterChips.addEventListener('change', () => {
-      this.filter()
-      this.body.scrollTop = 0
+    // Tapping the chip already chosen goes back to All, which a radio can't do by itself. A radio's click comes before
+    // its change, so the section is still the one chosen before.
+    this.filterChips.addEventListener('click', (event) => {
+      const radio = event.target as HTMLInputElement
+      if (radio.type !== 'radio' || radio.value !== this.section || radio.value === ALL) return
+      ;(this.filterChips.querySelector(`input[value="${ALL}"]`) as HTMLInputElement).checked = true
+      this.choose(ALL)
     })
+    this.filterChips.addEventListener('change', (event) => this.choose((event.target as HTMLInputElement).value))
     this.choices.addEventListener('change', (event) => {
       const box = event.target as HTMLInputElement
       this.checked = box.checked ? [...this.checked, box.value] : this.checked.filter((id) => id !== box.value)
@@ -74,9 +81,17 @@ class ExercisePicker {
     this.checked = []
     this.search.value = ''
     const sections = exerciseSections(exercisesStore.all)
-    this.filterChips.replaceChildren(...[ALL, ...sections.map(([section]) => section)].map((s) => this.chip(s)))
-    // One section has nothing to filter.
-    this.filterChips.hidden = sections.length < 2
+    // All, then Rehab and Cardio, which always show so they can be found even before there is one, then the muscles
+    // there are exercises for. A divider sets each kind of chip apart.
+    const muscles = sections.map(([section]) => section).filter((section) => !KIND_SECTIONS.includes(section))
+    this.filterChips.replaceChildren(
+      this.chip(ALL),
+      ...[...KIND_SECTIONS.map((section) => [section]), muscles]
+        .filter((chips) => chips.length > 0)
+        .flatMap((chips) => [this.divider(), ...chips.map((section) => this.chip(section))])
+    )
+    this.filterChips.hidden = exercisesStore.all.length === 0
+    this.section = ALL
     this.choices.replaceChildren(
       ...sections.map(([section, exercises]) => {
         const group = nodeFromTemplate('#exercise-choice-group-template')
@@ -91,10 +106,24 @@ class ExercisePicker {
     )
     this.noExercises.hidden = exercisesStore.all.length > 0
     this.noMatch.hidden = true
+    this.noSectionExercises.hidden = true
     this.showCount()
     this.dialog.showModal()
     this.body.scrollTop = 0
     this.filterChips.scrollLeft = 0
+  }
+
+  private divider() {
+    const divider = document.createElement('span')
+    divider.className = 'exercise-filter-divider'
+    divider.setAttribute('aria-hidden', 'true')
+    return divider
+  }
+
+  private choose(section: string) {
+    this.section = section
+    this.filter()
+    this.body.scrollTop = 0
   }
 
   private chip(section: string) {
@@ -131,10 +160,11 @@ class ExercisePicker {
     this.submit.textContent = count === 0 ? 'Add exercises' : `Add ${count} ${count === 1 ? 'exercise' : 'exercises'}`
   }
 
-  // Shows the exercises in the chosen section whose name holds the search, and only the sections left with one.
+  // Shows the exercises in the chosen section whose name holds the search, and only the sections left with one. A
+  // section with no exercise at all says so, and links to where one is made.
   private filter() {
     const query = this.search.value.trim().toLocaleLowerCase()
-    const section = this.filterChips.querySelector<HTMLInputElement>('input:checked')?.value ?? ALL
+    const section = this.section
     let any = false
     for (const group of this.choices.querySelectorAll<HTMLElement>('.exercise-choice-group')) {
       let shown = 0
@@ -146,7 +176,11 @@ class ExercisePicker {
       group.hidden = shown === 0 || (section !== ALL && group.dataset.section !== section)
       any ||= !group.hidden
     }
-    this.noMatch.hidden = any || exercisesStore.all.length === 0
+    const emptySection =
+      section !== ALL && !this.choices.querySelector(`.exercise-choice-group[data-section="${section}"]`)
+    setTextContent('.no-section-exercises-text', `No ${section.toLocaleLowerCase()} exercises yet.`, this.dialog)
+    this.noSectionExercises.hidden = !emptySection
+    this.noMatch.hidden = any || emptySection || exercisesStore.all.length === 0
   }
 }
 
