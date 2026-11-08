@@ -14,11 +14,16 @@ export interface WeekDay {
   status?: SessionStatus
 }
 
-export type ProgramPick = ProgramStatus & { isSuggested: boolean }
+// An extra is a suggestion once the week met its goal, for a workout that counts toward next week.
+export type ProgramPick = ProgramStatus & { isSuggested: boolean; isExtra: boolean }
 
 export interface WeekOverview {
   days: Array<WeekDay>
+  // This week's own completed workouts, those done ahead last week, and those beyond the goal that count toward
+  // next week.
   completed: number
+  ahead: number
+  extra: number
   goal: number
   streak: number
   volume: { thisWeek: number; lastWeekSoFar: number }
@@ -36,11 +41,12 @@ export interface PersonalRecord {
 const STATUS_RANK: Record<SessionStatus, number> = { incomplete: 1, completed: 2 }
 
 // Weeks in a row that met the goal, counting back from last week. This week joins once it meets the goal, so the
-// streak never drops before the week is over. The weeks are newest first, this week first.
+// streak never drops before the week is over. Workouts done ahead count toward the week they were done for. The weeks
+// are newest first, this week first.
 const streakOf = ([thisWeek, ...earlier]: Array<WeekOfSessions>, goal: number) => {
   if (goal < 1) return 0
-  const missed = earlier.findIndex((week) => week.completed < goal)
-  return (thisWeek.completed >= goal ? 1 : 0) + (missed === -1 ? earlier.length : missed)
+  const missed = earlier.findIndex((week) => week.counted < goal)
+  return (thisWeek.counted >= goal ? 1 : 0) + (missed === -1 ? earlier.length : missed)
 }
 
 // A lifting set is a record when it beats the exercise's heaviest earlier weight, or matches it with more reps.
@@ -97,27 +103,36 @@ export const buildWeekOverview = (
 
   const records = personalRecordsOf([...sessions].sort((a, b) => a.date.localeCompare(b.date)))
 
-  const picks = statuses.map((status): ProgramPick => ({ ...status, isSuggested: false }))
+  const picks = statuses.map((status): ProgramPick => ({ ...status, isSuggested: false, isExtra: false }))
 
   // A workout left unfinished this week comes first. Until the week meets its goal, the next is the program done
-  // longest ago, never done first, and in rotation mode only among those not started this week.
+  // longest ago, never done first, and in rotation mode only among those neither started this week nor done ahead.
+  // Once it meets the goal, the program done longest ago is an extra, which keeps the rotation's order.
   const oldestFirst = (a: ProgramPick, b: ProgramPick) =>
     (a.lastCompleted?.date ?? '').localeCompare(b.lastCompleted?.date ?? '')
   const unfinished = picks.filter((pick) => pick.thisWeek?.status === 'incomplete').at(-1)
+  const goalMet = thisWeek.counted >= goal
   const suggested =
     unfinished ??
-    (thisWeek.completed >= goal
-      ? undefined
-      : picks.filter((pick) => settings.mode === 'freestyle' || !pick.thisWeek).sort(oldestFirst)[0])
-  if (suggested) suggested.isSuggested = true
+    (goalMet
+      ? [...picks].sort(oldestFirst)[0]
+      : picks.filter((pick) => settings.mode === 'freestyle' || (!pick.thisWeek && !pick.ahead)).sort(oldestFirst)[0])
+  if (suggested) {
+    suggested.isSuggested = true
+    suggested.isExtra = !unfinished && goalMet
+  }
 
-  // The suggestion, then the programs still open this week, then the ones done, each group in program order.
-  const rank = (pick: ProgramPick) => (pick.isSuggested ? 0 : pick.thisWeek?.status === 'completed' ? 2 : 1)
+  // The suggestion, then the programs still open this week, then the ones done or done ahead, each group in program
+  // order.
+  const isDone = (pick: ProgramPick) => pick.thisWeek?.status === 'completed' || (!pick.thisWeek && !!pick.ahead)
+  const rank = (pick: ProgramPick) => (pick.isSuggested ? 0 : isDone(pick) ? 2 : 1)
   picks.sort((a, b) => rank(a) - rank(b))
 
   return {
     days,
     completed: thisWeek.completed,
+    ahead: thisWeek.ahead.length,
+    extra: thisWeek.extra.length,
     goal,
     streak: streakOf(weeks, goal),
     volume,

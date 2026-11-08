@@ -5,6 +5,7 @@ import { getWorkoutModeSettings } from '../../settings'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { redrawOnNewDay } from '../../redraw'
 import { onAppInstalled, promptInstall } from '../../features/installPrompt'
+import { carryNote, fillGoalBar } from '../goalBar'
 import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -24,15 +25,16 @@ const lastDoneText = (lastCompleted: ProgramPick['lastCompleted']) => {
   return `Last done ${days} days ago`
 }
 
-const renderWeek = ({ days, completed, goal }: WeekOverview) => {
-  setTextContent('#week-count', goal > 0 ? `${completed} of ${plural(goal, 'workout')}` : plural(completed, 'workout'))
-
-  const goalBar = document.getElementById('week-goal') as HTMLDivElement
-  for (let index = 0; index < goal; index++) {
-    const segment = document.createElement('span')
-    if (index < completed) segment.classList.add('met')
-    goalBar.appendChild(segment)
-  }
+const renderWeek = ({ days, completed, ahead, extra, goal }: WeekOverview) => {
+  // Workouts beyond the goal show as extras, not as "4 of 3".
+  setTextContent(
+    '#week-count',
+    goal > 0 ? `${Math.min(completed + ahead, goal)} of ${plural(goal, 'workout')}` : plural(completed, 'workout')
+  )
+  fillGoalBar(document.getElementById('week-goal') as HTMLDivElement, { goal, completed, ahead, extra })
+  const carry = document.getElementById('week-carry') as HTMLParagraphElement
+  carry.textContent = carryNote({ ahead, extra })
+  carry.hidden = carry.textContent === ''
 
   const list = document.getElementById('week-days') as HTMLOListElement
   for (const day of days) {
@@ -81,8 +83,9 @@ const renderHighlights = ({ streak, volume, personalRecords }: WeekOverview) => 
   ;(document.getElementById('highlights') as HTMLUListElement).hidden = false
 }
 
-const pickMeta = ({ thisWeek, lastCompleted }: ProgramPick) => {
+const pickMeta = ({ thisWeek, ahead, lastCompleted }: ProgramPick) => {
   if (thisWeek?.status === 'completed') return `Done ${formatDay(thisWeek.date)}`
+  if (ahead) return `Done ahead ${formatDay(ahead.date)}`
   if (thisWeek?.status === 'incomplete') return `Started ${formatDay(thisWeek.date)}`
   return lastDoneText(lastCompleted)
 }
@@ -98,16 +101,17 @@ const renderPicks = ({ picks }: WeekOverview) => {
   for (const pick of picks) {
     const item = nodeFromTemplate('#program-pick-template')
     const link = item.querySelector('a') as HTMLAnchorElement
-    const status = pick.thisWeek?.status
+    const status = pick.thisWeek?.status ?? (pick.ahead ? 'completed' : undefined)
     link.href = status === 'incomplete' ? `/gymtime/?id=${pick.thisWeek?.id}` : `/gymtime/?programId=${pick.program.id}`
     if (status) link.dataset.status = status
     if (pick.isSuggested) link.dataset.suggested = ''
+    if (pick.isExtra) link.dataset.extra = ''
     setTextContent('.program-pick-check', status === 'completed' ? '✓' : status === 'incomplete' ? '…' : '', item)
     setTextContent('.program-pick-name', pick.program.name, item)
     setTextContent('.program-pick-meta', pickMeta(pick), item)
     setTextContent(
       '.program-pick-action',
-      pick.isSuggested ? (status === 'incomplete' ? 'Continue ›' : 'Start ›') : '›',
+      pick.isExtra ? 'Extra ›' : pick.isSuggested ? (status === 'incomplete' ? 'Continue ›' : 'Start ›') : '›',
       item
     )
     list.appendChild(item)

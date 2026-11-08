@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
+import { logWorkout } from './logWorkout'
 import { seedDatabase } from './seed'
 import { startWorkout } from './startWorkout'
 import { browserHasPasskeys } from './browserPasskeys'
@@ -173,6 +174,37 @@ test.describe('Workouts Page', () => {
 
     await openSlots.first().click()
     await expect(page.locator('dialog#new-workout-dialog')).toBeVisible()
+  })
+
+  test('Shows a fourth workout as one for next week, and next week shows it done ahead', async ({ page }) => {
+    await seedDatabase(page)
+    // Push, Pull and Legs in the week of 5 October, and Push again on Sunday the 11th.
+    for (const [index, date] of [
+      [0, '2026-10-05'],
+      [1, '2026-10-06'],
+      [2, '2026-10-07'],
+      [0, '2026-10-11']
+    ] as const) {
+      await logWorkout(page, index, date, true)
+    }
+
+    await page.clock.setFixedTime(new Date(2026, 9, 11, 10, 0))
+    await page.goto('/workouts/')
+    await expect(page.locator('#week-progress-count')).toHaveText('3 of 3 programs done')
+    await expect(page.locator('#week-progress-note')).toHaveText('All done this week, +1 workout toward next week! 💪')
+    await expect(page.locator('#week-progress-goal .extra')).toHaveCount(1)
+    const extraCard = page.locator('.workout-week').first().locator('.card-success', { hasText: 'for next week' })
+    await expect(extraCard).toHaveCount(1)
+    await expect(extraCard).toContainText('Oct 11')
+
+    // On Sunday the 18th, the busy week has its Push done ahead, and only Pull and Legs left.
+    await page.clock.setFixedTime(new Date(2026, 9, 18, 10, 0))
+    await page.goto('/workouts/')
+    await expect(page.locator('#week-progress-count')).toHaveText('1 of 3 programs done')
+    const busyWeek = page.locator('.workout-week').first()
+    await expect(busyWeek.locator('.card-success')).toHaveCount(1)
+    await expect(busyWeek.locator('.card-success')).toContainText('done ahead')
+    await expect(busyWeek.locator('.card-pending')).toHaveCount(2)
   })
 
   test('Updates status correctly when navigating back from an incomplete workout', async ({ page }) => {

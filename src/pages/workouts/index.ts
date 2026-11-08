@@ -42,21 +42,32 @@ export const mount = async (signal: AbortSignal) => {
   const [thisWeek] = weeks
 
   if (programs.length > 0) {
-    renderWeekProgress({ completed: thisWeek.completed, goal, settings })
+    renderWeekProgress({
+      completed: thisWeek.completed,
+      ahead: thisWeek.ahead.length,
+      extra: thisWeek.extra.length,
+      goal,
+      settings
+    })
   } else {
     await renderIntroText(canRestore ? 'restore' : empty ? 'seed' : 'none')
   }
   const newWorkoutDialog = new NewWorkoutDialog(programStatuses)
   new WorkoutModeDialog()
 
-  const renderWorkoutSession = (workoutSession: WorkoutSession | MissingWorkout) => {
+  // A completed workout beyond its week's goal is an extra, which counts toward the next week, where it shows again as
+  // done ahead.
+  const renderWorkoutSession = (workoutSession: WorkoutSession | MissingWorkout, carry?: 'extra' | 'ahead') => {
     const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
     const workoutStatus = workoutItemTemplate.querySelector('.workout-status') as HTMLParagraphElement
     const workoutDate = workoutItemTemplate.querySelector('.workout-date') as HTMLParagraphElement
 
     setTextContent('.workout-title', programNames[workoutSession.programId], workoutItemTemplate)
 
-    if (workoutSession.status !== 'completed') {
+    if (carry) {
+      setTextContent('.workout-status', carry === 'ahead' ? 'done ahead' : 'for next week', workoutItemTemplate)
+      workoutStatus.classList.replace('text-jim-neutral-tertiary', 'text-green-400')
+    } else if (workoutSession.status !== 'completed') {
       setTextContent('.workout-status', workoutSession.status, workoutItemTemplate)
 
       if (workoutSession.status === 'incomplete') {
@@ -87,7 +98,7 @@ export const mount = async (signal: AbortSignal) => {
       }[workoutSession.status]
     )
 
-    if (workoutSession.status === 'incomplete') {
+    if (workoutSession.status === 'incomplete' || carry === 'ahead') {
       workoutItemDiv.classList.add('border-dashed')
     }
 
@@ -178,10 +189,10 @@ export const mount = async (signal: AbortSignal) => {
       }
     }
   } else {
-    weeks.forEach(({ week, sessions: workoutsOfThisWeek }) => {
+    weeks.forEach(({ week, sessions: workoutsOfThisWeek, ahead, extra }) => {
       const isThisWeek = week.monday === thisWeek.week.monday
 
-      if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && !isThisWeek) {
+      if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && ahead.length === 0 && !isThisWeek) {
         return
       }
 
@@ -192,19 +203,20 @@ export const mount = async (signal: AbortSignal) => {
       setTextContent('.workout-week-week', `Week ${week.number}`, workoutWeekTemplate)
       setTextContent('.workout-week-year', `of ${week.year}`, workoutWeekTemplate)
 
-      workoutsOfThisWeek.forEach((workout) => {
-        const workoutItem = renderWorkoutSession(workout)
-        workoutsOfThisWeekList.appendChild(workoutItem)
-      })
+      for (const workout of ahead) workoutsOfThisWeekList.appendChild(renderWorkoutSession(workout, 'ahead'))
+      for (const workout of workoutsOfThisWeek) {
+        workoutsOfThisWeekList.appendChild(renderWorkoutSession(workout, extra.includes(workout) ? 'extra' : undefined))
+      }
 
+      const shown = ahead.length + workoutsOfThisWeek.length
       if (settings.mode === 'freestyle' && isThisWeek) {
-        for (let slot = workoutsOfThisWeek.length; slot < goal; slot++) {
-          workoutsOfThisWeekList.appendChild(renderOpenSlot(slot === workoutsOfThisWeek.length))
+        for (let slot = shown; slot < goal; slot++) {
+          workoutsOfThisWeekList.appendChild(renderOpenSlot(slot === shown))
         }
       }
 
-      if (settings.mode === 'rotation' && workoutsOfThisWeek.length < goal) {
-        const recordedWorkoutPrograms = workoutsOfThisWeek.map(({ programId }) => programId)
+      if (settings.mode === 'rotation' && shown < goal) {
+        const recordedWorkoutPrograms = [...ahead, ...workoutsOfThisWeek].map(({ programId }) => programId)
         const missingProgramsIds = Object.keys(programNames).filter(
           (programId) => !recordedWorkoutPrograms.includes(programId)
         )
