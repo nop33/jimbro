@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test'
 import type { ProgramRow, SessionStatus, WorkoutSession } from '../src/db/types'
 import { calendarLabels, calendarWeeks } from '../src/pages/workouts/calendar'
+import type { WorkoutModeSettings } from '../src/settings'
 import { trainingWeeks } from '../src/weeks'
 
-const ROTATION = { mode: 'rotation', weeklyGoal: 3 } as const
+const ROTATION: WorkoutModeSettings = { mode: 'rotation', weeklyGoal: 3 }
 const program = (id: string, name = id): ProgramRow => ({ id, name, exercises: [], isDeleted: false, updatedAt: '' })
 const PROGRAMS = [program('push'), program('pull'), program('legs')]
 

@@ -123,7 +123,7 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
   await page.goto(`${origin}/workouts/`)
   await waitForServiceWorker(page)
   await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
-  await expect(page.locator('.workout-week')).toBeVisible()
+  await expect(page.locator('.calendar-week').first()).toBeVisible()
   // The test worker doesn't know this token, so a sync that still reaches it fails and the rows stay queued.
   await page.goto(`${origin}/settings/backup/`)
   await page.getByText('Use a token').click()

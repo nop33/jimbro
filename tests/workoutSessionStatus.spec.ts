@@ -126,8 +126,8 @@ test.describe('Workout session status reconciliation', () => {
     await exportDownload
 
     await page.goto('/workouts/')
-    const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()
-    await expect(sessionCard).toHaveClass(/card-success/)
+    const workoutDay = page.locator('.calendar-workout[aria-label*="Push day"]')
+    await expect(workoutDay).toHaveAttribute('data-status', 'completed')
   })
 
   test('adding an exercise to a completed session transitions it back to incomplete', async ({ page }) => {
@@ -160,8 +160,8 @@ test.describe('Workout session status reconciliation', () => {
     await expect(page.locator(`[data-exercise-id="${EXERCISE_NOT_IN_PUSH_DAY.id}"]`)).toBeVisible()
 
     await page.goto('/workouts/')
-    const sessionCard = page.locator('.workout-week li:has-text("Push day") .card').first()
-    await expect(sessionCard).toHaveClass(/card-warning/)
+    const workoutDay = page.locator('.calendar-workout[aria-label*="Push day"]')
+    await expect(workoutDay).toHaveAttribute('data-status', 'incomplete')
   })
 
   test('the workout celebrates each time it goes from incomplete to completed, and exports once a week', async ({

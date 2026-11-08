@@ -65,7 +65,7 @@ test('a nav tap shows the next page in the same document, and Back brings the la
 test('a break keeps counting down on the next page, and its bar opens the full timer there', async ({ page }) => {
   await page.goto('/workouts/')
   await skipWithoutRouter(page)
-  await page.locator('.workout-week').first().waitFor()
+  await page.locator('.calendar-week').first().waitFor()
   await page.getByRole('button', { name: 'Add new workout' }).click()
   await page.locator('#programs-list a').first().click()
   await expect(page).toHaveURL(/\/gymtime\//)

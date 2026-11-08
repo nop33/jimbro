@@ -262,7 +262,7 @@ const STOPS = [
   }],
   ['workouts', async (page) => {
     await page.getByRole('link', { name: 'Workouts' }).click()
-    await see(page.locator('.workout-week'))
+    await see(page.locator('.calendar-week[data-scroll-start]'))
   }],
   ['workouts-new-dialog', async (page) => {
     await page.getByRole('button', { name: 'Add new workout' }).click()
