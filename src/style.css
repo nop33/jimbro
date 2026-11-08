@@ -14,7 +14,9 @@
    title and buttons nor the nav. While it shows, the page ends that much later, so the bar never hides its last row.
    Room at the bottom moves nothing on screen, where room at the top would push the page down under the finger. */
 :root {
-  --bottom-nav-height: calc(5rem + 1px);
+  /* The nav reaches under the home indicator or gesture bar (viewport-fit=cover in partials/head.html), and keeps its
+     links above it. */
+  --bottom-nav-height: calc(5rem + 1px + env(safe-area-inset-bottom));
   --break-bar-height: calc(4.5rem + 1px);
   /* The tallest header: its padding, a 44px back button or action, and its border. */
   --app-header-height: calc(5.25rem + 1px);
@@ -111,8 +113,10 @@
     background-attachment: fixed;
   }
 
+  /* The page ends above the bottom nav, which md: screens drop (md:pb-0 on each page). */
   .app-page {
     @apply max-w-2xl mx-auto min-h-screen flex flex-col bg-jim-dark;
+    padding-bottom: var(--bottom-nav-height);
   }
 
   .app-header {
@@ -593,6 +597,7 @@
   /* Bottom navigation */
   .bottom-nav {
     @apply bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-700/50;
+    padding-bottom: env(safe-area-inset-bottom);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   }
 
@@ -679,6 +684,7 @@
 
   .dialog-full-screen {
     @apply h-full w-full;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
 
   /* Only the full screen timer stretches its content to its height. In the bar, Safari resolves a full height against
