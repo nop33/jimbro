@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vite-plus/test'
 import { pagePathOf, renderPage } from '../partials/plugin'
@@ -94,6 +94,37 @@ describe('page shell', () => {
   it('tells the browser every page is dark before its stylesheet loads', () => {
     for (const file of Object.keys(PAGES)) {
       expect(served(file), file).toContain('<meta name="color-scheme" content="dark" />')
+    }
+  })
+
+  // Every dialog is a bottom sheet that pulls down to close, but the break timer, which pulls down into its bar, and
+  // the history chart, which turns sideways to fill the screen.
+  it('makes every dialog a bottom sheet that pulls down to close', () => {
+    const notSheets = ['break-countdown-dialog', 'exercise-history-dialog']
+    const dialogs = Object.keys(PAGES).flatMap((file) =>
+      [...served(file).matchAll(/<dialog\b[^>]*>/g)].map(([tag]) => ({
+        file,
+        tag,
+        id: /\bid="([^"]+)"/.exec(tag)?.[1]
+      }))
+    )
+    const sheetIds = new Set<string>()
+    for (const { file, tag, id } of dialogs) {
+      if (id && notSheets.includes(id)) continue
+      expect(tag, file).toMatch(/\bclass="[^"]*\bdialog-sheet\b/)
+      if (id) sheetIds.add(id)
+    }
+    expect(sheetIds.size).toBeGreaterThan(0)
+    // The module that owns each sheet's dialog wires the pull, so each sheet's id sits in a file that calls it.
+    const wiring = readdirSync(path.join(root, 'src'), { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.ts'))
+      .map((file) => sourceOf(path.join('src', file)))
+      .filter((source) => source.includes('pullDownToClose(this.'))
+    for (const id of sheetIds) {
+      expect(
+        wiring.some((source) => source.includes(`#${id}'`) || source.includes(`'${id}'`)),
+        id
+      ).toBe(true)
     }
   })
 })

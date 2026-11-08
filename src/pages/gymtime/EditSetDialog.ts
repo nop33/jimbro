@@ -4,6 +4,7 @@ import Toasts from '../../features/toasts'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import type { OpenSession } from './openSession'
 import { confirmZeroSet, readSetFromForm, renderSetInputs } from './setSlots'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 interface EditSetData {
   set: ExerciseSetExecution
@@ -20,6 +21,7 @@ class EditSetDialog {
   private session: OpenSession
 
   constructor(session: OpenSession) {
+    pullDownToClose(this.dialog)
     this.session = session
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.form.addEventListener('submit', (event) => this.onSubmit(event))

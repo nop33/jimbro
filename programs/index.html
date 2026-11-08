@@ -42,13 +42,13 @@
       </div>
     </div>
 
-    <dialog id="new-program-dialog" aria-labelledby="new-program-title">
-      <header>
+    <dialog id="new-program-dialog" class="dialog-sheet" aria-labelledby="new-program-title">
+      <header class="dialog-sheet-header">
         <h2 id="new-program-title" class="text-xl font-bold">New program</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <form id="new-program-form" class="flex flex-col gap-6">
-        <div>
+      <form id="new-program-form" class="contents">
+        <div class="dialog-sheet-body">
           <label for="new-program-name">Name</label>
           <input
             type="text"
@@ -59,9 +59,9 @@
             class="w-full p-2 rounded border border-neutral-600"
           />
         </div>
-        <div class="flex justify-end">
-          <button type="submit" class="btn-primary">Create</button>
-        </div>
+        <footer class="dialog-sheet-footer">
+          <button type="submit" class="btn-primary w-full">Create</button>
+        </footer>
       </form>
     </dialog>
 

@@ -991,23 +991,36 @@
     }
   }
 
-  /* A dialog that rises from the bottom edge and fills the screen but for a strip at the top: its header and footer
-     stay put and only its body scrolls, so a long list never scrolls the dialog away. */
+  /* Every dialog but the break timer and the history chart is a bottom sheet: it rises from the bottom edge, as tall as
+     its content up to a strip short of the top, and its header and footer stay put while only its body scrolls, so a
+     long form or list never scrolls the close button away. `.dialog-sheet-full` takes the whole height whatever it
+     holds, as the exercise picker does so its list keeps its place while a filter narrows it. A sheet follows a finger
+     that pulls it down and closes past a point (src/features/bottomSheet.ts), which the grabber at its top suggests.
+     With the keyboard open, a sheet sits on it and fits in what is left above it (followKeyboard in bottomSheet.ts). */
   dialog.dialog-sheet {
-    @apply mx-auto mt-auto mb-0 w-full max-w-lg rounded-b-none border-b-0 p-0;
-    height: calc(100dvh - 1rem);
-    max-height: none;
+    @apply mx-auto mt-auto w-full max-w-lg rounded-b-none border-b-0 p-0;
+    margin-bottom: var(--keyboard-inset, 0px);
+    max-height: calc(var(--visible-height, 100dvh) - 1rem);
 
     &[open] {
       @apply flex flex-col;
     }
 
-    /* A sheet covers most of the screen, so its backdrop only dims. Blurring the page behind a sheet this big made
-       Playwright's desktop WebKit take up to a second per frame (median 16ms without it), so clicks in the exercise
-       picker timed out waiting for their target to hold still. */
+    /* A sheet covers most of the screen, so its backdrop only dims. Blurring the page behind a sheet made Playwright's
+       desktop WebKit take up to a second per frame (median 16ms without it), so clicks in a sheet timed out waiting for
+       their target to hold still. */
     &::backdrop {
       backdrop-filter: none;
     }
+
+    &::before {
+      @apply absolute top-2 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-neutral-500/50;
+      content: '';
+    }
+  }
+
+  dialog.dialog-sheet-full {
+    height: calc(var(--visible-height, 100dvh) - 1rem);
   }
 
   @starting-style {
@@ -1019,15 +1032,20 @@
   }
 
   .dialog-sheet-header {
-    @apply mb-0! flex shrink-0 items-center justify-between gap-4 border-b border-neutral-500/20 py-2 pr-3 pl-5;
+    @apply mb-0! flex shrink-0 items-center justify-between gap-4 border-b border-neutral-500/20 pt-5 pr-3 pb-2 pl-5;
   }
 
   .dialog-sheet-body {
-    @apply flex flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-6;
+    @apply flex min-h-0 flex-auto flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-6;
+
+    /* With no footer under it, the body keeps its last row clear of the home indicator. */
+    &:last-child {
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
   }
 
   .dialog-sheet-footer {
-    @apply shrink-0 border-t border-neutral-500/20 px-4 pt-3;
+    @apply flex shrink-0 gap-3 border-t border-neutral-500/20 px-4 pt-3;
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   }
 

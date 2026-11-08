@@ -18,6 +18,7 @@ This directory is the maintained source for verifying Jimbro's user-facing behav
 - Prefer role and accessible name over CSS. When a spec in `tests/` uses a class or id, copy that locator exactly.
 - Treat every command as literal.
 - `control-jimbro tour` shows every screen and dialog the map names, on both phones, numbered as in each feature file's `Tour stops`. When a feature gains, loses or changes a screen, change its stop in `scripts/drive.mjs` and its feature file in the same edit, so a stale map fails the next tour instead of misleading it.
+- Every dialog but the break timer and the history chart is a bottom sheet (`dialog.dialog-sheet`). Close one with its `Close dialog` button. A pull down or a tap on the backdrop closes it too, which `tests/bottomSheet.spec.ts` drives with CDP touches.
 - For a by-hand step, use Playwright locators against `$JIMBRO_VERIFY_URL`, or `control-jimbro snapshot`.
 - Wait for what the app shows or stores. Never wait a fixed time and never force a click.
 - After a mutation, reload or navigate to a second view before calling it persisted.

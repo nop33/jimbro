@@ -16,7 +16,7 @@ Stats is `/stats/`: lifetime totals worked out from completed workouts.
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stop.** `15-stats`, reached by choosing Home's volume tile after the tour imports a year of history.
+- **Tour stop.** `17-stats`, reached by choosing Home's volume tile after the tour imports a year of history.
 - **By hand.** On a fresh or seeded database every number reads 0. Start a workout and the workouts tile shows `+1 incomplete`. Totals change only when a workout is completed.
 
 ## Gotchas

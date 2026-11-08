@@ -18,6 +18,7 @@ import {
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 class ExerciseDialog {
   private newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
@@ -36,6 +37,7 @@ class ExerciseDialog {
   private deleteExerciseBtn = this.exerciseDialog.querySelector('.delete-btn') as HTMLButtonElement
 
   constructor() {
+    pullDownToClose(this.exerciseDialog)
     this.renderKindPicker()
     this.renderMusclePicker()
     this.populateForm()

@@ -262,7 +262,7 @@ Break alerts need a VAPID key pair once. In `worker/`, run `node scripts/vapid-k
 - Confetti and a stamped message on the Web Animations API, in a popover above any dialog, with a random sound effect made with the Web Audio API. Under reduced motion only the message fades in and out.
 - A dark theme with a custom palette (`jim-dark`, `jim-primary`, `jim-accent`, …) in `src/style.css`.
 - Mobile first, with touch targets of at least 44×44 px.
-- Native `<dialog>` for modals and `<details>` for collapsible sections, which animate unless `prefers-reduced-motion` is set.
+- Native `<dialog>` for modals and `<details>` for collapsible sections, which animate unless `prefers-reduced-motion` is set. Every dialog but the break timer and the history chart is a bottom sheet: it rises from the bottom edge, and pulling it down (where its content is scrolled to the top) or tapping the backdrop above it closes it, as its ✕ does (`src/features/bottomSheet.ts`, on touch events, since only a cancelled `touchmove` keeps the browser from starting a scroll).
 
 ## Navigation
 

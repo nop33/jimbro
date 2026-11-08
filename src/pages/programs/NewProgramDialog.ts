@@ -1,6 +1,7 @@
 import { programsStore } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { programPageUrl } from './programExercises'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 // New asks only for a name. The program's page then opens on the exercise picker.
 class NewProgramDialog {
@@ -9,6 +10,7 @@ class NewProgramDialog {
   private nameInput = document.querySelector('#new-program-name') as HTMLInputElement
 
   constructor() {
+    pullDownToClose(this.dialog)
     ;(document.querySelector('#new-program-btn') as HTMLButtonElement).addEventListener('click', () => {
       this.form.reset()
       this.dialog.showModal()

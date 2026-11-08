@@ -1,3 +1,5 @@
+import { pullDownToClose } from '../../../features/bottomSheet'
+
 // Asks for the program's new name.
 class RenameProgramDialog {
   private dialog = document.querySelector('#rename-program-dialog') as HTMLDialogElement
@@ -5,6 +7,7 @@ class RenameProgramDialog {
   private nameInput = document.querySelector('#rename-program-name') as HTMLInputElement
 
   constructor(rename: (name: string) => void) {
+    pullDownToClose(this.dialog)
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.form.addEventListener('submit', (event) => {
       event.preventDefault()
