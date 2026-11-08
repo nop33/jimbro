@@ -217,9 +217,6 @@
     background-color: color-mix(in srgb, var(--color-jim-dark-blue) 50%, var(--color-jim-dark));
   }
 
-  .card-danger {
-    @apply bg-jim-error/20 border-jim-error/20;
-  }
   .card-warning {
     @apply bg-jim-warning/15 border-jim-warning/20;
   }
@@ -298,8 +295,149 @@
     }
   }
 
-  .open-slot {
-    @apply flex flex-col items-center justify-center gap-1.5 w-full h-full min-h-24 rounded-2xl border-[1.5px] border-dashed border-white/15 text-neutral-500 cursor-pointer hover:border-jim-primary/50 transition-colors duration-300;
+  /* The workouts calendar: a row per week, oldest first, as a band that turns green once the week met its goal
+     (src/pages/workouts/calendar.ts). Day numbers and workout checks share the band's middle line, and a program's
+     name hangs under its check. */
+  .workout-calendar {
+    @apply rounded-2xl bg-jim-dark-blue/50 px-3 pb-4;
+  }
+
+  .calendar-weekdays {
+    @apply sticky top-0 z-10 grid grid-cols-7 rounded-t-2xl px-2.5 pt-3 pb-2 text-center text-xs font-semibold text-neutral-500;
+    background-color: color-mix(in srgb, var(--color-jim-dark-blue) 50%, var(--color-jim-dark));
+  }
+
+  .calendar-weeks {
+    @apply flex flex-col gap-2;
+  }
+
+  .calendar-week {
+    @apply relative rounded-full px-2.5;
+    scroll-margin-block: 6rem;
+  }
+
+  .calendar-week[data-state='met'] {
+    background: linear-gradient(180deg, #4f9a5a, var(--color-jim-success));
+    box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.18);
+  }
+
+  .calendar-week[data-state='missed'] {
+    @apply bg-jim-error/25;
+  }
+
+  .calendar-week[data-state='current'] {
+    @apply outline-2 -outline-offset-2 outline-dashed outline-jim-accent/45;
+  }
+
+  .calendar-days {
+    @apply grid grid-cols-7 h-21;
+  }
+
+  .calendar-day {
+    @apply relative min-w-0 text-center font-bold text-neutral-300;
+  }
+
+  .calendar-week[data-state='met'] .calendar-day {
+    @apply text-white;
+  }
+
+  .calendar-week[data-state='missed'] .calendar-day {
+    @apply text-jim-accent/85;
+  }
+
+  .calendar-week[data-state='next'] .calendar-day {
+    @apply text-neutral-500;
+  }
+
+  .calendar-date {
+    @apply absolute top-1/2 left-1/2 grid size-10.5 -translate-1/2 place-items-center rounded-full;
+  }
+
+  .calendar-day[aria-current='date'] .calendar-date {
+    @apply border-2 border-jim-accent;
+  }
+
+  .calendar-month {
+    @apply absolute inset-x-0 top-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider text-jim-accent;
+  }
+
+  .calendar-week[data-state='met'] .calendar-month {
+    @apply text-white;
+  }
+
+  /* The whole cell opens the workout, so the tap target is the day's full height. */
+  .calendar-workout {
+    @apply absolute inset-0 block cursor-pointer;
+  }
+
+  .calendar-check {
+    @apply absolute top-1/2 left-1/2 grid size-9.5 -translate-1/2 place-items-center rounded-full bg-white text-base font-extrabold text-jim-success;
+
+    &::before {
+      content: '✓';
+    }
+  }
+
+  .calendar-workout[data-status='incomplete'] .calendar-check {
+    @apply border-2 border-dashed border-jim-warning bg-transparent text-jim-warning;
+
+    &::before {
+      content: '…';
+    }
+  }
+
+  .calendar-day[aria-current='date'] .calendar-check {
+    @apply outline-2 outline-offset-2 outline-jim-accent;
+  }
+
+  /* A program's name, however long, stays on one line under its check and ends in an ellipsis. */
+  .calendar-name {
+    @apply absolute inset-x-0.5 truncate text-[0.625rem] leading-3 font-bold;
+    top: calc(50% + 1.375rem);
+  }
+
+  .calendar-week:not([data-state='met']) .calendar-name {
+    @apply text-neutral-300;
+  }
+
+  .calendar-extra,
+  .calendar-count {
+    @apply absolute rounded-full px-1.5 text-[0.625rem] leading-4 font-extrabold;
+    top: calc(50% - 1.75rem);
+  }
+
+  .calendar-extra {
+    @apply bg-jim-accent text-white;
+    left: calc(50% + 0.5rem);
+  }
+
+  .calendar-count {
+    @apply bg-neutral-900 text-white;
+    right: calc(50% + 0.5rem);
+  }
+
+  .calendar-ahead {
+    @apply absolute -top-2 -left-1 z-1 rounded-full bg-white px-1.5 text-[0.625rem] leading-4 font-extrabold text-jim-success;
+  }
+
+  .calendar-popover {
+    @apply m-auto w-72 rounded-2xl border border-neutral-700 bg-jim-dark-blue p-3 text-left text-neutral-200;
+  }
+
+  .calendar-popover-title {
+    @apply mb-1 px-3 text-sm font-normal text-neutral-400;
+  }
+
+  .calendar-popover-link {
+    @apply flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 font-semibold hover:bg-white/5;
+  }
+
+  .calendar-popover-status {
+    @apply shrink-0 text-sm font-normal text-green-400;
+  }
+
+  .calendar-popover-status[data-status='incomplete'] {
+    @apply text-jim-warning;
   }
 
   .week-days {

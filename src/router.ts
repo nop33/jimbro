@@ -86,6 +86,14 @@ const loadInFull = (url: URL) => {
   window.location.assign(url)
 }
 
+// A new page starts at its top, or at the element it marks with data-scroll-start, such as this week in the workouts
+// calendar, whose older weeks sit above it.
+const scrollToStart = () => {
+  const start = document.querySelector('[data-scroll-start]')
+  if (start) start.scrollIntoView({ block: 'center', behavior: 'instant' })
+  else window.scrollTo(0, 0)
+}
+
 // Shows the page at url in this document. The old page stays on screen, frozen by the view transition, until the new
 // one has drawn its data, so a tap never shows an empty page, and the header and nav stay still across it.
 const show = async (url: URL, page: () => Promise<Page>, event: NavigateEvent) => {
@@ -106,10 +114,10 @@ const show = async (url: URL, page: () => Promise<Page>, event: NavigateEvent) =
       loadInFull(url)
       return
     }
-    // Back and Forward bring the page back where it was. A new page starts at its top. The router scrolls there itself,
+    // Back and Forward bring the page back where it was. A new page starts at its start. The router scrolls there itself,
     // since event.scroll() in CI's Chromium left a page shorter than the last one scrolled to its bottom.
     if (event.navigationType === 'traverse') event.scroll()
-    else window.scrollTo(0, 0)
+    else scrollToStart()
   }
   if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update()
   await document.startViewTransition(update).updateCallbackDone
@@ -177,4 +185,13 @@ breakTimer()
 keepPagesFresh(redrawInPlace)
 
 const first = PAGES[pagePath(new URL(window.location.href))]
-if (first) void first().then(mount)
+// A page loaded in full starts at its start too, unless the browser brings it back where it was, on a reload or Back.
+const loadedFresh = () =>
+  (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'navigate'
+if (first) {
+  void first()
+    .then(mount)
+    .then(() => {
+      if (loadedFresh() && document.querySelector('[data-scroll-start]')) scrollToStart()
+    })
+}
