@@ -28,7 +28,7 @@ const createProgram = async (page: Page, name: string, exercises: Array<string>)
   await page.getByLabel('Name', { exact: true }).fill(name)
   await page.getByRole('button', { name: 'Create' }).click()
 
-  const sheet = page.locator('#add-exercises-dialog')
+  const sheet = page.locator('#exercise-picker')
   await expect(sheet).toBeVisible()
   await expect(page).toHaveURL(/\/programs\/program\/\?id=[^&]+$/)
   for (const exercise of exercises) await sheet.getByLabel(exercise).check()
@@ -75,7 +75,7 @@ test.describe('Programs Page', () => {
     await createProgram(page, 'Legs', ['Squat'])
 
     await page.getByRole('button', { name: 'Add exercises' }).click()
-    const sheet = page.locator('#add-exercises-dialog')
+    const sheet = page.locator('#exercise-picker')
     await expect(sheet.getByLabel('Squat')).toBeChecked()
     await expect(sheet.getByLabel('Squat')).toBeDisabled()
     await expect(sheet.getByRole('button', { name: 'Add exercises' })).toBeDisabled()
@@ -91,6 +91,64 @@ test.describe('Programs Page', () => {
     await sheet.getByLabel('Bench').check()
     await sheet.getByRole('button', { name: 'Add 2 exercises' }).click()
     await expect(rowNames(page)).toHaveText(['Squat', 'Lunge', 'Bench'])
+  })
+
+  test('the picker files rehab and cardio under their own chips, which filter it with the search', async ({ page }) => {
+    await page.goto('/exercises/')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Band rotation')
+    await page.getByLabel('Kind').selectOption('rehab')
+    await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
+    await page.getByLabel('Default sets').fill('3')
+    await page.getByLabel('Default reps').fill('15')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
+    await page.getByRole('button', { name: 'New' }).click()
+    await page.getByLabel('Name').fill('Treadmill walk')
+    await page.getByLabel('Kind').selectOption('cardio')
+    await page.getByLabel('Default sets').fill('1')
+    await page.getByRole('button', { name: 'Save' }).click()
+    // The card shows before the exercise is stored, so wait for the stored row before leaving the page.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const { storage } = await import('/src/db/storage.ts')
+          return (await storage.getAll<{ name: string }>('exercises')).length
+        })
+      )
+      .toBe(4)
+    await createProgram(page, 'Mixed', [])
+
+    await page.getByRole('button', { name: 'Add exercises' }).click()
+    const sheet = page.locator('#exercise-picker')
+    const filter = sheet.getByRole('radiogroup', { name: 'Show' })
+    await expect(filter.getByRole('radio')).toHaveCount(5)
+    await expect(filter.getByRole('radio', { name: 'All' })).toBeChecked()
+    await expect(sheet.locator('.exercise-choice-group-title:visible')).toHaveText([
+      'Chest',
+      'Quads',
+      'Rehab',
+      'Cardio'
+    ])
+    // A rehab row names the muscle it works.
+    await expect(sheet.locator('.exercise-choice', { hasText: 'Band rotation' })).toContainText('Chest')
+
+    await filter.getByText('Cardio', { exact: true }).click()
+    await expect(sheet.locator('.exercise-choice-name:visible')).toHaveText(['Treadmill walk'])
+    // The chip's radio takes the focus without scrolling the sheet off its header.
+    await expect(sheet.getByRole('heading', { name: 'Add exercises' })).toBeInViewport()
+    await expect(sheet.getByLabel('Treadmill walk')).toBeInViewport()
+    await filter.getByText('Rehab', { exact: true }).click()
+    await expect(sheet.locator('.exercise-choice-name:visible')).toHaveText(['Band rotation'])
+    await sheet.getByLabel('Search exercises').fill('squat')
+    await expect(sheet.getByText('No exercise matches.')).toBeVisible()
+    await filter.getByText('All', { exact: true }).click()
+    await expect(sheet.locator('.exercise-choice-name:visible')).toHaveText(['Squat'])
+
+    await sheet.getByLabel('Search exercises').fill('')
+    await sheet.getByLabel('Treadmill walk').check()
+    await sheet.getByRole('button', { name: 'Add 1 exercise' }).click()
+    await expect(rowNames(page)).toHaveText(['Treadmill walk'])
   })
 
   test('reorders by dragging a handle or with its arrow keys, and removes, saving each change', async ({ page }) => {
@@ -159,7 +217,7 @@ test.describe('Programs Page', () => {
 
     await createProgram(page, 'Pull', [])
     await page.getByRole('button', { name: 'Add exercises' }).click()
-    const sheet = page.locator('#add-exercises-dialog')
+    const sheet = page.locator('#exercise-picker')
     await expect(sheet.locator('.exercise-choice-name', { hasText: 'Row' })).toHaveText(name)
     await expect(sheet.locator('img')).toHaveCount(0)
     expect(await page.evaluate(() => Reflect.get(window, '__injected'))).toBeUndefined()

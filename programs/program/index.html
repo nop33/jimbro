@@ -123,50 +123,7 @@
       </form>
     </dialog>
 
-    <dialog id="add-exercises-dialog" class="dialog-sheet" aria-labelledby="add-exercises-title">
-      <form id="add-exercises-form" class="contents">
-        <header class="dialog-sheet-header">
-          <h2 id="add-exercises-title" class="text-lg font-bold focus:outline-none" tabindex="-1" autofocus>
-            Add exercises
-          </h2>
-          <!-- partial:close-dialog-button -->
-        </header>
-        <div class="dialog-sheet-body">
-          <div class="search-field">
-            <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input type="search" id="exercise-search" placeholder="Search exercises" aria-label="Search exercises" />
-          </div>
-          <div id="exercise-choices" class="flex flex-col gap-4">
-            <!-- The exercises, grouped by muscle -->
-          </div>
-          <p id="no-exercise-match" class="text-jim-neutral-secondary" hidden>No exercise matches.</p>
-          <p id="no-exercises" class="text-jim-neutral-secondary" hidden>
-            You have no exercises yet. <a href="/exercises/" class="link-primary underline">Create one</a>
-          </p>
-        </div>
-        <footer class="dialog-sheet-footer">
-          <button type="submit" id="add-exercises-submit" class="btn-primary w-full" disabled>Add exercises</button>
-        </footer>
-      </form>
-    </dialog>
-
-    <template id="exercise-choice-group-template">
-      <section class="exercise-choice-group">
-        <h3 class="exercise-choice-group-title"><!-- --></h3>
-        <div class="exercise-choice-list"></div>
-      </section>
-    </template>
-
-    <template id="exercise-choice-template">
-      <label class="exercise-choice">
-        <span class="exercise-choice-name"><!-- --></span>
-        <span class="exercise-choice-note">In program</span>
-        <input type="checkbox" name="exercise" />
-      </label>
-    </template>
+    <!-- partial:exercise-picker -->
 
     <!-- partial:break-timer -->
     <!-- partial:bottom-nav -->

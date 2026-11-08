@@ -164,7 +164,7 @@ test('a page that opened before a deploy still draws the history chart', async (
   // The next build's service worker takes over this page, which still runs the build it opened with: an open dialog
   // keeps the app from reloading into the new build.
   await page.locator('#add-exercise-card').click()
-  const addExerciseDialog = page.locator('#add-exercise-dialog')
+  const addExerciseDialog = page.locator('#exercise-picker')
   await expect(addExerciseDialog).toBeVisible()
   await watchForTakeOver(page)
   deploy()

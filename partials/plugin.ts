@@ -6,8 +6,9 @@ const root = path.resolve(import.meta.dirname, '..')
 
 // A line holding only `<!-- partial:name -->` becomes partials/name.html, indented like the comment.
 const PARTIAL = /^([ \t]*)<!-- partial:([\w-]+) -->$/gm
-// A partial's comments explain it to whoever edits it, and would only sit out of place in the page.
-const COMMENT_LINES = /^[ \t]*<!--[\s\S]*?-->\n/gm
+// A partial's comments explain it to whoever edits it, and would only sit out of place in the page. A line naming
+// another partial stays, to be filled in like the page's own.
+const COMMENT_LINES = /^[ \t]*<!--(?! partial:)[\s\S]*?-->\n/gm
 
 const readPartial = (name: string) => {
   try {
@@ -23,10 +24,11 @@ const readPartial = (name: string) => {
 export const pagePathOf = (file: string) =>
   `/${path.relative(root, file).split(path.sep).join('/')}`.replace(/index\.html$/, '')
 
-// Fills in a page's partials. The bottom nav marks the link to the page itself as the current one.
-export const renderPage = (html: string, pagePath: string) =>
+// Fills in a page's partials, and the partials they name in turn. The bottom nav marks the link to the page itself
+// as the current one.
+export const renderPage = (html: string, pagePath: string): string =>
   html.replace(PARTIAL, (_, indent: string, name: string) => {
-    let partial = readPartial(name)
+    let partial = renderPage(readPartial(name), pagePath)
     if (name === 'bottom-nav') partial = partial.replace(`href="${pagePath}"`, `$& aria-current="page"`)
     return partial
       .split('\n')

@@ -105,13 +105,6 @@ export class OpenSession {
     return next
   }
 
-  // Tells the user when the exercise is already in the workout, which holds each exercise once.
-  alertIfHolds(exerciseId: Exercise['id']): boolean {
-    if (!this.exerciseIds().includes(exerciseId)) return false
-    alert('This exercise is already in your session.')
-    return true
-  }
-
   private async whileBusy<T>(work: () => Promise<T>): Promise<T> {
     if (this.running++ === 0) this.busyRegion?.setAttribute('aria-busy', 'true')
     try {

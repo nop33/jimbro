@@ -101,36 +101,62 @@ test.describe('Gymtime Page', () => {
     // Verify changes are saved (the weight span is inside the set)
     await expect(completedSetItem.locator('.set-weight')).toHaveText('105')
 
-    // 6. Add exercise on the fly
+    // 6. Add exercises on the fly
     const addExerciseCard = page.locator('#add-exercise-card')
     await addExerciseCard.scrollIntoViewIfNeeded()
     await addExerciseCard.click()
 
-    const addExerciseDialog = page.locator('#add-exercise-dialog')
-    await expect(addExerciseDialog).toBeVisible()
+    const picker = page.locator('#exercise-picker')
+    await expect(picker).toBeVisible()
 
     // Verify "X" button works
-    await addExerciseDialog.locator('.close-dialog-btn').click()
-    await expect(addExerciseDialog).not.toBeVisible()
+    await picker.getByRole('button', { name: 'Close dialog' }).click()
+    await expect(picker).not.toBeVisible()
 
     await addExerciseCard.click()
-    await expect(addExerciseDialog).toBeVisible()
-    await expect(addExerciseDialog.getByRole('heading', { name: 'Add exercise' })).toBeFocused()
+    await expect(picker).toBeVisible()
+    await expect(picker.getByRole('heading', { name: 'Add exercises' })).toBeFocused()
     // The close button cancels, so the dialog has no Cancel.
-    await expect(addExerciseDialog.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
+    await expect(picker.getByRole('button', { name: 'Cancel' })).toHaveCount(0)
 
+    // The workout's exercises show ticked and can't be added again.
     const cardNames = page.locator('#exercises-list > .card .exercise-name')
-    const cardsBefore = await cardNames.count()
-    const dialogExercises = addExerciseDialog.locator('.card.card-hover')
-    const firstDialogExercise = dialogExercises.first()
-    const newExerciseName = (await firstDialogExercise.locator('.exercise-name').textContent())?.trim()
-    if (!newExerciseName) throw new Error('exercise name missing')
+    const inWorkout = (await cardNames.allTextContents()).map((name) => name.trim())
+    await expect(picker.getByLabel(inWorkout[0])).toBeChecked()
+    await expect(picker.getByLabel(inWorkout[0])).toBeDisabled()
 
-    await firstDialogExercise.click()
+    // The rest join the workout's end in the order ticked.
+    const free = picker.locator('.exercise-choice:has(input:enabled) .exercise-choice-name')
+    const [first, second] = (await free.allTextContents()).slice(0, 2).map((name) => name.trim())
+    await picker.getByLabel(second, { exact: true }).check()
+    await picker.getByLabel(first, { exact: true }).check()
+    await picker.getByRole('button', { name: 'Add 2 exercises' }).click()
 
-    await expect(addExerciseDialog).not.toBeVisible()
-    await expect(cardNames).toHaveCount(cardsBefore + 1)
-    await expect(cardNames.last()).toHaveText(newExerciseName)
+    await expect(picker).not.toBeVisible()
+    await expect(cardNames).toHaveText([...inWorkout, second, first])
+  })
+
+  test('swaps an exercise for one picked from the same sheet, which offers none already in the workout', async ({
+    page
+  }) => {
+    const cards = page.locator('#exercises-list > .card')
+    await expect(cards.first()).toBeVisible()
+    const names = (await cards.locator('.exercise-name').allTextContents()).map((name) => name.trim())
+
+    await cards.first().locator('.exercise-actions-btn').click()
+    await page.getByRole('button', { name: 'Swap exercise' }).click()
+    const picker = page.locator('#exercise-picker')
+    await expect(picker.getByRole('heading', { name: 'Swap exercise' })).toBeVisible()
+    // A swap takes the one tapped, so there are no checkboxes and nothing to submit.
+    await expect(picker.getByRole('checkbox')).toHaveCount(0)
+    await expect(picker.getByRole('button', { name: /^Add/ })).toBeHidden()
+    await expect(picker.getByRole('button', { name: names[1] })).toBeDisabled()
+
+    const replacement = picker.locator('button.exercise-choice:enabled .exercise-choice-name').first()
+    const replacementName = (await replacement.textContent())!.trim()
+    await replacement.click()
+    await expect(picker).toBeHidden()
+    await expect(cards.locator('.exercise-name')).toHaveText([replacementName, ...names.slice(1)])
   })
 
   test("prefills last time's heaviest weight and says so when the weights differed", async ({ page }) => {
@@ -777,10 +803,10 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
     // Adding the exercise starts the workout.
     await page.locator('#add-exercise-card').click()
-    const addExerciseDialog = page.locator('#add-exercise-dialog')
-    await expect(addExerciseDialog).toBeVisible()
-    await addExerciseDialog.locator('.card', { hasText: exerciseName }).first().click()
-    await expect(addExerciseDialog).not.toBeVisible()
+    const picker = page.locator('#exercise-picker')
+    await picker.getByLabel(exerciseName).check()
+    await picker.getByRole('button', { name: 'Add 1 exercise' }).click()
+    await expect(picker).not.toBeVisible()
 
     const card = page.locator('#exercises-list .card', { hasText: exerciseName }).first()
     await expect(card).toBeVisible()
