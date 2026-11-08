@@ -55,7 +55,9 @@ class ProgramExerciseRows {
 
     const remove = row.querySelector('.program-row-remove') as HTMLButtonElement
     remove.setAttribute('aria-label', `Remove ${exercise.name}`)
-    remove.addEventListener('click', () => this.actions.remove(exercise.id))
+    remove.addEventListener('click', () => {
+      if (confirm(`Remove ${exercise.name} from this program?`)) this.actions.remove(exercise.id)
+    })
     return fragment
   }
 

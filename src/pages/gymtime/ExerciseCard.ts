@@ -284,7 +284,9 @@ class ExerciseCard {
 
     const removeBtn = setMenu.querySelector('.remove-set-slot-btn') as HTMLButtonElement
     removeBtn.addEventListener('click', async () => {
+      const label = removeBtn.querySelector('.remove-set-label')?.textContent ?? 'Remove this set'
       setMenu.hidePopover()
+      if (!confirm(`${label}?`)) return
       await this.actions.session.apply((session) => workoutSessionsStore.removeSetSlot(session, this.exerciseId))
     })
   }

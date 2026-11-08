@@ -689,6 +689,14 @@ test.describe('Gymtime Page', () => {
     await page.locator('#break-countdown-dialog').getByRole('button', { name: 'Skip' }).click()
     await expect(logged).toHaveCount(1)
 
+    // Removing a set to do asks first, and No keeps it.
+    await card.getByRole('button', { name: `Set ${total}, to do` }).click()
+    page.once('dialog', (dialog) => void dialog.dismiss())
+    await page.getByRole('button', { name: `Remove set ${total}` }).click()
+    await expect(page.locator('.set-menu:popover-open')).toHaveCount(0)
+    await expect(pending).toHaveCount(total - 1)
+
+    page.on('dialog', (dialog) => void dialog.accept())
     await card.getByRole('button', { name: `Set ${total}, to do` }).click()
     await page.getByRole('button', { name: `Remove set ${total}` }).click()
     await expect(pending).toHaveCount(total - 2)
@@ -704,7 +712,6 @@ test.describe('Gymtime Page', () => {
     }
     await expect(card).toHaveClass(/card-success/)
 
-    page.on('dialog', (dialog) => dialog.accept())
     await logged.first().click()
     await page.locator('#edit-set-dialog').getByRole('button', { name: 'Delete' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Set deleted')
