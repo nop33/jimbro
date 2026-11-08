@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- partial:head -->
+    <title>Jimbro - Program</title>
+    <script type="module" src="/src/pages/programs/program/index.ts"></script>
+  </head>
+  <body class="app">
+    <!-- Icons: Lucide (https://lucide.dev), play, grip-vertical, circle-minus, plus, search, pencil and trash-2, inlined. ISC License. -->
+    <div class="app-page pb-20 md:pb-0">
+      <header class="app-header">
+        <!-- partial:back-button -->
+        <h1 id="program-title" class="app-header-title min-w-0 truncate">Program</h1>
+      </header>
+
+      <div class="app-page-content">
+        <p id="program-missing" class="text-jim-neutral-secondary" hidden>
+          This program was deleted. <a href="/programs/" class="link-primary underline">See your programs</a>
+        </p>
+
+        <div id="program-content" class="flex flex-col gap-6" hidden>
+          <a id="start-program" class="btn-primary flex items-center justify-center gap-2">
+            <svg class="lucide size-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="6 3 20 12 6 21 6 3" />
+            </svg>
+            Start this program
+          </a>
+
+          <section aria-labelledby="program-exercises-title">
+            <h2 id="program-exercises-title" class="settings-group-title flex justify-between">
+              Exercises
+              <span id="program-totals" class="normal-case tracking-normal"><!-- --></span>
+            </h2>
+            <div class="program-rows">
+              <ul id="program-exercises">
+                <!-- The program's exercises, in order -->
+              </ul>
+              <button type="button" id="add-exercises-btn" class="program-add-row">
+                <span class="program-add-icon">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
+                  </svg>
+                </span>
+                Add exercises
+              </button>
+            </div>
+            <p id="program-rows-hint" class="mt-2 ml-1 text-sm text-jim-neutral-tertiary">
+              Drag a row by its handle to reorder. Changes save as you make them.
+            </p>
+          </section>
+
+          <section class="settings-list" aria-label="Program">
+            <button type="button" id="rename-program-btn" class="settings-row">
+              <span class="settings-icon settings-icon-grey">
+                <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+                  />
+                </svg>
+              </span>
+              <span class="settings-row-label">Rename</span>
+            </button>
+            <button type="button" id="delete-program-btn" class="settings-row text-jim-accent">
+              <span class="settings-icon">
+                <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+              </span>
+              <span class="settings-row-label">Delete program</span>
+            </button>
+          </section>
+        </div>
+
+        <template id="program-exercise-template">
+          <li class="program-row">
+            <button type="button" class="program-row-handle">
+              <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="9" cy="12" r="1" />
+                <circle cx="9" cy="5" r="1" />
+                <circle cx="9" cy="19" r="1" />
+                <circle cx="15" cy="12" r="1" />
+                <circle cx="15" cy="5" r="1" />
+                <circle cx="15" cy="19" r="1" />
+              </svg>
+            </button>
+            <span class="program-row-label">
+              <span class="program-row-name"><!-- --></span>
+              <span class="program-row-detail"><!-- --></span>
+            </span>
+            <button type="button" class="program-row-remove">
+              <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 12h8" />
+              </svg>
+            </button>
+          </li>
+        </template>
+      </div>
+    </div>
+
+    <dialog id="rename-program-dialog" aria-labelledby="rename-program-title">
+      <header>
+        <h2 id="rename-program-title" class="text-xl font-bold">Rename program</h2>
+        <!-- partial:close-dialog-button -->
+      </header>
+      <form id="rename-program-form" class="flex flex-col gap-6">
+        <div>
+          <label for="rename-program-name">Name</label>
+          <input
+            type="text"
+            id="rename-program-name"
+            name="name"
+            required
+            class="w-full p-2 rounded border border-neutral-600"
+          />
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="btn-primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="add-exercises-dialog" class="dialog-sheet" aria-labelledby="add-exercises-title">
+      <form id="add-exercises-form" class="contents">
+        <header class="dialog-sheet-header">
+          <h2 id="add-exercises-title" class="text-lg font-bold focus:outline-none" tabindex="-1" autofocus>
+            Add exercises
+          </h2>
+          <!-- partial:close-dialog-button -->
+        </header>
+        <div class="dialog-sheet-body">
+          <div class="search-field">
+            <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input type="search" id="exercise-search" placeholder="Search exercises" aria-label="Search exercises" />
+          </div>
+          <div id="exercise-choices" class="flex flex-col gap-4">
+            <!-- The exercises, grouped by muscle -->
+          </div>
+          <p id="no-exercise-match" class="text-jim-neutral-secondary" hidden>No exercise matches.</p>
+          <p id="no-exercises" class="text-jim-neutral-secondary" hidden>
+            You have no exercises yet. <a href="/exercises/" class="link-primary underline">Create one</a>
+          </p>
+        </div>
+        <footer class="dialog-sheet-footer">
+          <button type="submit" id="add-exercises-submit" class="btn-primary w-full" disabled>Add exercises</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <template id="exercise-choice-group-template">
+      <section class="exercise-choice-group">
+        <h3 class="exercise-choice-group-title"><!-- --></h3>
+        <div class="exercise-choice-list"></div>
+      </section>
+    </template>
+
+    <template id="exercise-choice-template">
+      <label class="exercise-choice">
+        <span class="exercise-choice-name"><!-- --></span>
+        <span class="exercise-choice-note">In program</span>
+        <input type="checkbox" name="exercise" />
+      </label>
+    </template>
+
+    <!-- partial:break-timer -->
+    <!-- partial:bottom-nav -->
+  </body>
+</html>

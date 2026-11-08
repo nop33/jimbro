@@ -725,35 +725,194 @@
     @apply block text-sm font-semibold mb-2;
   }
 
-  select[multiple] {
-    optgroup {
-      @apply text-sm font-semibold mb-2;
-    }
+  /* A program on the programs page: the whole card opens its page. */
+  .program-card {
+    @apply flex items-center gap-3.5 rounded-2xl border border-neutral-700/50 bg-jim-dark-blue py-4 pr-3 pl-4.5 text-jim-neutral active:bg-white/5;
 
-    option {
-      @apply py-2 ml-4 pl-2 text-base;
-    }
-
-    option:first-child {
-      @apply mt-1;
+    .settings-row-chevron {
+      @apply size-5;
     }
   }
 
-  /* Sortable list styles */
-  .sortable-list {
-    @apply list-none p-0 m-0;
+  .program-card-main {
+    @apply flex min-w-0 flex-1 flex-col gap-1.5;
   }
 
-  .sortable-item {
-    @apply mb-2 px-5 py-4 my-2 bg-neutral-100 rounded font-bold text-[1.1em] text-neutral-800 cursor-grab shadow transition-[background-color,scale] duration-200 hover:bg-blue-50 hover:scale-105;
+  .program-summary {
+    @apply text-sm text-jim-neutral-tertiary;
   }
 
-  .dragging {
-    @apply opacity-30 scale-95;
+  .program-muscles {
+    @apply flex flex-wrap gap-1.5;
+
+    &:empty {
+      @apply hidden;
+    }
+
+    span {
+      @apply rounded-full bg-neutral-800 px-2.5 py-0.5 text-xs font-semibold text-jim-accent;
+    }
   }
 
-  .sortable-item:last-child {
-    @apply mb-0;
+  /* A program's exercises in order, each row with its drag handle and its remove button, and Add exercises last. */
+  .program-rows {
+    @apply overflow-hidden rounded-2xl border border-neutral-700/35 bg-jim-dark-blue/70;
+  }
+
+  .program-row {
+    @apply relative flex min-h-15 items-center gap-1 py-1.5 pr-1 pl-1;
+    transition:
+      scale 160ms var(--ease-out),
+      box-shadow 160ms var(--ease-out);
+
+    & + & {
+      @apply border-t border-neutral-500/20;
+    }
+  }
+
+  /* The row being dragged lifts off the list. It is opaque, so it hides the row it passes. */
+  .program-row.dragging {
+    @apply z-10 rounded-xl;
+    scale: 1.02;
+    background-color: color-mix(in srgb, white 6%, var(--color-jim-dark-blue));
+    box-shadow:
+      0 10px 24px rgb(0 0 0 / 0.55),
+      0 0 0 1px color-mix(in srgb, var(--color-jim-accent) 60%, transparent);
+  }
+
+  /* Only the handle starts a drag, so a thumb anywhere else on the list scrolls the page. */
+  .program-row-handle,
+  .program-row-remove {
+    @apply grid size-11 shrink-0 place-items-center rounded-xl text-jim-neutral-tertiary;
+
+    svg {
+      @apply size-5;
+    }
+  }
+
+  .program-row-handle {
+    @apply cursor-grab touch-none select-none;
+  }
+
+  .program-row-remove {
+    @apply hover:text-jim-accent;
+  }
+
+  .program-row-label {
+    @apply flex min-w-0 flex-1 flex-col pl-1;
+  }
+
+  .program-row-name {
+    @apply truncate font-semibold text-jim-neutral;
+  }
+
+  .program-row-detail {
+    @apply text-sm text-jim-neutral-tertiary;
+  }
+
+  .program-add-row {
+    @apply flex w-full min-h-14 items-center gap-3 px-4 font-semibold text-jim-accent active:bg-white/5;
+
+    #program-exercises:not(:empty) + & {
+      @apply border-t border-neutral-500/20;
+    }
+  }
+
+  .program-add-icon {
+    @apply grid size-6.5 place-items-center rounded-full border-[1.5px] border-current;
+
+    svg {
+      @apply size-4;
+    }
+  }
+
+  /* A dialog that rises from the bottom edge and fills the screen but for a strip at the top: its header and footer
+     stay put and only its body scrolls, so a long list never scrolls the dialog away. */
+  dialog.dialog-sheet {
+    @apply mx-auto mt-auto mb-0 w-full max-w-lg rounded-b-none border-b-0 p-0;
+    height: calc(100dvh - 1rem);
+    max-height: none;
+
+    &[open] {
+      @apply flex flex-col;
+    }
+  }
+
+  @starting-style {
+    dialog.dialog-sheet[open] {
+      opacity: 1;
+      scale: 1;
+      translate: 0 100%;
+    }
+  }
+
+  .dialog-sheet-header {
+    @apply mb-0! flex shrink-0 items-center justify-between gap-4 border-b border-neutral-500/20 py-2 pr-3 pl-5;
+  }
+
+  .dialog-sheet-body {
+    @apply flex flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-6;
+  }
+
+  .dialog-sheet-footer {
+    @apply shrink-0 border-t border-neutral-500/20 px-4 pt-3;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .search-field {
+    @apply relative;
+
+    svg {
+      @apply pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2 text-jim-neutral-tertiary;
+    }
+
+    input {
+      @apply w-full rounded-xl border border-neutral-600 bg-black/25 py-2.5 pr-3 pl-10 text-base;
+    }
+  }
+
+  /* The exercise picker: a checklist grouped by muscle, each group's title held at the top while its rows scroll. */
+  .exercise-choice-group-title {
+    @apply sticky top-0 z-1 -mx-1 bg-jim-dark-blue px-2 pt-1 pb-2 text-xs font-semibold tracking-wider uppercase text-jim-neutral-tertiary;
+  }
+
+  .exercise-choice-list {
+    @apply overflow-hidden rounded-2xl border border-neutral-700/35 bg-black/15;
+  }
+
+  .exercise-choice {
+    @apply m-0 flex min-h-13 cursor-pointer items-center gap-3 px-4 py-1.5 text-base font-medium text-jim-neutral;
+
+    & + & {
+      @apply border-t border-neutral-500/20;
+    }
+
+    input {
+      @apply m-0 size-5.5 min-h-0 min-w-0 shrink-0 accent-jim-accent;
+    }
+
+    &:has(input:disabled) {
+      @apply cursor-default text-jim-neutral-tertiary;
+    }
+
+    &:not(:has(input:disabled)) .exercise-choice-note {
+      @apply hidden;
+    }
+  }
+
+  /* A search hides the exercises and groups it leaves out. */
+  .exercise-choice[hidden],
+  .exercise-choice-group[hidden],
+  #start-program[hidden] {
+    @apply hidden;
+  }
+
+  .exercise-choice-name {
+    @apply min-w-0 flex-1;
+  }
+
+  .exercise-choice-note {
+    @apply text-xs font-normal;
   }
 
   /* The label and each field get a column, and a flexible column before each field shares out the room left, so the

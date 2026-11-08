@@ -1,11 +1,10 @@
 import { exercisesStore } from '../../db/stores/exercisesStore'
 import { programsStore } from '../../db/stores/programsStore'
-import ProgramDialog from './ProgramDialog'
+import NewProgramDialog from './NewProgramDialog'
 import ProgramList from './ProgramList'
 
 export const mount = async (signal: AbortSignal) => {
-  await programsStore.load()
-  await exercisesStore.load()
-  const dialog = new ProgramDialog(signal)
-  new ProgramList((program) => dialog.open(program), signal)
+  await Promise.all([programsStore.load(), exercisesStore.load()])
+  new NewProgramDialog()
+  new ProgramList(signal)
 }

@@ -115,7 +115,7 @@ The page you keep open during a workout.
 ### Programs (`/programs/`)
 
 - Program cards with a collapsible list of their exercises and an edit button.
-- The program dialog has a name, a multi-select of exercises grouped by muscle group, with cardio in a group of its own, and a drag-and-drop list to order the chosen exercises by mouse or touch. The same dialog deletes a program.
+- The programs page lists each program as a card with its totals and muscle groups. New asks only for a name, then opens the program's own page (`/programs/program/?id=`) on the exercise picker. That page saves every change as it is made: drag a row by its handle (or use the arrow keys on it) to reorder, remove a row, add exercises from a full-height sheet with a search and a checklist grouped by muscle group (cardio in a group of its own), rename, delete, or start a workout from the program.
 
 ### Stats (`/stats/`)
 

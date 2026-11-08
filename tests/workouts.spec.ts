@@ -88,13 +88,13 @@ test.describe('Workouts Page', () => {
     await seedDatabase(page)
 
     await page.goto('/programs/')
-    const programCards = page.locator('#programs-grid > .card')
+    const programCards = page.locator('#programs-grid .program-card')
     await expect(programCards.first()).toBeVisible()
     page.on('dialog', (dialog) => dialog.accept())
     for (let remaining = await programCards.count(); remaining > 0; remaining--) {
-      await programCards.first().locator('.edit-program-btn').click()
-      await page.locator('#program-dialog').getByRole('button', { name: 'Delete' }).click()
-      await expect(page.locator('#program-dialog')).toBeHidden()
+      await programCards.first().click()
+      await page.getByRole('button', { name: 'Delete program' }).click()
+      await expect(page).toHaveURL(/\/programs\/$/)
       await expect(programCards).toHaveCount(remaining - 1)
     }
 

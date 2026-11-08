@@ -47,7 +47,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Workouts](./workouts.md) covers seeding, intro texts, weekly cards, the New workout dialog and the workout mode.
 - [Gymtime](./gymtime.md) covers the workout form, exercise cards and their menu, logging and editing sets, the break timer, previous sets, the history chart, adding exercises, completion with its passkey offer, and deletion.
 - [Exercises](./exercises.md) covers the library, the three kinds, create, edit, filter and delete.
-- [Programs](./programs.md) covers create, reorder, edit and delete.
+- [Programs](./programs.md) covers the list, a program's page, create, reorder, remove, add, rename and delete.
 - [Stats](./stats.md) covers the lifetime totals.
 - [Settings](./settings.md) covers break time, the passkey cloud backup, AI assistants, and export, import and reset.
 
