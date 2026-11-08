@@ -67,6 +67,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(alert.title ?? 'Break over', {
       body: alert.body ?? '',
       icon: '/icons/logo-192.png',
+      // Android's status bar and notification header show the badge as a white silhouette. iOS ignores it.
+      badge: '/icons/badge-96.png',
       tag: 'break-alert',
       data: { url: alert.url ?? '/gymtime/' }
     })

@@ -9,6 +9,7 @@ import {
   slotsForPreset,
   emptySet,
   formatPrescription,
+  formatSet,
   fromDisplayValues,
   muscleRequired,
   parseSet,
@@ -61,6 +62,17 @@ describe('log preset registry', () => {
     )
     expect(formatPrescription({ preset: 'cardioTreadmill', targetSets: 1, defaults: {} })).toBe('1 set')
     expect(formatPrescription({ preset: 'cardioTreadmill', targetSets: 8, defaults: {} })).toBe('8 sets')
+  })
+
+  it('words one set per preset, leaving out a weight or incline of 0', () => {
+    expect(formatSet('lifting', { reps: 8, weight: 82.5 })).toBe('82.5 kg × 8 reps')
+    expect(formatSet('lifting', { reps: 1, weight: 0 })).toBe('1 rep')
+    expect(formatSet('rehabReps', { reps: 12 })).toBe('12 reps')
+    expect(formatSet('rehabHold', { durationSec: 45, weight: 5 })).toBe('5 kg × 45s hold')
+    expect(formatSet('cardioTreadmill', { durationSec: 600, speed: 8.5, incline: 1 })).toBe(
+      '10 min at 8.5 km/h, 1% incline'
+    )
+    expect(formatSet('cardioTreadmill', { durationSec: 90, speed: 6, incline: 0 })).toBe('1.5 min at 6 km/h')
   })
 
   it('does not collect cardio slot defaults on the exercise', () => {

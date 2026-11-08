@@ -140,8 +140,9 @@ test('a break points at the bell, and once on, a break out of sight asks the wor
   const response = await scheduled
   expect(await response.json()).toEqual({ scheduled: true })
   const alert = response.request().postDataJSON() as { endsAt: number; title: string; body: string; url: string }
-  expect(alert.title).toBe('Break over')
-  expect(alert.body).toMatch(/^Next: /)
+  // Back to the same exercise for its next set, with the values its form holds.
+  expect(alert.title).toMatch(/ · set 2 of \d+$/)
+  expect(alert.body).toBe('100 kg × 10 reps')
   expect(alert.url).toMatch(/^\/gymtime\/\?id=/)
   expect(alert.endsAt).toBeGreaterThan(Date.now())
 

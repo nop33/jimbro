@@ -76,6 +76,8 @@ export interface LogPresetSpec {
   muscleRequired: boolean
   buildSet: (values: ExerciseDefaults) => ExerciseSetExecution
   formatPrescription: (prescription: Prescription) => string
+  // One set's values in words, as the break alert names the next set.
+  formatSet: (values: ExerciseDefaults) => string
 }
 
 const REPS_SLOT: SetSlotSpec = {
@@ -153,6 +155,13 @@ const setsPhrase = (targetSets: number): string => `${targetSets} ${targetSets =
 const repsPrescription = ({ targetSets, defaults }: Prescription): string =>
   `${setsPhrase(targetSets)} × ${formatNumber(defaults.reps ?? 0)} reps`
 
+// A set's weight in front of the rest, as in "80 kg × 8 reps", left out when there is none.
+const withWeight = (weight: number | undefined, rest: string): string =>
+  weight ? `${formatNumber(weight)} kg × ${rest}` : rest
+
+const repsSet = ({ reps, weight }: ExerciseDefaults): string =>
+  withWeight(weight, `${formatNumber(reps ?? 0)} ${reps === 1 ? 'rep' : 'reps'}`)
+
 export const LOG_PRESET_SPECS: Record<LogPreset, LogPresetSpec> = {
   lifting: {
     preset: 'lifting',
@@ -162,7 +171,8 @@ export const LOG_PRESET_SPECS: Record<LogPreset, LogPresetSpec> = {
     breakTimer: true,
     muscleRequired: true,
     buildSet: (values) => ({ preset: 'lifting', reps: values.reps ?? 0, weight: values.weight ?? 0 }),
-    formatPrescription: repsPrescription
+    formatPrescription: repsPrescription,
+    formatSet: repsSet
   },
   rehabReps: {
     preset: 'rehabReps',
@@ -172,7 +182,8 @@ export const LOG_PRESET_SPECS: Record<LogPreset, LogPresetSpec> = {
     breakTimer: false,
     muscleRequired: true,
     buildSet: (values) => ({ preset: 'rehabReps', reps: values.reps ?? 0, weight: values.weight }),
-    formatPrescription: repsPrescription
+    formatPrescription: repsPrescription,
+    formatSet: repsSet
   },
   rehabHold: {
     preset: 'rehabHold',
@@ -183,7 +194,8 @@ export const LOG_PRESET_SPECS: Record<LogPreset, LogPresetSpec> = {
     muscleRequired: true,
     buildSet: (values) => ({ preset: 'rehabHold', durationSec: values.durationSec ?? 0, weight: values.weight }),
     formatPrescription: ({ targetSets, defaults }) =>
-      `${setsPhrase(targetSets)} × ${formatNumber(defaults.durationSec ?? 0)}s hold`
+      `${setsPhrase(targetSets)} × ${formatNumber(defaults.durationSec ?? 0)}s hold`,
+    formatSet: ({ durationSec, weight }) => withWeight(weight, `${formatNumber(durationSec ?? 0)}s hold`)
   },
   cardioTreadmill: {
     preset: 'cardioTreadmill',
@@ -198,7 +210,10 @@ export const LOG_PRESET_SPECS: Record<LogPreset, LogPresetSpec> = {
       speed: values.speed ?? 0,
       incline: values.incline ?? 0
     }),
-    formatPrescription: ({ targetSets }) => setsPhrase(targetSets)
+    formatPrescription: ({ targetSets }) => setsPhrase(targetSets),
+    formatSet: ({ durationSec, speed, incline }) =>
+      `${formatNumber((durationSec ?? 0) / 60)} min at ${formatNumber(speed ?? 0)} km/h` +
+      (incline ? `, ${formatNumber(incline)}% incline` : '')
   }
 }
 
@@ -229,6 +244,9 @@ export const defaultFieldName = (slot: SetSlot): string => `default-${slot}`
 
 export const formatPrescription = (prescription: Prescription): string =>
   LOG_PRESET_SPECS[prescription.preset].formatPrescription(prescription)
+
+export const formatSet = (preset: LogPreset, values: ExerciseDefaults): string =>
+  LOG_PRESET_SPECS[preset].formatSet(values)
 
 export const parseExerciseKind = (value: unknown): ExerciseKind | undefined =>
   EXERCISE_KINDS.find((kind) => kind === value)

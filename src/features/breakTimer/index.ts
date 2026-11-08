@@ -4,13 +4,14 @@ import { breakAlertsOn, cancelBreakAlert, scheduleBreakAlert } from '../../sync/
 import AlertsBell from './alertsBell'
 import { playDingSound } from './sound'
 
-// A break after a set in a workout: its length, the exercise's sets logged and to do, and the next exercise with sets
-// to do.
+// A break after a set in a workout: its length, the exercise's sets logged and to do, the next set's values in words,
+// and the next exercise with sets to do.
 export interface Break {
   sessionId: string
   seconds: number
   setsDone: number
   setsTotal: number
+  nextSet: string
   next?: string
   exercise: { id: string; name: string; kind: ExerciseKind }
 }
@@ -34,8 +35,8 @@ class BreakTimer {
   private currentExercise: Break['exercise'] | null = null
   private sessionId: Break['sessionId'] | null = null
   private isMinimized = false
-  // The next exercise's name, for the alert at the end of the break.
-  private next: string | undefined
+  // What the alert at the end of the break says: the exercise, which set comes, and its values.
+  private alert: { title: string; body: string } | null = null
   // Whether the worker holds an alert for this break, which it sends unless the page comes back first.
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
@@ -202,11 +203,18 @@ class BreakTimer {
   }
 
   private scheduleAlert() {
-    if (this.targetTime === null || this.targetTime <= Date.now() || this.sessionId === null || !breakAlertsOn()) return
+    if (
+      this.targetTime === null ||
+      this.targetTime <= Date.now() ||
+      this.sessionId === null ||
+      this.alert === null ||
+      !breakAlertsOn()
+    ) {
+      return
+    }
     scheduleBreakAlert({
       endsAt: this.targetTime,
-      title: 'Break over',
-      body: this.next ? `Next: ${this.next}` : `Back to ${this.currentExercise?.name ?? 'your workout'}`,
+      ...this.alert,
       url: `/gymtime/?id=${this.sessionId}`
     })
     this.alertScheduled = true
@@ -243,14 +251,15 @@ class BreakTimer {
   }
 
   // Starts a break, in place of any break still running.
-  start({ sessionId, seconds, setsDone, setsTotal, next, exercise }: Break) {
+  start({ sessionId, seconds, setsDone, setsTotal, nextSet, next, exercise }: Break) {
     this.stopCountdown()
     this.currentExercise = exercise
     this.sessionId = sessionId
     this.showWayToWorkout()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
-    this.next = next
+    // A break only follows a set of an exercise with sets still to do, so the lifter goes back to it, not to next.
+    this.alert = { title: `${exercise.name} · set ${setsDone + 1} of ${setsTotal}`, body: nextSet }
     this.alertsBell.reset()
 
     this.updateTimerDisplay()
@@ -291,7 +300,7 @@ class BreakTimer {
     }
     this.cancelAlert()
     this.targetTime = null
-    this.next = undefined
+    this.alert = null
     this.hasPlayedSound = false
     this.currentExercise = null
     this.sessionId = null
