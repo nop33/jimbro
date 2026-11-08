@@ -75,6 +75,7 @@ export default class AssistantsSetting {
   }
 
   private async disconnect(connection: Connection, button: HTMLButtonElement) {
+    if (!confirm(`Disconnect ${connection.name}? It will need your passkey to connect again.`)) return
     try {
       await whileBusy(button, 'Disconnecting…', () => disconnect(connection.id))
     } catch (error) {

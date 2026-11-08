@@ -113,6 +113,15 @@ test.describe('Programs Page', () => {
     await expect(rowNames(page)).toHaveText(['Lunge', 'Bench', 'Squat'])
     await expect(page.getByRole('button', { name: 'Reorder Squat' })).toBeFocused()
 
+    // Removing asks first, and No keeps the exercise.
+    page.once('dialog', (dialog) => void dialog.dismiss())
+    await page.getByRole('button', { name: 'Remove Bench' }).click()
+    await expect(rowNames(page)).toHaveText(['Lunge', 'Bench', 'Squat'])
+
+    page.once('dialog', (dialog) => {
+      expect(dialog.message()).toBe('Remove Bench from this program?')
+      void dialog.accept()
+    })
     await page.getByRole('button', { name: 'Remove Bench' }).click()
     await expect(rowNames(page)).toHaveText(['Lunge', 'Squat'])
 

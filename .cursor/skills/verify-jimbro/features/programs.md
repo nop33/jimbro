@@ -8,7 +8,7 @@ Programs are workout templates: a name and an ordered list of exercises. The pro
 - `program-new`: `New` opens `dialog#new-program-dialog`, which asks only for a name and opens on it. `Create` stores the program and opens its page on the exercise picker.
 - `program-page` shows the program's name as the page heading, `Start this program` (a link to `/gymtime/?programId=<id>`, hidden while the program has no exercises), the exercises in order in `#program-exercises`, `Add exercises`, `Rename` and `Delete program`. A program that is gone shows `This program was deleted.`.
 - `program-reorder` drags a row by its handle (`Reorder <exercise>`), by mouse or touch, or moves it one place with the up and down arrow keys on the handle. The rest of the row scrolls the page. The order saves on drop.
-- `program-remove`: `Remove <exercise>` takes it out of the program at once.
+- `program-remove`: `Remove <exercise>` asks `Remove <exercise> from this program?` and takes it out of the program on OK.
 - `program-add` opens `dialog#add-exercises-dialog`, a full-height sheet with `Search exercises` and a checklist grouped by muscle (or kind, for cardio), groups and names in alphabetical order. The program's exercises show ticked, greyed and disabled, with `In program`. The button counts the checked ones (`Add 2 exercises`), and they join the program's end in the order checked.
 - `program-rename` opens `dialog#rename-program-dialog` on its name, selected.
 - `program-delete` confirms, then goes back to `/programs/` with `Program deleted.`.
