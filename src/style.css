@@ -282,6 +282,12 @@
     .met {
       @apply bg-jim-success;
     }
+
+    /* Done ahead last week, or beyond the goal and counting toward next week. */
+    .ahead,
+    .extra {
+      @apply bg-jim-success/45;
+    }
   }
 
   .week-progress {
@@ -401,6 +407,11 @@
     .program-pick-action {
       @apply text-base font-bold text-jim-accent whitespace-nowrap;
     }
+  }
+
+  /* An extra once the week met its goal: still the next in line, but quieter than a workout the goal asks for. */
+  .program-pick[data-suggested][data-extra] {
+    @apply border-white/15 bg-jim-dark-blue/70;
   }
 
   .program-pick[data-suggested][data-status='incomplete'] {

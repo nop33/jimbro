@@ -19,13 +19,23 @@ export interface WeekOfSessions {
   week: Week
   // The week's sessions in date order.
   sessions: Array<WorkoutSession>
+  // The week's own completed workouts.
   completed: number
+  // The week before's completed workouts beyond its goal, which count toward this week: a lifter who knows the next
+  // week is busy trains once more the week before. They carry one week only, so they never carry on from here.
+  ahead: Array<WorkoutSession>
+  // This week's completed workouts beyond the goal, the latest ones, which count toward next week.
+  extra: Array<WorkoutSession>
+  // The completed workouts that count toward this week's goal: its own and those done ahead.
+  counted: number
 }
 
 export interface ProgramStatus {
   program: ProgramRow
   // The program's latest workout this week.
   thisWeek?: WorkoutSession
+  // The program's workout done ahead last week, which counts for this week, when it has none of its own this week.
+  ahead?: WorkoutSession
   // The program's latest completed workout and the whole days since, which are 0 on the day itself.
   lastCompleted?: { date: string; daysAgo: number }
 }
@@ -78,15 +88,24 @@ export const trainingWeeks = (
     else byMonday.set(monday, [session])
   }
 
+  const goal = weeklyGoal(settings, programs.length)
   const weeks: Array<WeekOfSessions> = []
   const firstMonday = sorted.length > 0 ? weekOf(sorted[0].date).monday : thisWeek.monday
-  for (let monday = thisWeek.monday; monday >= firstMonday; monday = addDays(monday, -7)) {
+  // Oldest first, so each week knows the extra workouts of the week before.
+  let extraBefore: Array<WorkoutSession> = []
+  for (let monday = firstMonday; monday <= thisWeek.monday; monday = addDays(monday, 7)) {
     const weekSessions = byMonday.get(monday) ?? []
-    weeks.push({
+    const completed = weekSessions.filter((session) => session.status === 'completed')
+    const extra = goal > 0 ? completed.slice(goal) : []
+    weeks.unshift({
       week: weekOf(monday),
       sessions: weekSessions,
-      completed: weekSessions.filter((session) => session.status === 'completed').length
+      completed: completed.length,
+      ahead: extraBefore,
+      extra,
+      counted: completed.length + extraBefore.length
     })
+    extraBefore = extra
   }
 
   const lastCompleted = new Map<string, string>()
@@ -94,13 +113,17 @@ export const trainingWeeks = (
   const thisWeekSessions = weeks[0].sessions
 
   return {
-    goal: weeklyGoal(settings, programs.length),
+    goal,
     weeks,
     programs: programs.map((program): ProgramStatus => {
       const date = lastCompleted.get(program.id)
+      const thisWeekOfProgram = thisWeekSessions.filter((session) => session.programId === program.id).at(-1)
       return {
         program,
-        thisWeek: thisWeekSessions.filter((session) => session.programId === program.id).at(-1),
+        thisWeek: thisWeekOfProgram,
+        ahead: thisWeekOfProgram
+          ? undefined
+          : weeks[0].ahead.filter((session) => session.programId === program.id).at(-1),
         lastCompleted: date === undefined ? undefined : { date, daysAgo: daysBetween(date, today) }
       }
     })

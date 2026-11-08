@@ -117,7 +117,84 @@ describe('trainingWeeks', () => {
 
   it('has only this week without sessions', () => {
     const { weeks } = trainingWeeks([], PROGRAMS, ROTATION, '2026-10-11')
-    expect(weeks).toEqual([{ week: { monday: '2026-10-05', number: 41, year: 2026 }, sessions: [], completed: 0 }])
+    expect(weeks).toEqual([
+      {
+        week: { monday: '2026-10-05', number: 41, year: 2026 },
+        sessions: [],
+        completed: 0,
+        ahead: [],
+        extra: [],
+        counted: 0
+      }
+    ])
+  })
+
+  // Three workouts a week, and a fourth on Sunday 8 November because the next week is busy.
+  const fullWeekAndOneAhead = [
+    session('2026-11-02', 'legs'),
+    session('2026-11-04', 'push'),
+    session('2026-11-06', 'pull'),
+    session('2026-11-08', 'legs')
+  ]
+
+  it('counts a completed workout beyond the goal toward the next week', () => {
+    const { weeks } = trainingWeeks(
+      [...fullWeekAndOneAhead, session('2026-11-11', 'push'), session('2026-11-13', 'pull')],
+      PROGRAMS,
+      ROTATION,
+      '2026-11-15'
+    )
+    const [busyWeek, weekBefore] = weeks
+    expect(weekBefore).toMatchObject({ completed: 4, counted: 4, ahead: [] })
+    expect(weekBefore.extra.map((one) => one.date)).toEqual(['2026-11-08'])
+    expect(busyWeek).toMatchObject({ completed: 2, counted: 3, extra: [] })
+    expect(busyWeek.ahead.map((one) => one.date)).toEqual(['2026-11-08'])
+  })
+
+  it('carries extra workouts one week only', () => {
+    const { weeks } = trainingWeeks(
+      [
+        ...fullWeekAndOneAhead,
+        session('2026-11-09', 'push'),
+        session('2026-11-10', 'pull'),
+        session('2026-11-11', 'legs')
+      ],
+      PROGRAMS,
+      ROTATION,
+      '2026-11-16'
+    )
+    expect(
+      weeks.map(({ completed, counted, ahead, extra }) => [completed, counted, ahead.length, extra.length])
+    ).toEqual([
+      [0, 0, 0, 0],
+      [3, 4, 1, 0],
+      [4, 4, 0, 1]
+    ])
+  })
+
+  it('carries only completed workouts, and in freestyle mode the ones beyond the weekly goal', () => {
+    const { weeks } = trainingWeeks(
+      [session('2026-11-02', 'legs'), session('2026-11-04', 'push'), session('2026-11-06', 'pull', 'incomplete')],
+      PROGRAMS,
+      FREESTYLE,
+      '2026-11-09'
+    )
+    expect(weeks[1].extra).toEqual([])
+    expect(weeks[0]).toMatchObject({ ahead: [], counted: 0 })
+  })
+
+  it('marks a program done ahead when this week has no workout of it', () => {
+    const { programs } = trainingWeeks(
+      [...fullWeekAndOneAhead, session('2026-11-09', 'push')],
+      PROGRAMS,
+      ROTATION,
+      '2026-11-10'
+    )
+    expect(programs.map(({ program, thisWeek, ahead }) => [program.id, thisWeek?.date, ahead?.date])).toEqual([
+      ['push', '2026-11-09', undefined],
+      ['pull', undefined, undefined],
+      ['legs', undefined, '2026-11-08']
+    ])
   })
 
   it('aims for every program in rotation mode and for the weekly goal in freestyle mode', () => {

@@ -1,39 +1,10 @@
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from './fixtures'
+import { logWorkout } from './logWorkout'
 import { seedDatabase } from './seed'
 
 // Friday 9 October 2026, so this week runs from Monday the 5th.
 const NOW = new Date(2026, 9, 9, 10, 0)
-
-// Starts a workout of the program at `index` on `date`, finished when `finished` is true. Resolves to the program.
-const logWorkout = (page: Page, index: number, date: string, finished: boolean) =>
-  page.evaluate(
-    async ({ index, date, finished }) => {
-      const { programsStore } = await import('/src/db/stores/programsStore.ts')
-      const { snapshotFromExercise, workoutSessionsStore } = await import('/src/db/stores/workoutSessionsStore.ts')
-      const program = (await programsStore.load())[index]
-      const bench = {
-        id: 'home-bench',
-        name: 'Bench',
-        kind: 'lifting',
-        preset: 'lifting',
-        muscle: 'chest',
-        targetSets: 1,
-        defaults: { reps: 5 },
-        isDeleted: false,
-        updatedAt: '2026-10-01T12:00:00.000Z'
-      } as const
-      const session = await workoutSessionsStore.create({
-        date,
-        programId: program.id,
-        location: '',
-        exercises: [snapshotFromExercise(bench)]
-      })
-      if (finished) await workoutSessionsStore.addSet(session, bench.id, { preset: 'lifting', reps: 5, weight: 60 })
-      return { id: program.id, name: program.name, sessionId: session.id }
-    },
-    { index, date, finished }
-  )
 
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -127,5 +98,40 @@ test.describe('Home Page', () => {
     await expect(suggested).toContainText(started.name)
     await expect(suggested).toContainText('Continue ›')
     await expect(suggested).toHaveAttribute('href', `/gymtime/?id=${started.sessionId}`)
+  })
+
+  test('counts a fourth workout toward next week, which then needs two', async ({ page }) => {
+    await seedDatabase(page)
+    // Push, Pull and Legs this week, and Push again on Sunday 11 October ahead of a busy week.
+    await logWorkout(page, 0, '2026-10-05', true)
+    await logWorkout(page, 1, '2026-10-06', true)
+    await logWorkout(page, 2, '2026-10-07', true)
+
+    await page.clock.setFixedTime(new Date(2026, 9, 11, 10, 0))
+    await page.goto('/')
+    const extra = page.locator('.program-pick[data-suggested][data-extra]')
+    await expect(extra).toContainText('Push day')
+    await expect(extra).toContainText('Extra ›')
+    await logWorkout(page, 0, '2026-10-11', true)
+
+    await page.reload()
+    await expect(page.locator('#week-count')).toHaveText('3 of 3 workouts')
+    await expect(page.locator('#week-carry')).toHaveText('+1 workout toward next week')
+    await expect(page.locator('#week-goal .extra')).toHaveCount(1)
+
+    // Monday: the Push done ahead counts, and the rotation goes on with Pull.
+    await page.clock.setFixedTime(new Date(2026, 9, 12, 10, 0))
+    await page.goto('/')
+    await expect(page.locator('#week-count')).toHaveText('1 of 3 workouts')
+    await expect(page.locator('#week-carry')).toHaveText('1 workout done ahead last week')
+    await expect(page.locator('.program-pick', { hasText: 'Push day' })).toContainText('Done ahead Sun, Oct 11')
+    await expect(page.locator('.program-pick[data-suggested]')).toContainText('Pull day')
+
+    // Two workouts in the busy week keep the streak.
+    await logWorkout(page, 1, '2026-10-14', true)
+    await logWorkout(page, 2, '2026-10-16', true)
+    await page.clock.setFixedTime(new Date(2026, 9, 19, 10, 0))
+    await page.goto('/')
+    await expect(page.locator('#streak-value')).toHaveText('🔥 2')
   })
 })

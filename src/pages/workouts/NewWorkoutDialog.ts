@@ -27,7 +27,7 @@ class NewWorkoutDialog {
   }
 
   private render(programs: Array<ProgramStatus>) {
-    for (const { program, thisWeek, lastCompleted } of programs) {
+    for (const { program, thisWeek, ahead, lastCompleted } of programs) {
       const programItem = nodeFromTemplate('#program-item-template')
       const programItemDiv = programItem.querySelector('div') as HTMLDivElement
       const programLink = programItem.querySelector('.program-link') as HTMLAnchorElement
@@ -37,6 +37,13 @@ class NewWorkoutDialog {
       if (thisWeek?.status === 'completed') {
         programItemDiv.classList.add('card-success')
         setTextContent('.this-week-status', 'You have already completed this program for this week!', programItem)
+      } else if (ahead) {
+        programItemDiv.classList.add('card-success')
+        setTextContent(
+          '.this-week-status',
+          'You did this program ahead last week, so it counts for this week.',
+          programItem
+        )
       } else if (thisWeek?.status === 'incomplete') {
         programItemDiv.classList.add('card-warning')
         setTextContent(

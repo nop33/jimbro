@@ -94,9 +94,52 @@ describe('buildWeekOverview', () => {
     expect(picks[0]).toMatchObject({ program: { id: 'pull' }, isSuggested: true, thisWeek: { status: 'incomplete' } })
   })
 
-  it('suggests nothing once the week meets its goal', () => {
+  it('suggests an extra once the week meets its goal: the program done longest ago, as the rotation goes on', () => {
     const week = [session('2026-10-05', 'push'), session('2026-10-06', 'pull'), session('2026-10-07', 'legs')]
-    expect(buildWeekOverview(week, PROGRAMS, ROTATION, NOW).picks.some((pick) => pick.isSuggested)).toBe(false)
+    const { picks, completed, extra } = buildWeekOverview(week, PROGRAMS, ROTATION, NOW)
+    expect(picks.filter((pick) => pick.isSuggested).map((pick) => [pick.program.id, pick.isExtra])).toEqual([
+      ['push', true]
+    ])
+    expect({ completed, extra }).toEqual({ completed: 3, extra: 0 })
+  })
+
+  it('counts a workout done ahead last week toward this week, and leaves its program out of the suggestion', () => {
+    // Monday 12 October, after a week with a fourth workout on Sunday.
+    const monday = new Date(2026, 9, 12, 7, 30)
+    const lastWeek = [
+      session('2026-10-05', 'push'),
+      session('2026-10-07', 'pull'),
+      session('2026-10-09', 'legs'),
+      session('2026-10-11', 'push')
+    ]
+    const overview = buildWeekOverview(lastWeek, PROGRAMS, ROTATION, monday)
+    expect({ completed: overview.completed, ahead: overview.ahead, extra: overview.extra }).toEqual({
+      completed: 0,
+      ahead: 1,
+      extra: 0
+    })
+    expect(overview.picks.map((pick) => [pick.program.id, pick.isSuggested, pick.ahead?.date])).toEqual([
+      ['pull', true, undefined],
+      ['legs', false, undefined],
+      ['push', false, '2026-10-11']
+    ])
+  })
+
+  it('keeps the streak through a short week that the week before trained ahead for', () => {
+    const fullWeek = ['2026-09-21', '2026-09-23', '2026-09-25'].map((date, index) => session(date, PROGRAMS[index].id))
+    const aheadWeek = [
+      session('2026-09-28', 'push'),
+      session('2026-09-30', 'pull'),
+      session('2026-10-02', 'legs'),
+      session('2026-10-04', 'push')
+    ]
+    const shortWeek = [session('2026-10-06', 'pull'), session('2026-10-08', 'legs')]
+    // Monday 12 October: the short week of two is over and counts with the one done ahead.
+    const monday = new Date(2026, 9, 12, 7, 30)
+    expect(buildWeekOverview([...fullWeek, ...aheadWeek, ...shortWeek], PROGRAMS, ROTATION, monday).streak).toBe(3)
+    expect(
+      buildWeekOverview([...fullWeek, ...aheadWeek.slice(0, 3), ...shortWeek], PROGRAMS, ROTATION, monday).streak
+    ).toBe(0)
   })
 
   it('in freestyle mode suggests the program done longest ago, even one done this week', () => {
