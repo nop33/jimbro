@@ -989,8 +989,8 @@
      its content up to a strip short of the top, and its header and footer stay put while only its body scrolls, so a
      long form or list never scrolls the close button away. `.dialog-sheet-full` takes the whole height whatever it
      holds, as the exercise picker does so its list keeps its place while a filter narrows it. A sheet follows a finger
-     that pulls it down and closes past a point (src/features/bottomSheet.ts), which the grabber at its top suggests. */
-  /* With the keyboard open, a sheet sits on it and fits in what is left above it (followKeyboard in bottomSheet.ts). */
+     that pulls it down and closes past a point (src/features/bottomSheet.ts), which the grabber at its top suggests.
+     With the keyboard open, a sheet sits on it and fits in what is left above it (followKeyboard in bottomSheet.ts). */
   dialog.dialog-sheet {
     @apply mx-auto mt-auto w-full max-w-lg rounded-b-none border-b-0 p-0;
     margin-bottom: var(--keyboard-inset, 0px);
@@ -998,6 +998,13 @@
 
     &[open] {
       @apply flex flex-col;
+    }
+
+    /* A sheet covers most of the screen, so its backdrop only dims. Blurring the page behind a sheet made Playwright's
+       desktop WebKit take up to a second per frame (median 16ms without it), so clicks in a sheet timed out waiting for
+       their target to hold still. */
+    &::backdrop {
+      backdrop-filter: none;
     }
 
     &::before {
@@ -1065,6 +1072,10 @@
   }
 
   /* Relative, so the hidden radio sits in its chip: focused anywhere else, it would scroll the sheet to reach it. */
+  .exercise-filter-divider {
+    @apply my-2 w-px shrink-0 bg-neutral-600;
+  }
+
   .exercise-filter-chip {
     @apply relative m-0 flex min-h-11 shrink-0 cursor-pointer items-center rounded-full border border-neutral-600 bg-black/20 px-4 text-sm font-semibold text-jim-neutral-secondary transition-colors duration-150;
 
@@ -1077,8 +1088,10 @@
     }
   }
 
+  /* Held at the very top of the sheet's body: a sticky offset counts from inside the body's top padding, so the title
+     reaches 1rem above it and covers that strip too, instead of showing the rows scrolling behind it. */
   .exercise-choice-group-title {
-    @apply sticky top-0 z-1 -mx-1 bg-jim-dark-blue px-2 pt-1 pb-2 text-xs font-semibold tracking-wider uppercase text-jim-neutral-tertiary;
+    @apply sticky -top-4 z-1 -mt-4 -mx-1 bg-jim-dark-blue px-2 pt-5 pb-2 text-xs font-semibold tracking-wider uppercase text-jim-neutral-tertiary;
   }
 
   .exercise-choice-list {
