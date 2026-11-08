@@ -97,19 +97,20 @@
         <template id="calendar-week-template">
           <li class="calendar-week">
             <span class="calendar-week-label sr-only"><!-- --></span>
-            <span class="calendar-ahead" aria-hidden="true" hidden><!-- --></span>
-            <ol class="calendar-days"></ol>
+            <span class="calendar-month" aria-hidden="true"><!-- --></span>
+            <div class="calendar-band">
+              <span class="calendar-ahead" aria-hidden="true" hidden><!-- --></span>
+              <ol class="calendar-days"></ol>
+            </div>
           </li>
         </template>
         <template id="calendar-day-template">
           <li class="calendar-day">
-            <span class="calendar-month" aria-hidden="true" hidden><!-- --></span>
             <span class="calendar-date"><!-- --></span>
           </li>
         </template>
         <template id="calendar-workout-template">
           <li class="calendar-day">
-            <span class="calendar-month" aria-hidden="true" hidden><!-- --></span>
             <a class="calendar-workout light-haptic">
               <span class="calendar-check" aria-hidden="true"></span>
               <span class="calendar-name" aria-hidden="true"><!-- --></span>
