@@ -90,7 +90,7 @@ Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locat
 
 Native `<dialog>` for modals. Native `window.confirm` for delete and reset. `page.once('dialog', d => d.accept())` must be registered before the click.
 
-Routes: `/`, `/exercises/`, `/programs/`, `/workouts/`, `/gymtime/?programId=<id>`, `/gymtime/?id=<session-id>`, `/settings/` (with `/settings/backup/`, `/settings/assistants/`, `/settings/data/`), `/stats/`. Missing gymtime params show an error and a Back to workouts link. Settings and Stats have no bottom-nav link; reach Settings from Home's header and Stats from Home's highlight tiles. Only gymtime, Stats and the Settings pages have a header Back button.
+Routes: `/`, `/exercises/`, `/programs/`, `/programs/program/?id=<id>`, `/workouts/`, `/gymtime/?programId=<id>`, `/gymtime/?id=<session-id>`, `/settings/` (with `/settings/backup/`, `/settings/assistants/`, `/settings/data/`), `/stats/`. Missing gymtime params show an error and a Back to workouts link. Settings and Stats have no bottom-nav link; reach Settings from Home's header and Stats from Home's highlight tiles. Only gymtime, a program's page, Stats and the Settings pages have a header Back button.
 
 ## Evidence
 

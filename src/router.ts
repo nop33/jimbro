@@ -13,6 +13,7 @@ const PAGES: Record<string, () => Promise<Page>> = {
   '/': () => import('./pages/home/index'),
   '/exercises/': () => import('./pages/exercises/index'),
   '/programs/': () => import('./pages/programs/index'),
+  '/programs/program/': () => import('./pages/programs/program/index'),
   '/workouts/': () => import('./pages/workouts/index'),
   '/gymtime/': () => import('./pages/gymtime/index'),
   '/stats/': () => import('./pages/stats/index'),

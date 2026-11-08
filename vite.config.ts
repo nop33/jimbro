@@ -56,6 +56,7 @@ export default defineConfig({
         home: 'index.html',
         exercises: 'exercises/index.html',
         programs: 'programs/index.html',
+        program: 'programs/program/index.html',
         settings: 'settings/index.html',
         settingsBackup: 'settings/backup/index.html',
         settingsAssistants: 'settings/assistants/index.html',

@@ -1,34 +1,34 @@
 # Programs
 
-Programs are workout templates: a name and an ordered list of exercises. The user creates, reorders, renames and deletes them.
+Programs are workout templates: a name and an ordered list of exercises. The programs page lists them, and each program has a page of its own at `/programs/program/?id=<id>`, where every change saves as it is made.
 
 ## Sub-features
 
-- `program-list` shows one `#programs-grid > .card` per program with a pencil `.edit-program-btn` and a collapsed `Program exercises` section. Expanding it lists the exercises as condensed cards in program order, with their prescription. An empty grid shows no message.
-- `program-new` opens `dialog#program-dialog` titled `New Program`: Name, the picker `#exercises-selection` (grouped by muscle, Cardio for none) and the `Reorder program exercises` list. The empty form opens on Name.
-- `program-reorder` drags rows of `#selected-exercises-list` by mouse or touch. The saved order is the order the card shows.
-- `program-save` saves with `Program saved!`. Only Name is required, so a program with no exercises saves.
-- `program-edit` opens the dialog titled `Edit Program`, prefilled, with `Delete` on the left of `Save` (a new program has none, and there is no `Cancel`), and focuses its title, not a field.
-- `program-delete` confirms, removes the card and shows `Program deleted.`.
-- `program-cancel` closes the dialog with `Close dialog` or Escape.
+- `program-list` shows one `#programs-grid .program-card` per program: a link to its page with the name, `N exercises · N sets` and a chip per muscle group. An empty grid shows no message.
+- `program-new`: `New` opens `dialog#new-program-dialog`, which asks only for a name and opens on it. `Create` stores the program and opens its page on the exercise picker.
+- `program-page` shows the program's name as the page heading, `Start this program` (a link to `/gymtime/?programId=<id>`, hidden while the program has no exercises), the exercises in order in `#program-exercises`, `Add exercises`, `Rename` and `Delete program`. A program that is gone shows `This program was deleted.`.
+- `program-reorder` drags a row by its handle (`Reorder <exercise>`), by mouse or touch, or moves it one place with the up and down arrow keys on the handle. The rest of the row scrolls the page. The order saves on drop.
+- `program-remove`: `Remove <exercise>` takes it out of the program at once.
+- `program-add` opens `dialog#add-exercises-dialog`, a full-height sheet with `Search exercises` and a checklist grouped by muscle (or kind, for cardio), groups and names in alphabetical order. The program's exercises show ticked, greyed and disabled, with `In program`. The button counts the checked ones (`Add 2 exercises`), and they join the program's end in the order checked.
+- `program-rename` opens `dialog#rename-program-dialog` on its name, selected.
+- `program-delete` confirms, then goes back to `/programs/` with `Program deleted.`.
 
 ## How to get to it (user POV)
 
-- Choose `Programs` in the bottom nav.
+- Choose `Programs` in the bottom nav, then a program.
 - Choose `New` in the programs header.
 
 ## Driving it with control-jimbro
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `12-programs`, `13-programs-expanded`, `14-program-dialog` (an imported program in `Edit Program`, with its reorder list).
-- **By hand: create, rename, delete.** Create an exercise on `/exercises/` and wait for `Exercise saved!`. On `/programs/` click `New`, fill `getByLabel('Name', { exact: true })`, `selectOption({ label: '<exercise>' })` on `#exercises-selection`, Save, and wait for `Program saved!`. Click the card's `.edit-program-btn` to rename. To delete, register `page.once('dialog', d => d.accept())` and click the dialog's `Delete` button.
-- **By hand: reorder.** With two exercises selected, drag the second row above the first, Save, reload, expand the card, and check the order of `.exercise-name`.
+- **Tour stops.** `12-programs` (the list), `13-program-page` (the first imported program), `14-program-add-exercises` (the picker with one more exercise checked).
+- **By hand: create.** Create an exercise on `/exercises/` and wait until it is stored. On `/programs/` click `New`, fill `getByLabel('Name', { exact: true })`, click `Create`, check the exercise in `#add-exercises-dialog` with `getByLabel('<exercise>')`, and click `Add 1 exercise`.
+- **By hand: reorder.** Drag `getByRole('button', { name: 'Reorder <exercise>' })` with `page.mouse` above another row, or press `ArrowUp` on it, then reload and read `#program-exercises .program-row-name`.
+- **By hand: delete.** Register `page.once('dialog', d => d.accept())` and click `Delete program`.
 
 ## Gotchas
 
-- Match the program card with `#programs-grid > .card`. A bare `.card` also matches the condensed exercise cards inside an expanded program.
-- The pencil button has no accessible name. Use `.edit-program-btn`, and scope `Delete` to `#program-dialog`.
-- Select options inside optgroups by label: `{ label: 'Squat' }`.
-- The collapsed card still contains its exercises' text, so `toContainText` passes without expanding it. Expand it to prove what a user sees.
-- Wait for the `Exercise saved!` toast before opening Programs, so the picker lists the new exercise.
+- A drag moves the neighbouring rows, not the dragged one, so the handle keeps the pointer capture. A locator `dragTo` works, but `page.mouse` with steps is closer to a finger.
+- In the picker, read names from `.exercise-choice-name`: a row's text also holds its hidden `In program` note.
+- An exercise's card on `/exercises/` shows before the exercise is stored, so wait for the stored row (or its toast) before opening a program.

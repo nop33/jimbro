@@ -295,16 +295,17 @@ const STOPS = [
   }],
   ['programs', async (page) => {
     await page.goto('/programs/')
-    await see(page.locator('#programs-grid > .card'))
+    await see(page.locator('#programs-grid .program-card'))
   }],
-  ['programs-expanded', async (page) => {
-    const card = page.locator('#programs-grid > .card').first()
-    await card.locator('summary').click()
-    await see(card.locator('details[open]'))
+  ['program-page', async (page) => {
+    await page.locator('#programs-grid .program-card').first().click()
+    await see(page.locator('#program-exercises .program-row'))
   }],
-  ['program-dialog', async (page) => {
-    await page.locator('.edit-program-btn').first().click()
-    await see(page.locator('#program-dialog'))
+  ['program-add-exercises', async (page) => {
+    await page.getByRole('button', { name: 'Add exercises' }).click()
+    await see(page.locator('#add-exercises-dialog .exercise-choice'))
+    await page.locator('#add-exercises-dialog .exercise-choice:not(:has(input:disabled))').first().click()
+    await see(page.getByRole('button', { name: 'Add 1 exercise' }))
   }],
   ['stats', async (page) => {
     await page.goto('/')

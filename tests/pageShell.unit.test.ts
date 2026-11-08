@@ -5,13 +5,14 @@ import { pagePathOf, renderPage } from '../partials/plugin'
 
 const root = path.resolve(import.meta.dirname, '..')
 
-// Each page and the nav link it marks as current. Stats, settings, its own pages and gymtime are reached from other pages, and an
+// Each page and the nav link it marks as current. Stats, a program's page, settings, its own pages and gymtime are reached from other pages, and an
 // assistant sends the browser to connect, so they mark none.
 const PAGES: Record<string, string | null> = {
   'index.html': '/',
   'workouts/index.html': '/workouts/',
   'exercises/index.html': '/exercises/',
   'programs/index.html': '/programs/',
+  'programs/program/index.html': null,
   'stats/index.html': null,
   'settings/index.html': null,
   'settings/backup/index.html': null,
@@ -33,6 +34,7 @@ describe('page shell', () => {
       '/workouts/',
       '/exercises/',
       '/programs/',
+      '/programs/program/',
       '/stats/',
       '/settings/',
       '/settings/backup/',
