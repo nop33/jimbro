@@ -22,17 +22,18 @@ const calendar = (sessions: Array<WorkoutSession>, today: string, settings = ROT
   const { goal, weeks } = trainingWeeks(sessions, PROGRAMS, settings, today)
   return calendarWeeks(weeks, goal, today)
 }
+const oldestFirst = (...args: Parameters<typeof calendar>) => [...calendar(...args)].reverse()
 
 describe('calendarWeeks', () => {
-  it('lists the weeks oldest first, from the first workout to next week, Monday to Sunday', () => {
+  it('lists the weeks newest first, from next week to the first workout, Monday to Sunday', () => {
     const weeks = calendar([session('2026-10-28', 'push')], '2026-11-10')
     expect(weeks.map(({ week, state }) => [week.monday, state])).toEqual([
-      ['2026-10-26', 'missed'],
-      ['2026-11-02', 'missed'],
+      ['2026-11-16', 'next'],
       ['2026-11-09', 'current'],
-      ['2026-11-16', 'next']
+      ['2026-11-02', 'missed'],
+      ['2026-10-26', 'partial']
     ])
-    expect(weeks[0].days.map((day) => day.date)).toEqual([
+    expect(weeks[3].days.map((day) => day.date)).toEqual([
       '2026-10-26',
       '2026-10-27',
       '2026-10-28',
@@ -41,12 +42,24 @@ describe('calendarWeeks', () => {
       '2026-10-31',
       '2026-11-01'
     ])
-    expect(weeks[0].days[2].shown?.id).toBe('push-2026-10-28')
-    expect(weeks[2].days.find((day) => day.isToday)?.date).toBe('2026-11-10')
+    expect(weeks[3].days[2].shown?.id).toBe('push-2026-10-28')
+    expect(weeks[1].days.find((day) => day.isToday)?.date).toBe('2026-11-10')
+  })
+
+  it("names the month on each month's first week, by the month its Thursday is in", () => {
+    const weeks = calendar([session('2026-10-20', 'push')], '2026-11-10')
+    // The week of 27 October ends on 2 November, but its Thursday is in October.
+    expect(weeks.map(({ week, month }) => [week.monday, month])).toEqual([
+      ['2026-11-16', '2026-11-01'],
+      ['2026-11-09', undefined],
+      ['2026-11-02', undefined],
+      ['2026-10-26', '2026-10-01'],
+      ['2026-10-19', undefined]
+    ])
   })
 
   it('marks a week met once its workouts and those done ahead reach the goal', () => {
-    const weeks = calendar(
+    const weeks = oldestFirst(
       [
         session('2026-11-02', 'legs'),
         session('2026-11-04', 'push'),
@@ -68,20 +81,20 @@ describe('calendarWeeks', () => {
       ...['2026-11-02', '2026-11-04', '2026-11-06', '2026-11-08'].map((date) => session(date, 'push')),
       ...['2026-11-10', '2026-11-11', '2026-11-12'].map((date) => session(date, 'pull'))
     ]
-    const [aheadWeek, fullWeek] = calendar(fullWeeks, '2026-11-15')
+    const [aheadWeek, fullWeek] = oldestFirst(fullWeeks, '2026-11-15')
     expect(aheadWeek.days.some((day) => day.extra)).toBe(false)
     expect(fullWeek.ahead).toBe(0)
   })
 
   it('marks this week’s extras, which next week has yet to use', () => {
     const week = ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'].map((date) => session(date, 'legs'))
-    const [thisWeek] = calendar(week, '2026-11-12')
+    const [thisWeek] = oldestFirst(week, '2026-11-12')
     expect(thisWeek.state).toBe('met')
     expect(thisWeek.days.filter((day) => day.extra).map((day) => day.date)).toEqual(['2026-11-12'])
   })
 
   it('shows the latest completed workout of a day, or else the latest started one', () => {
-    const [week] = calendar(
+    const [week] = oldestFirst(
       [
         session('2026-11-10', 'push'),
         session('2026-11-10', 'legs', 'incomplete'),
@@ -95,7 +108,7 @@ describe('calendarWeeks', () => {
   })
 
   it('goes by the weekly goal in freestyle mode', () => {
-    const [week] = calendar([session('2026-11-10', 'push'), session('2026-11-11', 'push')], '2026-11-12', {
+    const [week] = oldestFirst([session('2026-11-10', 'push'), session('2026-11-11', 'push')], '2026-11-12', {
       mode: 'freestyle',
       weeklyGoal: 2
     })

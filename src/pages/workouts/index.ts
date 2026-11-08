@@ -119,7 +119,8 @@ export const mount = async (signal: AbortSignal) => {
       calendarWeeks(weeks, goal, today),
       goal,
       programNames,
-      calendarLabels(programs)
+      calendarLabels(programs),
+      today
     )
     calendar.hidden = false
   }

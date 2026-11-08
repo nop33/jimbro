@@ -295,37 +295,57 @@
     }
   }
 
-  /* The workouts calendar: a row per week, oldest first, as a band that turns green once the week met its goal
-     (src/pages/workouts/calendar.ts). Day numbers and workout checks share the band's middle line, and a program's
-     name sits in a tag over its check, astride the band's top edge. */
+  /* The workouts calendar: a row per week, newest first, as a band that turns green once the week met its goal and
+     pale green while it has workouts short of it (src/pages/workouts/calendar.ts). The month sits in a column on the
+     left, on its first week. Day numbers and workout checks share the band's middle line, and a program's name sits
+     in a tag over its check, astride the band's top edge. */
   .workout-calendar {
     @apply rounded-2xl bg-jim-dark-blue/50 px-3 pb-4;
+    --calendar-gutter: 2.25rem;
   }
 
   .calendar-weekdays {
-    @apply sticky top-0 z-10 grid grid-cols-7 rounded-t-2xl px-2.5 pt-3 pb-2 text-center text-xs font-semibold text-neutral-500;
+    @apply sticky top-0 z-10 grid grid-cols-7 rounded-t-2xl pt-3 pr-2.5 pb-2 text-center text-xs font-semibold text-neutral-500;
+    padding-left: calc(var(--calendar-gutter) + 0.625rem);
     background-color: color-mix(in srgb, var(--color-jim-dark-blue) 50%, var(--color-jim-dark));
   }
 
   .calendar-weeks {
-    @apply flex flex-col gap-4.5 pt-2;
+    @apply flex flex-col gap-5 pt-2;
   }
 
   .calendar-week {
-    @apply relative rounded-full px-2.5;
-    scroll-margin-block: 6rem;
+    @apply grid items-center;
+    grid-template-columns: var(--calendar-gutter) 1fr;
   }
 
-  .calendar-week[data-state='met'] {
+  .calendar-month {
+    @apply flex flex-col text-[0.6875rem] leading-3.5 font-extrabold uppercase tracking-wide text-jim-accent;
+  }
+
+  .calendar-year {
+    @apply text-[0.5625rem] font-semibold tracking-normal text-neutral-500;
+  }
+
+  .calendar-band {
+    @apply relative rounded-full px-2.5;
+  }
+
+  .calendar-week[data-state='met'] .calendar-band {
     background: linear-gradient(180deg, #4f9a5a, var(--color-jim-success));
     box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.18);
   }
 
-  .calendar-week[data-state='missed'] {
+  .calendar-week[data-state='partial'] .calendar-band,
+  .calendar-week[data-state='current'][data-started] .calendar-band {
+    background-color: rgb(79 154 90 / 0.5);
+  }
+
+  .calendar-week[data-state='missed'] .calendar-band {
     @apply bg-jim-error/25;
   }
 
-  .calendar-week[data-state='current'] {
+  .calendar-week[data-state='current'] .calendar-band {
     @apply outline-2 -outline-offset-2 outline-dashed outline-jim-accent/45;
   }
 
@@ -339,6 +359,11 @@
 
   .calendar-week[data-state='met'] .calendar-day {
     @apply text-white;
+  }
+
+  .calendar-week[data-state='partial'] .calendar-day,
+  .calendar-week[data-state='current'][data-started] .calendar-day {
+    @apply text-white/85;
   }
 
   .calendar-week[data-state='missed'] .calendar-day {
@@ -355,14 +380,6 @@
 
   .calendar-day[aria-current='date'] .calendar-date {
     @apply border-2 border-jim-accent;
-  }
-
-  .calendar-month {
-    @apply absolute inset-x-0 bottom-0 text-[0.55rem] leading-2.5 font-extrabold uppercase tracking-wider text-jim-accent;
-  }
-
-  .calendar-week[data-state='met'] .calendar-month {
-    @apply text-white;
   }
 
   /* The whole cell opens the workout, so the tap target is the day's full height. */
@@ -395,7 +412,8 @@
     @apply absolute -top-1.75 left-1/2 z-1 max-w-full -translate-x-1/2 truncate rounded-full bg-[#2e6b38] px-1.5 text-[0.5625rem] leading-3.5 font-semibold text-white/80;
   }
 
-  .calendar-week:not([data-state='met']) .calendar-name {
+  .calendar-week[data-state='missed'] .calendar-name,
+  .calendar-week[data-state='current']:not([data-started]) .calendar-name {
     @apply bg-neutral-700 text-neutral-300;
   }
 

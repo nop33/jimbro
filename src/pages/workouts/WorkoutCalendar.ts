@@ -5,32 +5,37 @@ import type { CalendarDay, CalendarWeek } from './calendar'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 const shortMonth = new Intl.DateTimeFormat(undefined, { month: 'short' })
+const fullMonth = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
 const workouts = (count: number) => `${count} ${count === 1 ? 'workout' : 'workouts'}`
 
-const weekLabel = ({ week, state, counted, ahead }: CalendarWeek, goal: number) => {
+const weekLabel = ({ week, state, counted, ahead, month }: CalendarWeek, goal: number) => {
   const progress = `${workouts(counted)}${ahead > 0 ? `, ${ahead} of them done ahead the week before` : ''}`
   const status = {
     met: `goal met, ${progress}`,
     current: `this week, ${counted} of ${goal} so far${ahead > 0 ? `, ${ahead} done ahead` : ''}`,
-    missed: `goal missed, ${progress}`,
+    partial: `goal missed, ${progress}`,
+    missed: 'no workouts',
     next: 'next week'
   }[state]
-  return `Week ${week.number}, ${status}`
+  return `${month ? `${fullMonth.format(parseSimpleDate(month))}. ` : ''}Week ${week.number}, ${status}`
 }
 
 const workoutLabel = (workout: WorkoutSession, name: string, extra: boolean) =>
   `${name}, ${workout.status === 'completed' ? 'done' : 'started'}${extra ? ', counts toward next week' : ''}`
 
-// The workouts calendar (calendar.ts): one row per week, a band that is green once the week met its goal. A workout
-// day shows a check with its program's label under it (calendarLabels), and opens the
-// workout. A day with more than one opens a popover that lists them.
+// The workouts calendar (calendar.ts): one row per week, a band that is green once the week met its goal and pale
+// green while it has workouts short of it, with the month on the left of its first week. A workout day shows a check
+// with its program's label over it (calendarLabels), and opens the workout. A day with more than one opens a popover
+// that lists them.
 export const renderWorkoutCalendar = (
   list: HTMLOListElement,
   weeks: Array<CalendarWeek>,
   goal: number,
   programNames: Record<string, string>,
-  labels: Record<string, string>
+  labels: Record<string, string>,
+  today: string
 ) => {
+  const thisYear = parseSimpleDate(today).getFullYear()
   const nameOf = (workout: WorkoutSession) => programNames[workout.programId] ?? 'Workout'
 
   const renderDay = (day: CalendarDay) => {
@@ -39,11 +44,6 @@ export const renderWorkoutCalendar = (
     const item = nodeFromTemplate(shown ? '#calendar-workout-template' : '#calendar-day-template')
     const li = item.querySelector('li') as HTMLLIElement
     if (day.isToday) li.setAttribute('aria-current', 'date')
-    if (date.getDate() === 1) {
-      const month = li.querySelector('.calendar-month') as HTMLSpanElement
-      month.textContent = shortMonth.format(date)
-      month.hidden = false
-    }
     if (!shown) {
       setTextContent('.calendar-date', String(date.getDate()), item)
       return item
@@ -102,11 +102,20 @@ export const renderWorkoutCalendar = (
     const item = nodeFromTemplate('#calendar-week-template')
     const row = item.querySelector('li') as HTMLLIElement
     row.dataset.state = week.state
-    // The page opens on this week, near the bottom of the calendar.
-    if (week.state === 'current' || (week.state === 'met' && week.days.some((day) => day.isToday))) {
-      row.dataset.scrollStart = ''
-    }
+    if (week.counted > 0) row.dataset.started = ''
     setTextContent('.calendar-week-label', weekLabel(week, goal), item)
+    if (week.month) {
+      const first = parseSimpleDate(week.month)
+      const month = row.querySelector('.calendar-month') as HTMLSpanElement
+      month.textContent = shortMonth.format(first)
+      // A month of another year names its year under it.
+      if (first.getFullYear() !== thisYear) {
+        const year = document.createElement('span')
+        year.className = 'calendar-year'
+        year.textContent = String(first.getFullYear())
+        month.append(year)
+      }
+    }
     if (week.ahead > 0) {
       const ahead = row.querySelector('.calendar-ahead') as HTMLSpanElement
       ahead.textContent = `+${week.ahead} ahead`

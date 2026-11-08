@@ -190,13 +190,13 @@ test.describe('Workouts Page', () => {
     await expect(page.locator('#week-progress-note')).toHaveText('All done this week, +1 workout toward next week! 💪')
     await expect(page.locator('#week-progress-goal .extra')).toHaveCount(1)
     // This week met its goal, and Sunday's Push carries a +1 for next week.
-    const thisWeek = page.locator('.calendar-week').nth(-2)
+    const thisWeek = page.locator('.calendar-week').nth(1)
     await expect(thisWeek).toHaveAttribute('data-state', 'met')
     await expect(thisWeek.locator('.calendar-workout')).toHaveCount(4)
     const sunday = thisWeek.locator('.calendar-day').last()
     await expect(sunday.locator('.calendar-extra')).toBeVisible()
     await expect(sunday.locator('.calendar-workout')).toHaveAttribute('aria-label', /counts toward next week/)
-    await expect(page.locator('.calendar-week').last()).toHaveAttribute('data-state', 'next')
+    await expect(page.locator('.calendar-week').first()).toHaveAttribute('data-state', 'next')
 
     // On Sunday the 18th, the busy week counts the Push done ahead, and is not met with one of its own.
     await page.clock.setFixedTime(new Date(2026, 9, 18, 10, 0))
@@ -210,9 +210,27 @@ test.describe('Workouts Page', () => {
     // A second workout in the busy week meets the goal with the one done ahead.
     await logWorkout(page, 2, '2026-10-15', true)
     await page.goto('/workouts/')
-    const metWeek = page.locator('.calendar-week').nth(-2)
+    const metWeek = page.locator('.calendar-week').nth(1)
     await expect(metWeek).toHaveAttribute('data-state', 'met')
     await expect(metWeek.locator('.calendar-ahead')).toHaveText('+1 ahead')
+  })
+
+  test('Lists the weeks newest first, with the month on the left, pale green for a week short of its goal and red for one without workouts', async ({
+    page
+  }) => {
+    await seedDatabase(page)
+    await logWorkout(page, 0, '2026-10-28', true)
+    await page.clock.setFixedTime(new Date(2026, 10, 10, 10, 0))
+    await page.goto('/workouts/')
+    const weeks = page.locator('.calendar-week')
+    await expect(weeks).toHaveCount(4)
+    for (const [index, state] of ['next', 'current', 'missed', 'partial'].entries()) {
+      await expect(weeks.nth(index)).toHaveAttribute('data-state', state)
+    }
+    await expect(page.locator('.calendar-month')).toHaveText(['Nov', '', '', 'Oct'], { ignoreCase: true })
+    await expect(weeks.nth(3).locator('.calendar-week-label')).toHaveText(
+      'October 2026. Week 44, goal missed, 1 workout'
+    )
   })
 
   test('Opens a workout from its day, and lists two workouts on one day in a popover', async ({ page }) => {

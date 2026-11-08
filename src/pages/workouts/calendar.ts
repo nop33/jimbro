@@ -1,12 +1,13 @@
 import type { WorkoutSession } from '../../db/types'
 import { addDays, weekOf, type Week, type WeekOfSessions } from '../../weeks'
 
-// The workouts calendar: every week from the first workout's to next week, oldest first, Monday to Sunday, each
+// The workouts calendar: every week from next week back to the first workout's, newest first, Monday to Sunday, each
 // marked by whether it met the weekly goal. A week's workouts done ahead the week before count toward it, as on the
 // home page, so a week of four and a busy week of two both read as met.
 
-// met: the goal is met. current: this week, not met yet. missed: an earlier week that fell short. next: next week.
-export type WeekState = 'met' | 'current' | 'missed' | 'next'
+// met: the goal is met. current: this week, not met yet. partial: an earlier week with workouts that fell short.
+// missed: an earlier week with none. next: next week.
+export type WeekState = 'met' | 'current' | 'partial' | 'missed' | 'next'
 
 export interface CalendarDay {
   date: string
@@ -24,6 +25,9 @@ export interface CalendarWeek {
   week: Week
   state: WeekState
   counted: number
+  // The first day of the week's month, on the first week of each month the calendar lists, and only there. A week
+  // spanning two months belongs to the one its Thursday is in, as its ISO week number does.
+  month?: string
   // The workouts done ahead the week before that this week needed to meet its goal.
   ahead: number
   days: Array<CalendarDay>
@@ -32,7 +36,7 @@ export interface CalendarWeek {
 const shownOf = (workouts: Array<WorkoutSession>) =>
   workouts.filter((workout) => workout.status === 'completed').at(-1) ?? workouts.at(-1)
 
-// weeks come newest first, as trainingWeeks gives them, with this week first.
+// weeks come newest first, as trainingWeeks gives them, with this week first, and so does the calendar.
 export const calendarWeeks = (weeks: Array<WeekOfSessions>, goal: number, today: string): Array<CalendarWeek> => {
   const thisMonday = weeks[0].week.monday
   const nextMonday = addDays(thisMonday, 7)
@@ -47,7 +51,9 @@ export const calendarWeeks = (weeks: Array<WeekOfSessions>, goal: number, today:
           ? 'met'
           : monday === thisMonday
             ? 'current'
-            : 'missed'
+            : (of?.counted ?? 0) > 0
+              ? 'partial'
+              : 'missed'
     return {
       week: of?.week ?? weekOf(monday),
       state,
@@ -66,7 +72,11 @@ export const calendarWeeks = (weeks: Array<WeekOfSessions>, goal: number, today:
       })
     }
   }
-  return [...weeks.map((of, index) => ofWeek(of.week.monday, of, weeks[index - 1])).reverse(), ofWeek(nextMonday)]
+  const calendar = [ofWeek(nextMonday), ...weeks.map((of, index) => ofWeek(of.week.monday, of, weeks[index - 1]))]
+  const monthOf = ({ week }: CalendarWeek) => `${addDays(week.monday, 3).slice(0, 7)}-01`
+  return calendar.map((week, index) =>
+    index === 0 || monthOf(calendar[index - 1]) !== monthOf(week) ? { ...week, month: monthOf(week) } : week
+  )
 }
 
 // The name a program shows under its checks, where a cell is only about as wide as the check: the first word of its
