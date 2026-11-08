@@ -206,7 +206,7 @@ test.describe('passkeys with a virtual authenticator', () => {
       expect(move.message()).toContain('Your account is signed in on another device.')
       expect(move.message()).not.toContain("replace this device's copy")
       await move.accept()
-      await expect(restoring.locator('.workout-week').first()).toBeVisible()
+      await expect(restoring.locator('.calendar-week').first()).toBeVisible()
       await expect(restoring.getByRole('button', { name: 'Start with the 3-day split' })).toHaveCount(0)
       expect(await countLocal(restoring, 'exercises')).toBe(21)
       expect(await countLocal(restoring, 'programs')).toBe(3)

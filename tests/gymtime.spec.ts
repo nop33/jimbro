@@ -575,8 +575,8 @@ test.describe('Gymtime Page', () => {
     // The workouts page, open beside it, lists a started workout as incomplete.
     const workouts = await page.context().newPage()
     await workouts.goto('/workouts/')
-    await expect(workouts.locator('.workout-week').first()).toBeVisible()
-    await expect(workouts.locator('.workout-week .card-warning')).toHaveCount(0)
+    await expect(workouts.locator('.calendar-week').first()).toBeVisible()
+    await expect(workouts.locator('.calendar-workout[data-status="incomplete"]')).toHaveCount(0)
 
     await card.getByRole('button', { name: 'Add set' }).click()
     await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
@@ -584,7 +584,7 @@ test.describe('Gymtime Page', () => {
     await expect(rows).toHaveCount(planned + 1)
     await expect(page.locator('#delete-workout-session-btn')).toBeVisible()
     await workouts.reload()
-    await expect(workouts.locator('.workout-week .card-warning')).toHaveCount(1)
+    await expect(workouts.locator('.calendar-workout[data-status="incomplete"]')).toHaveCount(1)
 
     // After the start, the details save as they change.
     await page.locator('#workout-details > summary').click()

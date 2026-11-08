@@ -6,13 +6,13 @@ import { firstSyncDue } from '../../sync/queue'
 import { passkeysSupported, preparePasskey, signInWithPasskey } from '../../sync/passkeys'
 import { sync } from '../../sync/syncClient'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
-import type { WorkoutSession } from '../../db/types'
-import { nodeFromTemplate, setTextContent } from '../../utils'
-import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
+import { getSimpleDate } from '../../dateUtils'
 import renderIntroText from './IntroText'
 import NewWorkoutDialog from './NewWorkoutDialog'
 import WorkoutModeDialog from './WorkoutModeDialog'
 import renderWeekProgress from './WeekProgress'
+import { calendarLabels, calendarWeeks } from './calendar'
+import { renderWorkoutCalendar } from './WorkoutCalendar'
 import { redraw, redrawOnNewDay } from '../../redraw'
 import { isDbEmpty } from '../../db/utils'
 import Toasts from '../../features/toasts'
@@ -20,14 +20,6 @@ import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
 import { whileBusy } from '../busyButton'
 import { confirmSignIn, showPasskeyFailure } from '../passkeyPrompts'
-
-// A rotation program the week has no workout of: still to do this week, or skipped in an earlier one.
-interface MissingWorkout {
-  programId: WorkoutSession['programId']
-  status: 'pending' | 'skipped'
-  id?: undefined
-  date?: undefined
-}
 
 export const mount = async (signal: AbortSignal) => {
   const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
@@ -52,76 +44,8 @@ export const mount = async (signal: AbortSignal) => {
   } else {
     await renderIntroText(canRestore ? 'restore' : empty ? 'seed' : 'none')
   }
-  const newWorkoutDialog = new NewWorkoutDialog(programStatuses)
+  new NewWorkoutDialog(programStatuses)
   new WorkoutModeDialog()
-
-  // A completed workout beyond its week's goal is an extra, which counts toward the next week, where it shows again as
-  // done ahead.
-  const renderWorkoutSession = (workoutSession: WorkoutSession | MissingWorkout, carry?: 'extra' | 'ahead') => {
-    const workoutItemTemplate = nodeFromTemplate('#workout-item-template')
-    const workoutStatus = workoutItemTemplate.querySelector('.workout-status') as HTMLParagraphElement
-    const workoutDate = workoutItemTemplate.querySelector('.workout-date') as HTMLParagraphElement
-
-    setTextContent('.workout-title', programNames[workoutSession.programId], workoutItemTemplate)
-
-    if (carry) {
-      setTextContent('.workout-status', carry === 'ahead' ? 'done ahead' : 'for next week', workoutItemTemplate)
-      workoutStatus.classList.replace('text-jim-neutral-tertiary', 'text-green-400')
-    } else if (workoutSession.status !== 'completed') {
-      setTextContent('.workout-status', workoutSession.status, workoutItemTemplate)
-
-      if (workoutSession.status === 'incomplete') {
-        workoutStatus.classList.add('text-jim-warning')
-      } else if (workoutSession.status === 'skipped') {
-        workoutStatus.classList.add('text-jim-error')
-      }
-    }
-
-    if (workoutSession.date) {
-      const dateObj = parseSimpleDate(workoutSession.date)
-      const formattedDate = dateObj.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric'
-      })
-      setTextContent('.workout-date', formattedDate, workoutItemTemplate)
-    } else {
-      workoutDate.remove()
-    }
-
-    const workoutItemDiv = workoutItemTemplate.querySelector('div') as HTMLDivElement
-    workoutItemDiv.classList.add(
-      {
-        completed: 'card-success',
-        skipped: 'card-danger',
-        incomplete: 'card-warning',
-        pending: 'card-pending'
-      }[workoutSession.status]
-    )
-
-    if (workoutSession.status === 'incomplete' || carry === 'ahead') {
-      workoutItemDiv.classList.add('border-dashed')
-    }
-
-    if (workoutSession.status !== 'skipped') {
-      workoutItemDiv.addEventListener('click', () => {
-        window.location.href =
-          workoutSession.status === 'pending'
-            ? `/gymtime/?programId=${workoutSession.programId}`
-            : `/gymtime/?id=${workoutSession.id}`
-      })
-    }
-
-    return workoutItemTemplate
-  }
-
-  // A freestyle week's workouts still to do toward the goal, as empty slots. Any program fills one, so a slot opens
-  // the program picker. Only the first one says "Start", so the row reads as one call to action.
-  const renderOpenSlot = (isFirst: boolean) => {
-    const openSlot = nodeFromTemplate('#open-slot-template')
-    if (!isFirst) openSlot.querySelector('.open-slot-label')?.remove()
-    openSlot.querySelector('button')?.addEventListener('click', () => newWorkoutDialog.open())
-    return openSlot
-  }
 
   if (empty) {
     if (canRestore) {
@@ -189,48 +113,17 @@ export const mount = async (signal: AbortSignal) => {
       }
     }
   } else {
-    weeks.forEach(({ week, sessions: workoutsOfThisWeek, ahead, extra }) => {
-      const isThisWeek = week.monday === thisWeek.week.monday
-
-      if (settings.mode === 'freestyle' && workoutsOfThisWeek.length === 0 && ahead.length === 0 && !isThisWeek) {
-        return
-      }
-
-      const workoutWeekTemplate = nodeFromTemplate('#workout-week-template')
-      const workoutsOfThisWeekList = workoutWeekTemplate.querySelector('.workout-week-list') as HTMLUListElement
-      workoutsOfThisWeekList.style.gridTemplateColumns = `repeat(3, minmax(0, 1fr))`
-
-      setTextContent('.workout-week-week', `Week ${week.number}`, workoutWeekTemplate)
-      setTextContent('.workout-week-year', `of ${week.year}`, workoutWeekTemplate)
-
-      for (const workout of ahead) workoutsOfThisWeekList.appendChild(renderWorkoutSession(workout, 'ahead'))
-      for (const workout of workoutsOfThisWeek) {
-        workoutsOfThisWeekList.appendChild(renderWorkoutSession(workout, extra.includes(workout) ? 'extra' : undefined))
-      }
-
-      const shown = ahead.length + workoutsOfThisWeek.length
-      if (settings.mode === 'freestyle' && isThisWeek) {
-        for (let slot = shown; slot < goal; slot++) {
-          workoutsOfThisWeekList.appendChild(renderOpenSlot(slot === shown))
-        }
-      }
-
-      if (settings.mode === 'rotation' && shown < goal) {
-        const recordedWorkoutPrograms = [...ahead, ...workoutsOfThisWeek].map(({ programId }) => programId)
-        const missingProgramsIds = Object.keys(programNames).filter(
-          (programId) => !recordedWorkoutPrograms.includes(programId)
-        )
-
-        missingProgramsIds.forEach((missingProgramId) => {
-          const status = isThisWeek ? 'pending' : 'skipped'
-          workoutsOfThisWeekList.appendChild(renderWorkoutSession({ programId: missingProgramId, status }))
-        })
-      }
-
-      workoutWeeksContainer.appendChild(workoutWeekTemplate)
-    })
+    const calendar = document.getElementById('workout-calendar') as HTMLElement
+    renderWorkoutCalendar(
+      calendar.querySelector('#calendar-weeks') as HTMLOListElement,
+      calendarWeeks(weeks, goal, today),
+      goal,
+      programNames,
+      calendarLabels(programs)
+    )
+    calendar.hidden = false
   }
 
-  // The list is drawn once, so a new day draws it again. A restore or a changed workout mode redraws it right away.
+  // The calendar is drawn once, so a new day draws it again. A restore or a changed workout mode redraws it right away.
   redrawOnNewDay(today, signal)
 }

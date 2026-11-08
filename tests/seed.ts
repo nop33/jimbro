@@ -5,5 +5,5 @@ import { expect, type Page } from '@playwright/test'
 export const seedDatabase = async (page: Page) => {
   await page.goto('/workouts/')
   await page.getByRole('button', { name: 'Start with the 3-day split' }).click()
-  await expect(page.locator('.workout-week').first()).toBeVisible()
+  await expect(page.locator('.calendar-week').first()).toBeVisible()
 }

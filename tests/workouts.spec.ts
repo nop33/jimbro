@@ -25,7 +25,7 @@ test.describe('Workouts Page', () => {
     await seedBtn.click()
 
     // The page reloads into the workout calendar.
-    await expect(page.locator('.workout-week')).toBeVisible()
+    await expect(page.locator('.calendar-week').first()).toBeVisible()
     await expect(seedBtn).not.toBeVisible()
   })
 
@@ -165,18 +165,14 @@ test.describe('Workouts Page', () => {
     // Choosing a mode draws the page again at once, so a click stands in for check(), which would look for the checked state after it.
     await modeDialog.getByRole('radio', { name: 'Freestyle' }).click()
 
-    // The page draws again in freestyle, where this week shows an empty slot for each workout toward the goal.
+    // The page draws again in freestyle, with the calendar's this week still to fill.
     await expect(page.locator('#workout-mode-name')).toHaveText('Freestyle')
     await expect(page.locator('#workout-mode-rule')).toHaveText('Goal 3')
     await expect(page.locator('#week-progress-count')).toHaveText('0 of 3 workouts done')
-    const openSlots = page.locator('.workout-week').first().getByRole('button', { name: 'Start a workout' })
-    await expect(openSlots).toHaveCount(3)
-
-    await openSlots.first().click()
-    await expect(page.locator('dialog#new-workout-dialog')).toBeVisible()
+    await expect(page.locator('.calendar-week[data-state="current"]')).toHaveCount(1)
   })
 
-  test('Shows a fourth workout as one for next week, and next week shows it done ahead', async ({ page }) => {
+  test('Marks a fourth workout for next week, and next week starts with it done ahead', async ({ page }) => {
     await seedDatabase(page)
     // Push, Pull and Legs in the week of 5 October, and Push again on Sunday the 11th.
     for (const [index, date] of [
@@ -193,34 +189,63 @@ test.describe('Workouts Page', () => {
     await expect(page.locator('#week-progress-count')).toHaveText('3 of 3 programs done')
     await expect(page.locator('#week-progress-note')).toHaveText('All done this week, +1 workout toward next week! 💪')
     await expect(page.locator('#week-progress-goal .extra')).toHaveCount(1)
-    const extraCard = page.locator('.workout-week').first().locator('.card-success', { hasText: 'for next week' })
-    await expect(extraCard).toHaveCount(1)
-    await expect(extraCard).toContainText('Oct 11')
+    // This week met its goal, and Sunday's Push carries a +1 for next week.
+    const thisWeek = page.locator('.calendar-week').nth(-2)
+    await expect(thisWeek).toHaveAttribute('data-state', 'met')
+    await expect(thisWeek.locator('.calendar-workout')).toHaveCount(4)
+    const sunday = thisWeek.locator('.calendar-day').last()
+    await expect(sunday.locator('.calendar-extra')).toBeVisible()
+    await expect(sunday.locator('.calendar-workout')).toHaveAttribute('aria-label', /counts toward next week/)
+    await expect(page.locator('.calendar-week').last()).toHaveAttribute('data-state', 'next')
 
-    // On Sunday the 18th, the busy week has its Push done ahead, and only Pull and Legs left.
+    // On Sunday the 18th, the busy week counts the Push done ahead, and is not met with one of its own.
     await page.clock.setFixedTime(new Date(2026, 9, 18, 10, 0))
+    await logWorkout(page, 1, '2026-10-13', true)
     await page.goto('/workouts/')
-    await expect(page.locator('#week-progress-count')).toHaveText('1 of 3 programs done')
-    const busyWeek = page.locator('.workout-week').first()
-    await expect(busyWeek.locator('.card-success')).toHaveCount(1)
-    await expect(busyWeek.locator('.card-success')).toContainText('done ahead')
-    await expect(busyWeek.locator('.card-pending')).toHaveCount(2)
+    await expect(page.locator('#week-progress-count')).toHaveText('2 of 3 programs done')
+    const busyWeek = page.locator('.calendar-week[data-state="current"]')
+    await expect(busyWeek.locator('.calendar-ahead')).toHaveText('+1 ahead')
+    await expect(busyWeek.locator('.calendar-workout')).toHaveCount(1)
+
+    // A second workout in the busy week meets the goal with the one done ahead.
+    await logWorkout(page, 2, '2026-10-15', true)
+    await page.goto('/workouts/')
+    const metWeek = page.locator('.calendar-week').nth(-2)
+    await expect(metWeek).toHaveAttribute('data-state', 'met')
+    await expect(metWeek.locator('.calendar-ahead')).toHaveText('+1 ahead')
+  })
+
+  test('Opens a workout from its day, and lists two workouts on one day in a popover', async ({ page }) => {
+    await seedDatabase(page)
+    const today = await page.evaluate(async () => (await import('/src/dateUtils.ts')).getSimpleDate(new Date()))
+    const push = await logWorkout(page, 0, today, true)
+    await page.goto('/workouts/')
+    const day = page.locator('.calendar-day[aria-current="date"]')
+    await expect(day.locator('.calendar-name')).toHaveText('Push')
+    await expect(day.locator('a.calendar-workout')).toHaveAttribute('data-status', 'completed')
+    await expect(day.locator('a.calendar-workout')).toHaveAttribute('href', `/gymtime/?id=${push.sessionId}`)
+
+    const pull = await logWorkout(page, 1, today, false)
+    await page.goto('/workouts/')
+    const opener = day.locator('button.calendar-workout')
+    await expect(day.locator('.calendar-count')).toHaveText('2')
+    await opener.click()
+    const popover = day.locator('.calendar-popover')
+    await expect(popover).toBeVisible()
+    await expect(popover.locator('a.calendar-popover-link')).toHaveCount(2)
+    await expect(popover.getByRole('link', { name: /Push day/ })).toContainText('Done')
+    await expect(popover.getByRole('link', { name: /Pull day/ })).toContainText('Started')
+    await popover.getByRole('link', { name: /Pull day/ }).click()
+    await expect(page).toHaveURL(new RegExp(`/gymtime/\\?id=${pull.sessionId}`))
   })
 
   test('Updates status correctly when navigating back from an incomplete workout', async ({ page }) => {
     await seedDatabase(page)
+    await expect(page.locator('.calendar-workout')).toHaveCount(0)
 
-    // Check initial status, there should be pending workouts
-    const pendingWorkouts = page.locator('.card-pending')
-    await expect(pendingWorkouts.first()).toBeVisible()
-
-    // Store original number of pending workouts
-    const originalPendingCount = await pendingWorkouts.count()
-
-    // Start a new workout by clicking a pending one
-    await pendingWorkouts.first().click()
-
-    // It should navigate to /gymtime/ with programId
+    // Start a new workout from the program picker.
+    await page.locator('#new-workout-btn').click()
+    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
 
     await startWorkout(page)
@@ -228,14 +253,10 @@ test.describe('Workouts Page', () => {
     // Navigate back to the workouts page
     await page.goBack()
 
-    // Wait for workouts page to be visible again
-    await expect(page.locator('.workout-week')).toBeVisible()
-
-    // The previously pending workout should now be incomplete (card-warning)
-    // So pending workouts should be exactly 1 less
-    await expect(pendingWorkouts).toHaveCount(originalPendingCount - 1)
-
-    // There should be an incomplete workout
-    await expect(page.locator('.workout-week .card-warning')).toHaveCount(1)
+    // Today shows the workout, started but not finished.
+    await expect(page.locator('.calendar-day[aria-current="date"] .calendar-workout')).toHaveAttribute(
+      'data-status',
+      'incomplete'
+    )
   })
 })

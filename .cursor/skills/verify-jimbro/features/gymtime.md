@@ -25,7 +25,7 @@ Gymtime is the live workout. The page opens on the program's exercises, and the 
 ## How to get to it (user POV)
 
 - Choose a suggested pick on Home.
-- Choose a pending card on Workouts, or a program in the New workout dialog.
+- Choose a program in the Workouts page's New workout dialog, or a workout day on its calendar.
 - Choose an incomplete or completed card on Workouts to resume or view it (`?id=`).
 
 ## Driving it with control-jimbro

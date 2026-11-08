@@ -206,7 +206,7 @@ test('a version 9 database opens with its rows untouched', async ({ page }) => {
   await page.goto('/icons/favicon.ico')
   await seed(page, 9, VERSION_9, stored)
   await page.goto('/workouts/')
-  await expect(page.getByText('Push day').first()).toBeVisible()
+  await expect(page.locator('.calendar-workout[aria-label*="Push day"]')).toBeVisible()
   expect(await readDatabase(page)).toEqual({ version: 9, stores: VERSION_9, records: stored })
 })
 

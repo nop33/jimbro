@@ -86,57 +86,43 @@
           <span id="week-progress-note" class="text-sm text-neutral-400"><!-- --></span>
         </button>
         <div id="workout-weeks" class="fills-in flex flex-col gap-6">
-          <!-- Workout weeks will be rendered here -->
+          <!-- The restore or seed buttons of an empty database go here -->
         </div>
-        <template id="workout-week-template">
-          <div class="workout-week">
-            <h2 class="workout-week-title text-xl font-bold mb-2">
-              <span class="workout-week-week text-jim-accent">
-                <!-- -->
-              </span>
-              <span class="workout-week-year text-jim-primary/60">
-                <!-- -->
-              </span>
-            </h2>
-            <ul class="workout-week-list grid gap-2 items-stretch">
-              <!-- Workout items will be rendered here -->
-            </ul>
+        <section id="workout-calendar" class="workout-calendar fills-in" aria-label="Workout calendar" hidden>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
           </div>
-        </template>
-        <template id="open-slot-template">
-          <li>
-            <button type="button" class="open-slot light-haptic" aria-label="Start a workout">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.8"
-                stroke="currentColor"
-                class="size-6"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              <span class="open-slot-label text-xs" aria-hidden="true">Start</span>
-            </button>
+          <ol id="calendar-weeks" class="calendar-weeks"></ol>
+        </section>
+        <template id="calendar-week-template">
+          <li class="calendar-week">
+            <span class="calendar-week-label sr-only"><!-- --></span>
+            <span class="calendar-ahead" aria-hidden="true" hidden><!-- --></span>
+            <ol class="calendar-days"></ol>
           </li>
         </template>
-        <template id="workout-item-template">
-          <li>
-            <div class="card h-full p-4 justify-between flex flex-col with-bg gap-1 light-haptic">
-              <h2 class="workout-title text-sm font-bold mb-2">
-                <!-- -->
-              </h2>
-              <div class="flex flex-col gap-1">
-                <p class="workout-status text-sm text-jim-neutral-tertiary">
-                  <!-- -->
-                </p>
-                <p class="workout-date text-xs text-jim-neutral-secondary">
-                  <!-- -->
-                </p>
-              </div>
-            </div>
+        <template id="calendar-day-template">
+          <li class="calendar-day">
+            <span class="calendar-month" aria-hidden="true" hidden><!-- --></span>
+            <span class="calendar-date"><!-- --></span>
           </li>
+        </template>
+        <template id="calendar-workout-template">
+          <li class="calendar-day">
+            <span class="calendar-month" aria-hidden="true" hidden><!-- --></span>
+            <a class="calendar-workout light-haptic">
+              <span class="calendar-check" aria-hidden="true"></span>
+              <span class="calendar-name" aria-hidden="true"><!-- --></span>
+              <span class="calendar-extra" aria-hidden="true" hidden>+1</span>
+              <span class="calendar-count" aria-hidden="true" hidden><!-- --></span>
+            </a>
+          </li>
+        </template>
+        <template id="calendar-popover-template">
+          <div class="calendar-popover" popover>
+            <p class="calendar-popover-title"><!-- --></p>
+            <ul class="flex flex-col gap-1"></ul>
+          </div>
         </template>
       </div>
     </div>
