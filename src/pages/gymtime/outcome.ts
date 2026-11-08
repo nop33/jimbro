@@ -1,7 +1,8 @@
-import { breakTimerEnabled } from '../../db/exerciseLogging'
+import { breakTimerEnabled, formatSet } from '../../db/exerciseLogging'
 import { nextUnfinished, progressOf } from '../../db/stores/workoutSessionsStore'
 import type { WorkoutSession } from '../../db/types'
 import type { Break } from '../../features/breakTimer'
+import { nextSetValues } from './exercisePlan'
 
 // What a change to the open workout means for the lifter, which openSession acts on.
 export type Outcome =
@@ -37,6 +38,8 @@ export function outcomeOf(
     seconds: breakSeconds,
     setsDone: progress.logged,
     setsTotal: progress.target,
+    // The set just logged, which the card's form now holds for the next one.
+    nextSet: formatSet(exercise.preset, nextSetValues(exercise, exercise.sets, undefined)),
     next: nextUnfinished(after, loggedFor)?.name,
     exercise: { id: loggedFor, name: exercise.name, kind: exercise.kind }
   }

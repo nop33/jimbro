@@ -45,9 +45,19 @@ describe('outcomeOf', () => {
         seconds: BREAK,
         setsDone: 1,
         setsTotal: 3,
+        nextSet: '0 reps',
         next: 'row name',
         exercise: { id: 'bench', name: 'bench name', kind: 'lifting' }
       })
+    })
+
+    it('words the next set as the set just logged, which the form holds for it', () => {
+      const before = session(exercise('bench', 3, 1))
+      const bench = exercise('bench', 3, 2)
+      bench.sets[1] = { preset: 'lifting', reps: 8, weight: 80 }
+      const after = session(bench)
+
+      expect(outcomeOf(before, after, 'bench', BREAK)).toMatchObject({ kind: 'rest', nextSet: '80 kg × 8 reps' })
     })
 
     it('rests for the break length it is given', () => {
