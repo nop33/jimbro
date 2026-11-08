@@ -392,15 +392,15 @@
 
   /* A program's name, however long, stays on one line in a tag no wider than its day, and ends in an ellipsis. */
   .calendar-name {
-    @apply absolute -top-2 left-1/2 z-1 max-w-full -translate-x-1/2 truncate rounded-full bg-white px-1.5 text-[0.625rem] leading-4 font-extrabold text-jim-success;
+    @apply absolute -top-1.75 left-1/2 z-1 max-w-full -translate-x-1/2 truncate rounded-full bg-[#2e6b38] px-1.5 text-[0.5625rem] leading-3.5 font-semibold text-white/80;
   }
 
   .calendar-week:not([data-state='met']) .calendar-name {
-    @apply bg-neutral-200 text-jim-dark;
+    @apply bg-neutral-700 text-neutral-300;
   }
 
   .calendar-workout[data-status='incomplete'] .calendar-name {
-    @apply bg-jim-warning text-jim-dark;
+    @apply text-jim-warning;
   }
 
   .calendar-extra,
