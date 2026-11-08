@@ -2,6 +2,7 @@ import { exercisesStore, type Exercise } from '../db/stores/exercisesStore'
 import { muscleGroupLabel } from '../db/muscleGroups'
 import { nodeFromTemplate, setTextContent } from '../utils'
 import { exerciseSections } from './exerciseSections'
+import { pullDownToClose } from '../features/bottomSheet'
 
 const ALL = 'All'
 
@@ -32,6 +33,7 @@ class ExercisePicker {
   private onPick: (exercise: Exercise) => void = () => {}
 
   constructor() {
+    pullDownToClose(this.dialog)
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.search.addEventListener('input', () => this.filter())
     this.filterChips.addEventListener('change', () => {

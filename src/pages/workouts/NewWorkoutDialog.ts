@@ -1,6 +1,7 @@
 import { formatShortDate, parseSimpleDate } from '../../dateUtils'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import type { ProgramStatus } from '../../weeks'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 const lastCompletedText = (lastCompleted: ProgramStatus['lastCompleted']) => {
   if (!lastCompleted) return 'Not completed yet'
@@ -15,6 +16,7 @@ class NewWorkoutDialog {
   private newWorkoutButton = document.querySelector('#new-workout-btn') as HTMLButtonElement
 
   constructor(programs: Array<ProgramStatus>) {
+    pullDownToClose(this.newWorkoutDialog)
     this.newWorkoutButton.addEventListener('click', () => {
       this.open()
     })

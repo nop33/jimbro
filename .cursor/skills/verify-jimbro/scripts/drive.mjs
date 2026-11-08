@@ -297,11 +297,21 @@ const STOPS = [
     await page.goto('/programs/')
     await see(page.locator('#programs-grid .program-card'))
   }],
+  ['program-new-dialog', async (page) => {
+    await page.getByRole('button', { name: 'New' }).click()
+    await see(page.locator('#new-program-dialog').getByLabel('Name'))
+  }],
   ['program-page', async (page) => {
+    await page.locator('#new-program-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await page.locator('#programs-grid .program-card').first().click()
     await see(page.locator('#program-exercises .program-row'))
   }],
+  ['program-rename-dialog', async (page) => {
+    await page.locator('#rename-program-btn').click()
+    await see(page.locator('#rename-program-dialog').getByLabel('Name'))
+  }],
   ['program-add-exercises', async (page) => {
+    await page.locator('#rename-program-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await page.getByRole('button', { name: 'Add exercises' }).click()
     await see(page.locator('#exercise-picker .exercise-choice'))
     await page.locator('#exercise-picker .exercise-choice:not(:has(input:disabled))').first().click()

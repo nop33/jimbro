@@ -374,28 +374,28 @@
 
     <!-- partial:break-timer -->
 
-    <dialog id="edit-set-dialog">
-      <header class="flex justify-between items-center mb-4">
+    <dialog id="edit-set-dialog" class="dialog-sheet">
+      <header class="dialog-sheet-header">
         <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
         <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Edit set</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <form id="edit-set-form" class="flex flex-col gap-2">
-        <div id="edit-set-fields"></div>
-        <div class="flex gap-3 justify-end mt-6">
+      <form id="edit-set-form" class="contents">
+        <div id="edit-set-fields" class="dialog-sheet-body"></div>
+        <footer class="dialog-sheet-footer">
           <!-- partial:delete-button -->
-          <button type="submit" class="btn-primary">Save</button>
-        </div>
+          <button type="submit" class="btn-primary flex-1">Save</button>
+        </footer>
       </form>
     </dialog>
 
-    <dialog id="last-set-dialog">
-      <header class="flex justify-between items-start mb-4">
+    <dialog id="last-set-dialog" class="dialog-sheet">
+      <header class="dialog-sheet-header">
         <h2 class="text-xl font-bold">Previous sets</h2>
         <!-- partial:close-dialog-button -->
       </header>
       <!-- Older and newer workouts on either side of the day shown, so the arrows stay put whatever the day holds. -->
-      <div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 mb-4">
+      <div class="grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-neutral-500/20 px-4 py-3">
         <button
           id="last-set-older"
           type="button"
@@ -439,8 +439,10 @@
           </svg>
         </button>
       </div>
-      <div id="last-set-list" class="set-list">
-        <!-- Completed sets will be rendered here -->
+      <div class="dialog-sheet-body">
+        <div id="last-set-list" class="set-list">
+          <!-- Completed sets will be rendered here -->
+        </div>
       </div>
     </dialog>
 

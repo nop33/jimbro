@@ -4,6 +4,7 @@ import type { WorkoutSession } from '../../db/types'
 import { formatShortDay, parseSimpleDate } from '../../dateUtils'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { configureSetRowGrid, renderSetFields } from './setSlots'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 // Shows an exercise's sets in one earlier workout, opening on last time, with arrows to the workouts before and after
 // it that logged the exercise, at any gym.
@@ -23,6 +24,7 @@ class LastSetDialog {
   private opening = 0
 
   constructor() {
+    pullDownToClose(this.dialog)
     this.closeBtn.addEventListener('click', () => {
       this.closeDialog()
     })
