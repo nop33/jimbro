@@ -297,7 +297,7 @@
 
   /* The workouts calendar: a row per week, oldest first, as a band that turns green once the week met its goal
      (src/pages/workouts/calendar.ts). Day numbers and workout checks share the band's middle line, and a program's
-     name hangs under its check. */
+     name sits in a tag over its check, astride the band's top edge. */
   .workout-calendar {
     @apply rounded-2xl bg-jim-dark-blue/50 px-3 pb-4;
   }
@@ -308,7 +308,7 @@
   }
 
   .calendar-weeks {
-    @apply flex flex-col gap-2;
+    @apply flex flex-col gap-4.5 pt-2;
   }
 
   .calendar-week {
@@ -330,7 +330,7 @@
   }
 
   .calendar-days {
-    @apply grid grid-cols-7 h-21;
+    @apply grid grid-cols-7 h-13;
   }
 
   .calendar-day {
@@ -350,7 +350,7 @@
   }
 
   .calendar-date {
-    @apply absolute top-1/2 left-1/2 grid size-10.5 -translate-1/2 place-items-center rounded-full;
+    @apply absolute top-1/2 left-1/2 grid size-9 -translate-1/2 place-items-center rounded-full;
   }
 
   .calendar-day[aria-current='date'] .calendar-date {
@@ -358,7 +358,7 @@
   }
 
   .calendar-month {
-    @apply absolute inset-x-0 top-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider text-jim-accent;
+    @apply absolute inset-x-0 bottom-0 text-[0.55rem] leading-2.5 font-extrabold uppercase tracking-wider text-jim-accent;
   }
 
   .calendar-week[data-state='met'] .calendar-month {
@@ -371,7 +371,7 @@
   }
 
   .calendar-check {
-    @apply absolute top-1/2 left-1/2 grid size-9.5 -translate-1/2 place-items-center rounded-full bg-white text-base font-extrabold text-jim-success;
+    @apply absolute top-1/2 left-1/2 grid size-8.5 -translate-1/2 place-items-center rounded-full bg-white text-sm font-extrabold text-jim-success;
 
     &::before {
       content: '✓';
@@ -390,34 +390,37 @@
     @apply outline-2 outline-offset-2 outline-jim-accent;
   }
 
-  /* A program's name, however long, stays on one line under its check and ends in an ellipsis. */
+  /* A program's name, however long, stays on one line in a tag no wider than its day, and ends in an ellipsis. */
   .calendar-name {
-    @apply absolute inset-x-0.5 truncate text-[0.625rem] leading-3 font-bold;
-    top: calc(50% + 1.375rem);
+    @apply absolute -top-2 left-1/2 z-1 max-w-full -translate-x-1/2 truncate rounded-full bg-white px-1.5 text-[0.625rem] leading-4 font-extrabold text-jim-success;
   }
 
   .calendar-week:not([data-state='met']) .calendar-name {
-    @apply text-neutral-300;
+    @apply bg-neutral-200 text-jim-dark;
+  }
+
+  .calendar-workout[data-status='incomplete'] .calendar-name {
+    @apply bg-jim-warning text-jim-dark;
   }
 
   .calendar-extra,
   .calendar-count {
-    @apply absolute rounded-full px-1.5 text-[0.625rem] leading-4 font-extrabold;
-    top: calc(50% - 1.75rem);
+    @apply absolute rounded-full px-1 text-[0.6rem] leading-3.5 font-extrabold;
+    top: calc(50% + 0.375rem);
   }
 
   .calendar-extra {
     @apply bg-jim-accent text-white;
-    left: calc(50% + 0.5rem);
+    left: calc(50% + 0.625rem);
   }
 
   .calendar-count {
     @apply bg-neutral-900 text-white;
-    right: calc(50% + 0.5rem);
+    right: calc(50% + 0.625rem);
   }
 
   .calendar-ahead {
-    @apply absolute -top-2 -left-1 z-1 rounded-full bg-white px-1.5 text-[0.625rem] leading-4 font-extrabold text-jim-success;
+    @apply absolute -bottom-2 -left-1 z-1 rounded-full bg-white px-1.5 text-[0.625rem] leading-4 font-extrabold text-jim-success;
   }
 
   .calendar-popover {
