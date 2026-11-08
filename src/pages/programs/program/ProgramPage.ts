@@ -1,8 +1,8 @@
 import { exercisesStore, type Exercise } from '../../../db/stores/exercisesStore'
 import { programsStore, type Program } from '../../../db/stores/programsStore'
 import Toasts from '../../../features/toasts'
+import ExercisePicker from '../../ExercisePicker'
 import { programTotals } from '../programExercises'
-import AddExercisesSheet from './AddExercisesSheet'
 import ProgramExerciseRows from './ProgramExerciseRows'
 import RenameProgramDialog from './RenameProgramDialog'
 
@@ -25,9 +25,7 @@ class ProgramPage {
   })
 
   private id: Program['id']
-  private sheet = new AddExercisesSheet(
-    (ids) => void this.save({ exercises: [...(this.program?.exercises ?? []), ...ids] })
-  )
+  private picker = new ExercisePicker()
   private renameDialog = new RenameProgramDialog((name) => void this.save({ name }))
 
   constructor(id: Program['id'], signal: AbortSignal) {
@@ -53,7 +51,11 @@ class ProgramPage {
   }
 
   openSheet() {
-    this.sheet.open(new Set(this.program?.exercises))
+    this.picker.add(
+      { title: 'Add exercises', taken: new Set(this.program?.exercises), takenNote: 'In program' },
+      (exercises) =>
+        void this.save({ exercises: [...(this.program?.exercises ?? []), ...exercises.map(({ id }) => id)] })
+    )
   }
 
   private render() {

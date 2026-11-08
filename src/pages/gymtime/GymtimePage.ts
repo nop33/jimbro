@@ -3,8 +3,7 @@ import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import { breakTimer } from '../../features/breakTimer'
-import ExerciseList from '../exercises/ExerciseList'
-import AddExerciseDialog from './AddExerciseDialog'
+import ExercisePicker from '../ExercisePicker'
 import { animateDetails } from './animateDetails'
 import EditSetDialog from './EditSetDialog'
 import ExerciseCardList from './ExerciseCardList'
@@ -23,7 +22,7 @@ class GymtimePage {
   private addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
   private program!: Program
   private openSession: OpenSession
-  private addExerciseDialog: AddExerciseDialog
+  private picker = new ExercisePicker()
   private editSetDialog: EditSetDialog
   private historyChart: ExerciseHistoryChart
   private lastSetDialog: LastSetDialog
@@ -31,14 +30,10 @@ class GymtimePage {
   // The page shows one workout until signal aborts, as when the next page replaces it.
   constructor(signal: AbortSignal) {
     this.openSession = new OpenSession(new PasskeyOfferCard(signal))
-    this.addExerciseDialog = new AddExerciseDialog(async (exercise) => {
-      if (this.openSession.alertIfHolds(exercise.id)) return
-      await this.openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
-    })
+    this.addExerciseCard.addEventListener('click', () => this.addExercises())
     this.editSetDialog = new EditSetDialog(this.openSession)
     this.historyChart = new ExerciseHistoryChart(signal)
     this.lastSetDialog = new LastSetDialog()
-    new ExerciseList((exercise) => this.addExerciseDialog.pick(exercise), signal)
     breakTimer().onWorkoutPage((exercise) => void this.historyChart.openDialog(exercise), signal)
   }
 
@@ -58,7 +53,7 @@ class GymtimePage {
       {
         session: this.openSession,
         editSet: this.editSetDialog,
-        addExercise: this.addExerciseDialog,
+        picker: this.picker,
         history: this.historyChart,
         lastSet: this.lastSetDialog
       },
@@ -110,6 +105,21 @@ class GymtimePage {
 
     // The first draw: the cards, and the buttons that depend on a session.
     await this.openSession.show(workoutSession)
+  }
+
+  // Adds the exercises ticked to the end of the workout, in the order ticked. The first one starts the workout when
+  // none is open, and a change that fails to store stops the rest.
+  private addExercises() {
+    const taken = new Set(this.openSession.exerciseIds())
+    this.picker.add({ title: 'Add exercises', taken, takenNote: 'In workout' }, async (exercises) => {
+      try {
+        for (const exercise of exercises) {
+          await this.openSession.apply((session) => workoutSessionsStore.addExercise(session, exercise))
+        }
+      } catch {
+        // apply said what failed.
+      }
+    })
   }
 
   // Shows "Save to program" while the workout's exercises differ from the program's.

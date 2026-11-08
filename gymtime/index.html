@@ -485,40 +485,7 @@
       </div>
     </dialog>
 
-    <dialog id="add-exercise-dialog" class="w-full h-full">
-      <header class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Add exercise</h2>
-        <!-- partial:close-dialog-button -->
-      </header>
-      <div class="app-page-content">
-        <div class="mb-6">
-          <label for="muscle-filter">Filter by muscle group</label>
-          <select id="muscle-filter">
-            <!-- Muscle groups will be rendered here -->
-          </select>
-        </div>
-
-        <div id="exercises-grid" class="grid grid-cols-1 gap-4">
-          <!-- Exercises will be rendered here -->
-        </div>
-        <template id="exercise-item-template">
-          <div class="card card-hover">
-            <header>
-              <h3 class="exercise-name card-title">
-                <!-- -->
-              </h3>
-              <div class="flex flex-col gap-1 items-end">
-                <span class="exercise-muscle badge">
-                  <!-- -->
-                </span>
-                <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
-              </div>
-            </header>
-            <p class="exercise-prescription text-sm text-neutral-400 font-medium"></p>
-          </div>
-        </template>
-      </div>
-    </dialog>
+    <!-- partial:exercise-picker -->
 
     <!-- partial:bottom-nav -->
   </body>

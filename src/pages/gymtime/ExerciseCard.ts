@@ -15,8 +15,8 @@ import {
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
 import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
+import type ExercisePicker from '../ExercisePicker'
 import type EditSetDialog from './EditSetDialog'
-import type AddExerciseDialog from './AddExerciseDialog'
 import type ExerciseHistoryChart from './ExerciseHistoryChart'
 import type LastSetDialog from './LastSetDialog'
 import type { OpenSession } from './openSession'
@@ -87,7 +87,7 @@ const anchorMenu = (menu: HTMLElement, anchor: () => Element, room: number) => {
 export interface CardActions {
   session: OpenSession
   editSet: EditSetDialog
-  addExercise: AddExerciseDialog
+  picker: ExercisePicker
   history: ExerciseHistoryChart
   lastSet: LastSetDialog
 }
@@ -360,14 +360,11 @@ class ExerciseCard {
       )
         return
 
-      this.actions.addExercise.openDialog({
-        title: 'Swap exercise',
-        onExerciseClicked: async (newExercise) => {
-          if (newExercise.id === this.exerciseId || this.actions.session.alertIfHolds(newExercise.id)) return
-          await this.actions.session.apply((session) =>
-            workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise)
-          )
-        }
+      const taken = new Set(this.actions.session.exerciseIds())
+      this.actions.picker.pick({ title: 'Swap exercise', taken, takenNote: 'In workout' }, (newExercise) => {
+        void this.actions.session.apply((session) =>
+          workoutSessionsStore.swapExercise(session, this.exerciseId, newExercise)
+        )
       })
     })
   }

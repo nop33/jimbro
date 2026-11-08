@@ -303,8 +303,8 @@ const STOPS = [
   }],
   ['program-add-exercises', async (page) => {
     await page.getByRole('button', { name: 'Add exercises' }).click()
-    await see(page.locator('#add-exercises-dialog .exercise-choice'))
-    await page.locator('#add-exercises-dialog .exercise-choice:not(:has(input:disabled))').first().click()
+    await see(page.locator('#exercise-picker .exercise-choice'))
+    await page.locator('#exercise-picker .exercise-choice:not(:has(input:disabled))').first().click()
     await see(page.getByRole('button', { name: 'Add 1 exercise' }))
   }],
   ['stats', async (page) => {
@@ -425,11 +425,11 @@ const STOPS = [
   ['add-exercise-dialog', async (page) => {
     await page.keyboard.press('Escape')
     await page.locator('#add-exercise-card').click()
-    await see(page.locator('#add-exercise-dialog'))
+    await see(page.locator('#exercise-picker .exercise-choice'))
   }],
   ['gymtime-passkey-offer', async (page) => {
     await page.keyboard.press('Escape')
-    await gone(page.locator('#add-exercise-dialog'))
+    await gone(page.locator('#exercise-picker'))
     // Leaves only the first exercise, then logs its sets until the workout is done.
     const cards = page.locator('#exercises-list > [data-exercise-id]')
     for (let count = await cards.count(); count > 1; count = await cards.count()) {

@@ -1030,7 +1030,35 @@
     }
   }
 
-  /* The exercise picker: a checklist grouped by muscle, each group's title held at the top while its rows scroll. */
+  /* The exercise picker: a search and a row of filter chips, then the exercises grouped by section, each group's
+     title held at the top while its rows scroll. */
+  .exercise-picker-tools {
+    @apply flex flex-col gap-2;
+  }
+
+  /* One chip per section, scrolled sideways, reaching the sheet's edges so the row shows there is more of it. */
+  .exercise-filter {
+    @apply -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4;
+    scrollbar-width: none;
+
+    &[hidden] {
+      @apply hidden;
+    }
+  }
+
+  /* Relative, so the hidden radio sits in its chip: focused anywhere else, it would scroll the sheet to reach it. */
+  .exercise-filter-chip {
+    @apply relative m-0 flex min-h-11 shrink-0 cursor-pointer items-center rounded-full border border-neutral-600 bg-black/20 px-4 text-sm font-semibold text-jim-neutral-secondary transition-colors duration-150;
+
+    &:has(:checked) {
+      @apply border-transparent bg-jim-accent text-neutral-950;
+    }
+
+    &:has(:focus-visible) {
+      @apply outline-2 outline-offset-2 outline-blue-400;
+    }
+  }
+
   .exercise-choice-group-title {
     @apply sticky top-0 z-1 -mx-1 bg-jim-dark-blue px-2 pt-1 pb-2 text-xs font-semibold tracking-wider uppercase text-jim-neutral-tertiary;
   }
@@ -1050,13 +1078,15 @@
       @apply m-0 size-5.5 min-h-0 min-w-0 shrink-0 accent-jim-accent;
     }
 
-    &:has(input:disabled) {
+    &:has(input:disabled),
+    &:disabled {
       @apply cursor-default text-jim-neutral-tertiary;
     }
+  }
 
-    &:not(:has(input:disabled)) .exercise-choice-note {
-      @apply hidden;
-    }
+  /* To pick one exercise, as a swap does, each row is a button. */
+  button.exercise-choice {
+    @apply w-full rounded-none bg-transparent text-left;
   }
 
   /* A search hides the exercises and groups it leaves out. */
@@ -1066,8 +1096,17 @@
     @apply hidden;
   }
 
-  .exercise-choice-name {
-    @apply min-w-0 flex-1;
+  .exercise-choice-text {
+    @apply flex min-w-0 flex-1 flex-col;
+  }
+
+  .exercise-choice-muscle {
+    @apply text-xs font-normal text-jim-neutral-secondary;
+  }
+
+  .exercise-choice-note[hidden],
+  .exercise-choice-muscle[hidden] {
+    @apply hidden;
   }
 
   .exercise-choice-note {

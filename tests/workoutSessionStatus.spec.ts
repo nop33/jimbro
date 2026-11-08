@@ -18,7 +18,7 @@ import { seedDatabase } from './seed'
 const PUSH_DAY_PROGRAM_ID = '07c50b23-d3ad-4c30-a4a9-d8bdf58a2300'
 
 // A seeded exercise that is NOT part of Push Day (it's in Pull Day).
-// We use its name to locate the card in the AddExerciseDialog.
+// We use its name to locate the card in the exercise picker.
 const EXERCISE_NOT_IN_PUSH_DAY = {
   id: '17208184-8e68-4acf-9709-643305c1ac3e',
   name: 'Pull down machine'
@@ -149,12 +149,9 @@ test.describe('Workout session status reconciliation', () => {
     await addExerciseCard.scrollIntoViewIfNeeded()
     await addExerciseCard.click()
 
-    const dialog = page.locator('#add-exercise-dialog')
-    await expect(dialog).toBeVisible()
-
-    const targetCard = dialog.locator(`.card:has-text("${EXERCISE_NOT_IN_PUSH_DAY.name}")`).first()
-    await targetCard.scrollIntoViewIfNeeded()
-    await targetCard.click()
+    const dialog = page.locator('#exercise-picker')
+    await dialog.getByLabel(EXERCISE_NOT_IN_PUSH_DAY.name, { exact: true }).check()
+    await dialog.getByRole('button', { name: 'Add 1 exercise' }).click()
 
     await expect(dialog).not.toBeVisible()
     await expect(page.locator(`[data-exercise-id="${EXERCISE_NOT_IN_PUSH_DAY.id}"]`)).toBeVisible()
