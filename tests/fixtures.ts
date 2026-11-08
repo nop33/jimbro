@@ -30,6 +30,13 @@ export const test = base.extend<RouterOptions>({
       if (frame === page.mainFrame()) log.push(`${at()} navigated: ${frame.url()}`)
     })
     page.on('dialog', (dialog) => log.push(`${at()} dialog ${dialog.type()}: ${dialog.message()}`))
+    // A page whose modules fail to load draws nothing, so the log names each request that failed and why.
+    page.on('requestfailed', (request) =>
+      log.push(`${at()} request failed: ${request.method()} ${request.url()} ${request.failure()?.errorText ?? ''}`)
+    )
+    page.on('response', (response) => {
+      if (response.status() >= 400) log.push(`${at()} response ${response.status()}: ${response.url()}`)
+    })
     // The page logs the taps, submits and failed validations it sees, and the app's notices, with where they landed and
     // whether anything cancelled them, so a lost tap shows which step dropped it.
     await page.addInitScript(() => {
