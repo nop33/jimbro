@@ -130,3 +130,21 @@ function slideAway(dialog: HTMLDialogElement, from: number, close: () => void) {
     () => close()
   )
 }
+
+// The phone's keyboard covers the bottom of the screen without moving what is fixed there, on iPhone and on Android
+// alike, so a sheet would keep its fields and buttons under it. The visual viewport is the part left in sight: the
+// document gets its height and the strip under it as `--visible-height` and `--keyboard-inset`, which sheets sit on and
+// fit in (src/style.css). Wired once per document.
+export function followKeyboard() {
+  const viewport = window.visualViewport
+  if (!viewport) return
+  const root = document.documentElement.style
+  const update = () => {
+    const inset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+    root.setProperty('--keyboard-inset', `${inset}px`)
+    root.setProperty('--visible-height', `${Math.round(viewport.height)}px`)
+  }
+  viewport.addEventListener('resize', update)
+  viewport.addEventListener('scroll', update)
+  update()
+}

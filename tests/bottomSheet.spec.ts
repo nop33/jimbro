@@ -70,3 +70,34 @@ test.describe('Bottom sheets', () => {
     await expect(sheet).toBeHidden()
   })
 })
+
+// The keyboard shrinks the visual viewport, which a spec can't open, so the page gets a stand-in it can shrink.
+test('a sheet sits on the keyboard and fits above it', async ({ page }) => {
+  await page.addInitScript(() => {
+    const keyboard = Object.assign(new EventTarget(), { height: window.innerHeight, offsetTop: 0 })
+    Object.defineProperty(window, 'visualViewport', { configurable: true, get: () => keyboard })
+    Object.assign(window, { keyboard })
+  })
+  await page.goto('/programs/')
+  await page.getByRole('button', { name: 'New' }).click()
+  const sheet = page.locator('dialog#new-program-dialog')
+  await expect(sheet).toBeVisible()
+  const height = await page.evaluate(() => window.innerHeight)
+  const bottomOf = async () => sheet.evaluate((dialog) => Math.round(dialog.getBoundingClientRect().bottom))
+  await expect.poll(bottomOf).toBe(height)
+
+  await page.evaluate(() => {
+    const { keyboard } = window as unknown as { keyboard: EventTarget & { height: number } }
+    keyboard.height = window.innerHeight - 300
+    keyboard.dispatchEvent(new Event('resize'))
+  })
+  await expect.poll(bottomOf).toBe(height - 300)
+  await expect(sheet.getByRole('button', { name: 'Create' })).toBeInViewport()
+
+  await page.evaluate(() => {
+    const { keyboard } = window as unknown as { keyboard: EventTarget & { height: number } }
+    keyboard.height = window.innerHeight
+    keyboard.dispatchEvent(new Event('resize'))
+  })
+  await expect.poll(bottomOf).toBe(height)
+})

@@ -990,9 +990,11 @@
      long form or list never scrolls the close button away. `.dialog-sheet-full` takes the whole height whatever it
      holds, as the exercise picker does so its list keeps its place while a filter narrows it. A sheet follows a finger
      that pulls it down and closes past a point (src/features/bottomSheet.ts), which the grabber at its top suggests. */
+  /* With the keyboard open, a sheet sits on it and fits in what is left above it (followKeyboard in bottomSheet.ts). */
   dialog.dialog-sheet {
-    @apply mx-auto mt-auto mb-0 w-full max-w-lg rounded-b-none border-b-0 p-0;
-    max-height: calc(100dvh - 1rem);
+    @apply mx-auto mt-auto w-full max-w-lg rounded-b-none border-b-0 p-0;
+    margin-bottom: var(--keyboard-inset, 0px);
+    max-height: calc(var(--visible-height, 100dvh) - 1rem);
 
     &[open] {
       @apply flex flex-col;
@@ -1005,7 +1007,7 @@
   }
 
   dialog.dialog-sheet-full {
-    height: calc(100dvh - 1rem);
+    height: calc(var(--visible-height, 100dvh) - 1rem);
   }
 
   @starting-style {
