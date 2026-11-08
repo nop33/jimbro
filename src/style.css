@@ -995,6 +995,13 @@
     &[open] {
       @apply flex flex-col;
     }
+
+    /* A sheet covers most of the screen, so its backdrop only dims. Blurring the page behind a sheet this big made
+       Playwright's desktop WebKit take up to a second per frame (median 16ms without it), so clicks in the exercise
+       picker timed out waiting for their target to hold still. */
+    &::backdrop {
+      backdrop-filter: none;
+    }
   }
 
   @starting-style {

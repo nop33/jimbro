@@ -86,16 +86,6 @@ export const test = base.extend<RouterOptions>({
               dialog: rect(dialog),
               dialogScroll: dialog?.scrollTop,
               submit: rect(dialog?.querySelector('[type="submit"]')),
-              footer: rect(dialog?.querySelector('footer')),
-              hit: (() => {
-                const box = dialog?.querySelector('[type="submit"]')?.getBoundingClientRect()
-                const hit = box && document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
-                return hit && `${hit.tagName} ${hit.id || hit.className}`.slice(0, 60)
-              })(),
-              bodyBox: rect(dialog?.querySelector('.dialog-sheet-body')),
-              bodyWidth: dialog?.querySelector('.dialog-sheet-body')?.clientWidth,
-              viewport: [innerWidth, innerHeight, visualViewport?.height],
-              time: Math.round(performance.now()),
               body: dialog?.querySelector('.dialog-sheet-body')?.scrollTop,
               page: document.scrollingElement?.scrollTop
             })
