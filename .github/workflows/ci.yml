@@ -125,6 +125,13 @@ jobs:
             cat "$file"
             echo "::endgroup::"
           done
+          # wrangler's own debug log says when the local worker restarted or failed, which turns a request into a 503.
+          for file in "$HOME"/.config/.wrangler/logs/*.log; do
+            [ -f "$file" ] || continue
+            echo "::group::$file (reloads, restarts and errors)"
+            grep -iE 'reload|restart|error|exit' "$file" | tail -n 200
+            echo "::endgroup::"
+          done
       - uses: actions/upload-artifact@v6
         if: always()
         with:
