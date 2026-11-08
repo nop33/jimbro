@@ -115,7 +115,7 @@ jobs:
       - name: Install worker dependencies
         run: cd worker && vp install
       - name: Run Playwright tests
-        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}" ${{ matrix.project == 'webkit' && '--repeat-each=10 --retries=0 tests/gymtime.spec.ts tests/programs.spec.ts' || '' }}
+        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}" ${{ matrix.project == 'webkit' && '--repeat-each=15 --retries=0 --max-failures=3 -g "picker|adds an exercise" tests/gymtime.spec.ts tests/programs.spec.ts' || '' }}
       # What each failed attempt's page showed and logged, readable from the job log alone.
       - name: Print failure diagnostics
         if: failure()
