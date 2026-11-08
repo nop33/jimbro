@@ -7,6 +7,11 @@ import type { Exercise } from '../db/stores/exercisesStore'
 export const exerciseSection = ({ kind, muscle }: Pick<Exercise, 'kind' | 'muscle'>) =>
   kind === 'lifting' && muscle ? muscleGroupLabel(muscle) : EXERCISE_KIND_LABELS[kind]
 
+// The sections of the exercises that work no single muscle the way a lift does, in the order they come.
+export const KIND_SECTIONS = EXERCISE_KINDS.filter((kind) => kind !== 'lifting').map(
+  (kind) => EXERCISE_KIND_LABELS[kind]
+)
+
 const kindRank = (section: string) => EXERCISE_KINDS.findIndex((kind) => EXERCISE_KIND_LABELS[kind] === section)
 
 // The exercises by section: the muscles in alphabetical order, then Rehab, then Cardio, each section's exercises by

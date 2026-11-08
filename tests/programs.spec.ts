@@ -83,6 +83,12 @@ test.describe('Programs Page', () => {
     await sheet.getByLabel('Search exercises').fill('lun')
     await expect(sheet.locator('.exercise-choice-name:visible')).toHaveText(['Lunge'])
     await expect(sheet.locator('.exercise-choice-group-title:visible')).toHaveText(['Quads'])
+    // Rehab and Cardio show before there is one, and say how to make one.
+    await sheet.getByRole('radiogroup', { name: 'Show' }).getByText('Cardio', { exact: true }).click()
+    await expect(sheet.getByText('No cardio exercises yet.')).toBeVisible()
+    await expect(sheet.getByRole('link', { name: 'Create one' })).toHaveAttribute('href', '/exercises/')
+    await expect(sheet.getByText('No exercise matches.')).toBeHidden()
+    await sheet.getByRole('radiogroup', { name: 'Show' }).getByText('All', { exact: true }).click()
     await sheet.getByLabel('Search exercises').fill('zzz')
     await expect(sheet.getByText('No exercise matches.')).toBeVisible()
     await sheet.getByLabel('Search exercises').fill('')
@@ -122,7 +128,8 @@ test.describe('Programs Page', () => {
     await page.getByRole('button', { name: 'Add exercises' }).click()
     const sheet = page.locator('#exercise-picker')
     const filter = sheet.getByRole('radiogroup', { name: 'Show' })
-    await expect(filter.getByRole('radio')).toHaveCount(5)
+    // All, then Rehab and Cardio, then the muscles there are exercises for.
+    await expect(filter.locator('.exercise-filter-chip')).toHaveText(['All', 'Rehab', 'Cardio', 'Chest', 'Quads'])
     await expect(filter.getByRole('radio', { name: 'All' })).toBeChecked()
     await expect(sheet.locator('.exercise-choice-group-title:visible')).toHaveText([
       'Chest',
@@ -138,6 +145,10 @@ test.describe('Programs Page', () => {
     // The chip's radio takes the focus without scrolling the sheet off its header.
     await expect(sheet.getByRole('heading', { name: 'Add exercises' })).toBeInViewport()
     await expect(sheet.getByLabel('Treadmill walk')).toBeInViewport()
+    // Tapping the chosen chip again goes back to All.
+    await filter.getByText('Cardio', { exact: true }).click()
+    await expect(filter.getByRole('radio', { name: 'All' })).toBeChecked()
+    await expect(sheet.locator('.exercise-choice-name:visible')).toHaveCount(4)
     await filter.getByText('Rehab', { exact: true }).click()
     await expect(sheet.locator('.exercise-choice-name:visible')).toHaveText(['Band rotation'])
     await sheet.getByLabel('Search exercises').fill('squat')
