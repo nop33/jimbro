@@ -366,6 +366,55 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
+  test('holding Finished set grows it to half the screen, and only the next tap on it logs the set', async ({
+    page
+  }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    const finishBtn = form.getByRole('button', { name: 'Finished set' })
+    const logged = card.locator('.completed-sets .set.isCompleted')
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await card.locator('.exercise-details > summary').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+
+    // A long press: the button grows while the finger is still down, and the release logs nothing.
+    const hold = async () => {
+      // In the middle of the screen, clear of the bottom nav, which page.mouse would press instead.
+      await finishBtn.evaluate((button) => button.scrollIntoView({ block: 'center' }))
+      const box = (await finishBtn.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await expect(finishBtn).toHaveClass(/isGrown/)
+      await page.mouse.up()
+    }
+    await hold()
+    const viewport = page.viewportSize()!
+    await expect.poll(async () => (await finishBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2)
+    // Grown, it sits on screen whole.
+    await expect
+      .poll(async () => {
+        const box = (await finishBtn.boundingBox())!
+        return box.y >= 0 && box.y + box.height <= viewport.height
+      })
+      .toBe(true)
+    expect(await finishBtn.evaluate((button) => getComputedStyle(button).userSelect)).toBe('none')
+
+    // A tap anywhere else shrinks it back, and logs nothing either.
+    await page.locator('.app-header-title').click()
+    await expect(finishBtn).not.toHaveClass(/isGrown/)
+    await expect.poll(async () => (await finishBtn.boundingBox())!.height).toBeLessThan(100)
+    await expect(logged).toHaveCount(0)
+    await expect(breakTimer).toBeHidden()
+
+    // A tap on the grown button logs the set and shrinks it back.
+    await hold()
+    await finishBtn.click()
+    await expect(logged).toHaveCount(1)
+    await expect(breakTimer).toBeVisible()
+    await expect(finishBtn).not.toHaveClass(/isGrown/)
+  })
+
   test('pulling the break timer down minimizes it, a short pull slides back, and the bar expands it', async ({
     page
   }) => {

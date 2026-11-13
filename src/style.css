@@ -153,6 +153,26 @@
     }
   }
 
+  /* Holding Finished set grows it to half the screen (growOnLongPress.ts). The hold is the button's own long press, so
+     iOS shows no callout or text selection, and the grown button keeps its label in the middle. */
+  .finish-set-btn {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    transition:
+      min-height 280ms var(--ease-out),
+      font-size 280ms var(--ease-out),
+      scale 160ms var(--ease-out),
+      background-color 200ms ease,
+      color 200ms ease;
+
+    &.isGrown {
+      @apply text-3xl;
+      min-height: 50dvh;
+    }
+  }
+
   /* A destructive button is outlined, so it never looks like the safe primary action beside it. */
   .btn-danger {
     @apply border-jim-accent/50 text-jim-accent hover:bg-jim-error hover:text-white;

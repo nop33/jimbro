@@ -565,6 +565,22 @@ const STOPS = [
     await page.locator('#break-countdown-dialog.dialog-minimized').click()
     await see(page.locator('#break-countdown-dialog.dialog-full-screen'))
     await see(page.locator('#back-to-workout'))
+  }],
+  ['gymtime-finish-set-grown', async (page) => {
+    // Held, Finished set grows to half the screen. The workout has not started, since the hold logs nothing.
+    await page.goto('/')
+    await page.locator('.program-pick').first().click()
+    await page.waitForURL('**/gymtime/?*')
+    const card = page.locator('details.exercise-details').first()
+    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const button = card.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
+    await see(button)
+    await button.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+    const box = await button.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await see(card.locator('.finish-set-btn.isGrown'))
+    await page.mouse.up()
   }]
 ]
 

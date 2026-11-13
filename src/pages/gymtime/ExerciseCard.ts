@@ -23,6 +23,7 @@ import type { OpenSession } from './openSession'
 import { tapToDismiss } from './tapToDismiss'
 import { liftCard } from './liftCard'
 import { traceSet } from './traceSet'
+import { growOnLongPress } from './growOnLongPress'
 import type { ExercisePlan } from './exercisePlan'
 import {
   clearSetBadges,
@@ -374,6 +375,10 @@ class ExerciseCard {
   private setUpNextSetForm() {
     const { nextSetForm } = this
     const addSetBtn = this.element.querySelector('.add-set-btn') as HTMLButtonElement
+    const finishSet = growOnLongPress(nextSetForm.querySelector('.finish-set-btn') as HTMLButtonElement)
+    this.details.addEventListener('toggle', () => {
+      if (!this.details.open) finishSet.collapse()
+    })
 
     nextSetForm.addEventListener('input', () => {
       this.typedIn = true
@@ -390,6 +395,7 @@ class ExerciseCard {
       const completedSet = readSetFromForm(nextSetForm, preset)
       if (!confirmZeroSet(completedSet)) return
 
+      finishSet.collapse()
       this.closeWhenDone = true
       try {
         await this.actions.session.apply(
