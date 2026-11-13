@@ -579,7 +579,7 @@ const STOPS = [
     const box = await button.boundingBox()
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await page.mouse.down()
-    await see(card.locator('.finish-set-btn.isGrown'))
+    await see(page.locator('#exercises-list.finish-set-grown'))
     await page.mouse.up()
   }]
 ]

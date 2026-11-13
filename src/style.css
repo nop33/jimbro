@@ -167,7 +167,8 @@
       background-color 200ms ease,
       color 200ms ease;
 
-    &.isGrown {
+    .finish-set-grown &,
+    &.finish-set-grown {
       @apply text-3xl;
       min-height: 50dvh;
     }
