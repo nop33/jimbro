@@ -383,7 +383,9 @@ test.describe('Gymtime Page', () => {
 
     // A long press grows or shrinks it while the finger is still down, and the release logs nothing.
     const hold = async (grown: boolean, button = finishBtn) => {
-      // In the middle of the screen, clear of the bottom nav, which page.mouse would press instead.
+      // Once cards have opened or closed, so the button stays where it was measured, and in the middle of the screen,
+      // clear of the bottom nav, which page.mouse would press instead.
+      await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0)
       await button.evaluate((element) => element.scrollIntoView({ block: 'center' }))
       const box = (await button.boundingBox())!
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
