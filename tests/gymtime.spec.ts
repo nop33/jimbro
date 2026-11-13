@@ -366,6 +366,79 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
+  test('holding Finished set grows it to half the screen until the next hold, and a tap still logs the set', async ({
+    page
+  }) => {
+    const cards = page.locator('#exercises-list > .card')
+    const card = cards.first()
+    const form = card.locator('.next-set-form')
+    const finishBtn = form.getByRole('button', { name: 'Finished set' })
+    const logged = card.locator('.completed-sets .set.isCompleted')
+    const breakTimer = page.locator('#break-countdown-dialog')
+    const viewport = page.viewportSize()!
+    const height = async () => (await finishBtn.boundingBox())!.height
+    await card.locator('.exercise-details > summary').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+
+    // A long press grows or shrinks it while the finger is still down, and the release logs nothing.
+    const hold = async (grown: boolean, button = finishBtn) => {
+      // Once cards have opened or closed, so the button stays where it was measured, and in the middle of the screen,
+      // clear of the bottom nav, which page.mouse would press instead.
+      await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0)
+      await button.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+      const box = (await button.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      const list = page.locator('#exercises-list')
+      if (grown) await expect(list).toHaveClass(/finish-set-grown/)
+      else await expect(list).not.toHaveClass(/finish-set-grown/)
+      await page.mouse.up()
+      // Measured once the finger is up, since a pressed button shrinks a little.
+      const height = async () => (await button.boundingBox())!.height
+      if (grown) await expect.poll(height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+      else await expect.poll(height).toBeLessThan(100)
+    }
+    await hold(true)
+    // Grown, it sits on screen whole.
+    await expect
+      .poll(async () => {
+        const box = (await finishBtn.boundingBox())!
+        return box.y >= 0 && box.y + box.height <= viewport.height
+      })
+      .toBe(true)
+    // WebKit reports only the prefixed property.
+    expect(
+      await finishBtn.evaluate((button) => {
+        const style = getComputedStyle(button)
+        return style.userSelect || style.getPropertyValue('-webkit-user-select')
+      })
+    ).toBe('none')
+    await expect(logged).toHaveCount(0)
+
+    // A tap anywhere else leaves it grown.
+    await page.locator('.app-header-title').click()
+    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+
+    // A tap on it logs the set, and it stays grown for the next one.
+    await finishBtn.click()
+    await expect(logged).toHaveCount(1)
+    await expect(breakTimer).toBeVisible()
+    await breakTimer.getByRole('button', { name: 'Skip' }).click()
+    await expect(breakTimer).toBeHidden()
+    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+
+    // Another card opens with its button grown too.
+    const nextCard = cards.nth(1)
+    await nextCard.locator('.exercise-details > summary').click()
+    const nextBtn = nextCard.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
+    await expect.poll(async () => (await nextBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+
+    // Only another hold shrinks it back, and logs nothing.
+    await hold(false, nextBtn)
+    await expect(nextCard.locator('.completed-sets .set.isCompleted')).toHaveCount(0)
+  })
+
   test('pulling the break timer down minimizes it, a short pull slides back, and the bar expands it', async ({
     page
   }) => {
