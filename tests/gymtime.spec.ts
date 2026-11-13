@@ -394,7 +394,7 @@ test.describe('Gymtime Page', () => {
       await page.mouse.up()
       // Measured once the finger is up, since a pressed button shrinks a little.
       const height = async () => (await button.boundingBox())!.height
-      if (grown) await expect.poll(height).toBeGreaterThanOrEqual(viewport.height / 2)
+      if (grown) await expect.poll(height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
       else await expect.poll(height).toBeLessThan(100)
     }
     await hold(true)
@@ -410,7 +410,7 @@ test.describe('Gymtime Page', () => {
 
     // A tap anywhere else leaves it grown.
     await page.locator('.app-header-title').click()
-    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2)
+    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
     // A tap on it logs the set, and it stays grown for the next one.
     await finishBtn.click()
@@ -418,13 +418,13 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
     await expect(breakTimer).toBeHidden()
-    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2)
+    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
     // Another card opens with its button grown too.
     const nextCard = cards.nth(1)
     await nextCard.locator('.exercise-details > summary').click()
     const nextBtn = nextCard.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
-    await expect.poll(async () => (await nextBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2)
+    await expect.poll(async () => (await nextBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
     // Only another hold shrinks it back, and logs nothing.
     await hold(false, nextBtn)

@@ -25,12 +25,11 @@ export const growOnLongPress = (button: HTMLButtonElement) => {
     const grown = (button.closest('#exercises-list') ?? button).classList.toggle('finish-set-grown')
     navigator.vibrate?.(15)
     if (!grown) return
-    // Once it has grown, the button sits in the middle of the screen. Under reduced motion it grows at once, and the
-    // transition that ends at once still ends.
-    button.addEventListener('transitionend', function centre(event) {
-      if (event.propertyName !== 'min-height') return
-      button.removeEventListener('transitionend', centre)
-      button.scrollIntoView({ block: 'center' })
+    // Once it has grown, the button sits in the middle of the screen. Reading its style starts the transition, which
+    // ends at once under reduced motion. WebKit does not always fire transitionend, so this waits on the animations.
+    void getComputedStyle(button).minHeight
+    void Promise.allSettled(button.getAnimations().map(({ finished }) => finished)).then(() => {
+      if (button.isConnected) button.scrollIntoView({ block: 'center' })
     })
   }
 
