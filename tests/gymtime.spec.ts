@@ -407,7 +407,13 @@ test.describe('Gymtime Page', () => {
         return box.y >= 0 && box.y + box.height <= viewport.height
       })
       .toBe(true)
-    expect(await finishBtn.evaluate((button) => getComputedStyle(button).userSelect)).toBe('none')
+    // WebKit reports only the prefixed property.
+    expect(
+      await finishBtn.evaluate((button) => {
+        const style = getComputedStyle(button)
+        return style.userSelect || style.getPropertyValue('-webkit-user-select')
+      })
+    ).toBe('none')
     await expect(logged).toHaveCount(0)
 
     // A tap anywhere else leaves it grown.
