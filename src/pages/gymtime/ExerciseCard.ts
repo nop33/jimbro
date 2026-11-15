@@ -108,6 +108,7 @@ class ExerciseCard {
   private readonly progressSegments: HTMLSpanElement
   private readonly completedSets: HTMLDivElement
   private readonly nextSetDiv: HTMLDivElement
+  private readonly nextSetFooter: HTMLDivElement
   private readonly nextSetForm: HTMLFormElement
   private readonly nextSetFields: HTMLDivElement
   private readonly actionsBtn: HTMLButtonElement
@@ -133,6 +134,7 @@ class ExerciseCard {
     this.progressSegments = this.openBtn.querySelector('.exercise-progress') as HTMLSpanElement
     this.completedSets = this.sheet.querySelector('.completed-sets') as HTMLDivElement
     this.nextSetDiv = this.element.querySelector('.next-set') as HTMLDivElement
+    this.nextSetFooter = this.sheet.querySelector('.exercise-sheet-footer') as HTMLDivElement
     this.nextSetForm = this.nextSetDiv.querySelector('.next-set-form') as HTMLFormElement
     this.nextSetFields = this.nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
     this.actionsBtn = this.element.querySelector('.exercise-actions-btn') as HTMLButtonElement
@@ -272,7 +274,10 @@ class ExerciseCard {
     const closing = progress.done && this.closeWhenDone
     return traced.then(() => {
       if (closing) this.closeSheet()
-      this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done)
+      {
+        this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done)
+        this.nextSetFooter.classList.toggle('hidden', this.plan?.progress.done)
+      }
     })
   }
 

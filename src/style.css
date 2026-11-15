@@ -1559,6 +1559,11 @@ dialog.exercise-sheet[open] {
   }
 }
 
+/* Previous sets and History, over the sheet's sets, go when neither applies. */
+.exercise-sheet-links:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
 /* The workout's progress, over its exercises: counts and a bar of the sets logged. */
 .workout-progress {
   @apply flex flex-col gap-1.5 px-0.5;
