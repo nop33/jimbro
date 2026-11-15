@@ -112,7 +112,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 }
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-  test(`a logged set draws its border before the break timer opens only without reduced motion (${reducedMotion})`, async ({
+  test(`a logged set and Finished set draw their borders before the break timer opens only without reduced motion (${reducedMotion})`, async ({
     page
   }) => {
     await seedDatabase(page)
@@ -124,7 +124,8 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     const card = page.locator('#exercises-list > .card').first()
     await card.locator('.exercise-open-btn').click()
 
-    // Notes, in order, when the trace is drawn, when it is gone and when the break timer opens.
+    // Notes, in order, when Finished set and the row start their traces, when the row's is gone and when the break
+    // timer opens.
     await page.evaluate(() => {
       const events: string[] = []
       ;(window as unknown as { traceEvents: string[] }).traceEvents = events
@@ -132,6 +133,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
         for (const record of records) {
           for (const node of record.addedNodes)
             if (node instanceof SVGElement && node.matches('.set-trace')) events.push('trace')
+            else if (node instanceof SVGElement && node.matches('.button-trace')) events.push('button')
           for (const node of record.removedNodes)
             if (node instanceof SVGElement && node.matches('.set-trace')) events.push('gone')
           if (record.attributeName === 'open' && (record.target as Element).id === 'break-countdown-dialog')
@@ -147,9 +149,9 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page.locator('#break-countdown-dialog')).toHaveClass(/dialog-full-screen/)
 
     await expect(card.locator('.set.isCompleted')).toHaveCount(1)
-    await expect(page.locator('.set-trace')).toHaveCount(0)
+    await expect(page.locator('.trace-outline')).toHaveCount(0)
     const events = await page.evaluate(() => (window as unknown as { traceEvents: string[] }).traceEvents)
-    expect(events).toEqual(reducedMotion === 'reduce' ? ['timer'] : ['trace', 'gone', 'timer'])
+    expect(events).toEqual(reducedMotion === 'reduce' ? ['timer'] : ['button', 'trace', 'gone', 'timer'])
   })
 }
 

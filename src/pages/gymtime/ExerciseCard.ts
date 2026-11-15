@@ -23,7 +23,7 @@ import type LastSetDialog from './LastSetDialog'
 import type { OpenSession } from './openSession'
 import { tapToDismiss } from './tapToDismiss'
 import { liftCard } from './liftCard'
-import { traceSet } from './traceSet'
+import { traceButton, traceSet } from './traceSet'
 import { growOnLongPress } from './growOnLongPress'
 import type { ExercisePlan } from './exercisePlan'
 import {
@@ -457,7 +457,8 @@ class ExerciseCard {
   private setUpNextSetForm() {
     const { nextSetForm } = this
     const addSetBtn = this.element.querySelector('.add-set-btn') as HTMLButtonElement
-    growOnLongPress(nextSetForm.querySelector('.finish-set-btn') as HTMLButtonElement)
+    const finishSetBtn = nextSetForm.querySelector('.finish-set-btn') as HTMLButtonElement
+    growOnLongPress(finishSetBtn)
 
     nextSetForm.addEventListener('input', () => {
       this.typedIn = true
@@ -474,6 +475,7 @@ class ExerciseCard {
       const completedSet = readSetFromForm(nextSetForm, preset)
       if (!confirmZeroSet(completedSet)) return
 
+      traceButton(finishSetBtn)
       this.closeWhenDone = true
       try {
         await this.actions.session.apply(
