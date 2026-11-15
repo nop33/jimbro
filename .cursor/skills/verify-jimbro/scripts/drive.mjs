@@ -609,9 +609,10 @@ const STOPS = [
     await page.mouse.up()
   }],
   ['gymtime-watch-reminder', async (page) => {
-    // The first change of a workout today asks to start the watch too, before it starts the workout.
+    // The first change of a workout today asks to start the watch too, before it starts the workout. Earlier stops
+    // started workouts this week, whose picks open them again, so this takes a program with none.
     await page.goto('/')
-    await page.locator('.program-pick').first().click()
+    await page.locator('.program-pick[href*="programId="]').first().click()
     await page.waitForURL('**/gymtime/?*')
     const card = page.locator('#exercises-list > .card').first()
     await openSheet(card)
