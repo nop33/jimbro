@@ -1,6 +1,6 @@
 // A logged set's row draws its new solid border: a green stroke runs around it clockwise from the top left corner, a
-// little brighter than the border it leaves, then fades into it. Finished set runs the same stroke (traceButton). The break timer waits for it (openSession), so the
-// lifter sees the set land before the countdown covers the screen.
+// little brighter than the border it leaves, then fades into it. The break timer waits for it (openSession), so the
+// lifter sees the set land before the countdown covers the screen. Finished set runs the same stroke (traceButton).
 
 const SVG = 'http://www.w3.org/2000/svg'
 const DRAW_MS = 520
