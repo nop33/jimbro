@@ -231,8 +231,6 @@ test.describe('Workout session status reconciliation', () => {
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
 
-    // Minimizing closed the sheet, so the next set opens it again.
-    await lastCard.locator('.exercise-open-btn').click()
     // Completing the workout without cloud backup downloads a JSON export, which the test waits for.
     const exportDownload = page.waitForEvent('download')
     await finishedSet.click()

@@ -41,8 +41,6 @@ class BreakTimer {
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
-  // What the workout's page does when the timer minimizes, while it shows.
-  private onMinimize: (() => void) | null = null
   // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the bar.
   private dragged = false
   private alertsBell = new AlertsBell(this.dialog)
@@ -71,19 +69,13 @@ class BreakTimer {
   }
 
   // While the workout's page shows, until signal aborts, the full timer offers the exercise's history through
-  // openHistory, and minimizing it calls onMinimize, so the page can show what the bar sits on. On any other page it
-  // offers a link back to the workout instead.
-  onWorkoutPage(
-    { openHistory, onMinimize }: { openHistory: (exercise: Break['exercise']) => void; onMinimize: () => void },
-    signal: AbortSignal
-  ) {
+  // openHistory. On any other page it offers a link back to the workout instead.
+  onWorkoutPage(openHistory: (exercise: Break['exercise']) => void, signal: AbortSignal) {
     this.openHistory = openHistory
-    this.onMinimize = onMinimize
     this.showWayToWorkout()
     signal.addEventListener('abort', () => {
       if (this.openHistory !== openHistory) return
       this.openHistory = null
-      this.onMinimize = null
       this.showWayToWorkout()
     })
   }
@@ -159,7 +151,6 @@ class BreakTimer {
   }
 
   private minimizeDialog() {
-    this.onMinimize?.()
     this.morph(() => this.showMinimized())
   }
 

@@ -26,7 +26,6 @@ class GymtimePage {
   private editSetDialog: EditSetDialog
   private historyChart: ExerciseHistoryChart
   private lastSetDialog: LastSetDialog
-  private signal: AbortSignal
 
   // The page shows one workout until signal aborts, as when the next page replaces it.
   constructor(signal: AbortSignal) {
@@ -35,7 +34,7 @@ class GymtimePage {
     this.editSetDialog = new EditSetDialog(this.openSession)
     this.historyChart = new ExerciseHistoryChart(signal)
     this.lastSetDialog = new LastSetDialog()
-    this.signal = signal
+    breakTimer().onWorkoutPage((exercise) => void this.historyChart.openDialog(exercise), signal)
   }
 
   private async init() {
@@ -60,14 +59,6 @@ class GymtimePage {
       },
       program.exercises,
       () => form.planned()
-    )
-    // The minimized timer is a bar on the page, which an exercise's sheet would cover, so minimizing it closes the sheet.
-    breakTimer().onWorkoutPage(
-      {
-        openHistory: (exercise) => void this.historyChart.openDialog(exercise),
-        onMinimize: () => cardList.closeSheet()
-      },
-      this.signal
     )
     this.openSession.startWith({ start: () => form.start(), exerciseIds: () => this.program.exercises })
     this.openSession.subscribe((session) => {

@@ -1537,6 +1537,28 @@
   @apply text-xs font-bold tracking-wider text-jim-accent uppercase;
 }
 
+/* The exercise's sheet opens without being modal (ExerciseCard.ts), so it places itself as a modal sheet sits, over
+   the bottom nav, and dims the page around it with a shadow in place of a backdrop. While the break timer is a bar, the
+   sheet sits above the bar, which stays on top, undimmed. */
+dialog.exercise-sheet[open] {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 60;
+  margin-top: 0;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6);
+}
+
+:root:has(#break-countdown-dialog.dialog-minimized[open]) {
+  dialog.exercise-sheet[open] {
+    bottom: calc(var(--bottom-nav-height) + var(--break-bar-height));
+    max-height: calc(var(--visible-height, 100dvh) - 1rem - var(--bottom-nav-height) - var(--break-bar-height));
+  }
+
+  &:has(dialog.exercise-sheet[open]) #break-countdown-dialog {
+    z-index: 70;
+  }
+}
+
 /* The workout's progress, over its exercises: counts and a bar of the sets logged. */
 .workout-progress {
   @apply flex flex-col gap-1.5 px-0.5;

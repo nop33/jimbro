@@ -26,11 +26,6 @@ class ExerciseCardList {
     actions.session.subscribe((session) => this.show(session))
   }
 
-  // Closes the exercise sheet that is open, if any.
-  closeSheet() {
-    for (const card of this.cards.values()) card.closeSheet()
-  }
-
   setProgramExerciseIds(programExerciseIds: string[]) {
     this.programExerciseIds = programExerciseIds
   }

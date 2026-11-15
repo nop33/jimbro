@@ -573,6 +573,8 @@ const STOPS = [
     await see(page.locator('#break-countdown-dialog'))
     await page.locator('#minimize-break').click()
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
+    // The sheet stays open under the bar, so it is closed first.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
     await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
     await page.waitForURL('**/exercises/')
     await see(page.locator('#exercises-grid .card').first())

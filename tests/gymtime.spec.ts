@@ -357,9 +357,7 @@ test.describe('Gymtime Page', () => {
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
 
-    // The next set starts the next break before then, and that break outlives the last one's close. Minimizing closed
-    // the sheet, so the set is logged from it opened again.
-    await card.locator('.exercise-open-btn').click()
+    // The next set starts the next break before then, and that break outlives the last one's close.
     await logSet()
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
     await expect(breakTimer.locator('#sets-done')).toHaveText('2 / 4')
@@ -647,7 +645,9 @@ test.describe('Gymtime Page', () => {
     await expect(card.locator('.exercise-open-btn')).toHaveAccessibleName(/^.+: 0 of \d+ sets, next .+$/)
   })
 
-  test('minimizing the break timer closes the sheet, so its bar shows on the list', async ({ page }) => {
+  test('the sheet stays open under the minimized break timer, whose bar stays on screen and takes taps', async ({
+    page
+  }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
     await card.locator('.exercise-open-btn').click()
@@ -660,8 +660,30 @@ test.describe('Gymtime Page', () => {
 
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
-    await expect(card.locator('.exercise-sheet')).toHaveJSProperty('open', false)
-    await expect(card.locator('.exercise-progress-count')).toHaveText(/^1\//)
+    const sheet = card.locator('.exercise-sheet')
+    await expect(sheet).toHaveJSProperty('open', true)
+
+    // The sheet ends above the bar, so the bar shows whole and its Expand button is what a tap there reaches.
+    const bar = (await breakTimer.boundingBox())!
+    const sheetBox = (await sheet.boundingBox())!
+    expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(bar.y + 1)
+    await expect(form.getByRole('button', { name: 'Finished set' })).toBeInViewport()
+    await breakTimer.getByRole('button', { name: 'Expand' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await breakTimer.getByRole('button', { name: 'Skip' }).click()
+    await expect(breakTimer).toBeHidden()
+    await expect(sheet).toHaveJSProperty('open', true)
+
+    // A tap on the page around the sheet closes it.
+    await page.locator('.app-header-title').click()
+    await expect(sheet).toHaveJSProperty('open', false)
+
+    // Esc closes it too, and the focus goes back to the card.
+    await card.locator('.exercise-open-btn').click()
+    await expect(sheet).toHaveJSProperty('open', true)
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveJSProperty('open', false)
+    await expect(card.locator('.exercise-open-btn')).toBeFocused()
   })
 
   test('opening a program saves nothing until the first change starts the workout', async ({ page }) => {
@@ -767,6 +789,8 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    // The exercise's sheet stays open under the bar, so it is closed first.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
 
     page.once('dialog', (dialog) => void dialog.accept())
     await page.locator('#delete-workout-session-btn').click()

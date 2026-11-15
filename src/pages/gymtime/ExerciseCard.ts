@@ -141,11 +141,7 @@ class ExerciseCard {
     this.setMenu = this.element.querySelector('.set-menu') as HTMLDivElement
 
     this.element.setAttribute('data-exercise-id', this.exerciseId)
-    // A modal dialog: the page under it can't be tapped, Esc, the ✕ and a pull down close it, and the focus comes back
-    // to the card.
-    this.openBtn.addEventListener('click', () => this.sheet.showModal())
-    this.sheet.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.sheet.close())
-    pullDownToClose(this.sheet)
+    this.setUpSheet()
 
     this.setUpActionsMenu()
     this.setUpSetMenu()
@@ -163,9 +159,62 @@ class ExerciseCard {
     return this.snapshot.exerciseId
   }
 
-  // Closes the card's sheet, as when the break timer is minimized, so the page under it shows.
-  closeSheet() {
+  private closeSheet() {
     if (this.sheet.open) this.sheet.close()
+  }
+
+  // The sheet opens without being modal, so the break timer's bar, which isn't modal either, stays on screen over it
+  // and keeps taking taps while the sheet is open. A modal sheet would make the bar inert. So the sheet does what a
+  // modal one would: a tap outside it only closes it, Esc closes it, and the focus goes back to the card. The ✕ and a
+  // pull down close it too.
+  private setUpSheet() {
+    const { sheet } = this
+    sheet.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeSheet())
+    pullDownToClose(sheet)
+
+    let open: AbortController | undefined
+    // Whether the tap that closed the sheet still has its click to come.
+    let swallowClick = false
+    this.openBtn.addEventListener('click', () => {
+      sheet.show()
+      open?.abort()
+      open = new AbortController()
+      const listening = open
+      const { signal } = listening
+      // A tap on the page around the sheet closes it and does nothing else. Taps on the break timer, another dialog or
+      // a popover, such as a menu or a toast, are theirs.
+      document.addEventListener(
+        'pointerdown',
+        (event) => {
+          const target = event.target instanceof Element ? event.target : null
+          swallowClick =
+            !sheet.contains(target) && !target?.closest('dialog, [popover]') && !document.querySelector('dialog:modal')
+          if (swallowClick) this.closeSheet()
+        },
+        { capture: true, signal }
+      )
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (swallowClick) {
+            swallowClick = false
+            event.preventDefault()
+            event.stopPropagation()
+          }
+          if (!sheet.open) listening.abort()
+        },
+        { capture: true, signal }
+      )
+    })
+    // Esc closes a menu open in the sheet first.
+    sheet.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !sheet.querySelector(':popover-open')) this.closeSheet()
+    })
+    sheet.addEventListener('close', () => {
+      // A tap outside keeps the listeners until its click, which they swallow.
+      if (!swallowClick) open?.abort()
+      if (sheet.contains(document.activeElement)) this.openBtn.focus({ preventScroll: true })
+    })
   }
 
   // Shows the exercise as the session holds it, or before a session starts, as the start will store it. It changes
