@@ -227,6 +227,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 }
 
 test('the break timer rises from the bottom as a sheet that covers the whole screen', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   await seedDatabase(page)
   await page.getByRole('button', { name: 'New' }).click()
   await page.locator('dialog#new-workout-dialog a.program-link').first().click()
