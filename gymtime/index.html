@@ -391,6 +391,37 @@
       </form>
     </dialog>
 
+    <!-- Icon: Lucide (https://lucide.dev) watch, inlined. ISC License. -->
+    <dialog id="watch-reminder-dialog" class="dialog-sheet">
+      <header class="dialog-sheet-header">
+        <!-- The title takes the focus, so the checkbox doesn't. -->
+        <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Start your watch</h2>
+        <!-- partial:close-dialog-button -->
+      </header>
+      <form method="dialog" class="contents">
+        <div class="dialog-sheet-body">
+          <div class="watch-reminder">
+            <span class="watch-reminder-icon">
+              <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="6" />
+                <polyline points="12 10 12 12 13 13" />
+                <path d="m16.13 7.66-.81-4.05a2 2 0 0 0-2-1.61h-2.68a2 2 0 0 0-2 1.61l-.78 4.05" />
+                <path d="m7.88 16.36.8 4a2 2 0 0 0 2 1.61h2.72a2 2 0 0 0 2-1.61l.81-4.05" />
+              </svg>
+            </span>
+            <p>Start the workout on your watch now, so it tracks the whole session.</p>
+          </div>
+          <label class="watch-reminder-skip">
+            <input type="checkbox" name="dont-remind" />
+            Don't remind me again
+          </label>
+        </div>
+        <footer class="dialog-sheet-footer">
+          <button type="submit" value="start" class="btn-primary flex-1">Start workout</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="last-set-dialog" class="dialog-sheet">
       <header class="dialog-sheet-header">
         <h2 class="text-xl font-bold">Previous sets</h2>

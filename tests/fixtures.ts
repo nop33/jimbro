@@ -6,6 +6,9 @@ import { test as base } from '@playwright/test'
 export interface RouterOptions {
   // Whether the page gets the browser's Navigation API, which the router shows each page in the same document with.
   navigationApi: boolean
+  // Whether a workout's first change asks to start the watch too. Off unless a spec turns it on, so the specs that
+  // start a workout need not answer it; watchReminder.spec.ts covers it.
+  watchReminder: boolean
 }
 
 // Playwright's test, with the Navigation API taken away where a project sets navigationApi to false. Without it the
@@ -13,9 +16,16 @@ export interface RouterOptions {
 // full. Specs import test from here, so the option reaches every page they open.
 export const test = base.extend<RouterOptions>({
   navigationApi: [true, { option: true }],
-  context: async ({ context, navigationApi }, use) => {
+  watchReminder: [false, { option: true }],
+  context: async ({ context, navigationApi, watchReminder }, use) => {
     if (!navigationApi) {
       await context.addInitScript(() => Object.defineProperty(globalThis, 'navigation', { value: undefined }))
+    }
+    // As if "Don't remind me again" was ticked, unless the spec or the app stored a choice since.
+    if (!watchReminder) {
+      await context.addInitScript(() => {
+        if (localStorage.getItem('jimbro.watchReminder') === null) localStorage.setItem('jimbro.watchReminder', 'off')
+      })
     }
     await use(context)
   },

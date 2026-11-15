@@ -1284,7 +1284,7 @@
       @apply bg-jim-info border-jim-info/20;
     }
 
-    /* A toast with a detail line, such as "Workout started", stands out: a check badge, a bold title and a shadow. */
+    /* A prominent toast, such as "Workout started", stands out: a check badge, a bold title and a shadow. */
     &.prominent {
       @apply flex items-center gap-3 rounded-[20px] text-white;
       box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
@@ -1300,14 +1300,6 @@
 
     .toast-title {
       @apply text-[17px] leading-snug font-bold;
-    }
-
-    .toast-detail {
-      @apply flex items-center gap-1.5 text-sm text-white/90;
-    }
-
-    .toast-detail-icon svg {
-      @apply size-4;
     }
   }
 
@@ -1380,6 +1372,51 @@
 
   .settings-list {
     @apply rounded-2xl border border-neutral-700/10 bg-jim-dark-blue/50 overflow-hidden;
+  }
+
+  /* The gymtime sheet that asks to start the workout on a watch too. */
+  .watch-reminder {
+    @apply flex items-center gap-4 text-base text-jim-neutral;
+  }
+
+  .watch-reminder-icon {
+    @apply grid size-12 shrink-0 place-items-center rounded-full bg-jim-accent/15 text-jim-accent;
+
+    .lucide {
+      @apply size-7;
+    }
+  }
+
+  .watch-reminder-skip {
+    @apply flex min-h-11 items-center gap-3 text-jim-neutral-secondary;
+
+    input {
+      @apply m-0 size-5.5 min-h-0 min-w-0 shrink-0 accent-jim-accent;
+    }
+  }
+
+  /* An on/off setting: a checkbox drawn as a switch, the whole row its label. */
+  .settings-switch {
+    @apply relative h-7 w-12 min-h-0 min-w-0 shrink-0 cursor-pointer appearance-none rounded-full bg-neutral-600;
+    transition: background-color 200ms var(--ease-out);
+
+    &::before {
+      @apply absolute top-0.5 left-0.5 size-6 rounded-full bg-white shadow;
+      content: '';
+      transition: translate 200ms var(--ease-out);
+    }
+
+    &:checked {
+      @apply bg-jim-success;
+
+      &::before {
+        translate: 1.25rem 0;
+      }
+    }
+
+    &:focus-visible {
+      @apply outline-2 outline-offset-2 outline-jim-accent;
+    }
   }
 
   .settings-row {
