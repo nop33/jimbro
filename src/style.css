@@ -1617,3 +1617,34 @@ dialog.exercise-sheet[open] {
     translate: -50% -50% !important;
   }
 }
+
+/* The app is portrait only. The manifest's "orientation" locks an installed app on Android, but Safari on the iPhone,
+   in a tab or added to the Home Screen, ignores it, and the web has no lock it honours (screen.orientation.lock() needs
+   fullscreen, which Safari on the iPhone never grants a page). So a phone held sideways hides the page, and its open
+   dialogs, which the top layer would otherwise show over anything in the page, and asks to turn the phone upright.
+   Hiding keeps the page laid out as it was, so it comes back at the same scroll, with the same dialog open and the same
+   value typed. A touch screen less than 500px tall is a phone held sideways, and leaves out tablets and desktops. */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  /* A modal dialog takes visibility: visible from the browser's own stylesheet, instead of inheriting it. */
+  body,
+  dialog,
+  [popover],
+  ::backdrop {
+    visibility: hidden;
+  }
+
+  body::after {
+    visibility: visible;
+    content: 'Turn your phone upright to use Jimbro';
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--color-jim-dark);
+    color: var(--color-jim-neutral);
+    font-size: 1.125rem;
+    text-align: center;
+  }
+}
