@@ -17,7 +17,11 @@ const drag = async (page: Page, from: { x: number; y: number }, by: number) => {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 }
 
+// A sheet slides in as it opens, so a finger aimed at it before it settles lands where it no longer is.
 const centreOf = async (locator: Locator) => {
+  await expect
+    .poll(() => locator.evaluate((element) => element.closest('dialog')?.getAnimations({ subtree: true }).length))
+    .toBe(0)
   const box = await locator.boundingBox()
   if (!box) throw new Error('Not on screen')
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
