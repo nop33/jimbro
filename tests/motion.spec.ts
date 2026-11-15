@@ -242,17 +242,31 @@ test('the break timer rises from the bottom as a sheet that covers the whole scr
   // The timer's top a frame after it opens, while it slides up.
   const risingTop = page.evaluate(
     () =>
-      new Promise<number>((resolve) => {
+      new Promise<{ top: number; seen: string }>((resolve) => {
         const timer = document.getElementById('break-countdown-dialog') as HTMLDialogElement
         new MutationObserver((_, observer) => {
           if (!timer.open) return
           observer.disconnect()
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve(timer.getBoundingClientRect().top)))
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+              resolve({
+                top: timer.getBoundingClientRect().top,
+                // What the timer was doing then, for the failure message.
+                seen: JSON.stringify({
+                  className: timer.className,
+                  translate: getComputedStyle(timer).translate,
+                  animations: timer.getAnimations().map((animation) => animation.playState),
+                  reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches
+                })
+              })
+            )
+          )
         }).observe(timer, { attributes: true, attributeFilter: ['open'] })
       })
   )
   await form.getByRole('button', { name: 'Finished set' }).click()
-  expect(await risingTop).toBeGreaterThan(50)
+  const { top, seen } = await risingTop
+  expect(top, seen).toBeGreaterThan(50)
 
   const breakTimer = page.locator('#break-countdown-dialog')
   await expect(breakTimer).toHaveClass(/dialog-full-screen/)
