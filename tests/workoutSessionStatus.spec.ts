@@ -113,7 +113,6 @@ test.describe('Workout session status reconciliation', () => {
 
     const lastCard = page.locator(`[data-exercise-id="${lastExerciseId}"]`)
     await lastCard.scrollIntoViewIfNeeded()
-    await lastCard.locator('.exercise-details').click()
 
     page.once('dialog', (dialog) => dialog.accept())
     await lastCard.locator('.exercise-actions-btn').click()
@@ -189,11 +188,11 @@ test.describe('Workout session status reconciliation', () => {
 
     const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
     await lastCard.scrollIntoViewIfNeeded()
-    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.locator('.exercise-open-btn').click()
     await lastCard.getByRole('button', { name: 'Finished set' }).click()
     await expect.poll(workoutsDone).toBe(1)
 
-    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.locator('.exercise-open-btn').click()
     await lastCard.getByRole('button', { name: 'Add set' }).click()
     await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
 
@@ -226,12 +225,14 @@ test.describe('Workout session status reconciliation', () => {
     const finishedSet = lastCard.getByRole('button', { name: 'Finished set' })
     const breakTimer = page.locator('#break-countdown-dialog')
     await lastCard.scrollIntoViewIfNeeded()
-    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.locator('.exercise-open-btn').click()
     await finishedSet.click()
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
 
+    // Minimizing closed the sheet, so the next set opens it again.
+    await lastCard.locator('.exercise-open-btn').click()
     // Completing the workout without cloud backup downloads a JSON export, which the test waits for.
     const exportDownload = page.waitForEvent('download')
     await finishedSet.click()
@@ -262,7 +263,7 @@ test.describe('Celebrations', () => {
     await writeSession(page, { id: sessionId, programId: PUSH_DAY_PROGRAM_ID, status: 'incomplete', exercises })
     await page.goto(`/gymtime/?id=${sessionId}`)
     const card = page.locator(`[data-exercise-id="${first.exerciseId}"]`)
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     return card
   }
 
@@ -316,7 +317,7 @@ test.describe('Celebrations', () => {
     await page.goto(`/gymtime/?id=${sessionId}`)
     const lastCard = page.locator(`[data-exercise-id="${last.exerciseId}"]`)
     await lastCard.scrollIntoViewIfNeeded()
-    await lastCard.locator('.exercise-details > summary').click()
+    await lastCard.locator('.exercise-open-btn').click()
     const exportDownload = page.waitForEvent('download')
     await lastCard.getByRole('button', { name: 'Finished set' }).click()
 

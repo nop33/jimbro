@@ -60,7 +60,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
-    await card.locator('summary').click()
+    await card.locator('.exercise-open-btn').click()
     const form = card.locator('.next-set-form')
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('60')
@@ -111,33 +111,6 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   })
 }
 
-test('a closing exercise card shrinks to its closed height without a jump at the end', async ({ page }) => {
-  await seedDatabase(page)
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
-  await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
-
-  const card = page.locator('#exercises-list > .card').first()
-  await card.locator('summary').click()
-  await expect(card.getByRole('button', { name: 'Add set' })).toBeVisible()
-
-  // The card's height when the close animation ends, with the details still open, and once it is closed. The gap
-  // under an open summary shrinks with the sets, so removing the open attribute moves nothing.
-  const heights = await card.evaluate(async (element: HTMLElement) => {
-    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-    const details = element.querySelector('details')!
-    await Promise.all(element.getAnimations({ subtree: true }).map(({ finished }) => finished))
-    details.querySelector('summary')!.click()
-    // The finished promises settle before the finish events, which close the details.
-    await Promise.all(element.getAnimations({ subtree: true }).map(({ finished }) => finished))
-    const open = details.open && element.getBoundingClientRect().height
-    while (details.open) await nextFrame()
-    return { open, closed: element.getBoundingClientRect().height }
-  })
-  expect(heights.open).toBeCloseTo(heights.closed, 0)
-})
-
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`a logged set draws its border before the break timer opens only without reduced motion (${reducedMotion})`, async ({
     page
@@ -149,7 +122,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
-    await card.locator('summary').click()
+    await card.locator('.exercise-open-btn').click()
 
     // Notes, in order, when the trace is drawn, when it is gone and when the break timer opens.
     await page.evaluate(() => {

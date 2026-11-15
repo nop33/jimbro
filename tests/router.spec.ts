@@ -72,7 +72,7 @@ test('a break keeps counting down on the next page, and its bar opens the full t
   await markDocument(page)
 
   const card = page.locator('#exercises-list > .card').first()
-  await card.locator('.exercise-details > summary').click()
+  await card.locator('.exercise-open-btn').click()
   const form = card.locator('.next-set-form')
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('100')

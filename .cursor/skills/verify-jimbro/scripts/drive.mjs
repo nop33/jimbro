@@ -102,6 +102,15 @@ async function withPage(device, fn) {
 const see = (locator) => locator.first().waitFor({ state: 'visible' })
 const gone = (locator) => locator.first().waitFor({ state: 'hidden' })
 
+// Opens a gymtime card's sheet, its sets and the next set's form, unless it is open.
+const openSheet = async (card) => {
+  const sheet = card.locator('.exercise-sheet')
+  if (!(await sheet.evaluate((dialog) => dialog.open))) await card.locator('.exercise-open-btn').click()
+  await see(sheet)
+  // It rises from the bottom edge, so whatever is in it moves until then.
+  await sheet.evaluate((dialog) => Promise.allSettled(dialog.getAnimations().map(({ finished }) => finished)))
+}
+
 // Waits until a canvas keeps its size and pixels for five frames in a row, so a chart has finished drawing and
 // resizing. A canvas resized but not yet redrawn shows its old drawing stretched for a frame.
 const stillCanvas = (locator) =>
@@ -346,20 +355,20 @@ const STOPS = [
   ['gymtime-started', async (page) => {
     // The first change starts the workout: here, Add set on the first card.
     await page.locator('#workout-details > summary').click()
-    const card = page.locator('details.exercise-details').first()
-    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
     await see(page.locator('.toast-message-popup', { hasText: 'Workout started' }))
     await page.waitForURL('**/gymtime/?id=*')
   }],
   ['gymtime-card-open', async (page) => {
-    const card = page.locator('details.exercise-details').first()
-    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
     await see(card.locator('.next-set-form button[type=submit]'))
     await card.locator('.next-set-form button[type=submit]').scrollIntoViewIfNeeded()
   }],
   ['gymtime-set-menu', async (page) => {
-    const card = page.locator('details.exercise-details').first()
+    const card = page.locator('#exercises-list > .card').first()
     const rows = card.getByRole('button', { name: /, to do$/ })
     // A tap on another row while the menu is open only closes it, so the last row's menu takes a second tap.
     await rows.first().click()
@@ -372,7 +381,7 @@ const STOPS = [
   ['break-timer', async (page) => {
     await page.keyboard.press('Escape')
     await gone(page.locator('.set-menu:popover-open'))
-    const form = page.locator('details.exercise-details').first().locator('.next-set-form')
+    const form = page.locator('#exercises-list > .card').first().locator('.next-set-form')
     const reps = form.locator('input[name="set-reps"]')
     if ((await reps.count()) > 0 && (await reps.first().inputValue()) === '') await reps.first().fill('8')
     const weight = form.locator('input[name="set-weight"]')
@@ -391,15 +400,15 @@ const STOPS = [
   }],
   ['edit-set-dialog', async (page) => {
     await page.goto(page.url())
-    const card = page.locator('details.exercise-details').first()
-    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
     await card.locator('.completed-sets .set.isCompleted').first().click()
     await see(page.locator('#edit-set-dialog'))
   }],
   ['previous-sets-dialog', async (page) => {
     await page.locator('#edit-set-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#edit-set-dialog'))
-    await page.locator('details.exercise-details').first().locator('.view-last-set-btn').click()
+    await page.locator('#exercises-list > .card').first().locator('.view-last-set-btn').click()
     await see(page.locator('#last-set-dialog'))
   }],
   ['previous-sets-older', async (page) => {
@@ -410,7 +419,7 @@ const STOPS = [
   ['history-chart-dialog', async (page) => {
     await page.locator('#last-set-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#last-set-dialog'))
-    await page.locator('details.exercise-details').first().locator('.view-history-btn').click()
+    await page.locator('#exercises-list > .card').first().locator('.view-history-btn').click()
     const canvas = page.locator('#exercise-history-dialog canvas')
     await see(canvas)
     await stillCanvas(canvas)
@@ -418,6 +427,8 @@ const STOPS = [
   ['gymtime-card-menu', async (page) => {
     await page.locator('#exercise-history-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#exercise-history-dialog'))
+    await page.keyboard.press('Escape')
+    await gone(page.locator('.exercise-sheet[open]'))
     const card = page.locator('[data-exercise-id]').nth(1)
     await card.locator('.exercise-actions-btn').click()
     await see(card.locator('.exercise-actions-menu'))
@@ -445,9 +456,7 @@ const STOPS = [
     const pending = card.locator('.completed-sets .set.isPending')
     const breakTimer = page.locator('#break-countdown-dialog')
     for (let left = await pending.count(); left > 0; left = await pending.count()) {
-      if ((await card.locator('.exercise-details').getAttribute('open')) === null) {
-        await card.locator('.exercise-details > summary').click()
-      }
+      await openSheet(card)
       await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
       await page.waitForFunction(
         ([id, before]) =>
@@ -542,8 +551,8 @@ const STOPS = [
     await page.goto('/')
     await page.locator('.program-pick').first().click()
     await page.waitForURL('**/gymtime/?*')
-    const card = page.locator('details.exercise-details').first()
-    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
     const form = card.locator('.next-set-form')
     const reps = form.locator('input[name="set-reps"]')
     if ((await reps.count()) > 0 && (await reps.first().inputValue()) === '') await reps.first().fill('8')
@@ -571,8 +580,8 @@ const STOPS = [
     await page.goto('/')
     await page.locator('.program-pick').first().click()
     await page.waitForURL('**/gymtime/?*')
-    const card = page.locator('details.exercise-details').first()
-    if ((await card.getAttribute('open')) === null) await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
     const button = card.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
     await see(button)
     await button.evaluate((element) => element.scrollIntoView({ block: 'center' }))

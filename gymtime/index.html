@@ -111,6 +111,14 @@
             <textarea name="notes" placeholder="Notes" aria-label="Notes"></textarea>
           </form>
         </details>
+        <!-- How far the workout is: exercises done and sets logged, of what it holds. -->
+        <div id="workout-progress" class="workout-progress">
+          <p class="workout-progress-counts">
+            <span><b class="workout-exercises-done"></b> of <b class="workout-exercises-total"></b> exercises</span>
+            <span><b class="workout-sets-done"></b> of <b class="workout-sets-total"></b> sets</span>
+          </p>
+          <progress class="workout-progress-bar" max="1" value="0" aria-label="Sets logged"></progress>
+        </div>
         <div id="exercises-list" class="flex flex-col gap-2">
           <!-- Exercises will be rendered here -->
         </div>
@@ -170,17 +178,11 @@
         <template id="workout-exercise-item-template">
           <div class="card">
             <header class="items-start gap-2">
-              <div class="flex flex-1 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-                <h3 class="exercise-name card-title">
-                  <!-- -->
-                </h3>
-                <span class="exercise-muscle badge">
-                  <!-- -->
-                </span>
-                <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
-              </div>
+              <h3 class="exercise-name card-title flex-1 min-w-0">
+                <!-- -->
+              </h3>
               <!-- A 44px button whose centre sits on the title's first line, however many lines the name takes.
-                   It sits above the summary's tap area, which covers the header. -->
+                   It sits above the open button's tap area, which covers the card. -->
               <button
                 type="button"
                 class="exercise-actions-btn relative z-10 -my-2 -mr-3 flex items-center justify-center rounded-lg text-jim-accent cursor-pointer hover:bg-jim-accent/10 active:bg-jim-accent/20"
@@ -264,9 +266,26 @@
                 </button>
               </div>
             </header>
-            <details class="exercise-details">
-              <summary>Exercise sets</summary>
-              <div class="exercise-details-content">
+            <!-- The exercise's progress. A tap anywhere on the card opens its sheet. -->
+            <button type="button" class="exercise-open-btn">
+              <span class="exercise-muscle badge">
+                <!-- -->
+              </span>
+              <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
+              <span class="exercise-progress" aria-hidden="true"></span>
+              <span class="exercise-progress-count"></span>
+              <span class="exercise-next"
+                ><span class="exercise-next-label">Next</span> <span class="exercise-next-set"></span
+              ></span>
+            </button>
+            <!-- The exercise's sets and the next set's form, in a sheet over the list. -->
+            <dialog class="exercise-sheet dialog-sheet">
+              <div class="dialog-sheet-header">
+                <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. -->
+                <h2 class="exercise-sheet-title text-lg font-bold focus:outline-none" tabindex="-1" autofocus></h2>
+                <!-- partial:close-dialog-button -->
+              </div>
+              <div class="exercise-sheet-body dialog-sheet-body">
                 <div class="completed-sets set-list mb-3">
                   <!-- Completed sets will be rendered here -->
                 </div>
@@ -359,7 +378,7 @@
                   </button>
                 </div>
               </div>
-            </details>
+            </dialog>
           </div>
         </template>
 

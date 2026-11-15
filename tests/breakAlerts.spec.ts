@@ -94,7 +94,7 @@ const startBreak = async (page: Page) => {
 const logSet = async (page: Page) => {
   const card = page.locator('#exercises-list > .card').first()
   const form = card.locator('.next-set-form')
-  if (!(await form.isVisible())) await card.locator('.exercise-details > summary').click()
+  if (!(await form.isVisible())) await card.locator('.exercise-open-btn').click()
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('100')
   await form.getByRole('button', { name: 'Finished set' }).click()

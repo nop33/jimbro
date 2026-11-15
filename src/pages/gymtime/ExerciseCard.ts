@@ -1,5 +1,6 @@
 import {
   emptySet,
+  formatSet,
   historyChartEnabled,
   EXERCISE_KIND_LABELS,
   type ExerciseSetExecution,
@@ -14,7 +15,6 @@ import {
 } from '../../db/stores/workoutSessionsStore'
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import { nodeFromTemplate, setTextContent } from '../../utils'
-import { animateDetails, type AnimateDetailsHandle } from './animateDetails'
 import type ExercisePicker from '../ExercisePicker'
 import type EditSetDialog from './EditSetDialog'
 import type ExerciseHistoryChart from './ExerciseHistoryChart'
@@ -93,16 +93,18 @@ export interface CardActions {
   lastSet: LastSetDialog
 }
 
-// One exercise's card. The card list builds it once per exercise and calls show with each session the page shows, so
-// the card keeps what the user is doing in it: open or closed, its menu, and a value typed into the next set's form.
-// Its buttons only write to the open session, which then reaches every card through show.
+// One exercise's card: its progress in the list, and a sheet with its sets and the next set's form, which a tap on the
+// card opens. The card list builds it once per exercise and calls show with each session the page shows, so the card
+// keeps what the user is doing in it: its sheet open, its menu, and a value typed into the next set's form. Its buttons
+// only write to the open session, which then reaches every card through show.
 class ExerciseCard {
   readonly element: HTMLDivElement
   private readonly actions: CardActions
   private snapshot: ExerciseSnapshot
   private plan: ExercisePlan | undefined
-  private readonly details: HTMLDetailsElement
-  private readonly detailsAnimation: AnimateDetailsHandle
+  private readonly openBtn: HTMLButtonElement
+  private readonly sheet: HTMLDialogElement
+  private readonly progressSegments: HTMLSpanElement
   private readonly completedSets: HTMLDivElement
   private readonly nextSetDiv: HTMLDivElement
   private readonly nextSetForm: HTMLFormElement
@@ -116,7 +118,7 @@ class ExerciseCard {
   // What the next set's inputs were last filled with, and whether the user has typed in them since.
   private filledWith = ''
   private typedIn = false
-  // Set while a set logged from this card's form is on its way to the screen: the card closes when it finishes the
+  // Set while a set logged from this card's form is on its way to the screen: the sheet closes when it finishes the
   // exercise.
   private closeWhenDone = false
 
@@ -125,8 +127,10 @@ class ExerciseCard {
     this.actions = actions
     const template = nodeFromTemplate('#workout-exercise-item-template')
     this.element = template.querySelector('div') as HTMLDivElement
-    this.details = this.element.querySelector('.exercise-details') as HTMLDetailsElement
-    this.completedSets = this.details.querySelector('.completed-sets') as HTMLDivElement
+    this.openBtn = this.element.querySelector('.exercise-open-btn') as HTMLButtonElement
+    this.sheet = this.element.querySelector('.exercise-sheet') as HTMLDialogElement
+    this.progressSegments = this.openBtn.querySelector('.exercise-progress') as HTMLSpanElement
+    this.completedSets = this.sheet.querySelector('.completed-sets') as HTMLDivElement
     this.nextSetDiv = this.element.querySelector('.next-set') as HTMLDivElement
     this.nextSetForm = this.nextSetDiv.querySelector('.next-set-form') as HTMLFormElement
     this.nextSetFields = this.nextSetForm.querySelector('.next-set-fields') as HTMLDivElement
@@ -136,11 +140,9 @@ class ExerciseCard {
     this.setMenu = this.element.querySelector('.set-menu') as HTMLDivElement
 
     this.element.setAttribute('data-exercise-id', this.exerciseId)
-    this.detailsAnimation = animateDetails(
-      this.details,
-      this.details.querySelector('.exercise-details-content') as HTMLDivElement,
-      { accordionSelector: '.exercise-details' }
-    )
+    // A modal dialog: the page under it can't be tapped, Esc and the ✕ close it, and the focus comes back to the card.
+    this.openBtn.addEventListener('click', () => this.sheet.showModal())
+    this.sheet.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.sheet.close())
 
     this.setUpActionsMenu()
     this.setUpSetMenu()
@@ -158,6 +160,11 @@ class ExerciseCard {
     return this.snapshot.exerciseId
   }
 
+  // Closes the card's sheet, as when the break timer is minimized, so the page under it shows.
+  closeSheet() {
+    if (this.sheet.open) this.sheet.close()
+  }
+
   // Shows the exercise as the session holds it, or before a session starts, as the start will store it. It changes
   // only what differs from what the card shows, and leaves the next set's inputs alone while the user is on them.
   // Resolves once a set just logged has drawn its border.
@@ -169,6 +176,7 @@ class ExerciseCard {
     const kindLabel = EXERCISE_KIND_LABELS[kind]
 
     setTextContent('.exercise-name', snapshot.name, this.element)
+    setTextContent('.exercise-sheet-title', snapshot.name, this.sheet)
     setTextContent('.exercise-muscle', muscle ? muscleGroupLabel(muscle) : kindLabel, this.element)
     const kindBadge = this.element.querySelector('.exercise-kind') as HTMLSpanElement
     kindBadge.textContent = kindLabel
@@ -177,6 +185,7 @@ class ExerciseCard {
 
     const { progress } = plan
     this.element.classList.toggle('card-success', progress.done)
+    this.showProgress(progress, formatSet(preset, plan.prefill))
     this.viewHistoryBtn.classList.toggle('hidden', !historyChartEnabled(kind))
     this.viewLastSetBtn.classList.toggle('hidden', !plan.lastTime)
 
@@ -206,13 +215,29 @@ class ExerciseCard {
       this.typedIn = false
     }
 
-    // The card starts closing once the set that finished the exercise has drawn its border, and keeps the next set's
-    // form until the close ends, so it closes from its full height.
+    // The sheet closes once the set that finished the exercise has drawn its border, so the list shows the exercise
+    // done, and keeps the next set's form until then.
     const closing = progress.done && this.closeWhenDone
     return traced.then(() => {
-      if (closing) this.detailsAnimation.close()
-      this.detailsAnimation.afterClose(() => this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done))
+      if (closing) this.closeSheet()
+      this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done)
     })
+  }
+
+  // The card's line under the name: a segment per set, the sets logged of the target, and the next set's values.
+  private showProgress({ logged, target, done }: ExerciseProgress, nextSet: string) {
+    const segments = this.progressSegments
+    while (segments.children.length > target) segments.lastElementChild?.remove()
+    while (segments.children.length < target) segments.append(document.createElement('i'))
+    for (const [index, segment] of [...segments.children].entries())
+      segment.classList.toggle('isLogged', index < logged)
+    setTextContent('.exercise-progress-count', `${logged}/${target}`, this.openBtn)
+    setTextContent('.exercise-next-set', nextSet, this.openBtn)
+    this.openBtn.querySelector('.exercise-next')?.classList.toggle('hidden', done)
+    this.openBtn.setAttribute(
+      'aria-label',
+      `${this.snapshot.name}: ${logged} of ${target} sets${done ? ', done' : `, next ${nextSet}`}`
+    )
   }
 
   // Keeps each row that still shows the same set, so only a changed row is drawn again. A set to do that is now logged

@@ -2,11 +2,13 @@ import { catalogSnapshots, type PlannedSession } from '../../db/stores/workoutSe
 import type { ExerciseSnapshot, WorkoutSession } from '../../db/types'
 import ExerciseCard, { type CardActions } from './ExerciseCard'
 import { keptLastTimes, planExercise, type ExercisePlan } from './exercisePlan'
+import WorkoutProgress from './WorkoutProgress'
 
 // The view of the open session: one card per exercise, kept for as long as the exercise is shown. Each session the
 // page shows reaches every card through ExerciseCard.show, whatever changed it.
 class ExerciseCardList {
   private exercisesList = document.querySelector('#exercises-list') as HTMLDivElement
+  private progress = new WorkoutProgress()
   private actions: CardActions
   private programExerciseIds: string[]
   private planned: () => PlannedSession
@@ -22,6 +24,11 @@ class ExerciseCardList {
     this.planned = planned
     actions.session.busyOn(this.exercisesList)
     actions.session.subscribe((session) => this.show(session))
+  }
+
+  // Closes the exercise sheet that is open, if any.
+  closeSheet() {
+    for (const card of this.cards.values()) card.closeSheet()
   }
 
   setProgramExerciseIds(programExerciseIds: string[]) {
@@ -67,6 +74,7 @@ class ExerciseCardList {
       cards.set(snapshot.exerciseId, card)
     }
     this.cards = cards
+    this.progress.show(plans.map(([, { progress }]) => progress))
 
     // Moves only the cards out of place, since a card taken out of the page loses the focus in it.
     const elements = [...cards.values()].map(({ element }) => element)
