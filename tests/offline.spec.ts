@@ -172,8 +172,8 @@ test('a page that opened before a deploy still draws the history chart', async (
   await addExerciseDialog.locator('.close-dialog-btn').click()
   await expect(addExerciseDialog).toBeHidden()
 
-  const firstExercise = page.locator('details.exercise-details').first()
-  await firstExercise.locator('summary').click()
+  const firstExercise = page.locator('#exercises-list > .card').first()
+  await firstExercise.locator('.exercise-open-btn').click()
   const chartDrawn = page.waitForFunction(() => {
     const canvas = document.querySelector<HTMLCanvasElement>('#exercise-history-chart')
     return canvas !== null && canvas.width > 0 && canvas.hasAttribute('style')

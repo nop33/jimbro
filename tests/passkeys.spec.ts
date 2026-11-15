@@ -133,7 +133,7 @@ const openAlmostDoneWorkout = async (page: Page) => {
   await page.goto(`/gymtime/?id=${sessionId.id}`)
   const lastCard = page.locator(`[data-exercise-id="${sessionId.lastExerciseId}"]`)
   await lastCard.scrollIntoViewIfNeeded()
-  await lastCard.locator('.exercise-details > summary').click()
+  await lastCard.locator('.exercise-open-btn').click()
   return { sessionId: sessionId.id, lastCard }
 }
 
@@ -556,7 +556,7 @@ test('a finished workout offers a passkey until "Not now", where the browser has
   expect(days).toBeLessThanOrEqual(14)
 
   // Another set makes the workout incomplete, and finishing it again keeps the offer away. A finished card closes.
-  await lastCard.locator('.exercise-details > summary').click()
+  await lastCard.locator('.exercise-open-btn').click()
   await lastCard.getByRole('button', { name: 'Add set' }).click()
   await expect(lastCard.getByRole('button', { name: 'Finished set' })).toBeVisible()
   // The export downloaded with the first finish, and the next is a week away.

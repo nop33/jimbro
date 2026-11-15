@@ -71,7 +71,7 @@ test('the cards before the start show the set slots the start stores for the gym
 
   // Logging the first set starts the workout with the targets the cards showed.
   const card = page.locator('#exercises-list > .card').first()
-  await card.locator('.exercise-details > summary').click()
+  await card.locator('.exercise-open-btn').click()
   await card.getByRole('button', { name: 'Finished set' }).click()
   await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
   await expect(page).toHaveURL(/\?id=/)
@@ -84,8 +84,8 @@ test('the history chart keys the gyms under it and toggles a metric from its hea
   // Without animation the chart repaints at once, so its pixels show what each toggle drew.
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto(`/gymtime/?id=${sessionId}`)
-  const card = page.locator('details.exercise-details').first()
-  await card.locator('summary').click()
+  const card = page.locator('#exercises-list > .card').first()
+  await card.locator('.exercise-open-btn').click()
   await card.locator('.view-history-btn').click()
 
   await expect(page.locator('#exercise-history-gyms li')).toHaveText(['Unshaded: Holmes Place Syntagma', 'Hotel gym'])
@@ -126,8 +126,8 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     const { sessionId } = await seedWorkoutsAt(page, ['Athens', 'Athens', 'Athens'], [1, 2, 3])
     await page.emulateMedia({ reducedMotion })
     await page.goto(`/gymtime/?id=${sessionId}`)
-    const card = page.locator('details.exercise-details').first()
-    await card.locator('summary').click()
+    const card = page.locator('#exercises-list > .card').first()
+    await card.locator('.exercise-open-btn').click()
     await card.locator('.view-history-btn').click()
     await expect(page.locator('#exercise-history-dialog')).toBeVisible()
 

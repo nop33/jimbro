@@ -1,6 +1,6 @@
 // A logged set's row draws its new solid border: a green stroke runs around it clockwise from the top left corner, a
 // little brighter than the border it leaves, then fades into it. The break timer waits for it (openSession), so the
-// lifter sees the set land before the countdown covers the screen.
+// lifter sees the set land before the countdown covers the screen. Finished set runs the same stroke (traceButton).
 
 const SVG = 'http://www.w3.org/2000/svg'
 const DRAW_MS = 520
@@ -39,7 +39,7 @@ export const traceSet = async (row: HTMLElement): Promise<void> => {
   const border = getComputedStyle(row).borderTopColor
 
   const svg = document.createElementNS(SVG, 'svg')
-  svg.classList.add('set-trace')
+  svg.classList.add('trace-outline', 'set-trace')
   svg.setAttribute('aria-hidden', 'true')
   svg.setAttribute('width', String(width))
   svg.setAttribute('height', String(height))
@@ -91,4 +91,46 @@ export const traceSet = async (row: HTMLElement): Promise<void> => {
     hidden.cancel()
     svg.remove()
   }
+}
+
+// Finished set runs the same stroke round itself as the tap that logs the set lands, while the new row draws its own
+// border. Nothing waits for it. Its layout size leaves out the scale of a pressed button, which the stroke scales with.
+export const traceButton = (button: HTMLElement): void => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const { offsetWidth: width, offsetHeight: height } = button
+  if (width === 0 || height === 0) return
+
+  const svg = document.createElementNS(SVG, 'svg')
+  svg.classList.add('trace-outline', 'button-trace')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('width', String(width))
+  svg.setAttribute('height', String(height))
+  const path = document.createElementNS(SVG, 'path')
+  path.setAttribute('d', outline(width, height, parseFloat(getComputedStyle(button).borderTopLeftRadius) || 0))
+  svg.append(path)
+  button.append(svg)
+  const length = path.getTotalLength()
+  path.style.strokeDasharray = `${length} ${length}`
+
+  const draw = path.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
+    duration: DRAW_MS,
+    easing: EASE_IN_OUT,
+    fill: 'forwards'
+  })
+  void draw.finished
+    .then(() => {
+      button.animate([{ boxShadow: `0 0 0 0 ${GLOW}` }, { boxShadow: '0 0 14px 1px transparent' }], {
+        duration: 420,
+        easing: 'ease-out'
+      })
+      return path.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: SETTLE_MS,
+        easing: 'ease-out',
+        fill: 'forwards'
+      }).finished
+    })
+    .catch(() => {
+      // The card closed or redrew, which took the animations with it.
+    })
+    .finally(() => svg.remove())
 }
