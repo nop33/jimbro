@@ -1,5 +1,5 @@
-// A logged set's row draws its new solid border, and Finished set draws the same stroke around itself: a green stroke runs around it clockwise from the top left corner, a
-// little brighter than the border it leaves, then fades into it. The break timer waits for it (openSession), so the
+// A logged set's row draws its new solid border: a green stroke runs around it clockwise from the top left corner, a
+// little brighter than the border it leaves, then fades into it. Finished set runs the same stroke (traceButton). The break timer waits for it (openSession), so the
 // lifter sees the set land before the countdown covers the screen.
 
 const SVG = 'http://www.w3.org/2000/svg'
@@ -30,56 +30,25 @@ const outline = (width: number, height: number, radius: number): string => {
   ].join(' ')
 }
 
-// Draws the stroke around target, glowing as it closes, and fades it. drawn runs once the stroke has gone all the way
-// round. Resolves once the stroke is gone. The caller checks reduced motion.
-const traceOutline = async (target: HTMLElement, className: string, drawn: () => void = () => {}): Promise<void> => {
-  // Its layout size, which a pressed button's scale leaves alone, since the stroke scales with it.
-  const { offsetWidth: width, offsetHeight: height } = target
+// Resolves once the row shows its own border again. Under reduced motion the row just changes, as it always did.
+export const traceSet = async (row: HTMLElement): Promise<void> => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const { width, height } = row.getBoundingClientRect()
   if (width === 0 || height === 0) return
+  const border = getComputedStyle(row).borderTopColor
 
   const svg = document.createElementNS(SVG, 'svg')
-  svg.classList.add('trace-outline', className)
+  svg.classList.add('trace-outline', 'set-trace')
   svg.setAttribute('aria-hidden', 'true')
   svg.setAttribute('width', String(width))
   svg.setAttribute('height', String(height))
   const path = document.createElementNS(SVG, 'path')
-  path.setAttribute('d', outline(width, height, parseFloat(getComputedStyle(target).borderTopLeftRadius) || 0))
+  path.setAttribute('d', outline(width, height, parseFloat(getComputedStyle(row).borderTopLeftRadius) || 0))
   svg.append(path)
-  target.append(svg)
+  row.append(svg)
   const length = path.getTotalLength()
   path.style.strokeDasharray = `${length} ${length}`
-
-  try {
-    await path.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
-      duration: DRAW_MS,
-      easing: EASE_IN_OUT,
-      fill: 'forwards'
-    }).finished
-    drawn()
-    target.animate([{ boxShadow: `0 0 0 0 ${GLOW}` }, { boxShadow: '0 0 14px 1px transparent' }], {
-      duration: 420,
-      easing: 'ease-out'
-    })
-    await path.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SETTLE_MS, easing: 'ease-out', fill: 'forwards' })
-      .finished
-  } catch {
-    // A later session redrew the row, which took the animations with it.
-  } finally {
-    svg.remove()
-  }
-}
-
-// Finished set draws the same stroke around itself as the tap that logs the set lands, while the new row draws its own.
-// Nothing waits for it.
-export const traceButton = (button: HTMLElement): void => {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  void traceOutline(button, 'button-trace')
-}
-
-// Resolves once the row shows its own border again. Under reduced motion the row just changes, as it always did.
-export const traceSet = async (row: HTMLElement): Promise<void> => {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  const border = getComputedStyle(row).borderTopColor
 
   // The row comes up from the faded look of a set to do, and its values rise into place, while the stroke draws.
   row.animate([{ opacity: 0.5 }, { opacity: 1 }], { duration: DRAW_MS, easing: 'ease-out' })
@@ -103,14 +72,65 @@ export const traceSet = async (row: HTMLElement): Promise<void> => {
   })
 
   try {
-    await traceOutline(row, 'set-trace', () => {
-      hidden.cancel()
-      row.animate([{ borderColor: 'transparent' }, { borderColor: border }], {
-        duration: SETTLE_MS,
-        easing: 'ease-out'
-      })
+    await path.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
+      duration: DRAW_MS,
+      easing: EASE_IN_OUT,
+      fill: 'forwards'
+    }).finished
+    hidden.cancel()
+    row.animate([{ borderColor: 'transparent' }, { borderColor: border }], { duration: SETTLE_MS, easing: 'ease-out' })
+    row.animate([{ boxShadow: `0 0 0 0 ${GLOW}` }, { boxShadow: '0 0 14px 1px transparent' }], {
+      duration: 420,
+      easing: 'ease-out'
     })
+    await path.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SETTLE_MS, easing: 'ease-out', fill: 'forwards' })
+      .finished
+  } catch {
+    // A later session redrew the row, which took the animations with it.
   } finally {
     hidden.cancel()
+    svg.remove()
   }
+}
+
+// Finished set runs the same stroke round itself as the tap that logs the set lands, while the new row draws its own
+// border. Nothing waits for it. Its layout size leaves out the scale of a pressed button, which the stroke scales with.
+export const traceButton = (button: HTMLElement): void => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const { offsetWidth: width, offsetHeight: height } = button
+  if (width === 0 || height === 0) return
+
+  const svg = document.createElementNS(SVG, 'svg')
+  svg.classList.add('trace-outline', 'button-trace')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('width', String(width))
+  svg.setAttribute('height', String(height))
+  const path = document.createElementNS(SVG, 'path')
+  path.setAttribute('d', outline(width, height, parseFloat(getComputedStyle(button).borderTopLeftRadius) || 0))
+  svg.append(path)
+  button.append(svg)
+  const length = path.getTotalLength()
+  path.style.strokeDasharray = `${length} ${length}`
+
+  const draw = path.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
+    duration: DRAW_MS,
+    easing: EASE_IN_OUT,
+    fill: 'forwards'
+  })
+  void draw.finished
+    .then(() => {
+      button.animate([{ boxShadow: `0 0 0 0 ${GLOW}` }, { boxShadow: '0 0 14px 1px transparent' }], {
+        duration: 420,
+        easing: 'ease-out'
+      })
+      return path.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: SETTLE_MS,
+        easing: 'ease-out',
+        fill: 'forwards'
+      }).finished
+    })
+    .catch(() => {
+      // The card closed or redrew, which took the animations with it.
+    })
+    .finally(() => svg.remove())
 }
