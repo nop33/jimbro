@@ -209,7 +209,7 @@ test('the break timer rises from the bottom as a sheet that covers the whole scr
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
   const card = page.locator('#exercises-list > .card').first()
-  await card.locator('summary').click()
+  await card.locator('.exercise-open-btn').click()
   const form = card.locator('.next-set-form')
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('60')
