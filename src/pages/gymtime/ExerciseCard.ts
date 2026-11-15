@@ -7,6 +7,7 @@ import {
   type SetSlot
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
+import { pullDownToClose } from '../../features/bottomSheet'
 import {
   canRemoveSetSlot,
   progressOf,
@@ -140,9 +141,11 @@ class ExerciseCard {
     this.setMenu = this.element.querySelector('.set-menu') as HTMLDivElement
 
     this.element.setAttribute('data-exercise-id', this.exerciseId)
-    // A modal dialog: the page under it can't be tapped, Esc and the ✕ close it, and the focus comes back to the card.
+    // A modal dialog: the page under it can't be tapped, Esc, the ✕ and a pull down close it, and the focus comes back
+    // to the card.
     this.openBtn.addEventListener('click', () => this.sheet.showModal())
     this.sheet.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.sheet.close())
+    pullDownToClose(this.sheet)
 
     this.setUpActionsMenu()
     this.setUpSetMenu()

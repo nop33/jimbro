@@ -101,13 +101,13 @@
       </div>
     </div>
 
-    <dialog id="rename-program-dialog" aria-labelledby="rename-program-title">
-      <header>
+    <dialog id="rename-program-dialog" class="dialog-sheet" aria-labelledby="rename-program-title">
+      <header class="dialog-sheet-header">
         <h2 id="rename-program-title" class="text-xl font-bold">Rename program</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <form id="rename-program-form" class="flex flex-col gap-6">
-        <div>
+      <form id="rename-program-form" class="contents">
+        <div class="dialog-sheet-body">
           <label for="rename-program-name">Name</label>
           <input
             type="text"
@@ -117,9 +117,9 @@
             class="w-full p-2 rounded border border-neutral-600"
           />
         </div>
-        <div class="flex justify-end">
-          <button type="submit" class="btn-primary">Save</button>
-        </div>
+        <footer class="dialog-sheet-footer">
+          <button type="submit" class="btn-primary w-full">Save</button>
+        </footer>
       </form>
     </dialog>
 

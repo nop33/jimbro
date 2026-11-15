@@ -2,6 +2,7 @@ import { exercisesStore, type Exercise } from '../db/stores/exercisesStore'
 import { muscleGroupLabel } from '../db/muscleGroups'
 import { nodeFromTemplate, setTextContent } from '../utils'
 import { exerciseSections, KIND_SECTIONS } from './exerciseSections'
+import { pullDownToClose } from '../features/bottomSheet'
 
 const ALL = 'All'
 
@@ -34,6 +35,7 @@ class ExercisePicker {
   private onPick: (exercise: Exercise) => void = () => {}
 
   constructor() {
+    pullDownToClose(this.dialog)
     this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.search.addEventListener('input', () => this.filter())
     // Tapping the chip already chosen goes back to All, which a radio can't do by itself. A radio's click comes before
