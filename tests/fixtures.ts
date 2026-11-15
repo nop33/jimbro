@@ -56,6 +56,18 @@ export const test = base.extend<RouterOptions>({
         window.addEventListener(`jimbro:${notice}`, () => console.debug(`trace ${notice}`))
       }
     })
+    // A goto or reload waits for the page on screen to finish loading first. A spec's last check often passes on the
+    // static HTML while the dev server still sends the page its modules, and Playwright's WebKit, which cancels those
+    // loads when the next one starts, can then crash its network process and fail the next page's load.
+    for (const method of ['goto', 'reload'] as const) {
+      const navigate = page[method].bind(page) as (...args: unknown[]) => Promise<unknown>
+      Object.assign(page, {
+        [method]: async (...args: unknown[]) => {
+          await page.waitForLoadState('load')
+          return navigate(...args)
+        }
+      })
+    }
     await use(page)
     if (testInfo.status === testInfo.expectedStatus) return
     const state = await page
