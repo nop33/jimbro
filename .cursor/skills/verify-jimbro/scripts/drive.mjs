@@ -389,7 +389,8 @@ const STOPS = [
     await see(card.locator('.set-menu'))
   }],
   ['break-timer', async (page) => {
-    await page.keyboard.press('Escape')
+    // A tap outside the set menu closes it. Esc would close the sheet under it too in WebKit.
+    await page.locator('#exercises-list > .card').first().locator('.exercise-sheet-title').click()
     await gone(page.locator('.set-menu:popover-open'))
     const form = page.locator('#exercises-list > .card').first().locator('.next-set-form')
     const reps = form.locator('input[name="set-reps"]')
