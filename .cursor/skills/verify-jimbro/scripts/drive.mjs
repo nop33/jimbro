@@ -369,6 +369,8 @@ const STOPS = [
     const card = page.locator('#exercises-list > .card').first()
     await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
+    // The watch reminder asks first. Its own stop, gymtime-watch-reminder, shows it.
+    await page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' }).click()
     await see(page.locator('.toast-message-popup', { hasText: 'Workout started' }))
     await page.waitForURL('**/gymtime/?id=*')
   }],
@@ -571,6 +573,7 @@ const STOPS = [
     const weight = form.locator('input[name="set-weight"]')
     if ((await weight.count()) > 0 && (await weight.first().inputValue()) === '') await weight.first().fill('40')
     await form.getByRole('button', { name: 'Finished set' }).click()
+    await page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' }).click()
     await see(page.locator('#break-countdown-dialog'))
     await page.locator('#minimize-break').click()
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
@@ -604,6 +607,17 @@ const STOPS = [
     await page.mouse.down()
     await see(page.locator('#exercises-list.finish-set-grown'))
     await page.mouse.up()
+  }],
+  ['gymtime-watch-reminder', async (page) => {
+    // The first change of a workout today asks to start the watch too, before it starts the workout. Earlier stops
+    // started workouts this week, whose picks open them again, so this takes a program with none.
+    await page.goto('/')
+    await page.locator('.program-pick[href*="programId="]').first().click()
+    await page.waitForURL('**/gymtime/?*')
+    const card = page.locator('#exercises-list > .card').first()
+    await openSheet(card)
+    await card.getByRole('button', { name: 'Add set' }).click()
+    await see(page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' }))
   }]
 ]
 

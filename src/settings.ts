@@ -42,3 +42,13 @@ export const getBreakTimeSeconds = (): number => {
 export const storeBreakTimeSeconds = (seconds: number) => {
   localStorage.setItem(BREAK_TIME_STORAGE_KEY, seconds.toString())
 }
+
+// The reminder to start the workout on a watch too, which the gymtime page shows as a workout starts. It is on until
+// the lifter ticks "Don't remind me again", and Settings turns it back on.
+const WATCH_REMINDER_STORAGE_KEY = 'jimbro.watchReminder'
+
+export const getWatchReminder = (): boolean => localStorage.getItem(WATCH_REMINDER_STORAGE_KEY) !== 'off'
+
+export const storeWatchReminder = (on: boolean) => {
+  localStorage.setItem(WATCH_REMINDER_STORAGE_KEY, on ? 'on' : 'off')
+}

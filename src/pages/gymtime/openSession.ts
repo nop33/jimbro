@@ -19,6 +19,14 @@ export interface Starter {
   exerciseIds: () => Array<Exercise['id']>
 }
 
+// The starter throws it when the lifter closed the watch reminder instead of starting the workout, so the change that
+// would have started it saves nothing, and nothing failed.
+export class StartDeclined extends Error {
+  constructor() {
+    super('The workout was not started')
+  }
+}
+
 // Every change to the open session, whatever caused it, reaches the screen the same way: it is stored here, then
 // every view shows it. The gymtime page makes one for each workout it shows.
 export class OpenSession {
@@ -77,11 +85,12 @@ export class OpenSession {
   // open, the write starts the workout first, so the first thing the lifter does starts it. A change made while another
   // is on its way waits for it, and writes on the session it stored. loggedFor names the exercise when the write logs a
   // set from its card, the only change that ends an exercise or starts a break. A change that fails to store says so,
-  // and rejects.
+  // and rejects. When the lifter closes the watch reminder instead of starting the workout, it stores nothing and
+  // resolves to undefined.
   async apply(
     write: (session: WorkoutSession) => Promise<WorkoutSession>,
     { loggedFor }: { loggedFor?: Exercise['id'] } = {}
-  ): Promise<WorkoutSession> {
+  ): Promise<WorkoutSession | undefined> {
     let session: WorkoutSession
     let next: WorkoutSession
     try {
@@ -95,7 +104,8 @@ export class OpenSession {
       )
     } catch (error) {
       // The screen still shows the session last stored, so the lifter can make the change again. The caller hears the
-      // failure too, so a dialog stays open instead of saying the change saved.
+      // failure too, so a dialog stays open instead of saying the change saved. A declined start is no failure.
+      if (error instanceof StartDeclined) return undefined
       console.error('saving the workout failed', error)
       Toasts.show({ message: 'Could not save that change. Try again.', type: 'error' })
       throw error
@@ -136,12 +146,12 @@ export class OpenSession {
   }
 
   // Tells the lifter the workout started, after the change that started it ran its effects, so the toast shows above
-  // the break timer that a first set opens. It also reminds them to start the workout on their watch.
+  // the break timer that a first set opens. The watch reminder came before the start (WatchReminderSheet).
   private announceStart(): void {
     if (!this.startedAt) return
     const time = this.startedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     this.startedAt = undefined
-    Toasts.show({ message: `Workout started · ${time}`, detail: 'Start it on your watch too', duration: 'long' })
+    Toasts.show({ message: `Workout started · ${time}`, prominent: true, duration: 'long' })
   }
 
   // A finished workout or exercise ends the break, and a finished workout is celebrated every time: an exercise or

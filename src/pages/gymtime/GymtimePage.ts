@@ -9,9 +9,10 @@ import EditSetDialog from './EditSetDialog'
 import ExerciseCardList from './ExerciseCardList'
 import ExerciseHistoryChart from './ExerciseHistoryChart'
 import LastSetDialog from './LastSetDialog'
-import { OpenSession } from './openSession'
+import { OpenSession, StartDeclined } from './openSession'
 import { parseUrlParams } from './parseUrlParams'
 import PasskeyOfferCard from './PasskeyOfferCard'
+import WatchReminderSheet from './WatchReminderSheet'
 import WorkoutSessionForm from './WorkoutSessionForm'
 
 class GymtimePage {
@@ -26,6 +27,7 @@ class GymtimePage {
   private editSetDialog: EditSetDialog
   private historyChart: ExerciseHistoryChart
   private lastSetDialog: LastSetDialog
+  private watchReminder = new WatchReminderSheet()
 
   // The page shows one workout until signal aborts, as when the next page replaces it.
   constructor(signal: AbortSignal) {
@@ -60,7 +62,14 @@ class GymtimePage {
       program.exercises,
       () => form.planned()
     )
-    this.openSession.startWith({ start: () => form.start(), exerciseIds: () => this.program.exercises })
+    // The workout starts once the lifter has heard to start it on their watch too.
+    this.openSession.startWith({
+      start: async () => {
+        if (!(await this.watchReminder.confirmStart(form.planned().date))) throw new StartDeclined()
+        return form.start()
+      },
+      exerciseIds: () => this.program.exercises
+    })
     this.openSession.subscribe((session) => {
       // A started workout opens again from its own link, on a reload or from the back/forward cache.
       if (session && new URLSearchParams(window.location.search).get('id') !== session.id) {

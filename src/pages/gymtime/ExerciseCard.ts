@@ -477,8 +477,9 @@ class ExerciseCard {
 
       traceButton(finishSetBtn)
       this.closeWhenDone = true
+      let logged
       try {
-        await this.actions.session.apply(
+        logged = await this.actions.session.apply(
           (session) => workoutSessionsStore.addSet(session, this.exerciseId, completedSet),
           {
             loggedFor: this.exerciseId
@@ -487,6 +488,8 @@ class ExerciseCard {
       } finally {
         this.closeWhenDone = false
       }
+      // The lifter closed the watch reminder, so the set waits in the form as typed.
+      if (!logged) return
 
       // The form keeps the set just logged as the next one's values, which are no longer last time's max, and which
       // the next session shown may fill in again.
