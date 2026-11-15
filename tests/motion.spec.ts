@@ -239,34 +239,23 @@ test('the break timer rises from the bottom as a sheet that covers the whole scr
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('60')
 
-  // The timer's top a frame after it opens, while it slides up.
-  const risingTop = page.evaluate(
+  // The slide the timer starts as it opens. A slow WebKit can skip past all 250ms of it between two frames, so the spec
+  // reads the animation itself rather than where the timer sits a frame later.
+  const slide = page.evaluate(
     () =>
-      new Promise<{ top: number; seen: string }>((resolve) => {
+      new Promise<Keyframe[]>((resolve) => {
         const timer = document.getElementById('break-countdown-dialog') as HTMLDialogElement
         new MutationObserver((_, observer) => {
           if (!timer.open) return
           observer.disconnect()
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() =>
-              resolve({
-                top: timer.getBoundingClientRect().top,
-                // What the timer was doing then, for the failure message.
-                seen: JSON.stringify({
-                  className: timer.className,
-                  translate: getComputedStyle(timer).translate,
-                  animations: timer.getAnimations().map((animation) => animation.playState),
-                  reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches
-                })
-              })
-            )
-          )
+          resolve(timer.getAnimations().flatMap((animation) => (animation.effect as KeyframeEffect).getKeyframes()))
         }).observe(timer, { attributes: true, attributeFilter: ['open'] })
       })
   )
   await form.getByRole('button', { name: 'Finished set' }).click()
-  const { top, seen } = await risingTop
-  expect(top, seen).toBeGreaterThan(50)
+  // It starts a full height down, whichever way the browser spells the keyframe.
+  const [from] = (await slide).flatMap(({ translate }) => (typeof translate === 'string' ? [translate] : []))
+  expect(from).toMatch(/ 100%$/)
 
   const breakTimer = page.locator('#break-countdown-dialog')
   await expect(breakTimer).toHaveClass(/dialog-full-screen/)
