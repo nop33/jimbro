@@ -72,7 +72,7 @@ test('a break keeps counting down on the next page, and its bar opens the full t
   await markDocument(page)
 
   const card = page.locator('#exercises-list > .card').first()
-  await card.locator('.exercise-details > summary').click()
+  await card.locator('.exercise-open-btn').click()
   const form = card.locator('.next-set-form')
   await form.locator('input[name="set-reps"]').fill('10')
   await form.locator('input[name="set-weight"]').fill('100')
@@ -80,6 +80,8 @@ test('a break keeps counting down on the next page, and its bar opens the full t
   const breakTimer = page.locator('#break-countdown-dialog')
   await breakTimer.getByRole('button', { name: 'Minimize' }).click()
   await expect(breakTimer).toHaveClass(/dialog-minimized/)
+  // The exercise's sheet stays open under the bar, so it is closed first.
+  await card.getByRole('button', { name: 'Close dialog' }).click()
 
   await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
   // The old page stays on screen until the next one has drawn, and both list Bench press, so the title tells them apart.
