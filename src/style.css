@@ -1533,11 +1533,6 @@
   position: relative;
 }
 
-/* The muscle is a label, not a pill, so the progress and the next set fit one line on a phone. */
-.exercise-open-btn .exercise-muscle {
-  @apply bg-transparent p-0 text-xs;
-}
-
 /* One segment per set: logged ones lit, the rest dim. They narrow to fit a long list of sets. */
 .exercise-progress {
   @apply flex gap-[3px];

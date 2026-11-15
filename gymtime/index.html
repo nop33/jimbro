@@ -178,9 +178,15 @@
         <template id="workout-exercise-item-template">
           <div class="card">
             <header class="items-start gap-2">
-              <h3 class="exercise-name card-title flex-1 min-w-0">
-                <!-- -->
-              </h3>
+              <div class="flex flex-1 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h3 class="exercise-name card-title">
+                  <!-- -->
+                </h3>
+                <span class="exercise-muscle badge">
+                  <!-- -->
+                </span>
+                <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
+              </div>
               <!-- A 44px button whose centre sits on the title's first line, however many lines the name takes.
                    It sits above the open button's tap area, which covers the card. -->
               <button
@@ -268,10 +274,6 @@
             </header>
             <!-- The exercise's progress. A tap anywhere on the card opens its sheet. -->
             <button type="button" class="exercise-open-btn">
-              <span class="exercise-muscle badge">
-                <!-- -->
-              </span>
-              <span class="exercise-kind badge bg-jim-accent text-neutral-900 hidden"> </span>
               <span class="exercise-progress" aria-hidden="true"></span>
               <span class="exercise-progress-count"></span>
               <span class="exercise-next"
