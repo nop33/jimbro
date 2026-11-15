@@ -274,7 +274,8 @@ const STOPS = [
     await see(page.locator('.calendar-week[data-state="next"]'))
   }],
   ['workouts-new-dialog', async (page) => {
-    await page.getByRole('button', { name: 'Add new workout' }).click()
+    // This week has no workouts yet, so today opens the same picker as the header's New.
+    await page.locator('.calendar-day[aria-current="date"] button.calendar-start').click()
     await see(page.locator('#new-workout-dialog a.program-link'))
   }],
   ['workouts-mode-dialog', async (page) => {

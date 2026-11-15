@@ -413,6 +413,11 @@
     @apply absolute inset-0 block cursor-pointer;
   }
 
+  /* Today without a workout opens the program picker, from anywhere in the cell. */
+  .calendar-start {
+    @apply absolute inset-0 block cursor-pointer;
+  }
+
   .calendar-check {
     @apply absolute top-1/2 left-1/2 grid size-8.5 -translate-1/2 place-items-center rounded-full bg-white text-sm font-extrabold text-jim-success;
 

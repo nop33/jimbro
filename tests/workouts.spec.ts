@@ -233,6 +233,22 @@ test.describe('Workouts Page', () => {
     )
   })
 
+  test('Opens the program picker from today while today has no workout', async ({ page }) => {
+    await seedDatabase(page)
+    const today = page.locator('.calendar-day[aria-current="date"]')
+    await today.getByRole('button', { name: /today: start a workout/ }).click()
+    const dialog = page.locator('dialog#new-workout-dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.locator('a.program-link').first().click()
+    await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
+
+    // Once today holds a workout, the day opens it instead.
+    await startWorkout(page)
+    await page.goto('/workouts/')
+    await expect(today.locator('a.calendar-workout')).toHaveAttribute('data-status', 'incomplete')
+    await expect(today.locator('button')).toHaveCount(0)
+  })
+
   test('Opens a workout from its day, and lists two workouts on one day in a popover', async ({ page }) => {
     await seedDatabase(page)
     const today = await page.evaluate(async () => (await import('/src/dateUtils.ts')).getSimpleDate(new Date()))

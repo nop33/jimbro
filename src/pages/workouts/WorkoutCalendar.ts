@@ -26,14 +26,15 @@ const workoutLabel = (workout: WorkoutSession, name: string, extra: boolean) =>
 // The workouts calendar (calendar.ts): one row per week, a band that is green once the week met its goal and pale
 // green while it has workouts short of it, with the month on the left of its first week. A workout day shows a check
 // with its program's label over it (calendarLabels), and opens the workout. A day with more than one opens a popover
-// that lists them.
+// that lists them. Today without a workout is a button that calls startToday, when given, as the header's New does.
 export const renderWorkoutCalendar = (
   list: HTMLOListElement,
   weeks: Array<CalendarWeek>,
   goal: number,
   programNames: Record<string, string>,
   labels: Record<string, string>,
-  today: string
+  today: string,
+  startToday?: () => void
 ) => {
   const thisYear = parseSimpleDate(today).getFullYear()
   const nameOf = (workout: WorkoutSession) => programNames[workout.programId] ?? 'Workout'
@@ -46,6 +47,16 @@ export const renderWorkoutCalendar = (
     if (day.isToday) li.setAttribute('aria-current', 'date')
     if (!shown) {
       setTextContent('.calendar-date', String(date.getDate()), item)
+      if (day.isToday && startToday) {
+        // The whole cell is the button, like a workout day's link, so the tap target is the day's full height.
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = 'calendar-start light-haptic'
+        button.setAttribute('aria-label', `${longDay.format(date)}, today: start a workout`)
+        button.append(li.querySelector('.calendar-date') as HTMLSpanElement)
+        button.addEventListener('click', startToday)
+        li.append(button)
+      }
       return item
     }
 
