@@ -225,3 +225,41 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     }
   })
 }
+
+test('the break timer rises from the bottom as a sheet that covers the whole screen', async ({ page }) => {
+  await seedDatabase(page)
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+  const card = page.locator('#exercises-list > .card').first()
+  await card.locator('summary').click()
+  const form = card.locator('.next-set-form')
+  await form.locator('input[name="set-reps"]').fill('10')
+  await form.locator('input[name="set-weight"]').fill('60')
+
+  // The timer's top a frame after it opens, while it slides up.
+  const risingTop = page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const timer = document.getElementById('break-countdown-dialog') as HTMLDialogElement
+        new MutationObserver((_, observer) => {
+          if (!timer.open) return
+          observer.disconnect()
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve(timer.getBoundingClientRect().top)))
+        }).observe(timer, { attributes: true, attributeFilter: ['open'] })
+      })
+  )
+  await form.getByRole('button', { name: 'Finished set' }).click()
+  expect(await risingTop).toBeGreaterThan(50)
+
+  const breakTimer = page.locator('#break-countdown-dialog')
+  await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+  const box = () =>
+    breakTimer.evaluate((timer) => {
+      const { top, bottom, height } = timer.getBoundingClientRect()
+      return { top: Math.round(top), bottom: Math.round(bottom), height: Math.round(height) }
+    })
+  const height = await page.evaluate(() => window.innerHeight)
+  await expect.poll(box).toEqual({ top: 0, bottom: height, height })
+})

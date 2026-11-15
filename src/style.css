@@ -708,18 +708,38 @@
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
 
+  /* The full break timer is a bottom sheet that covers the whole screen: it rises from the bottom edge after a set, and
+     the grabber at its top says it pulls down, which minimizes it into its bar (src/features/breakTimer). */
+  #break-countdown-dialog.dialog-full-screen {
+    @apply mx-auto mt-auto mb-0 max-h-none max-w-lg rounded-b-none border-b-0;
+    height: 100dvh;
+    padding-top: calc(2rem + env(safe-area-inset-top));
+
+    &::before {
+      @apply absolute left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-neutral-500/50;
+      top: calc(0.5rem + env(safe-area-inset-top));
+      content: '';
+    }
+  }
+
   /* Only the full screen timer stretches its content to its height. In the bar, Safari resolves a full height against
      the bar's own content and collapses it, so the countdown would hang below the bar, over the header. */
   .dialog-full-screen > * {
     @apply h-full;
   }
 
-  /* Some dialogs only fade in: the break timer, which fills the screen after every set, and the history chart, which
-     sizes its canvas to the box it measures as it opens, so a growing dialog would leave it drawn too small. */
+  /* Some dialogs don't grow in: the break timer, which slides up from the bottom instead, and the history chart, which
+     only fades in, since it sizes its canvas to the box it measures as it opens and a growing dialog would leave it
+     drawn too small. */
   @starting-style {
     .dialog-full-screen[open],
     .dialog-fade-in[open] {
       scale: 1;
+    }
+
+    #break-countdown-dialog.dialog-full-screen[open] {
+      opacity: 1;
+      translate: 0 100%;
     }
   }
 
