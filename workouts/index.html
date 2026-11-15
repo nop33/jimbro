@@ -128,12 +128,12 @@
       </div>
     </div>
 
-    <dialog id="new-workout-dialog">
-      <header class="flex justify-between items-center mb-4">
+    <dialog id="new-workout-dialog" class="dialog-sheet">
+      <header class="dialog-sheet-header">
         <h2 id="dialog-title" class="text-xl font-bold">Select program</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <ul id="programs-list" class="grid grid-cols-1 md:grid-cols-3 gap-2 items-stretch">
+      <ul id="programs-list" class="dialog-sheet-body gap-2">
         <!-- Programs will be rendered here -->
       </ul>
       <template id="program-item-template">
@@ -155,13 +155,13 @@
       </template>
     </dialog>
 
-    <dialog id="workout-mode-dialog">
-      <header class="flex justify-between items-center mb-4">
+    <dialog id="workout-mode-dialog" class="dialog-sheet">
+      <header class="dialog-sheet-header">
         <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
         <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Workout Mode</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <div class="flex flex-col gap-4">
+      <div class="dialog-sheet-body">
         <fieldset>
           <legend class="text-jim-neutral-secondary text-sm font-semibold mb-2">Mode</legend>
           <div class="flex gap-4">

@@ -53,40 +53,42 @@
       </div>
     </div>
 
-    <dialog id="exercise-dialog">
-      <header class="flex justify-between items-center gap-4 w-full">
-        <h2 id="dialog-title" class="text-2xl font-bold focus:outline-none" tabindex="-1">New Exercise</h2>
+    <dialog id="exercise-dialog" class="dialog-sheet" aria-labelledby="dialog-title">
+      <header class="dialog-sheet-header">
+        <h2 id="dialog-title" class="text-xl font-bold focus:outline-none" tabindex="-1">New Exercise</h2>
         <!-- partial:close-dialog-button -->
       </header>
-      <form id="exercise-form" class="flex flex-col gap-5">
-        <input type="hidden" id="exercise-id" name="id" />
-        <div>
-          <label for="exercise-name">Name</label>
-          <input type="text" id="exercise-name" name="name" required />
+      <form id="exercise-form" class="contents">
+        <div class="dialog-sheet-body gap-5">
+          <input type="hidden" id="exercise-id" name="id" />
+          <div>
+            <label for="exercise-name">Name</label>
+            <input type="text" id="exercise-name" name="name" required />
+          </div>
+          <div>
+            <label for="exercise-kind">Kind</label>
+            <select id="exercise-kind" name="kind" required></select>
+          </div>
+          <div id="exercise-preset-field" class="hidden">
+            <label for="exercise-preset">Log as</label>
+            <select id="exercise-preset" name="preset"></select>
+          </div>
+          <div id="exercise-muscle-field">
+            <label for="exercise-muscle">Muscle group</label>
+            <select id="exercise-muscle" name="muscle" required>
+              <!-- Muscle groups will be rendered here -->
+            </select>
+          </div>
+          <div>
+            <label for="exercise-sets">Default sets</label>
+            <input type="number" id="exercise-sets" name="sets" min="1" required />
+          </div>
+          <div id="exercise-defaults" class="flex flex-col gap-5"></div>
         </div>
-        <div>
-          <label for="exercise-kind">Kind</label>
-          <select id="exercise-kind" name="kind" required></select>
-        </div>
-        <div id="exercise-preset-field" class="hidden">
-          <label for="exercise-preset">Log as</label>
-          <select id="exercise-preset" name="preset"></select>
-        </div>
-        <div id="exercise-muscle-field">
-          <label for="exercise-muscle">Muscle group</label>
-          <select id="exercise-muscle" name="muscle" required>
-            <!-- Muscle groups will be rendered here -->
-          </select>
-        </div>
-        <div>
-          <label for="exercise-sets">Default sets</label>
-          <input type="number" id="exercise-sets" name="sets" min="1" required />
-        </div>
-        <div id="exercise-defaults" class="flex flex-col gap-5"></div>
-        <div class="flex gap-3 justify-end mt-6">
+        <footer class="dialog-sheet-footer">
           <!-- partial:delete-button -->
-          <button type="submit" class="btn-primary">Save</button>
-        </div>
+          <button type="submit" class="btn-primary flex-1">Save</button>
+        </footer>
       </form>
     </dialog>
 

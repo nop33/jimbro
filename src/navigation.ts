@@ -3,6 +3,7 @@ import { sync } from './sync/syncClient'
 import { onPageNotice } from './sync/pageChannel'
 import { account } from './sync/account'
 import Toasts from './features/toasts'
+import { followKeyboard } from './features/bottomSheet'
 import { PROBLEM_MESSAGES } from './pages/syncProblems'
 
 let rowsWrittenTimer = 0
@@ -30,6 +31,8 @@ function initNavigation() {
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     followNewBuilds().catch((error: unknown) => console.error('Service worker failed:', error))
   }
+
+  followKeyboard()
 
   startSync()
   // A page Back or Forward restored from the back/forward cache syncs again. The router redraws it when the database

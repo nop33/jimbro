@@ -1,5 +1,6 @@
 import { redraw } from '../../redraw'
 import { getWorkoutModeSettings, storeWorkoutModeSettings, type WorkoutMode } from '../../settings'
+import { pullDownToClose } from '../../features/bottomSheet'
 
 const MODE_DESCRIPTIONS: Record<WorkoutMode, string> = {
   rotation: 'All programs are expected once per week.',
@@ -15,6 +16,7 @@ class WorkoutModeDialog {
   private description = document.querySelector('#workout-mode-description') as HTMLParagraphElement
 
   constructor() {
+    pullDownToClose(this.dialog)
     const settings = getWorkoutModeSettings()
 
     for (const radio of this.modeRadios) {
