@@ -728,9 +728,9 @@
     @apply h-full;
   }
 
-  /* Some dialogs don't grow in: the break timer, which slides up from the bottom instead, and the history chart, which
-     only fades in, since it sizes its canvas to the box it measures as it opens and a growing dialog would leave it
-     drawn too small. */
+  /* Some dialogs don't grow in: the break timer, which slides up from the bottom instead (src/features/breakTimer),
+     and the history chart, which only fades in, since it sizes its canvas to the box it measures as it opens and a
+     growing dialog would leave it drawn too small. */
   @starting-style {
     .dialog-full-screen[open],
     .dialog-fade-in[open] {
@@ -739,7 +739,6 @@
 
     #break-countdown-dialog.dialog-full-screen[open] {
       opacity: 1;
-      translate: 0 100%;
     }
   }
 
