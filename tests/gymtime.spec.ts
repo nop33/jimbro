@@ -24,9 +24,9 @@ test.describe('Gymtime Page', () => {
   })
 
   test('logs a set, edits the weight, and adds an exercise', async ({ page }) => {
-    // 2. Expand first exercise
-    const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.locator('summary').click() // Expand the details
+    // 2. Open the first exercise
+    const firstExercise = page.locator('#exercises-list > .card').first()
+    await firstExercise.locator('.exercise-open-btn').click() // Open its sheet
 
     const setForm = firstExercise.locator('.next-set-form').first()
     await expect(setForm).toBeVisible()
@@ -100,7 +100,8 @@ test.describe('Gymtime Page', () => {
     // Verify changes are saved (the weight span is inside the set)
     await expect(completedSetItem.locator('.set-weight')).toHaveText('105')
 
-    // 6. Add exercises on the fly
+    // 6. Add exercises on the fly, from the list under the sheet
+    await firstExercise.getByRole('button', { name: 'Close dialog' }).click()
     const addExerciseCard = page.locator('#add-exercise-card')
     await addExerciseCard.scrollIntoViewIfNeeded()
     await addExerciseCard.click()
@@ -179,7 +180,7 @@ test.describe('Gymtime Page', () => {
     // The page reads last time once, so it loads again to see the workout just stored.
     await page.reload()
 
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
 
     const weight = card.locator('.next-set-form input[name="set-weight"]')
     await expect(weight).toHaveValue('50')
@@ -217,7 +218,7 @@ test.describe('Gymtime Page', () => {
     // The page reads last time once, so it loads again to see the workout just stored.
     await page.reload()
 
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
 
     const reps = card.locator('.next-set-form input[name="set-reps"]')
     await expect(reps).toHaveValue('10')
@@ -263,7 +264,7 @@ test.describe('Gymtime Page', () => {
     // The page reads last time once, so it loads again to see the workouts just stored.
     await page.reload()
 
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await card.locator('.view-last-set-btn').click()
     const dialog = page.locator('#last-set-dialog')
     const date = dialog.locator('#last-set-date')
@@ -299,9 +300,9 @@ test.describe('Gymtime Page', () => {
     // Install clock to manipulate time
     await page.clock.install()
 
-    // 2. Expand first exercise
-    const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.locator('summary').click() // Expand the details
+    // 2. Open the first exercise
+    const firstExercise = page.locator('#exercises-list > .card').first()
+    await firstExercise.locator('.exercise-open-btn').click() // Open its sheet
 
     const setForm = firstExercise.locator('.next-set-form').first()
     await expect(setForm).toBeVisible()
@@ -344,7 +345,7 @@ test.describe('Gymtime Page', () => {
     }
     const breakTimer = page.locator('#break-countdown-dialog')
     const countdown = breakTimer.locator('#countdown')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await logSet()
     await expect(breakTimer).toBeVisible()
 
@@ -376,7 +377,7 @@ test.describe('Gymtime Page', () => {
     const breakTimer = page.locator('#break-countdown-dialog')
     const viewport = page.viewportSize()!
     const height = async () => (await finishBtn.boundingBox())!.height
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('100')
 
@@ -416,7 +417,7 @@ test.describe('Gymtime Page', () => {
     await expect(logged).toHaveCount(0)
 
     // A tap anywhere else leaves it grown.
-    await page.locator('.app-header-title').click()
+    await card.locator('.exercise-sheet-title').click()
     expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
     // A tap on it logs the set, and it stays grown for the next one.
@@ -428,8 +429,9 @@ test.describe('Gymtime Page', () => {
     expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
     // Another card opens with its button grown too.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
     const nextCard = cards.nth(1)
-    await nextCard.locator('.exercise-details > summary').click()
+    await nextCard.locator('.exercise-open-btn').click()
     const nextBtn = nextCard.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
     await expect.poll(async () => (await nextBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
 
@@ -443,7 +445,7 @@ test.describe('Gymtime Page', () => {
   }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('100')
     await form.getByRole('button', { name: 'Finished set' }).click()
@@ -494,7 +496,7 @@ test.describe('Gymtime Page', () => {
   test('the minimized break timer is a bar that holds its countdown', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('100')
     await form.getByRole('button', { name: 'Finished set' }).click()
@@ -527,7 +529,7 @@ test.describe('Gymtime Page', () => {
   test('set rows spread their fields across the row, in columns', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('100')
     await form.getByRole('button', { name: 'Finished set' }).click()
@@ -578,8 +580,8 @@ test.describe('Gymtime Page', () => {
     page.on('request', (request) => {
       if (/chart(\.|_+)js/i.test(request.url())) chartRequests.push(request.url())
     })
-    const firstExercise = page.locator('details.exercise-details').first()
-    await firstExercise.locator('summary').click()
+    const firstExercise = page.locator('#exercises-list > .card').first()
+    await firstExercise.locator('.exercise-open-btn').click()
     expect(chartRequests).toEqual([])
     const chartDialog = page.locator('#exercise-history-dialog')
     const chartDrawn = page.waitForFunction(() => {
@@ -595,79 +597,99 @@ test.describe('Gymtime Page', () => {
     await expect(chartDialog).toBeHidden()
   })
 
-  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-    test(`the set that finishes an exercise closes its card, form and all (reduced motion: ${reducedMotion})`, async ({
-      page
-    }) => {
-      // animateDetails reads the preference when a card is built, so the page loads again with it. The reload waits
-      // for the first load to show its cards and day, which come from its database reads.
-      await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
-      await expect(page.locator('#workout-date-label')).toHaveText('Today')
-      await page.emulateMedia({ reducedMotion })
-      await page.reload()
+  test('the set that finishes an exercise closes its sheet, and the card shows it done', async ({ page }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const sheet = card.locator('.exercise-sheet')
+    const form = card.locator('.next-set-form')
+    const pending = card.locator('.completed-sets .set.isPending')
+    const breakTimer = page.locator('#break-countdown-dialog')
+    const logSet = async () => {
+      await form.locator('input[name="set-reps"]').fill('10')
+      await form.locator('input[name="set-weight"]').fill('100')
+      await form.getByRole('button', { name: 'Finished set' }).click()
+    }
 
-      const card = page.locator('#exercises-list > .card').first()
-      const details = card.locator('.exercise-details')
-      const form = card.locator('.next-set-form')
-      const pending = card.locator('.completed-sets .set.isPending')
-      const breakTimer = page.locator('#break-countdown-dialog')
-      const logSet = async () => {
-        await form.locator('input[name="set-reps"]').fill('10')
-        await form.locator('input[name="set-weight"]').fill('100')
-        await form.getByRole('button', { name: 'Finished set' }).click()
-      }
-
-      await details.locator('summary').click()
-      await expect(form).toBeVisible()
-      for (let left = await pending.count(); left > 1; left--) {
-        await logSet()
-        await expect(pending).toHaveCount(left - 1)
-        await breakTimer.getByRole('button', { name: 'Skip' }).click()
-        await expect(breakTimer).toBeHidden()
-      }
-
-      // Records each card's close animation as it starts: the height it starts from, and whether the card still shows
-      // the next set's form then.
-      await page.evaluate(() => {
-        const closes: Array<{ from: number; formShown: boolean }> = []
-        Reflect.set(window, '__closes', closes)
-        const animate = Element.prototype.animate
-        Element.prototype.animate = function (this: Element, ...args: Parameters<Element['animate']>) {
-          const frames = Array.isArray(args[0]) ? args[0] : []
-          if (this.matches('.exercise-details-content') && frames.at(-1)?.height === '0px') {
-            closes.push({
-              from: parseFloat(String(frames[0]?.height)),
-              formShown: !this.querySelector('.next-set')?.classList.contains('hidden')
-            })
-          }
-          return animate.apply(this, args)
-        }
-      })
-      const fullHeight = await card
-        .locator('.exercise-details-content')
-        .evaluate((content) => content.getBoundingClientRect().height)
-
+    await card.locator('.exercise-open-btn').click()
+    await expect(form).toBeVisible()
+    const total = await pending.count()
+    for (let left = total; left > 1; left--) {
       await logSet()
-      await expect(details).toHaveJSProperty('open', false)
-      await expect(card).toHaveClass(/card-success/)
-      await expect(card.locator('.next-set')).toHaveClass(/hidden/)
-      const closes = (await page.evaluate(() => Reflect.get(window, '__closes'))) as Array<{
-        from: number
-        formShown: boolean
-      }>
-      if (reducedMotion === 'reduce') {
-        expect(closes).toEqual([])
-      } else {
-        expect(closes).toEqual([{ from: expect.closeTo(fullHeight, 0), formShown: true }])
-      }
-    })
-  }
+      await expect(pending).toHaveCount(left - 1)
+      await breakTimer.getByRole('button', { name: 'Skip' }).click()
+      await expect(breakTimer).toBeHidden()
+      // The sheet stays open between sets, for the next one.
+      await expect(sheet).toHaveJSProperty('open', true)
+    }
+    await expect(card.locator('.exercise-progress-count')).toHaveText(`${total - 1}/${total}`)
+    await expect(page.locator('.workout-progress-bar')).toHaveJSProperty('value', total - 1)
+
+    await logSet()
+    await expect(sheet).toHaveJSProperty('open', false)
+    await expect(card).toHaveClass(/card-success/)
+    await expect(card.locator('.next-set')).toHaveClass(/hidden/)
+    await expect(card.locator('.exercise-progress-count')).toHaveText(`${total}/${total}`)
+    await expect(card.locator('.exercise-progress i.isLogged')).toHaveCount(total)
+    await expect(card.locator('.exercise-next')).toBeHidden()
+    await expect(page.locator('.workout-exercises-done')).toHaveText('1')
+  })
+
+  test('the cards and the progress bar show the plan before the workout starts', async ({ page }) => {
+    const cards = page.locator('#exercises-list > .card')
+    const card = cards.first()
+    await expect(card.locator('.exercise-progress-count')).toHaveText(/^0\/\d+$/)
+    await expect(card.locator('.exercise-next')).toContainText('Next')
+    await expect(page.locator('.workout-exercises-done')).toHaveText('0')
+    await expect(page.locator('.workout-exercises-total')).toHaveText(String(await cards.count()))
+    await expect(page.locator('.workout-sets-done')).toHaveText('0')
+    await expect(card.locator('.exercise-open-btn')).toHaveAccessibleName(/^.+: 0 of \d+ sets, next .+$/)
+  })
+
+  test('the sheet stays open under the minimized break timer, whose bar stays on screen and takes taps', async ({
+    page
+  }) => {
+    const card = page.locator('#exercises-list > .card').first()
+    const form = card.locator('.next-set-form')
+    await card.locator('.exercise-open-btn').click()
+    await form.locator('input[name="set-reps"]').fill('10')
+    await form.locator('input[name="set-weight"]').fill('100')
+    await form.getByRole('button', { name: 'Finished set' }).click()
+    const breakTimer = page.locator('#break-countdown-dialog')
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await expect(card.locator('.exercise-sheet')).toHaveJSProperty('open', true)
+
+    await breakTimer.getByRole('button', { name: 'Minimize' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    const sheet = card.locator('.exercise-sheet')
+    await expect(sheet).toHaveJSProperty('open', true)
+
+    // The sheet ends above the bar, so the bar shows whole and its Expand button is what a tap there reaches.
+    const bar = (await breakTimer.boundingBox())!
+    const sheetBox = (await sheet.boundingBox())!
+    expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(bar.y + 1)
+    await expect(form.getByRole('button', { name: 'Finished set' })).toBeInViewport()
+    await breakTimer.getByRole('button', { name: 'Expand' }).click()
+    await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    await breakTimer.getByRole('button', { name: 'Skip' }).click()
+    await expect(breakTimer).toBeHidden()
+    await expect(sheet).toHaveJSProperty('open', true)
+
+    // A tap on the page around the sheet closes it.
+    await page.locator('.app-header-title').click()
+    await expect(sheet).toHaveJSProperty('open', false)
+
+    // Esc closes it too, and the focus goes back to the card.
+    await card.locator('.exercise-open-btn').click()
+    await expect(sheet).toHaveJSProperty('open', true)
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveJSProperty('open', false)
+    await expect(card.locator('.exercise-open-btn')).toBeFocused()
+  })
 
   test('opening a program saves nothing until the first change starts the workout', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const rows = card.locator('.completed-sets > .set')
     await expect(page.locator('#workout-date-label')).toHaveText('Today')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     const planned = await rows.count()
     await expect(page.locator('#delete-workout-session-btn')).toBeHidden()
     // The workouts page, open beside it, lists a started workout as incomplete.
@@ -685,6 +707,7 @@ test.describe('Gymtime Page', () => {
     await expect(workouts.locator('.calendar-workout[data-status="incomplete"]')).toHaveCount(1)
 
     // After the start, the details save as they change.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
     await page.locator('#workout-details > summary').click()
     await page.locator('textarea[name="notes"]').fill('Felt strong')
     await page.locator('textarea[name="notes"]').blur()
@@ -696,7 +719,7 @@ test.describe('Gymtime Page', () => {
   test('two changes made at once both reach the workout', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const rows = card.locator('.completed-sets > .set')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     const planned = await rows.count()
 
     // Two taps on Add set land before the first one's write does: the first starts the workout and the second waits
@@ -715,14 +738,14 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
 
     await page.reload()
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await expect(rows).toHaveCount(planned + 4)
   })
 
   test('a change that fails to save says so and can be made again', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
     const rows = card.locator('.completed-sets > .set')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     const stored = (await rows.count()) + 1
     await card.getByRole('button', { name: 'Add set' }).click()
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
@@ -730,7 +753,7 @@ test.describe('Gymtime Page', () => {
     await expect(page.locator('#exercises-list')).not.toHaveAttribute('aria-busy')
     // A fresh document, so no "Workout started" toast is queued ahead of the one the failure shows.
     await page.reload()
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await expect(rows).toHaveCount(stored)
 
     // The next write fails, as one does when the database went away under the page.
@@ -750,13 +773,13 @@ test.describe('Gymtime Page', () => {
     await card.getByRole('button', { name: 'Add set' }).click()
     await expect(rows).toHaveCount(stored + 1)
     await page.reload()
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     await expect(rows).toHaveCount(stored + 1)
   })
 
   test('deleting the workout ends its break', async ({ page }) => {
     const card = page.locator('#exercises-list > .card').first()
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     const setForm = card.locator('.next-set-form').first()
     await setForm.locator('input[name="set-reps"]').first().fill('10')
     await setForm.locator('input[name="set-weight"]').first().fill('100')
@@ -765,6 +788,8 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
+    // The exercise's sheet stays open under the bar, so it is closed first.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
 
     page.once('dialog', (dialog) => void dialog.accept())
     await page.locator('#delete-workout-session-btn').click()
@@ -778,7 +803,7 @@ test.describe('Gymtime Page', () => {
     const card = page.locator('#exercises-list > .card').first()
     const pending = card.locator('.completed-sets .set.isPending')
     const logged = card.locator('.completed-sets .set.isCompleted')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
     const total = await pending.count()
 
     await card.locator('input[name="set-reps"]').fill('10')
@@ -822,7 +847,7 @@ test.describe('Gymtime Page', () => {
     const card = page.locator('#exercises-list > .card').first()
     const rows = card.getByRole('button', { name: /, to do$/ })
     const menu = page.locator('.set-menu:popover-open')
-    await card.locator('.exercise-details > summary').click()
+    await card.locator('.exercise-open-btn').click()
 
     await rows.first().click()
     await expect(menu).toBeVisible()
@@ -838,10 +863,10 @@ test.describe('Gymtime Page', () => {
     await expect(card.locator('.set.isSelected')).toHaveCount(1)
     await expect(rows.last()).toHaveClass(/isSelected/)
 
-    // So does a tap on the card's menu button.
-    await card.locator('.exercise-actions-btn').click()
+    // So does a tap on the sheet's close button, which leaves the sheet open.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
     await expect(menu).toHaveCount(0)
-    await expect(page.locator('.exercise-actions-menu:popover-open')).toHaveCount(0)
+    await expect(card.locator('.exercise-sheet')).toHaveJSProperty('open', true)
   })
 
   test('prefills location from the latest saved workout when starting a new session', async ({ page }) => {
@@ -882,7 +907,7 @@ test.describe('Gymtime Page: non-lifting presets', () => {
 
     const card = page.locator('#exercises-list .card', { hasText: exerciseName }).first()
     await expect(card).toBeVisible()
-    await card.locator('.exercise-details summary').click()
+    await card.locator('.exercise-open-btn').click()
     return card
   }
 

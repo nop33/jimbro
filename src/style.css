@@ -413,6 +413,11 @@
     @apply absolute inset-0 block cursor-pointer;
   }
 
+  /* Today without a workout opens the program picker, from anywhere in the cell. */
+  .calendar-start {
+    @apply absolute inset-0 block cursor-pointer;
+  }
+
   .calendar-check {
     @apply absolute top-1/2 left-1/2 grid size-8.5 -translate-1/2 place-items-center rounded-full bg-white text-sm font-extrabold text-jim-success;
 
@@ -709,18 +714,37 @@
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
   }
 
+  /* The full break timer is a bottom sheet that covers the whole screen: it rises from the bottom edge after a set, and
+     the grabber at its top says it pulls down, which minimizes it into its bar (src/features/breakTimer). */
+  #break-countdown-dialog.dialog-full-screen {
+    @apply mx-auto mt-auto mb-0 max-h-none max-w-lg rounded-b-none border-b-0;
+    height: 100dvh;
+    padding-top: calc(2rem + env(safe-area-inset-top));
+
+    &::before {
+      @apply absolute left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-neutral-500/50;
+      top: calc(0.5rem + env(safe-area-inset-top));
+      content: '';
+    }
+  }
+
   /* Only the full screen timer stretches its content to its height. In the bar, Safari resolves a full height against
      the bar's own content and collapses it, so the countdown would hang below the bar, over the header. */
   .dialog-full-screen > * {
     @apply h-full;
   }
 
-  /* Some dialogs only fade in: the break timer, which fills the screen after every set, and the history chart, which
-     sizes its canvas to the box it measures as it opens, so a growing dialog would leave it drawn too small. */
+  /* Some dialogs don't grow in: the break timer, which slides up from the bottom instead (src/features/breakTimer),
+     and the history chart, which only fades in, since it sizes its canvas to the box it measures as it opens and a
+     growing dialog would leave it drawn too small. */
   @starting-style {
     .dialog-full-screen[open],
     .dialog-fade-in[open] {
       scale: 1;
+    }
+
+    #break-countdown-dialog.dialog-full-screen[open] {
+      opacity: 1;
     }
   }
 
@@ -1529,20 +1553,106 @@
   }
 }
 
-.exercise-details {
-  position: relative;
+/* A gymtime card opens its exercise's sheet from a tap anywhere on it: the open button's tap area covers the card, and
+   the actions button sits above it. */
+.exercise-open-btn {
+  @apply flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 py-1 text-left text-sm text-jim-neutral-secondary;
 
-  summary {
-    position: relative;
-  }
-
-  summary::after {
+  &::after {
     content: '';
     position: absolute;
-    top: -48px;
-    right: -20px;
-    left: -20px;
-    bottom: -12px;
+    inset: 0;
+    border-radius: inherit;
+  }
+}
+
+#exercises-list > .card {
+  position: relative;
+}
+
+/* One segment per set: logged ones lit, the rest dim. They narrow to fit a long list of sets. */
+.exercise-progress {
+  @apply flex gap-[3px];
+
+  i {
+    @apply h-1.5 w-3.5 min-w-1 shrink rounded-full bg-white/12;
+  }
+
+  i.isLogged {
+    @apply bg-jim-accent;
+  }
+
+  .card-success & i.isLogged {
+    @apply bg-jim-success;
+  }
+}
+
+.exercise-progress-count {
+  @apply font-semibold tabular-nums text-jim-neutral;
+}
+
+.exercise-next {
+  @apply ml-auto tabular-nums;
+}
+
+.exercise-next-label {
+  @apply text-xs font-bold tracking-wider text-jim-accent uppercase;
+}
+
+/* The exercise's sheet opens without being modal (ExerciseCard.ts), so it places itself as a modal sheet sits, over
+   the bottom nav, and dims the page around it with a shadow in place of a backdrop. While the break timer is a bar, the
+   sheet sits above the bar, which stays on top, undimmed. */
+dialog.exercise-sheet[open] {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 60;
+  margin-top: 0;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6);
+}
+
+:root:has(#break-countdown-dialog.dialog-minimized[open]) {
+  dialog.exercise-sheet[open] {
+    bottom: calc(var(--bottom-nav-height) + var(--break-bar-height));
+    max-height: calc(var(--visible-height, 100dvh) - 1rem - var(--bottom-nav-height) - var(--break-bar-height));
+  }
+
+  &:has(dialog.exercise-sheet[open]) #break-countdown-dialog {
+    z-index: 70;
+  }
+}
+
+/* Previous sets and History, over the sheet's sets, go when neither applies. */
+.exercise-sheet-links:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
+/* The workout's progress, over its exercises: counts and a bar of the sets logged. */
+.workout-progress {
+  @apply flex flex-col gap-1.5 px-0.5;
+}
+
+.workout-progress-counts {
+  @apply flex justify-between text-sm text-jim-neutral-secondary;
+
+  b {
+    @apply font-semibold text-jim-neutral tabular-nums;
+  }
+}
+
+.workout-progress-bar {
+  @apply block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-white/8;
+
+  &::-webkit-progress-bar {
+    @apply bg-transparent;
+  }
+
+  &::-webkit-progress-value {
+    @apply rounded-full bg-jim-accent;
+    transition: inline-size 300ms var(--ease-out);
+  }
+
+  &::-moz-progress-bar {
+    @apply rounded-full bg-jim-accent;
   }
 }
 
@@ -1561,5 +1671,36 @@
     top: 50% !important;
     left: 50% !important;
     translate: -50% -50% !important;
+  }
+}
+
+/* The app is portrait only. The manifest's "orientation" locks an installed app on Android, but Safari on the iPhone,
+   in a tab or added to the Home Screen, ignores it, and the web has no lock it honours (screen.orientation.lock() needs
+   fullscreen, which Safari on the iPhone never grants a page). So a phone held sideways hides the page, and its open
+   dialogs, which the top layer would otherwise show over anything in the page, and asks to turn the phone upright.
+   Hiding keeps the page laid out as it was, so it comes back at the same scroll, with the same dialog open and the same
+   value typed. A touch screen less than 500px tall is a phone held sideways, and leaves out tablets and desktops. */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  /* A modal dialog takes visibility: visible from the browser's own stylesheet, instead of inheriting it. */
+  body,
+  dialog,
+  [popover],
+  ::backdrop {
+    visibility: hidden;
+  }
+
+  body::after {
+    visibility: visible;
+    content: 'Turn your phone upright to use Jimbro';
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--color-jim-dark);
+    color: var(--color-jim-neutral);
+    font-size: 1.125rem;
+    text-align: center;
   }
 }

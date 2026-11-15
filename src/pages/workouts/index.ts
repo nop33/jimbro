@@ -44,7 +44,7 @@ export const mount = async (signal: AbortSignal) => {
   } else {
     await renderIntroText(canRestore ? 'restore' : empty ? 'seed' : 'none')
   }
-  new NewWorkoutDialog(programStatuses)
+  const newWorkoutDialog = new NewWorkoutDialog(programStatuses)
   new WorkoutModeDialog()
 
   if (empty) {
@@ -120,7 +120,8 @@ export const mount = async (signal: AbortSignal) => {
       goal,
       programNames,
       calendarLabels(programs),
-      today
+      today,
+      programs.length > 0 ? () => newWorkoutDialog.open() : undefined
     )
     calendar.hidden = false
   }

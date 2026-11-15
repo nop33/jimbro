@@ -286,6 +286,14 @@ class BreakTimer {
       this.dialog.close()
     }
     this.dialog.showModal()
+    // The timer rises from the bottom edge as a sheet. WebKit runs no transition from @starting-style when the timer
+    // opens, so the slide runs from script, and only for those who don't ask for less motion.
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.dialog.animate([{ translate: '0 100%' }, { translate: '0 0' }], {
+        duration: 250,
+        easing: 'cubic-bezier(0.23, 1, 0.32, 1)'
+      })
+    }
   }
 
   // Stops the countdown, its ding and its pending auto-close, and forgets the break.

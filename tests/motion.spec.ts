@@ -60,7 +60,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
-    await card.locator('summary').click()
+    await card.locator('.exercise-open-btn').click()
     const form = card.locator('.next-set-form')
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('60')
@@ -111,33 +111,6 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   })
 }
 
-test('a closing exercise card shrinks to its closed height without a jump at the end', async ({ page }) => {
-  await seedDatabase(page)
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
-  await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
-
-  const card = page.locator('#exercises-list > .card').first()
-  await card.locator('summary').click()
-  await expect(card.getByRole('button', { name: 'Add set' })).toBeVisible()
-
-  // The card's height when the close animation ends, with the details still open, and once it is closed. The gap
-  // under an open summary shrinks with the sets, so removing the open attribute moves nothing.
-  const heights = await card.evaluate(async (element: HTMLElement) => {
-    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
-    const details = element.querySelector('details')!
-    await Promise.all(element.getAnimations({ subtree: true }).map(({ finished }) => finished))
-    details.querySelector('summary')!.click()
-    // The finished promises settle before the finish events, which close the details.
-    await Promise.all(element.getAnimations({ subtree: true }).map(({ finished }) => finished))
-    const open = details.open && element.getBoundingClientRect().height
-    while (details.open) await nextFrame()
-    return { open, closed: element.getBoundingClientRect().height }
-  })
-  expect(heights.open).toBeCloseTo(heights.closed, 0)
-})
-
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`a logged set and Finished set draw their borders before the break timer opens only without reduced motion (${reducedMotion})`, async ({
     page
@@ -149,7 +122,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
-    await card.locator('summary').click()
+    await card.locator('.exercise-open-btn').click()
 
     // Notes, in order, when Finished set and the row start their traces, when the row's is gone and when the break
     // timer opens.
@@ -227,3 +200,45 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     }
   })
 }
+
+test('the break timer rises from the bottom as a sheet that covers the whole screen', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await seedDatabase(page)
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
+
+  const card = page.locator('#exercises-list > .card').first()
+  await card.locator('.exercise-open-btn').click()
+  const form = card.locator('.next-set-form')
+  await form.locator('input[name="set-reps"]').fill('10')
+  await form.locator('input[name="set-weight"]').fill('60')
+
+  // The slide the timer starts as it opens. A slow WebKit can skip past all 250ms of it between two frames, so the spec
+  // reads the animation itself rather than where the timer sits a frame later.
+  const slide = page.evaluate(
+    () =>
+      new Promise<Keyframe[]>((resolve) => {
+        const timer = document.getElementById('break-countdown-dialog') as HTMLDialogElement
+        new MutationObserver((_, observer) => {
+          if (!timer.open) return
+          observer.disconnect()
+          resolve(timer.getAnimations().flatMap((animation) => (animation.effect as KeyframeEffect).getKeyframes()))
+        }).observe(timer, { attributes: true, attributeFilter: ['open'] })
+      })
+  )
+  await form.getByRole('button', { name: 'Finished set' }).click()
+  // It starts a full height down, whichever way the browser spells the keyframe.
+  const [from] = (await slide).flatMap(({ translate }) => (typeof translate === 'string' ? [translate] : []))
+  expect(from).toMatch(/ 100%$/)
+
+  const breakTimer = page.locator('#break-countdown-dialog')
+  await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+  const box = () =>
+    breakTimer.evaluate((timer) => {
+      const { top, bottom, height } = timer.getBoundingClientRect()
+      return { top: Math.round(top), bottom: Math.round(bottom), height: Math.round(height) }
+    })
+  const height = await page.evaluate(() => window.innerHeight)
+  await expect.poll(box).toEqual({ top: 0, bottom: height, height })
+})

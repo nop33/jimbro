@@ -1,18 +1,21 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
 test.use({ watchReminder: true })
 
-// Opens a program from Home on gymtime, a workout not started yet, with its first card open. A program with a workout
+// Opens a program from Home on gymtime, a workout not started yet, with its first exercise's sheet open. A program with a workout
 // under way this week opens that one, so each new workout takes another program.
 const openProgram = async (page: Page, index = 0) => {
   await page.goto('/')
   await page.locator('.program-pick').nth(index).click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=/)
-  const card = page.locator('#exercises-list > .card').first()
-  await card.locator('.exercise-details > summary').click()
-  return card
+  return page.locator('#exercises-list > .card').first()
+}
+
+const openSheet = async (card: Locator) => {
+  await card.locator('.exercise-open-btn').click()
+  await expect(card.locator('.exercise-sheet')).toHaveJSProperty('open', true)
 }
 
 const sheetOf = (page: Page) => page.locator('#watch-reminder-dialog')
@@ -24,6 +27,7 @@ test.describe('Watch reminder', () => {
 
   test('asks to start the watch before the first change starts the workout', async ({ page }) => {
     const card = await openProgram(page)
+    await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
 
     const sheet = sheetOf(page)
@@ -54,6 +58,7 @@ test.describe('Watch reminder', () => {
 
     // The next workout asks again.
     const next = await openProgram(page, 1)
+    await openSheet(next)
     await next.getByRole('button', { name: 'Add set' }).click()
     await expect(sheet).toBeVisible()
   })
@@ -64,6 +69,8 @@ test.describe('Watch reminder', () => {
     await expect(toggle).toBeChecked()
 
     const card = await openProgram(page)
+
+    await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
     const sheet = sheetOf(page)
     await sheet.getByRole('checkbox', { name: "Don't remind me again" }).check()
@@ -72,6 +79,7 @@ test.describe('Watch reminder', () => {
 
     // The next workout starts without asking.
     const next = await openProgram(page, 1)
+    await openSheet(next)
     await next.getByRole('button', { name: 'Add set' }).click()
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
     await expect(sheet).toBeHidden()
@@ -83,6 +91,8 @@ test.describe('Watch reminder', () => {
     await expect(toggle).toBeChecked()
 
     const again = await openProgram(page, 2)
+
+    await openSheet(again)
     await again.getByRole('button', { name: 'Add set' }).click()
     await expect(sheet).toBeVisible()
   })
@@ -99,6 +109,7 @@ test.describe('Watch reminder', () => {
     })
     await date.fill(yesterday)
     await date.dispatchEvent('change')
+    await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
     await expect(sheetOf(page)).toBeHidden()
