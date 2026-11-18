@@ -366,7 +366,7 @@ test.describe('Gymtime Page', () => {
     await expect(countdown).toHaveText('2:28')
   })
 
-  test('holding Finished set grows it to half the screen until the next hold, and a tap still logs the set', async ({
+  test('holding Finished set grows it into the room its sheet has left until the next hold, and a tap still logs the set', async ({
     page
   }) => {
     const cards = page.locator('#exercises-list > .card')
@@ -380,6 +380,22 @@ test.describe('Gymtime Page', () => {
     await card.locator('.exercise-open-btn').click()
     await form.locator('input[name="set-reps"]').fill('10')
     await form.locator('input[name="set-weight"]').fill('100')
+    const normalHeight = await height()
+    // Grown, the button takes what the sheet has left once it shows every set, so the sets never scroll because of it.
+    const grownInRoom = (button = finishBtn) =>
+      expect
+        .poll(() =>
+          button.evaluate((element: HTMLElement, normal) => {
+            const sheet = element.closest('dialog')!
+            const body = sheet.querySelector('.exercise-sheet-body')!
+            return {
+              setsScroll: body.scrollHeight > body.clientHeight,
+              sheetFull: sheet.offsetHeight >= parseFloat(getComputedStyle(sheet).maxHeight) - 1,
+              taller: element.offsetHeight > normal
+            }
+          }, normalHeight)
+        )
+        .toEqual({ setsScroll: false, sheetFull: true, taller: true })
 
     // A long press grows or shrinks it while the finger is still down, and the release logs nothing.
     const hold = async (grown: boolean, button = finishBtn) => {
@@ -396,7 +412,7 @@ test.describe('Gymtime Page', () => {
       await page.mouse.up()
       // Measured once the finger is up, since a pressed button shrinks a little.
       const height = async () => (await button.boundingBox())!.height
-      if (grown) await expect.poll(height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+      if (grown) await grownInRoom(button)
       else await expect.poll(height).toBeLessThan(100)
     }
     await hold(true)
@@ -418,7 +434,7 @@ test.describe('Gymtime Page', () => {
 
     // A tap anywhere else leaves it grown.
     await card.locator('.exercise-sheet-title').click()
-    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+    await grownInRoom()
 
     // A tap on it logs the set, and it stays grown for the next one.
     await finishBtn.click()
@@ -426,14 +442,14 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeVisible()
     await breakTimer.getByRole('button', { name: 'Skip' }).click()
     await expect(breakTimer).toBeHidden()
-    expect(await height()).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+    await grownInRoom()
 
     // Another card opens with its button grown too.
     await card.getByRole('button', { name: 'Close dialog' }).click()
     const nextCard = cards.nth(1)
     await nextCard.locator('.exercise-open-btn').click()
     const nextBtn = nextCard.locator('.next-set-form').getByRole('button', { name: 'Finished set' })
-    await expect.poll(async () => (await nextBtn.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height / 2 - 1)
+    await grownInRoom(nextBtn)
 
     // Only another hold shrinks it back, and logs nothing.
     await hold(false, nextBtn)

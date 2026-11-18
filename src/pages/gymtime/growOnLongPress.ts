@@ -1,4 +1,4 @@
-// Holding Finished set grows it to half the screen, so after a hard set a shaky hand can't miss it. It stays grown
+// Holding Finished set grows it into all the room its sheet has left, so after a hard set a shaky hand can't miss it. It stays grown
 // set after set, on every card of the workout, and only another hold on it shrinks it back. A hold only grows or
 // shrinks it: its release logs nothing, and a tap logs the set either way. The class goes on the exercises list, so a
 // card opened next shows its button grown too.
@@ -22,14 +22,18 @@ export const growOnLongPress = (button: HTMLButtonElement) => {
   const toggle = () => {
     timer = undefined
     swallowClick = true
+    const sheet = button.closest('dialog')
+    const before = { sheet: sheet?.offsetHeight ?? 0, button: button.offsetHeight }
     const grown = (button.closest('#exercises-list') ?? button).classList.toggle('finish-set-grown')
     navigator.vibrate?.(15)
-    if (!grown) return
-    // Once it has grown, the button sits in the middle of the screen. Reading its style starts the transition, which
-    // ends at once under reduced motion. WebKit does not always fire transitionend, so this waits on the animations.
-    void getComputedStyle(button).minHeight
-    void Promise.allSettled(button.getAnimations().map(({ finished }) => finished)).then(() => {
-      if (button.isConnected) button.scrollIntoView({ block: 'center' })
+    if (!sheet || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // The grown sheet takes all the height it may and the button fills what is left, which CSS can't animate to, so
+    // this animates the change it measures: the sheet's height as it grows, and the button's as it shrinks back.
+    const [element, from] = grown ? [sheet, before.sheet] : [button, before.button]
+    const to = element.offsetHeight
+    element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      duration: 280,
+      easing: 'cubic-bezier(0.23, 1, 0.32, 1)'
     })
   }
 
