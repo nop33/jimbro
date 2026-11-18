@@ -577,12 +577,12 @@ const STOPS = [
     await see(page.locator('#break-countdown-dialog'))
     await page.locator('#minimize-break').click()
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
-    // The sheet stays open under the bar, so it is closed first.
+    // The sheet stays open under the strip, so it is closed first.
     await card.getByRole('button', { name: 'Close dialog' }).click()
     await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
     await page.waitForURL('**/exercises/')
     await see(page.locator('#exercises-grid .card').first())
-    // Wait for the "Workout started" toast to go, so the shot shows the bar alone.
+    // Wait for the "Workout started" toast to go, so the shot shows the strip alone.
     await gone(page.locator('.toast-message-popup'))
     await see(page.locator('#break-countdown-dialog.dialog-minimized'))
   }],

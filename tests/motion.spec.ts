@@ -50,7 +50,7 @@ test('a card menu grows out of the corner by the button that opens it', async ({
 })
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-  test(`minimizing the break timer morphs it into its bar only without reduced motion (${reducedMotion})`, async ({
+  test(`minimizing the break timer morphs it into its strip only without reduced motion (${reducedMotion})`, async ({
     page
   }) => {
     await seedDatabase(page)
@@ -68,7 +68,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
 
-    // The view transition groups that animate in the frames after the timer turns into its bar, and the timer box's
+    // The view transition groups that animate in the frames after the timer turns into its strip, and the timer box's
     // background while it does. The header and nav morph with the page under it, since a group of their own would draw
     // on top of the timer. The box stays opaque while its two looks crossfade, so the countdown never floats over the
     // page.
