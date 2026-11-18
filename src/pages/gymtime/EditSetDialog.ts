@@ -23,7 +23,6 @@ class EditSetDialog {
   constructor(session: OpenSession) {
     pullDownToClose(this.dialog)
     this.session = session
-    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeDialog())
     this.form.addEventListener('submit', (event) => this.onSubmit(event))
     this.deleteBtn.addEventListener('click', () => this.onDelete())
   }

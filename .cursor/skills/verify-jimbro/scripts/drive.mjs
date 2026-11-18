@@ -449,7 +449,7 @@ const STOPS = [
   }],
   ['add-exercise-dialog', async (page) => {
     await page.keyboard.press('Escape')
-    await page.locator('#add-exercise-card').click()
+    await page.locator('#add-exercise-btn').click()
     await see(page.locator('#exercise-picker .exercise-choice'))
   }],
   ['gymtime-passkey-offer', async (page) => {

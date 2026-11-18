@@ -9,11 +9,9 @@ class WatchReminderSheet {
   private dialog = document.querySelector('#watch-reminder-dialog') as HTMLDialogElement
   private form = this.dialog.querySelector('form') as HTMLFormElement
   private dontRemind = this.dialog.querySelector('input[name="dont-remind"]') as HTMLInputElement
-  private closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
 
   constructor() {
     pullDownToClose(this.dialog)
-    this.closeBtn.addEventListener('click', () => this.dialog.close())
   }
 
   // Resolves to whether the workout should start: at once when the reminder is off or the day is not today, otherwise

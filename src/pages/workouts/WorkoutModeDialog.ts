@@ -28,8 +28,6 @@ class WorkoutModeDialog {
     this.goalInput.addEventListener('change', () => this.handleGoalChange())
 
     this.opener.addEventListener('click', () => this.dialog.showModal())
-    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
-
     this.updateUI(settings.mode)
   }
 

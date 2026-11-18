@@ -1,11 +1,13 @@
 // A sheet (a `dialog.dialog-sheet`) behaves as the phone's own sheets do: it follows a finger that pulls it down, and
 // closes once pulled far or flicked, or slides back up when let go before then. A tap on the backdrop above it closes
-// it too. It closes through its own ✕, so whatever that button does on closing happens here as well.
+// it too, and so does its grabber (partials/sheet-grabber.html), which is a button for the keyboard and screen readers.
+// Esc closes a modal sheet as the browser's own cancel, and the exercise sheet, which isn't modal, through its own
+// keydown. Whatever a sheet does on closing listens for its `close` event.
 //
 // A pull starts only where the content under the finger is scrolled to its top and the finger moves more down than
 // sideways, so the body still scrolls, a chip row still scrolls sideways, and pulling a scrolled list scrolls it back up
 // first. Touch events, not pointer events: once the browser starts a scroll it takes the pointer away, and only a
-// touchmove's preventDefault keeps the first move from starting one, in Safari too. A mouse has the ✕ and Esc.
+// touchmove's preventDefault keeps the first move from starting one, in Safari too. A mouse has the grabber and Esc.
 export function pullDownToClose(dialog: HTMLDialogElement) {
   // A move this small is still a tap, and tells neither way.
   const slop = 4
@@ -20,11 +22,8 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
     speed: number
   } | null = null
 
-  const closeSheet = () => {
-    const closeButton = dialog.querySelector<HTMLButtonElement>('.close-dialog-btn')
-    if (closeButton) closeButton.click()
-    else dialog.close()
-  }
+  const closeSheet = () => dialog.close()
+  dialog.querySelector('.sheet-grabber')?.addEventListener('click', closeSheet)
 
   dialog.addEventListener(
     'touchstart',
