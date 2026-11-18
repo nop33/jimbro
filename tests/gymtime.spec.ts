@@ -102,9 +102,9 @@ test.describe('Gymtime Page', () => {
 
     // 6. Add exercises on the fly, from the list under the sheet
     await firstExercise.getByRole('button', { name: 'Close dialog' }).click()
-    const addExerciseCard = page.locator('#add-exercise-card')
-    await addExerciseCard.scrollIntoViewIfNeeded()
-    await addExerciseCard.click()
+    const addExerciseBtn = page.locator('#add-exercise-btn')
+    await addExerciseBtn.scrollIntoViewIfNeeded()
+    await addExerciseBtn.click()
 
     const picker = page.locator('#exercise-picker')
     await expect(picker).toBeVisible()
@@ -113,7 +113,7 @@ test.describe('Gymtime Page', () => {
     await picker.getByRole('button', { name: 'Close dialog' }).click()
     await expect(picker).not.toBeVisible()
 
-    await addExerciseCard.click()
+    await addExerciseBtn.click()
     await expect(picker).toBeVisible()
     await expect(picker.getByRole('heading', { name: 'Add exercises' })).toBeFocused()
     // The close button cancels, so the dialog has no Cancel.
@@ -915,7 +915,7 @@ test.describe('Gymtime Page: non-lifting presets', () => {
     // The page wires Add exercise before it draws the cards, so a tap before the first card shows does nothing.
     await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
     // Adding the exercise starts the workout.
-    await page.locator('#add-exercise-card').click()
+    await page.locator('#add-exercise-btn').click()
     const picker = page.locator('#exercise-picker')
     await picker.getByLabel(exerciseName).check()
     await picker.getByRole('button', { name: 'Add 1 exercise' }).click()

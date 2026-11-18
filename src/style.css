@@ -898,6 +898,12 @@
     @apply flex h-11 cursor-pointer items-center gap-1 px-2.5 text-jim-neutral-secondary/50;
   }
 
+  /* Add exercise: the same quiet plus and grey as Add set, centred under the last exercise. Its 44px tap target starts
+     right under the list, so the gap above the text stays small. */
+  .add-exercise-btn {
+    @apply mx-auto flex h-11 cursor-pointer items-center gap-1 px-4 text-jim-neutral-secondary/50;
+  }
+
   /* A set still to do opens its menu. The row it opened from stays marked while the menu is open. */
   .set.isPending[role='button'] {
     @apply cursor-pointer;

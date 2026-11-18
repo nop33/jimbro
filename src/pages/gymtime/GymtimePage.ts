@@ -20,7 +20,7 @@ class GymtimePage {
   private deleteWorkoutSessionBtn = document.querySelector('#delete-workout-session-btn') as HTMLButtonElement
   private workoutDetails = document.querySelector('#workout-details') as HTMLDetailsElement
   private saveToProgramCard = document.querySelector('#save-to-program-card') as HTMLDivElement
-  private addExerciseCard = document.querySelector('#add-exercise-card') as HTMLDivElement
+  private addExerciseBtn = document.querySelector('#add-exercise-btn') as HTMLButtonElement
   private program!: Program
   private openSession: OpenSession
   private picker = new ExercisePicker()
@@ -32,7 +32,7 @@ class GymtimePage {
   // The page shows one workout until signal aborts, as when the next page replaces it.
   constructor(signal: AbortSignal) {
     this.openSession = new OpenSession(new PasskeyOfferCard(signal))
-    this.addExerciseCard.addEventListener('click', () => this.addExercises())
+    this.addExerciseBtn.addEventListener('click', () => this.addExercises())
     this.editSetDialog = new EditSetDialog(this.openSession)
     this.historyChart = new ExerciseHistoryChart(signal)
     this.lastSetDialog = new LastSetDialog()
@@ -141,8 +141,6 @@ class GymtimePage {
         sessionExerciseIds.some((id, index) => id !== programExerciseIds[index]))
 
     this.saveToProgramCard.classList.toggle('hidden', !isDifferent)
-    if (isDifferent) this.addExerciseCard.classList.replace('mt-16', 'mt-2')
-    else this.addExerciseCard.classList.replace('mt-2', 'mt-16')
   }
 
   private updateDeleteBtnVisibility() {
