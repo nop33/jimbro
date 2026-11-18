@@ -144,9 +144,9 @@ test.describe('Workout session status reconciliation', () => {
     // The page wires Add exercise before it draws the cards, so a tap before the first card shows does nothing.
     await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
 
-    const addExerciseCard = page.locator('#add-exercise-card')
-    await addExerciseCard.scrollIntoViewIfNeeded()
-    await addExerciseCard.click()
+    const addExerciseBtn = page.locator('#add-exercise-btn')
+    await addExerciseBtn.scrollIntoViewIfNeeded()
+    await addExerciseBtn.click()
 
     const dialog = page.locator('#exercise-picker')
     await dialog.getByLabel(EXERCISE_NOT_IN_PUSH_DAY.name, { exact: true }).check()

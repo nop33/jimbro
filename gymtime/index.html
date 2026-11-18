@@ -122,6 +122,21 @@
         <div id="exercises-list" class="flex flex-col gap-2">
           <!-- Exercises will be rendered here -->
         </div>
+        <!-- Under the last exercise, centred, in the muted grey of Add set. -->
+        <button type="button" id="add-exercise-btn" class="add-exercise-btn">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2.5"
+            stroke="currentColor"
+            class="size-[18px]"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Add exercise
+        </button>
 
         <section id="passkey-offer" class="card flex flex-col gap-3 mt-4" aria-labelledby="passkey-offer-title" hidden>
           <h2 id="passkey-offer-title" class="card-title">Back up your workouts</h2>
@@ -139,7 +154,7 @@
           </button>
         </section>
 
-        <div id="save-to-program-card" class="card card-pending card-clickable mt-16 hidden">
+        <div id="save-to-program-card" class="card card-pending card-clickable mt-8 hidden">
           <div class="flex items-center justify-center gap-1 h-16">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -156,22 +171,6 @@
               />
             </svg>
             <div class="text-center text-lg font-bold">Save to program</div>
-          </div>
-        </div>
-
-        <div id="add-exercise-card" class="card card-pending card-clickable mt-2">
-          <div class="flex items-center justify-center gap-1 h-16">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-6"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <div class="text-center text-lg font-bold">Add exercise</div>
           </div>
         </div>
 
