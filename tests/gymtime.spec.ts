@@ -456,7 +456,7 @@ test.describe('Gymtime Page', () => {
     await expect(nextCard.locator('.completed-sets .set.isCompleted')).toHaveCount(0)
   })
 
-  test('pulling the break timer down minimizes it, a short pull slides back, and the bar expands it', async ({
+  test('pulling the break timer down minimizes it, a short pull slides back, and the strip expands it', async ({
     page
   }) => {
     const card = page.locator('#exercises-list > .card').first()
@@ -490,10 +490,10 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
     await expect(breakTimer).toHaveCSS('translate', 'none')
 
-    // The release that minimized it doesn't count as a tap on the bar, which would open it again.
+    // The release that minimized it doesn't count as a tap on the strip, which would open it again.
     await expect(breakTimer).not.toHaveClass(/dialog-full-screen/)
 
-    // The bar's Expand button opens the full timer, which hides it again.
+    // The strip's Expand button opens the full timer, which hides it again.
     const expand = breakTimer.getByRole('button', { name: 'Expand' })
     await expect(expand).toBeVisible()
     await settled()
@@ -501,7 +501,7 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
     await expect(expand).toBeHidden()
 
-    // A tap anywhere else on the bar still opens it too.
+    // A tap anywhere else on the strip still opens it too.
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
     await settled()
@@ -509,7 +509,9 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
   })
 
-  test('the minimized break timer is a bar that holds its countdown', async ({ page }) => {
+  test('the minimized break timer is a strip across the top that holds its countdown and moves nothing on screen', async ({
+    page
+  }) => {
     const card = page.locator('#exercises-list > .card').first()
     const form = card.locator('.next-set-form')
     await card.locator('.exercise-open-btn').click()
@@ -518,28 +520,36 @@ test.describe('Gymtime Page', () => {
     await form.getByRole('button', { name: 'Finished set' }).click()
     const breakTimer = page.locator('#break-countdown-dialog')
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)
+    // A card further down, where the page is scrolled to under the full timer.
+    const lastCard = page.locator('#exercises-list > .card').last()
+    await page.evaluate(() => window.scrollTo(0, 80))
+    const before = (await lastCard.boundingBox())!.y
     await breakTimer.getByRole('button', { name: 'Minimize' }).click()
     await expect(breakTimer).toHaveClass(/dialog-minimized/)
 
-    // The bar sits on the bottom nav with the countdown inside it, so it covers neither the nav nor the header.
-    const bar = (await breakTimer.boundingBox())!
+    // The strip runs along the top edge with the countdown inside it.
+    const strip = (await breakTimer.boundingBox())!
     const countdown = (await breakTimer.locator('#countdown').boundingBox())!
-    const nav = (await page.locator('.bottom-nav').boundingBox())!
-    const header = (await page.locator('.app-header').boundingBox())!
-    expect(Math.abs(bar.y + bar.height - nav.y)).toBeLessThanOrEqual(1)
-    expect(header.y + header.height).toBeLessThanOrEqual(bar.y)
-    expect(countdown.y).toBeGreaterThanOrEqual(bar.y)
-    expect(countdown.y + countdown.height).toBeLessThanOrEqual(bar.y + bar.height)
+    expect(strip.y).toBeLessThanOrEqual(1)
+    expect(countdown.y).toBeGreaterThanOrEqual(strip.y)
+    expect(countdown.y + countdown.height).toBeLessThanOrEqual(strip.y + strip.height)
+    // The page scrolled by the strip's height, so what was on screen stayed where it was.
+    await expect.poll(async () => Math.abs((await lastCard.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
 
-    // The page ends that much later, so its last row scrolls clear of the bar.
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-    const addExercise = page.getByText('Add exercise', { exact: true }).first()
+    // The page starts under the strip, so scrolled to the top its header shows whole.
+    await card.getByRole('button', { name: 'Close dialog' }).click()
+    await page.evaluate(() => window.scrollTo(0, 0))
     await expect
-      .poll(async () => {
-        const box = (await addExercise.boundingBox())!
-        return box.y + box.height
-      })
-      .toBeLessThanOrEqual(bar.y)
+      .poll(async () => (await page.locator('.app-header').boundingBox())!.y)
+      .toBeGreaterThanOrEqual(strip.y + strip.height - 1)
+
+    // Gone, it takes its room with it, and again nothing moves on screen.
+    await page.evaluate(() => window.scrollTo(0, 200))
+    const scrolled = (await lastCard.boundingBox())!.y
+    await breakTimer.click()
+    await breakTimer.getByRole('button', { name: 'Skip' }).click()
+    await expect(breakTimer).toBeHidden()
+    await expect.poll(async () => Math.abs((await lastCard.boundingBox())!.y - scrolled)).toBeLessThanOrEqual(1)
   })
 
   test('set rows spread their fields across the row, in columns', async ({ page }) => {
@@ -660,7 +670,7 @@ test.describe('Gymtime Page', () => {
     await expect(card.locator('.exercise-open-btn')).toHaveAccessibleName(/^.+: 0 of \d+ sets, next .+$/)
   })
 
-  test('the sheet stays open under the minimized break timer, whose bar stays on screen and takes taps', async ({
+  test('the sheet stays open under the minimized break timer, whose strip stays on screen and takes taps', async ({
     page
   }) => {
     const card = page.locator('#exercises-list > .card').first()
@@ -678,10 +688,10 @@ test.describe('Gymtime Page', () => {
     const sheet = card.locator('.exercise-sheet')
     await expect(sheet).toHaveJSProperty('open', true)
 
-    // The sheet ends above the bar, so the bar shows whole and its Expand button is what a tap there reaches.
-    const bar = (await breakTimer.boundingBox())!
+    // The sheet starts under the strip, so the strip shows whole and its Expand button is what a tap there reaches.
+    const strip = (await breakTimer.boundingBox())!
     const sheetBox = (await sheet.boundingBox())!
-    expect(sheetBox.y + sheetBox.height).toBeLessThanOrEqual(bar.y + 1)
+    expect(sheetBox.y).toBeGreaterThanOrEqual(strip.y + strip.height - 1)
     await expect(form.getByRole('button', { name: 'Finished set' })).toBeInViewport()
     await breakTimer.getByRole('button', { name: 'Expand' }).click()
     await expect(breakTimer).toHaveClass(/dialog-full-screen/)

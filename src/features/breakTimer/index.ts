@@ -16,7 +16,7 @@ export interface Break {
   exercise: { id: string; name: string; kind: ExerciseKind }
 }
 
-// The countdown between sets, full screen or as a bar on the bottom nav. One timer serves the whole document, so a break
+// The countdown between sets, full screen or as a strip across the top of the screen. One timer serves the whole document, so a break
 // keeps counting down whatever page shows under it.
 class BreakTimer {
   private dialog = document.querySelector('#break-countdown-dialog') as HTMLDialogElement
@@ -41,7 +41,7 @@ class BreakTimer {
   private alertScheduled = false
   // How the workout's page opens an exercise's history, while it shows.
   private openHistory: ((exercise: Break['exercise']) => void) | null = null
-  // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the bar.
+  // Whether the last pointer pulled the full timer down, so the click its release fires taps nothing, not even the strip.
   private dragged = false
   private alertsBell = new AlertsBell(this.dialog)
 
@@ -60,7 +60,7 @@ class BreakTimer {
     this.viewHistoryButton.addEventListener('click', () => {
       if (this.currentExercise) this.openHistory?.(this.currentExercise)
     })
-    // The link goes to the workout with the break running, as the bar on the bottom nav, so the workout shows with it.
+    // The link goes to the workout with the break running, as the strip at the top, so the workout shows with it.
     this.backToWorkoutLink.addEventListener('click', (event) => {
       event.stopPropagation()
       this.showMinimized()
@@ -157,25 +157,29 @@ class BreakTimer {
   private showMinimized() {
     this.isMinimized = true
     this.dialog.style.translate = ''
-    this.dialog.close()
-    this.dialog.classList.remove('dialog-full-screen')
-    this.dialog.classList.add('dialog-minimized')
-    this.dialog.show()
+    keepPageStill(() => {
+      this.dialog.close()
+      this.dialog.classList.remove('dialog-full-screen')
+      this.dialog.classList.add('dialog-minimized')
+      this.dialog.show()
+    })
   }
 
   private maximizeDialog() {
     this.isMinimized = false
     this.morph(() => {
       this.dialog.style.translate = ''
-      this.dialog.close()
-      this.dialog.classList.remove('dialog-minimized')
-      this.dialog.classList.add('dialog-full-screen')
+      keepPageStill(() => {
+        this.dialog.close()
+        this.dialog.classList.remove('dialog-minimized')
+        this.dialog.classList.add('dialog-full-screen')
+      })
       this.dialog.showModal()
     })
   }
 
   // A view transition snapshots the timer before and after the swap and morphs one into the other: the box between
-  // the full screen and the bar, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
+  // the full screen and the strip, and the countdown between its two sizes. The dialog's own fade-in waits it out, since
   // reopening the dialog would start it again, and the header and nav morph with the page under the timer.
   private morph(swap: () => void) {
     if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -280,11 +284,13 @@ class BreakTimer {
 
   private openDialog() {
     this.isMinimized = false
-    this.dialog.classList.remove('dialog-minimized')
-    this.dialog.classList.add('dialog-full-screen')
-    if (this.dialog.open) {
-      this.dialog.close()
-    }
+    keepPageStill(() => {
+      this.dialog.classList.remove('dialog-minimized')
+      this.dialog.classList.add('dialog-full-screen')
+      if (this.dialog.open) {
+        this.dialog.close()
+      }
+    })
     this.dialog.showModal()
     // The timer rises from the bottom edge as a sheet. WebKit runs no transition from @starting-style when the timer
     // opens, so the slide runs from script, and only for those who don't ask for less motion.
@@ -323,10 +329,24 @@ class BreakTimer {
   close() {
     this.stopCountdown()
     this.isMinimized = false
-    this.dialog.classList.remove('dialog-full-screen')
-    this.dialog.classList.remove('dialog-minimized')
-    this.dialog.close()
+    keepPageStill(() => {
+      this.dialog.classList.remove('dialog-full-screen')
+      this.dialog.classList.remove('dialog-minimized')
+      this.dialog.close()
+    })
   }
+}
+
+// The minimized timer is a strip over the top of the screen, and the page starts under it (src/style.css). So when the
+// strip comes or goes, this scrolls the page by as much as it moved, and what is on screen stays under the finger. At
+// the very top the strip covers the header until the page scrolls up, and on a page too short to scroll it moves.
+const keepPageStill = (change: () => void) => {
+  const page = document.querySelector('.app-page')
+  const before = page?.getBoundingClientRect().top
+  change()
+  if (!page || before === undefined) return
+  const shift = page.getBoundingClientRect().top - before
+  if (shift !== 0) window.scrollBy({ top: shift, behavior: 'instant' })
 }
 
 let timer: BreakTimer | undefined

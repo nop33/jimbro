@@ -10,20 +10,21 @@
   view-transition-name: app-header;
 }
 
-/* The minimized break timer is a bar that sits on the bottom nav, where the thumb is, so it covers neither the header's
-   title and buttons nor the nav. While it shows, the page ends that much later, so the bar never hides its last row.
-   Room at the bottom moves nothing on screen, where room at the top would push the page down under the finger. */
+/* The minimized break timer is a strip across the top of the screen, over the header, so it stays clear of the bottom
+   sheets that rise from the bottom edge and of the nav. While it shows, the page starts that much lower, so the strip
+   never hides the header, and the break timer scrolls the page by as much (keepPageStill in src/features/breakTimer),
+   so what is on screen stays where it was. */
 :root {
   /* The nav reaches under the home indicator or gesture bar (viewport-fit=cover in partials/head.html), and keeps its
      links above it. */
   --bottom-nav-height: calc(5rem + 1px + env(safe-area-inset-bottom));
-  --break-bar-height: calc(4.5rem + 1px);
+  --break-bar-height: calc(3.5rem + 1px + env(safe-area-inset-top));
   /* The tallest header: its padding, a 44px back button or action, and its border. */
   --app-header-height: calc(5.25rem + 1px);
 }
 
 :root:has(#break-countdown-dialog.dialog-minimized[open]) .app-page {
-  margin-bottom: var(--break-bar-height);
+  margin-top: var(--break-bar-height);
 }
 
 .bottom-nav {
@@ -712,7 +713,7 @@
   }
 
   /* The full break timer is a bottom sheet that covers the whole screen: it rises from the bottom edge after a set, and
-     the grabber at its top says it pulls down, which minimizes it into its bar (src/features/breakTimer). */
+     the grabber at its top says it pulls down, which minimizes it into its strip at the top (src/features/breakTimer). */
   #break-countdown-dialog.dialog-full-screen {
     @apply mx-auto mt-auto mb-0 max-h-none max-w-lg rounded-b-none border-b-0;
     height: 100dvh;
@@ -725,8 +726,8 @@
     }
   }
 
-  /* Only the full screen timer stretches its content to its height. In the bar, Safari resolves a full height against
-     the bar's own content and collapses it, so the countdown would hang below the bar, over the header. */
+  /* Only the full screen timer stretches its content to its height. In the strip, Safari resolves a full height against
+     the strip's own content and collapses it, so the countdown would hang below the strip, over the page. */
   .dialog-full-screen > * {
     @apply h-full;
   }
@@ -745,7 +746,7 @@
     }
   }
 
-  /* The full timer pulls down into its bar (src/features/breakTimer), so the finger moves it instead of scrolling the
+  /* The full timer pulls down into its strip (src/features/breakTimer), so the finger moves it instead of scrolling the
      page under the modal or selecting its text, which a drag would carry off instead. Nothing in it scrolls. */
   #break-countdown-dialog.dialog-full-screen {
     @apply select-none;
@@ -753,18 +754,19 @@
   }
 
   .dialog-minimized {
-    @apply fixed z-50 w-full max-w-full rounded-none rounded-t-2xl p-4 cursor-pointer m-0 border-b-0 border-x-0 border-t border-neutral-700/50 shadow-lg flex items-center justify-center;
+    @apply fixed z-70 w-full max-w-full rounded-none px-4 pb-0 cursor-pointer m-0 border-t-0 border-x-0 border-b border-neutral-700/50 shadow-lg flex items-center justify-center;
     box-sizing: border-box;
-    top: auto;
-    bottom: var(--bottom-nav-height);
+    top: 0;
+    bottom: auto;
     height: var(--break-bar-height);
+    padding-top: env(safe-area-inset-top);
   }
 
   .dialog-minimized::backdrop {
     display: none;
   }
 
-  /* Minimizing shrinks the break timer into its bar on the bottom nav, and the countdown with it, and maximizing grows it
+  /* Minimizing shrinks the break timer into its strip at the top, and the countdown with it, and maximizing grows it
      back (BreakTimerDialog.ts runs the swap as a view transition). The box moves on screen, so it eases in and out. */
   #break-countdown-dialog {
     view-transition-name: break-timer;
@@ -815,9 +817,14 @@
     display: none !important;
   }
 
+  /* The caret sits in the middle of the strip, under the status bar. */
+  .dialog-minimized #expand-break {
+    top: calc(50% + env(safe-area-inset-top) / 2);
+  }
+
   .dialog-minimized #countdown {
-    font-size: 2.25rem !important;
-    line-height: 2.5rem !important;
+    font-size: 1.75rem !important;
+    line-height: 2rem !important;
   }
 
   /* A popover menu that script places under the button that opens it. */
@@ -1598,7 +1605,7 @@
 
 /* The exercise's sheet opens without being modal (ExerciseCard.ts), so it places itself as a modal sheet sits, over
    the bottom nav, and dims the page around it with a shadow in place of a backdrop. While the break timer is a bar, the
-   sheet sits above the bar, which stays on top, undimmed. */
+   sheet stops under the strip, which stays on top, undimmed. */
 dialog.exercise-sheet[open] {
   position: fixed;
   inset: auto 0 0;
@@ -1607,21 +1614,14 @@ dialog.exercise-sheet[open] {
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6);
 }
 
-:root:has(#break-countdown-dialog.dialog-minimized[open]) {
-  dialog.exercise-sheet[open] {
-    bottom: calc(var(--bottom-nav-height) + var(--break-bar-height));
-    max-height: calc(var(--visible-height, 100dvh) - 1rem - var(--bottom-nav-height) - var(--break-bar-height));
-  }
-
-  &:has(dialog.exercise-sheet[open]) #break-countdown-dialog {
-    z-index: 70;
-  }
+:root:has(#break-countdown-dialog.dialog-minimized[open]) dialog.exercise-sheet[open] {
+  max-height: calc(var(--visible-height, 100dvh) - 1rem - var(--break-bar-height));
 }
 
 /* With Finished set grown, the sheet takes all the height it may, and the button takes what its sets and fields leave,
    so it never grows past the room it has: the sets keep their whole height and scroll only when they alone outgrow the
    sheet. The height asks for more than the sheet's max-height allows, so it ends where the max-height says, above the
-   keyboard or the break bar too. */
+   keyboard or the break strip too. */
 .finish-set-grown dialog.exercise-sheet[open] {
   height: 100dvh;
 

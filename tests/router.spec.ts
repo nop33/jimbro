@@ -62,7 +62,7 @@ test('a nav tap shows the next page in the same document, and Back brings the la
   expect(await sameDocument(page)).toBe(true)
 })
 
-test('a break keeps counting down on the next page, and its bar opens the full timer there', async ({ page }) => {
+test('a break keeps counting down on the next page, and its strip opens the full timer there', async ({ page }) => {
   await page.goto('/workouts/')
   await skipWithoutRouter(page)
   await page.locator('.calendar-week').first().waitFor()
@@ -80,7 +80,7 @@ test('a break keeps counting down on the next page, and its bar opens the full t
   const breakTimer = page.locator('#break-countdown-dialog')
   await breakTimer.getByRole('button', { name: 'Minimize' }).click()
   await expect(breakTimer).toHaveClass(/dialog-minimized/)
-  // The exercise's sheet stays open under the bar, so it is closed first.
+  // The exercise's sheet stays open under the strip, so it is closed first.
   await card.getByRole('button', { name: 'Close dialog' }).click()
 
   await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
