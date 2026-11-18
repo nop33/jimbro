@@ -533,6 +533,12 @@ test.describe('Gymtime Page', () => {
     expect(strip.y).toBeLessThanOrEqual(1)
     expect(countdown.y).toBeGreaterThanOrEqual(strip.y)
     expect(countdown.y + countdown.height).toBeLessThanOrEqual(strip.y + strip.height)
+    // It reads "Rest 2:29 · Bench press set 2 next", over a line that shrinks as the break runs out.
+    await expect(breakTimer.getByText('Rest', { exact: true })).toBeVisible()
+    await expect(breakTimer.locator('#break-strip-next')).toHaveText('· Bench press set 2 next')
+    await expect
+      .poll(() => breakTimer.evaluate((dialog) => Number(dialog.style.getPropertyValue('--break-left'))))
+      .toBeLessThan(1)
     // The page scrolled by the strip's height, so what was on screen stayed where it was.
     await expect.poll(async () => Math.abs((await lastCard.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
 

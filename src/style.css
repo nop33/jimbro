@@ -18,7 +18,7 @@
   /* The nav reaches under the home indicator or gesture bar (viewport-fit=cover in partials/head.html), and keeps its
      links above it. */
   --bottom-nav-height: calc(5rem + 1px + env(safe-area-inset-bottom));
-  --break-bar-height: calc(3.5rem + 1px + env(safe-area-inset-top));
+  --break-bar-height: calc(2.75rem + 1px + env(safe-area-inset-top));
   /* The tallest header: its padding, a 44px back button or action, and its border. */
   --app-header-height: calc(5.25rem + 1px);
 }
@@ -754,7 +754,7 @@
   }
 
   .dialog-minimized {
-    @apply fixed z-70 w-full max-w-full rounded-none px-4 pb-0 cursor-pointer m-0 border-t-0 border-x-0 border-b border-neutral-700/50 shadow-lg flex items-center justify-center;
+    @apply fixed z-70 w-full max-w-full rounded-none px-4 pb-0 cursor-pointer m-0 border-t-0 border-x-0 border-b border-neutral-700/50 bg-black shadow-lg flex items-center justify-center overflow-hidden;
     box-sizing: border-box;
     top: 0;
     bottom: auto;
@@ -817,14 +817,31 @@
     display: none !important;
   }
 
-  /* The caret sits in the middle of the strip, under the status bar. */
-  .dialog-minimized #expand-break {
-    top: calc(50% + env(safe-area-inset-top) / 2);
+  /* In the strip, the label, the countdown and the next set sit in one line, and a line along its foot shrinks as the
+     break runs out (--break-left, which the timer sets each second). The row overrides the full timer's column
+     utilities, so it is important. */
+  .dialog-minimized > div:first-child {
+    @apply flex-row! justify-center! gap-2.5;
+  }
+
+  #break-countdown-dialog:not(.dialog-minimized) .strip-only {
+    display: none;
+  }
+
+  .break-strip-label {
+    @apply min-w-0 text-[13px] text-neutral-400;
+  }
+
+  .break-strip-progress {
+    @apply absolute bottom-0 left-0 h-[3px] w-full origin-left bg-jim-accent;
+    scale: var(--break-left, 1) 1;
+    transition: scale 1s linear;
   }
 
   .dialog-minimized #countdown {
-    font-size: 1.75rem !important;
-    line-height: 2rem !important;
+    @apply shrink-0;
+    font-size: 1.25rem !important;
+    line-height: 1.75rem !important;
   }
 
   /* A popover menu that script places under the button that opens it. */

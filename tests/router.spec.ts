@@ -86,7 +86,7 @@ test('a break keeps counting down on the next page, and its strip opens the full
   await page.locator('.bottom-nav a', { hasText: 'Exercises' }).click()
   // The old page stays on screen until the next one has drawn, and both list Bench press, so the title tells them apart.
   await expect(page).toHaveTitle('Jimbro - Exercises')
-  await expect(page.getByText('Bench press')).toBeVisible()
+  await expect(page.getByText('Bench press', { exact: true })).toBeVisible()
   expect(await sameDocument(page)).toBe(true)
   await expect(breakTimer).toBeVisible()
   await expect(breakTimer).toHaveClass(/dialog-minimized/)

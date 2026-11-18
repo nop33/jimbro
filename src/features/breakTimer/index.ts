@@ -28,6 +28,8 @@ class BreakTimer {
   private setsDoneEl = this.dialog.querySelector('#sets-done') as HTMLParagraphElement
   private nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
   private nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
+  private stripNextEl = this.dialog.querySelector('#break-strip-next') as HTMLSpanElement
+  private breakMs = 0
   private countdownInterval: ReturnType<typeof setInterval> | null = null
   private targetTime: number | null = null
   private hasPlayedSound = false
@@ -241,6 +243,8 @@ class BreakTimer {
     const mins = Math.floor(diffSecs / 60)
     const secs = diffSecs % 60
     this.countdown.textContent = `${mins}:${secs < 10 ? `0${secs}` : secs}`
+    // The strip's line shows what is left of the break.
+    this.dialog.style.setProperty('--break-left', `${this.breakMs > 0 ? Math.max(diffMs, 0) / this.breakMs : 0}`)
 
     if (diffMs <= 0 && !this.hasPlayedSound) {
       playDingSound()
@@ -262,6 +266,8 @@ class BreakTimer {
     this.showWayToWorkout()
     this.setsDoneEl.textContent = `${setsDone} / ${setsTotal}`
     this.targetTime = Date.now() + seconds * 1000
+    this.breakMs = seconds * 1000
+    this.stripNextEl.textContent = `· ${exercise.name} set ${setsDone + 1} next`
     // A break only follows a set of an exercise with sets still to do, so the lifter goes back to it, not to next.
     this.alert = { title: `${exercise.name} · set ${setsDone + 1} of ${setsTotal}`, body: nextSet }
     this.alertsBell.reset()
