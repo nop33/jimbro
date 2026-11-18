@@ -593,7 +593,7 @@ const STOPS = [
     await see(page.locator('#back-to-workout'))
   }],
   ['gymtime-finish-set-grown', async (page) => {
-    // Held, Finished set grows to half the screen. The workout has not started, since the hold logs nothing.
+    // Held, Finished set grows into the room its sheet has left. The workout has not started, since the hold logs nothing.
     await page.goto('/')
     await page.locator('.program-pick').first().click()
     await page.waitForURL('**/gymtime/?*')

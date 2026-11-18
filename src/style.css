@@ -153,8 +153,8 @@
     }
   }
 
-  /* Holding Finished set grows it to half the screen (growOnLongPress.ts). The hold is the button's own long press, so
-     iOS shows no callout or text selection, and the grown button keeps its label in the middle. */
+  /* Holding Finished set grows it into all the room its sheet has left (growOnLongPress.ts). The hold is the button's
+     own long press, so iOS shows no callout or text selection, and the grown button keeps its label in the middle. */
   .finish-set-btn {
     position: relative;
     -webkit-touch-callout: none;
@@ -162,16 +162,13 @@
     user-select: none;
     touch-action: manipulation;
     transition:
-      min-height 280ms var(--ease-out),
       font-size 280ms var(--ease-out),
       scale 160ms var(--ease-out),
       background-color 200ms ease,
       color 200ms ease;
 
-    .finish-set-grown &,
-    &.finish-set-grown {
+    .finish-set-grown & {
       @apply text-3xl;
-      min-height: 50dvh;
     }
   }
 
@@ -1624,6 +1621,35 @@ dialog.exercise-sheet[open] {
 
   &:has(dialog.exercise-sheet[open]) #break-countdown-dialog {
     z-index: 70;
+  }
+}
+
+/* With Finished set grown, the sheet takes all the height it may, and the button takes what its sets and fields leave,
+   so it never grows past the room it has: the sets keep their whole height and scroll only when they alone outgrow the
+   sheet. The height asks for more than the sheet's max-height allows, so it ends where the max-height says, above the
+   keyboard or the break bar too. */
+.finish-set-grown dialog.exercise-sheet[open] {
+  height: 100dvh;
+
+  .exercise-sheet-body {
+    flex-grow: 0;
+  }
+
+  .exercise-sheet-footer {
+    flex: 1 0 auto;
+  }
+
+  .next-set,
+  .next-set-form,
+  .finish-set-btn {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+  }
+
+  .finish-set-btn {
+    align-items: center;
+    justify-content: center;
   }
 }
 
