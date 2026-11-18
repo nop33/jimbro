@@ -15,7 +15,6 @@ class NewProgramDialog {
       this.form.reset()
       this.dialog.showModal()
     })
-    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.form.addEventListener('submit', (event) => {
       event.preventDefault()
       void this.create()

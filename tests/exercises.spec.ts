@@ -15,7 +15,7 @@ test.describe('Exercises Page', () => {
     await expect(dialog).toBeVisible()
 
     // Verify "X" button works
-    await dialog.locator('.close-dialog-btn').click()
+    await dialog.getByRole('button', { name: 'Close dialog' }).click()
     await expect(dialog).not.toBeVisible()
 
     await page.getByRole('button', { name: 'New' }).click()

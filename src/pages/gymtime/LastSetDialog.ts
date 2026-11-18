@@ -15,7 +15,6 @@ class LastSetDialog {
   private gymEl = document.getElementById('last-set-gym') as HTMLSpanElement
   private olderBtn = document.getElementById('last-set-older') as HTMLButtonElement
   private newerBtn = document.getElementById('last-set-newer') as HTMLButtonElement
-  private closeBtn = this.dialog.querySelector('.close-dialog-btn') as HTMLButtonElement
 
   // The workouts to step through, newest first, and the one shown.
   private times: Array<LastTime> = []
@@ -25,10 +24,6 @@ class LastSetDialog {
 
   constructor() {
     pullDownToClose(this.dialog)
-    this.closeBtn.addEventListener('click', () => {
-      this.closeDialog()
-    })
-
     this.dialog.addEventListener('click', (event) => {
       if (event.target === this.dialog) {
         this.closeDialog()

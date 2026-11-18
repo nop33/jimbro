@@ -169,7 +169,7 @@ test('a page that opened before a deploy still draws the history chart', async (
   await watchForTakeOver(page)
   deploy()
   await takeOver(page)
-  await addExerciseDialog.locator('.close-dialog-btn').click()
+  await addExerciseDialog.getByRole('button', { name: 'Close dialog' }).click()
   await expect(addExerciseDialog).toBeHidden()
 
   const firstExercise = page.locator('#exercises-list > .card').first()

@@ -129,9 +129,9 @@
     </div>
 
     <dialog id="new-workout-dialog" class="dialog-sheet">
+      <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
         <h2 id="dialog-title" class="text-xl font-bold">Select program</h2>
-        <!-- partial:close-dialog-button -->
       </header>
       <ul id="programs-list" class="dialog-sheet-body gap-2">
         <!-- Programs will be rendered here -->
@@ -156,10 +156,10 @@
     </dialog>
 
     <dialog id="workout-mode-dialog" class="dialog-sheet">
+      <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
         <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
         <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Workout Mode</h2>
-        <!-- partial:close-dialog-button -->
       </header>
       <div class="dialog-sheet-body">
         <fieldset>

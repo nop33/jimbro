@@ -167,11 +167,10 @@ class ExerciseCard {
 
   // The sheet opens without being modal, so the break timer's bar, which isn't modal either, stays on screen over it
   // and keeps taking taps while the sheet is open. A modal sheet would make the bar inert. So the sheet does what a
-  // modal one would: a tap outside it only closes it, Esc closes it, and the focus goes back to the card. The ✕ and a
-  // pull down close it too.
+  // modal one would: a tap outside it only closes it, Esc closes it, and the focus goes back to the card. Its grabber and
+  // a pull down close it too.
   private setUpSheet() {
     const { sheet } = this
-    sheet.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.closeSheet())
     pullDownToClose(sheet)
 
     let open: AbortController | undefined

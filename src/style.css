@@ -1039,7 +1039,7 @@
 
   /* Every dialog but the break timer and the history chart is a bottom sheet: it rises from the bottom edge, as tall as
      its content up to a strip short of the top, and its header and footer stay put while only its body scrolls, so a
-     long form or list never scrolls the close button away. `.dialog-sheet-full` takes the whole height whatever it
+     long form or list never scrolls its title or buttons away. `.dialog-sheet-full` takes the whole height whatever it
      holds, as the exercise picker does so its list keeps its place while a filter narrows it. A sheet follows a finger
      that pulls it down and closes past a point (src/features/bottomSheet.ts), which the grabber at its top suggests.
      With the keyboard open, a sheet sits on it and fits in what is left above it (followKeyboard in bottomSheet.ts). */
@@ -1058,6 +1058,12 @@
     &::backdrop {
       backdrop-filter: none;
     }
+  }
+
+  /* The grabber pill on a sheet's top edge, in a 44px tall button that closes the sheet (partials/sheet-grabber.html).
+     It takes the strip above the header, so the title under it is no part of the tap. */
+  .sheet-grabber {
+    @apply relative mx-auto block h-11 w-24 shrink-0 rounded-xl;
 
     &::before {
       @apply absolute top-2 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-neutral-500/50;
@@ -1078,7 +1084,7 @@
   }
 
   .dialog-sheet-header {
-    @apply mb-0! flex shrink-0 items-center justify-between gap-4 border-b border-neutral-500/20 pt-5 pr-3 pb-2 pl-5;
+    @apply mb-0! flex shrink-0 items-center justify-between gap-4 border-b border-neutral-500/20 px-5 pb-3;
   }
 
   .dialog-sheet-body {

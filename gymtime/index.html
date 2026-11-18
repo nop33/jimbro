@@ -282,6 +282,7 @@
             </button>
             <!-- The exercise's sets and the next set's form, in a sheet over the list. -->
             <dialog class="exercise-sheet dialog-sheet">
+              <!-- partial:sheet-grabber -->
               <div class="dialog-sheet-header">
                 <!-- show() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. -->
                 <h2
@@ -289,7 +290,6 @@
                   tabindex="-1"
                   autofocus
                 ></h2>
-                <!-- partial:close-dialog-button -->
               </div>
               <div class="exercise-sheet-body dialog-sheet-body">
                 <!-- Last time and the history chart, over the sets, so the next set's form keeps the sheet's foot. -->
@@ -408,10 +408,10 @@
     <!-- partial:break-timer -->
 
     <dialog id="edit-set-dialog" class="dialog-sheet">
+      <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
         <!-- showModal() focuses the autofocus element, so the title takes the focus and no field opens the keyboard. Only script can focus it, so it needs no focus ring. -->
         <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Edit set</h2>
-        <!-- partial:close-dialog-button -->
       </header>
       <form id="edit-set-form" class="contents">
         <div id="edit-set-fields" class="dialog-sheet-body"></div>
@@ -424,10 +424,10 @@
 
     <!-- Icon: Lucide (https://lucide.dev) watch, inlined. ISC License. -->
     <dialog id="watch-reminder-dialog" class="dialog-sheet">
+      <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
         <!-- The title takes the focus, so the checkbox doesn't. -->
         <h2 class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>Start your watch</h2>
-        <!-- partial:close-dialog-button -->
       </header>
       <form method="dialog" class="contents">
         <div class="dialog-sheet-body">
@@ -454,9 +454,9 @@
     </dialog>
 
     <dialog id="last-set-dialog" class="dialog-sheet">
+      <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
         <h2 class="text-xl font-bold">Previous sets</h2>
-        <!-- partial:close-dialog-button -->
       </header>
       <!-- Older and newer workouts on either side of the day shown, so the arrows stay put whatever the day holds. -->
       <div class="grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-neutral-500/20 px-4 py-3">
