@@ -115,6 +115,18 @@ describe('page shell', () => {
       if (id) sheetIds.add(id)
     }
     expect(sheetIds.size).toBeGreaterThan(0)
+    // A sheet closes by its grabber, a button, not by a ✕, so each sheet holds the grabber and no close button.
+    const sheets = Object.keys(PAGES).flatMap((file) =>
+      [...served(file).matchAll(/<dialog\b[^>]*\bdialog-sheet\b[^>]*>[\s\S]*?<\/dialog>/g)].map(([sheet]) => ({
+        file,
+        sheet
+      }))
+    )
+    expect(sheets.length).toBeGreaterThanOrEqual(sheetIds.size)
+    for (const { file, sheet } of sheets) {
+      expect(sheet, file).toContain('class="sheet-grabber"')
+      expect(sheet, file).not.toContain('close-dialog-btn')
+    }
     // The module that owns each sheet's dialog wires the pull, so each sheet's id sits in a file that calls it.
     const wiring = readdirSync(path.join(root, 'src'), { recursive: true, encoding: 'utf8' })
       .filter((file) => file.endsWith('.ts'))

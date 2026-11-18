@@ -82,7 +82,7 @@ Existing Playwright specs in `tests/*.spec.ts` are the source of truth for locat
 | Bottom nav | `getByRole('link', { name: 'Workouts' })` etc.; the current page's `.nav-link` has `aria-current="page"` |
 | New (exercises/programs) | `getByRole('button', { name: 'New' })` |
 | New workout | `getByRole('button', { name: 'New' })` (accessible name is `Add new workout`) |
-| Close dialog | `getByRole('button', { name: 'Close dialog' })` |
+| Close dialog (a sheet's grabber, the history chart's ✕) | `getByRole('button', { name: 'Close dialog' })` |
 | Start with the 3-day split | `getByRole('button', { name: 'Start with the 3-day split' })` (only when IndexedDB has no exercise or program rows) |
 | Passkey offer | `getByRole('button', { name: 'Create passkey' })`; in gymtime `getByRole('region', { name: 'Back up your workouts' })` |
 | Reset database | open `/settings/data/`, then `getByRole('button', { name: 'Reset database' })`, accept `window.confirm` |

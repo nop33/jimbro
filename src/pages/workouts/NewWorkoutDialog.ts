@@ -21,10 +21,6 @@ class NewWorkoutDialog {
       this.open()
     })
 
-    this.newWorkoutDialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => {
-      this.closeDialog()
-    })
-
     this.render(programs)
   }
 
@@ -63,10 +59,6 @@ class NewWorkoutDialog {
 
   open() {
     this.newWorkoutDialog.showModal()
-  }
-
-  private closeDialog() {
-    this.newWorkoutDialog.close()
   }
 }
 

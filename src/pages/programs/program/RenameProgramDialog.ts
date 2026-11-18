@@ -8,7 +8,6 @@ class RenameProgramDialog {
 
   constructor(rename: (name: string) => void) {
     pullDownToClose(this.dialog)
-    this.dialog.querySelector('.close-dialog-btn')?.addEventListener('click', () => this.dialog.close())
     this.form.addEventListener('submit', (event) => {
       event.preventDefault()
       const name = this.nameInput.value.trim()

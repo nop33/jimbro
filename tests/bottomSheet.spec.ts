@@ -105,3 +105,20 @@ test('a sheet sits on the keyboard and fits above it', async ({ page }) => {
   })
   await expect.poll(bottomOf).toBe(height)
 })
+
+// A sheet has no ✕: its grabber is the button that closes it, which a screen reader announces and the keyboard reaches,
+// and Esc closes it as the browser's own cancel. Both run on every engine.
+test('a sheet closes from its grabber and from Esc', async ({ page }) => {
+  await page.goto('/exercises/')
+  const sheet = page.locator('dialog#exercise-dialog')
+  await page.getByRole('button', { name: 'New' }).click()
+  await expect(sheet).toBeVisible()
+  await expect(sheet.locator('.close-dialog-btn')).toHaveCount(0)
+  await sheet.getByRole('button', { name: 'Close dialog' }).click()
+  await expect(sheet).toBeHidden()
+
+  await page.getByRole('button', { name: 'New' }).click()
+  await expect(sheet).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(sheet).toBeHidden()
+})

@@ -86,7 +86,7 @@ test.describe('Gymtime Page', () => {
     await expect(editSetDialog).toBeVisible()
 
     // Verify "X" button works
-    await editSetDialog.locator('.close-dialog-btn').click()
+    await editSetDialog.getByRole('button', { name: 'Close dialog' }).click()
     await expect(editSetDialog).not.toBeVisible()
 
     await completedSetItem.click()
