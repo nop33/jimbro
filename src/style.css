@@ -1638,8 +1638,8 @@ dialog.exercise-sheet[open] {
 /* With Finished set grown, the sheet takes all the height it may, and the button takes what its sets and fields leave,
    so it never grows past the room it has: the sets keep their whole height and scroll only when they alone outgrow the
    sheet. The height asks for more than the sheet's max-height allows, so it ends where the max-height says, above the
-   keyboard or the break strip too. */
-.finish-set-grown dialog.exercise-sheet[open] {
+   keyboard or the break strip too. A finished exercise hides its next set's form, so its sheet keeps fitting its sets. */
+.finish-set-grown dialog.exercise-sheet[open]:has(.exercise-sheet-footer:not(.hidden)) {
   height: 100dvh;
 
   .exercise-sheet-body {

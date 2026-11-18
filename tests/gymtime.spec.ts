@@ -444,6 +444,29 @@ test.describe('Gymtime Page', () => {
     await expect(breakTimer).toBeHidden()
     await grownInRoom()
 
+    // Once the exercise is done, its sheet has no next set to grow into, so it fits its sets again.
+    for (const done of [2, 3]) {
+      await finishBtn.click()
+      await expect(logged).toHaveCount(done)
+      await breakTimer.getByRole('button', { name: 'Skip' }).click()
+      await expect(breakTimer).toBeHidden()
+    }
+    await finishBtn.click()
+    await expect(logged).toHaveCount(4)
+    // The set that finishes the exercise closes its sheet.
+    const sheet = card.locator('.exercise-sheet')
+    await expect(sheet).toHaveJSProperty('open', false)
+    await card.locator('.exercise-open-btn').click()
+    await expect(sheet).toHaveJSProperty('open', true)
+    await expect(finishBtn).toBeHidden()
+    await expect
+      .poll(() =>
+        sheet.evaluate(
+          (dialog: HTMLElement) => dialog.offsetHeight < parseFloat(getComputedStyle(dialog).maxHeight) - 1
+        )
+      )
+      .toBe(true)
+
     // Another card opens with its button grown too.
     await card.getByRole('button', { name: 'Close dialog' }).click()
     const nextCard = cards.nth(1)
