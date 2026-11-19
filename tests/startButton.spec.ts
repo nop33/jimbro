@@ -34,7 +34,7 @@ test.describe('Start button', () => {
     await startFromHome(page)
     await expect(page.locator('.toast-message-popup')).toContainText('Workout started')
     await expect(startButton(page).locator('.nav-start-time')).toHaveText(/^0:0\d$/)
-    await expect(startButton(page)).toHaveAccessibleName(/^Finish workout, 0:\d\d in$/)
+    await expect(startButton(page)).toHaveAccessibleName('Finish workout, 0 min in')
 
     const session = await storedSession(page)
     expect(session?.status).toBe('incomplete')

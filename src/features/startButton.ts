@@ -72,6 +72,9 @@ class StartButton {
   // The workout running today, if any.
   private running: WorkoutSession | undefined
   private ticking = 0
+  // The time on the disc and in the sheet, as text nodes the tick rewrites in place.
+  private timeText = this.time.appendChild(document.createTextNode(''))
+  private elapsedText = this.elapsed.appendChild(document.createTextNode(''))
   private busy = false
   private signal: AbortSignal
 
@@ -120,11 +123,16 @@ class StartButton {
   private tick() {
     const startedAt = this.running?.startedAt
     // A workout stored before its start was kept has no running time, so the disc shows only the ring.
-    const text = startedAt ? formatElapsed(Date.now() - new Date(startedAt).getTime()) : ''
-    this.time.textContent = text
-    this.time.toggleAttribute('data-hours', text.length > 5)
-    this.button.setAttribute('aria-label', text ? `Finish workout, ${text} in` : 'Finish workout')
-    this.elapsed.textContent = text ? `· ${text}` : ''
+    const ms = startedAt ? Date.now() - new Date(startedAt).getTime() : undefined
+    const text = ms === undefined ? '' : formatElapsed(ms)
+    // Each second changes only the text, never an attribute or a child, so no selector has to match again. Safari
+    // restarted the open exercise sheet's slide-in on every such style change, so it never settled.
+    this.timeText.data = text
+    this.elapsedText.data = text ? `· ${text}` : ''
+    const hours = text.length > 5
+    if (this.time.hasAttribute('data-hours') !== hours) this.time.toggleAttribute('data-hours', hours)
+    const label = ms === undefined ? 'Finish workout' : `Finish workout, ${Math.floor(ms / 60_000)} min in`
+    if (this.button.getAttribute('aria-label') !== label) this.button.setAttribute('aria-label', label)
   }
 
   private stopTicking() {
