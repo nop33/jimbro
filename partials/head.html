@@ -5,6 +5,10 @@
 <!-- The app is dark only. The browser paints a page's background before the page itself, as in the frames between a
      swipe back and the next tap, and this keeps that background dark instead of white. -->
 <meta name="color-scheme" content="dark" />
+<!-- Android paints its status bar and gesture bar in the theme colour when the installed app can't draw under them.
+     It matches the header and the bottom nav (jim-dark), so the bars read as part of the app. Chrome takes this tag
+     at once, while the manifest's theme_color, the same colour, reaches an installed app only when it updates. -->
+<meta name="theme-color" content="#0c0c0c" />
 <link rel="icon" href="/icons/favicon.ico" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <link rel="manifest" href="/app.webmanifest" />

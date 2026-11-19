@@ -620,8 +620,10 @@
   }
 
   /* Bottom navigation */
+  /* The nav takes the page's colour, which is also the theme colour (partials/head.html), so on a phone whose gesture
+     bar shows in the theme colour, the nav and the bar under it read as one. */
   .bottom-nav {
-    @apply bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-700/50;
+    @apply bg-jim-dark border-t border-neutral-700/50;
     padding-bottom: env(safe-area-inset-bottom);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   }
