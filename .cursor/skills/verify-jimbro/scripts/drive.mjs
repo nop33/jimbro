@@ -276,7 +276,7 @@ const STOPS = [
   ['workouts-new-dialog', async (page) => {
     // This week has no workouts yet, so today opens the same picker as the header's New.
     await page.locator('.calendar-day[aria-current="date"] button.calendar-start').click()
-    await see(page.locator('#new-workout-dialog a.program-link'))
+    await see(page.locator('#new-workout-dialog a.program-pick'))
   }],
   ['workouts-mode-dialog', async (page) => {
     await page.locator('#new-workout-dialog').getByRole('button', { name: 'Close dialog' }).click()

@@ -610,6 +610,12 @@
     }
   }
 
+  /* A sheet has the rows' own dark blue, so there the quiet rows lift a little to keep their shape. */
+  .dialog-sheet .program-pick:not([data-suggested]),
+  .dialog-sheet .program-pick[data-suggested][data-extra] {
+    @apply bg-white/5;
+  }
+
   .install-row {
     @apply flex items-center gap-3 rounded-2xl border border-dashed border-neutral-700 px-3.5 py-2 text-sm text-neutral-300;
   }

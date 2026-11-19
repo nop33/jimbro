@@ -2,7 +2,8 @@ import { getSimpleDate } from '../../dateUtils'
 import type { ProgramRow, SessionStatus, WorkoutSession } from '../../db/types'
 import type { WorkoutModeSettings } from '../../settings'
 import { volumeOf } from '../../trainingNumbers'
-import { addDays, trainingWeeks, type ProgramStatus, type WeekOfSessions } from '../../weeks'
+import { addDays, trainingWeeks, type WeekOfSessions } from '../../weeks'
+import { pickPrograms, type ProgramPick } from '../programPicks'
 
 // What the home page shows: this week's days and goal, three highlights, and the programs to pick from. The weeks
 // come from the week module, which the workouts calendar reads too.
@@ -13,9 +14,6 @@ export interface WeekDay {
   // The best status of the day's workouts, or undefined on a day without one.
   status?: SessionStatus
 }
-
-// An extra is a suggestion once the week met its goal, for a workout that counts toward next week.
-export type ProgramPick = ProgramStatus & { isSuggested: boolean; isExtra: boolean }
 
 export interface WeekOverview {
   days: Array<WeekDay>
@@ -103,30 +101,7 @@ export const buildWeekOverview = (
 
   const records = personalRecordsOf([...sessions].sort((a, b) => a.date.localeCompare(b.date)))
 
-  const picks = statuses.map((status): ProgramPick => ({ ...status, isSuggested: false, isExtra: false }))
-
-  // A workout left unfinished this week comes first. Until the week meets its goal, the next is the program done
-  // longest ago, never done first, and in rotation mode only among those neither started this week nor done ahead.
-  // Once it meets the goal, the program done longest ago is an extra, which keeps the rotation's order.
-  const oldestFirst = (a: ProgramPick, b: ProgramPick) =>
-    (a.lastCompleted?.date ?? '').localeCompare(b.lastCompleted?.date ?? '')
-  const unfinished = picks.filter((pick) => pick.thisWeek?.status === 'incomplete').at(-1)
-  const goalMet = thisWeek.counted >= goal
-  const suggested =
-    unfinished ??
-    (goalMet
-      ? [...picks].sort(oldestFirst)[0]
-      : picks.filter((pick) => settings.mode === 'freestyle' || (!pick.thisWeek && !pick.ahead)).sort(oldestFirst)[0])
-  if (suggested) {
-    suggested.isSuggested = true
-    suggested.isExtra = !unfinished && goalMet
-  }
-
-  // The suggestion, then the programs still open this week, then the ones done or done ahead, each group in program
-  // order.
-  const isDone = (pick: ProgramPick) => pick.thisWeek?.status === 'completed' || (!pick.thisWeek && !!pick.ahead)
-  const rank = (pick: ProgramPick) => (pick.isSuggested ? 0 : isDone(pick) ? 2 : 1)
-  picks.sort((a, b) => rank(a) - rank(b))
+  const picks = pickPrograms(statuses, thisWeek.counted, goal, settings)
 
   return {
     days,
