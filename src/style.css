@@ -1142,6 +1142,77 @@
     }
   }
 
+  /* The stats page's activity map, GitHub's contribution graph for training: one column per week, Monday at the top,
+     the newest week at the right. A year of 13px squares is wider than a phone, so it scrolls sideways and the page
+     starts it at today. The month labels share the grid as its first row, and overflow into the empty cells after. */
+  .activity-scroller {
+    @apply -mx-5 overflow-x-auto overscroll-x-contain px-5;
+    scrollbar-width: none;
+  }
+
+  .activity-map {
+    @apply grid w-max gap-[3px];
+    grid-template-rows: auto repeat(7, 13px);
+    grid-auto-columns: 13px;
+    grid-auto-flow: column;
+  }
+
+  .activity-month {
+    @apply mb-0.5 text-[0.6875rem] leading-4 whitespace-nowrap text-neutral-400;
+  }
+
+  .activity-cell {
+    @apply size-[13px] rounded-[3px];
+    background-color: color-mix(in srgb, var(--color-neutral-700) 45%, transparent);
+
+    &[data-level='1'] {
+      background-color: color-mix(in srgb, var(--color-jim-accent) 30%, var(--color-neutral-900));
+    }
+    &[data-level='2'] {
+      background-color: color-mix(in srgb, var(--color-jim-accent) 52%, var(--color-neutral-900));
+    }
+    &[data-level='3'] {
+      background-color: color-mix(in srgb, var(--color-jim-accent) 76%, var(--color-neutral-900));
+    }
+    &[data-level='4'] {
+      background-color: var(--color-jim-accent);
+    }
+    &[data-future] {
+      @apply invisible;
+    }
+    &[aria-current='date'] {
+      @apply outline-1 outline-offset-1 outline-neutral-300;
+    }
+    &[data-selected] {
+      @apply outline-2 outline-offset-1 outline-white;
+    }
+  }
+
+  .activity-legend {
+    @apply flex shrink-0 items-center gap-[3px];
+
+    .activity-cell {
+      @apply first-of-type:ml-1 last-of-type:mr-1;
+    }
+  }
+
+  /* Sets or volume, a pair of radios drawn as one segmented switch. */
+  .activity-metric {
+    @apply m-0 flex shrink-0 rounded-full border-0 bg-black/30 p-0.5;
+
+    label {
+      @apply m-0 flex min-h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-semibold text-neutral-400 transition-colors duration-150;
+
+      &:has(:checked) {
+        @apply bg-jim-accent text-neutral-950;
+      }
+
+      &:has(:focus-visible) {
+        @apply outline-2 outline-offset-2 outline-blue-400;
+      }
+    }
+  }
+
   /* The exercise picker: a search and a row of filter chips, then the exercises grouped by section, each group's
      title held at the top while its rows scroll. */
   .exercise-picker-tools {

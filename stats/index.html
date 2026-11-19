@@ -13,6 +13,38 @@
       </header>
       <div class="app-page-content" id="stats-content">
         <div class="flex flex-col gap-4">
+          <section
+            id="activity-card"
+            class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm"
+            aria-labelledby="activity-title"
+          >
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <h2 id="activity-title" class="text-sm text-neutral-400 font-semibold uppercase tracking-wider">
+                Last 12 months
+              </h2>
+              <fieldset class="activity-metric">
+                <legend class="sr-only">Shade days by</legend>
+                <label><input type="radio" name="activity-metric" value="sets" class="sr-only" checked />Sets</label>
+                <label><input type="radio" name="activity-metric" value="volume" class="sr-only" />Volume</label>
+              </fieldset>
+            </div>
+            <div id="activity-scroller" class="activity-scroller">
+              <div id="activity-map" class="activity-map" aria-hidden="true"></div>
+            </div>
+            <div class="mt-3 flex items-end justify-between gap-3 text-xs text-neutral-400">
+              <p id="activity-summary" aria-live="polite"></p>
+              <div class="activity-legend" aria-hidden="true">
+                Less
+                <span class="activity-cell" data-level="0"></span>
+                <span class="activity-cell" data-level="1"></span>
+                <span class="activity-cell" data-level="2"></span>
+                <span class="activity-cell" data-level="3"></span>
+                <span class="activity-cell" data-level="4"></span>
+                More
+              </div>
+            </div>
+          </section>
+
           <!-- Row 1: Working Out Since & Days Active -->
           <div class="grid grid-cols-2 gap-4">
             <div id="stat-since-card" class="card bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-sm">
