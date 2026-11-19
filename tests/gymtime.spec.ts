@@ -19,7 +19,7 @@ test.describe('Gymtime Page', () => {
     await page.getByRole('button', { name: 'New' }).click()
     const dialog = page.locator('dialog#new-workout-dialog')
     await expect(dialog).toBeVisible()
-    await dialog.locator('a.program-link').first().click()
+    await dialog.locator('a.program-pick').first().click()
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
   })
 
@@ -934,7 +934,7 @@ test.describe('Gymtime Page', () => {
 
     await page.getByRole('button', { name: 'New' }).click()
     const dialog = page.locator('dialog#new-workout-dialog')
-    await dialog.locator('a.program-link').nth(1).click()
+    await dialog.locator('a.program-pick').nth(1).click()
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     await expect(page.locator('input[name="location"]')).toHaveValue('Memorial Gym')
@@ -949,7 +949,7 @@ test.describe('Gymtime Page: non-lifting presets', () => {
   async function startSessionWith(page: Page, exerciseName: string) {
     await page.goto('/workouts/')
     await page.getByRole('button', { name: 'New' }).click()
-    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
 
     // The page wires Add exercise before it draws the cards, so a tap before the first card shows does nothing.
     await expect(page.locator('#exercises-list > .card').first()).toBeVisible()

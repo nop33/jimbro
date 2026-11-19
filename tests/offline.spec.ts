@@ -140,7 +140,7 @@ test('a workout started offline waits in the outbox', async ({ page }) => {
 
   await page.goto(`${origin}/workouts/`)
   await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
   // The exercise cards show before the start, so wait for the start itself before leaving the page.
   await startWorkout(page)
@@ -158,7 +158,7 @@ test('a page that opened before a deploy still draws the history chart', async (
   // The sample programs draw the page again once stored, which would take a dialog opened before it with the old page.
   await expect(page.getByRole('button', { name: 'Start with the 3-day split' })).toBeHidden()
   await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
   // The next build's service worker takes over this page, which still runs the build it opened with: an open dialog

@@ -33,7 +33,7 @@ test('a toast slides out when its time is up, before it leaves the page', async 
 test('a card menu grows out of the corner by the button that opens it', async ({ page }) => {
   await seedDatabase(page)
   await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
   const card = page.locator('#exercises-list > .card').first()
@@ -56,7 +56,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await seedDatabase(page)
     await page.emulateMedia({ reducedMotion })
     await page.getByRole('button', { name: 'New' }).click()
-    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
@@ -118,7 +118,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await seedDatabase(page)
     await page.emulateMedia({ reducedMotion })
     await page.getByRole('button', { name: 'New' }).click()
-    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const card = page.locator('#exercises-list > .card').first()
@@ -162,7 +162,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await seedDatabase(page)
     await page.emulateMedia({ reducedMotion })
     await page.getByRole('button', { name: 'New' }).click()
-    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
     await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
     const names = page.locator('.exercise-name')
@@ -205,7 +205,7 @@ test('the break timer rises from the bottom as a sheet that covers the whole scr
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await seedDatabase(page)
   await page.getByRole('button', { name: 'New' }).click()
-  await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+  await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
   await expect(page).toHaveURL(/\/gymtime\/\?programId=.+/)
 
   const card = page.locator('#exercises-list > .card').first()

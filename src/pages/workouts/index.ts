@@ -20,6 +20,7 @@ import { getWorkoutModeSettings } from '../../settings'
 import { trainingWeeks } from '../../weeks'
 import { whileBusy } from '../busyButton'
 import { confirmSignIn, showPasskeyFailure } from '../passkeyPrompts'
+import { pickPrograms } from '../programPicks'
 
 export const mount = async (signal: AbortSignal) => {
   const workoutWeeksContainer = document.getElementById('workout-weeks') as HTMLDivElement
@@ -44,7 +45,7 @@ export const mount = async (signal: AbortSignal) => {
   } else {
     await renderIntroText(canRestore ? 'restore' : empty ? 'seed' : 'none')
   }
-  const newWorkoutDialog = new NewWorkoutDialog(programStatuses)
+  const newWorkoutDialog = new NewWorkoutDialog(pickPrograms(programStatuses, thisWeek.counted, goal, settings))
   new WorkoutModeDialog()
 
   if (empty) {

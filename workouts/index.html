@@ -131,28 +131,12 @@
     <dialog id="new-workout-dialog" class="dialog-sheet">
       <!-- partial:sheet-grabber -->
       <header class="dialog-sheet-header">
-        <h2 id="dialog-title" class="text-xl font-bold">Select program</h2>
+        <h2 class="text-xl font-bold">Pick your workout</h2>
       </header>
-      <ul id="programs-list" class="dialog-sheet-body gap-2">
-        <!-- Programs will be rendered here -->
-      </ul>
-      <template id="program-item-template">
-        <li>
-          <a class="program-link" href="#">
-            <div class="card h-full p-4 justify-between flex flex-col card-simple">
-              <h3 class="program-name card-title">
-                <!-- -->
-              </h3>
-              <p class="this-week-status">
-                <!-- -->
-              </p>
-              <p class="last-completed-date text-sm text-neutral-400">
-                <!-- -->
-              </p>
-            </div>
-          </a>
-        </li>
-      </template>
+      <div class="dialog-sheet-body">
+        <ul id="program-picks" class="flex flex-col gap-2"></ul>
+      </div>
+      <!-- partial:program-pick -->
     </dialog>
 
     <dialog id="workout-mode-dialog" class="dialog-sheet">

@@ -138,9 +138,12 @@ test.describe('Workouts Page', () => {
     await page.getByRole('button', { name: 'New' }).click()
     await expect(dialog).toBeVisible()
 
-    const firstProgramLink = dialog.locator('a.program-link').first()
-    await expect(firstProgramLink).toBeVisible()
-    await expect(firstProgramLink.locator('.last-completed-date')).toHaveText('Not completed yet')
+    // The sheet lists the programs as Home's "Pick your workout" does, the next one to do first.
+    await expect(dialog.getByRole('heading', { name: 'Pick your workout' })).toBeVisible()
+    const firstProgramLink = dialog.locator('a.program-pick').first()
+    await expect(firstProgramLink).toHaveAttribute('data-suggested', '')
+    await expect(firstProgramLink.locator('.program-pick-meta')).toHaveText('Not done yet')
+    await expect(firstProgramLink.locator('.program-pick-action')).toHaveText('Start ›')
 
     // Click on a program option
     await firstProgramLink.click()
@@ -239,7 +242,7 @@ test.describe('Workouts Page', () => {
     await today.getByRole('button', { name: /today: start a workout/ }).click()
     const dialog = page.locator('dialog#new-workout-dialog')
     await expect(dialog).toBeVisible()
-    await dialog.locator('a.program-link').first().click()
+    await dialog.locator('a.program-pick').first().click()
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
 
     // Once today holds a workout, the day opens it instead.
@@ -279,7 +282,7 @@ test.describe('Workouts Page', () => {
 
     // Start a new workout from the program picker.
     await page.locator('#new-workout-btn').click()
-    await page.locator('dialog#new-workout-dialog a.program-link').first().click()
+    await page.locator('dialog#new-workout-dialog a.program-pick').first().click()
     await expect(page).toHaveURL(/.*\/gymtime\/\?programId=.+/)
 
     await startWorkout(page)
@@ -292,5 +295,12 @@ test.describe('Workouts Page', () => {
       'data-status',
       'incomplete'
     )
+
+    // The picker, like Home's, offers to continue the unfinished workout first instead of starting another.
+    await page.locator('#new-workout-btn').click()
+    const suggested = page.locator('dialog#new-workout-dialog a.program-pick[data-suggested]')
+    await expect(suggested).toHaveAttribute('data-status', 'incomplete')
+    await expect(suggested.locator('.program-pick-action')).toHaveText('Continue ›')
+    await expect(suggested).toHaveAttribute('href', /\/gymtime\/\?id=.+/)
   })
 })

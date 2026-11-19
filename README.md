@@ -82,7 +82,7 @@ The app stores four kinds of rows, and the worker syncs the same rows.
 - Once a program exists, a card at the top shows the workout mode and this week's progress toward its goal ("1 of 3 programs done" with the home page's goal bar). Tapping it opens the workout mode dialog.
   - Rotation mode expects every program once a week, so the goal is the number of programs. The count stops at the goal ("3 of 3 programs done") and the note says how many count toward next week.
   - Freestyle mode sets a weekly goal of 1 to 7 workouts.
-- "New" lists the programs with this week's status and when each was last completed, or that it never was. Picking one starts a workout.
+- "New" opens a sheet with the same "Pick your workout" list as the home page, in the same order with the same suggestion. Picking a program starts a workout of it, or continues the one started this week.
 - Until a program exists, an intro line tells a new user what to do next, matching the button when there is one.
 - With no exercise or program rows stored, deleted ones included, the page offers "Start with the 3-day split", which adds 21 exercises and a push, pull and legs split, and "Sign in with passkey" where the browser has passkeys. Signing in restores the account's workouts, so a returning user on a new phone picks up where they left off. If cloud credentials are saved and no sync has finished yet, it offers "Restore from cloud" instead, and a restore that finds the cloud empty leads back to the seed.
 

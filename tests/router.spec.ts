@@ -67,7 +67,7 @@ test('a break keeps counting down on the next page, and its strip opens the full
   await skipWithoutRouter(page)
   await page.locator('.calendar-week').first().waitFor()
   await page.getByRole('button', { name: 'Add new workout' }).click()
-  await page.locator('#programs-list a').first().click()
+  await page.locator('#program-picks a').first().click()
   await expect(page).toHaveURL(/\/gymtime\//)
   await markDocument(page)
 

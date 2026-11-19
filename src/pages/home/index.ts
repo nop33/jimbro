@@ -6,7 +6,8 @@ import { nodeFromTemplate, setTextContent } from '../../utils'
 import { redrawOnNewDay } from '../../redraw'
 import { onAppInstalled, promptInstall } from '../../features/installPrompt'
 import { carryNote, fillGoalBar } from '../goalBar'
-import { buildWeekOverview, type ProgramPick, type WeekOverview } from './weekOverview'
+import { buildWeekOverview, type WeekOverview } from './weekOverview'
+import { renderProgramPicks } from '../programPicks'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 const longDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -16,14 +17,6 @@ const kilograms = (kg: number) =>
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
 const formatDay = (date: string) => dayFormat.format(parseSimpleDate(date))
-
-const lastDoneText = (lastCompleted: ProgramPick['lastCompleted']) => {
-  if (!lastCompleted) return 'Not done yet'
-  const days = lastCompleted.daysAgo
-  if (days === 0) return 'Last done today'
-  if (days === 1) return 'Last done yesterday'
-  return `Last done ${days} days ago`
-}
 
 const renderWeek = ({ days, completed, ahead, extra, goal }: WeekOverview) => {
   // Workouts beyond the goal show as extras, not as "4 of 3".
@@ -83,13 +76,6 @@ const renderHighlights = ({ streak, volume, personalRecords }: WeekOverview) => 
   ;(document.getElementById('highlights') as HTMLUListElement).hidden = false
 }
 
-const pickMeta = ({ thisWeek, ahead, lastCompleted }: ProgramPick) => {
-  if (thisWeek?.status === 'completed') return `Done ${formatDay(thisWeek.date)}`
-  if (ahead) return `Done ahead ${formatDay(ahead.date)}`
-  if (thisWeek?.status === 'incomplete') return `Started ${formatDay(thisWeek.date)}`
-  return lastDoneText(lastCompleted)
-}
-
 const renderPicks = ({ picks }: WeekOverview) => {
   if (picks.length === 0) {
     ;(document.getElementById('picks') as HTMLElement).hidden = true
@@ -97,25 +83,7 @@ const renderPicks = ({ picks }: WeekOverview) => {
     return
   }
 
-  const list = document.getElementById('program-picks') as HTMLUListElement
-  for (const pick of picks) {
-    const item = nodeFromTemplate('#program-pick-template')
-    const link = item.querySelector('a') as HTMLAnchorElement
-    const status = pick.thisWeek?.status ?? (pick.ahead ? 'completed' : undefined)
-    link.href = status === 'incomplete' ? `/gymtime/?id=${pick.thisWeek?.id}` : `/gymtime/?programId=${pick.program.id}`
-    if (status) link.dataset.status = status
-    if (pick.isSuggested) link.dataset.suggested = ''
-    if (pick.isExtra) link.dataset.extra = ''
-    setTextContent('.program-pick-check', status === 'completed' ? '✓' : status === 'incomplete' ? '…' : '', item)
-    setTextContent('.program-pick-name', pick.program.name, item)
-    setTextContent('.program-pick-meta', pickMeta(pick), item)
-    setTextContent(
-      '.program-pick-action',
-      pick.isExtra ? 'Extra ›' : pick.isSuggested ? (status === 'incomplete' ? 'Continue ›' : 'Start ›') : '›',
-      item
-    )
-    list.appendChild(item)
-  }
+  renderProgramPicks(document.getElementById('program-picks') as HTMLUListElement, picks)
 }
 
 export const mount = async (signal: AbortSignal) => {
