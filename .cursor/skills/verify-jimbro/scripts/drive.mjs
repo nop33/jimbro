@@ -625,6 +625,25 @@ const STOPS = [
     await openSheet(card)
     await card.getByRole('button', { name: 'Add set' }).click()
     await see(page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' }))
+  }],
+  ['nav-start-running', async (page) => {
+    // Start in the middle of the nav starts the suggested workout, after the watch reminder, and then shows how long it
+    // has run. Earlier stops may have left one running today, which it shows straight away.
+    await page.goto('/')
+    await see(page.locator('#start-button'))
+    if (!(await page.locator('#start-button[data-running]').isVisible())) {
+      await page.getByRole('button', { name: 'Start next workout' }).click()
+      const watch = page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' })
+      await see(page.locator('#watch-reminder-dialog[open], #start-button[data-running]'))
+      if (await watch.isVisible()) await watch.click()
+    }
+    await see(page.locator('#start-button[data-running] .nav-start-time'))
+    await gone(page.locator('.toast-message-popup'))
+  }],
+  ['nav-finish-sheet', async (page) => {
+    // A tap on the running time offers to finish the workout early, and asks first.
+    await page.locator('#start-button').click()
+    await see(page.locator('#finish-workout-dialog').getByRole('button', { name: 'Finish workout' }))
   }]
 ]
 

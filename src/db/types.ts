@@ -39,6 +39,10 @@ export interface SessionHeader {
   status: SessionStatus
   notes?: string
   exercises: Array<ExerciseSnapshot>
+  // When the workout started, as a full ISO timestamp. Workouts stored before it was kept have none.
+  startedAt?: string
+  // When the lifter finished the workout early, with sets left to do, which makes it completed.
+  finishedAt?: string
   isDeleted: boolean
   updatedAt: string
 }

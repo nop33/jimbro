@@ -3,6 +3,7 @@ import { programsStore, type Program } from '../../db/stores/programsStore'
 import Toasts from '../../features/toasts'
 import { setTextContent } from '../../utils'
 import { breakTimer } from '../../features/breakTimer'
+import { onWorkoutPage } from '../../features/startButton'
 import ExercisePicker from '../ExercisePicker'
 import { animateDetails } from './animateDetails'
 import EditSetDialog from './EditSetDialog'
@@ -28,9 +29,11 @@ class GymtimePage {
   private historyChart: ExerciseHistoryChart
   private lastSetDialog: LastSetDialog
   private watchReminder = new WatchReminderSheet()
+  private signal: AbortSignal
 
   // The page shows one workout until signal aborts, as when the next page replaces it.
   constructor(signal: AbortSignal) {
+    this.signal = signal
     this.openSession = new OpenSession(new PasskeyOfferCard(signal))
     this.addExerciseBtn.addEventListener('click', () => this.addExercises())
     this.editSetDialog = new EditSetDialog(this.openSession)
@@ -114,6 +117,41 @@ class GymtimePage {
 
     // The first draw: the cards, and the buttons that depend on a session.
     await this.openSession.show(workoutSession)
+
+    // The nav's Start button starts the workout shown before it starts, and finishes it early once it runs.
+    onWorkoutPage(
+      {
+        current: () => this.openSession.current,
+        start: () => this.startWorkout(),
+        finish: () => this.finishWorkout()
+      },
+      this.signal
+    )
+    // Start on another page brings the lifter here to start the suggested workout at once.
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('start') && !workoutSession) {
+      params.delete('start')
+      window.history.replaceState({}, '', `?${params}`)
+      void this.startWorkout()
+    }
+  }
+
+  // Starts the workout with no change of its own: the watch reminder asks first, as before any first change.
+  private async startWorkout() {
+    try {
+      await this.openSession.apply(async (session) => session)
+    } catch {
+      // apply said what failed.
+    }
+  }
+
+  // Finishes the workout early, which completes it, and celebrates as a workout done set by set does.
+  private async finishWorkout() {
+    try {
+      await this.openSession.apply((session) => workoutSessionsStore.finish(session))
+    } catch {
+      // apply said what failed.
+    }
   }
 
   // Adds the exercises ticked to the end of the workout, in the order ticked. The first one starts the workout when

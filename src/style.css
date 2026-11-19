@@ -117,7 +117,8 @@
   /* The page ends above the bottom nav, which md: screens drop (md:pb-0 on each page). */
   .app-page {
     @apply max-w-2xl mx-auto min-h-screen flex flex-col bg-jim-dark;
-    padding-bottom: var(--bottom-nav-height);
+    /* The Start disc reaches above the nav, so the page's end stays clear of it too. */
+    padding-bottom: calc(var(--bottom-nav-height) + 1.375rem);
   }
 
   .app-header {
@@ -644,6 +645,74 @@
     stroke-width: 1.75;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+
+  /* The Start button in the middle of the nav: a disc raised above it, as the one thing to do there, with its label
+     on the links' line. Its slot is a link's width and height, and the disc reaches out above it, still inside the
+     button, so a tap on the disc lands on it. While a workout runs, the disc shows how long it has run and a ring of
+     its exercises done (src/features/startButton.ts). */
+  .nav-start {
+    @apply relative flex flex-1 h-full flex-col items-center justify-end pb-3.5 text-jim-accent cursor-pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-start-disc {
+    @apply absolute -top-5.5 grid size-16 place-items-center rounded-full bg-jim-accent text-white;
+    box-shadow:
+      0 0 0 5px var(--color-jim-dark),
+      0 6px 18px color-mix(in srgb, var(--color-jim-accent) 35%, transparent);
+    transition: scale 160ms var(--ease-out);
+
+    .nav-start:active & {
+      scale: 0.94;
+    }
+
+    > * {
+      grid-area: 1 / 1;
+    }
+  }
+
+  .nav-start-play {
+    @apply ml-0.5 size-6.5 fill-current;
+  }
+
+  .nav-start-ring,
+  .nav-start-time {
+    @apply hidden;
+  }
+
+  .nav-start[data-running] {
+    .nav-start-disc {
+      @apply bg-jim-dark-blue;
+      box-shadow: 0 0 0 5px var(--color-jim-dark);
+    }
+
+    .nav-start-play {
+      @apply hidden;
+    }
+
+    .nav-start-ring {
+      @apply block size-full -rotate-90 fill-none;
+      stroke-width: 4;
+    }
+
+    .nav-start-time {
+      @apply block text-[0.9375rem] font-extrabold tracking-tight tabular-nums;
+    }
+
+    /* Past an hour the time takes two more digits, so it shrinks to stay inside the ring. */
+    .nav-start-time[data-hours] {
+      @apply text-xs;
+    }
+  }
+
+  .nav-start-track {
+    stroke: rgb(255 255 255 / 0.12);
+  }
+
+  .nav-start-done {
+    stroke: var(--color-jim-accent);
+    stroke-linecap: round;
   }
 
   .nav-link[aria-current='page'] {

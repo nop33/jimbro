@@ -11,17 +11,20 @@ Home is `/`. It greets the user, shows this week's workouts and highlights, and 
 - `home-picks` lists one `.program-pick` per program under `Pick your workout`, each with a meta line (`Not done yet`, `Last done …`, `Done …`, `Done ahead …`, `Started …`). The suggested pick has `data-suggested` and reads `Start ›` (link to `?programId=`), or `Continue ›` (link to `?id=`) for a workout of it started and unfinished this week. Others read `›`. When the week's goal is met and nothing is unfinished, the program done longest ago is suggested as an extra, with `data-extra` and `Extra ›`.
 - `home-install` shows `Install Jimbro for quick access` with an `Install` button in a browser tab, hidden when running installed. Without a captured `beforeinstallprompt` (iOS, Playwright), Install shows an alert about `Add to Home Screen`.
 - `home-nav` shows the bottom nav (Home, Workouts, Exercises, Programs), each with a Lucide line icon, and marks the current page's link `aria-current="page"`, its icon in a pill. Stats, Settings and gymtime have no nav link.
+- `nav-start` is the raised orange disc in the middle of the nav, `#start-button` (`Start next workout`), on every page. A tap starts the program Home suggests: it goes to `/gymtime/?programId=…&start`, which starts the workout at once (the watch reminder asks first), or continues the suggested workout left unfinished this week. On gymtime before the workout starts, it starts the workout shown instead. While a workout dated today is incomplete, the button has `data-running`, reads `Finish`, and its disc shows the time since the start (`.nav-start-time`, `m:ss`, then `h:mm:ss`) in a ring of the exercises done; its name is `Finish workout, <time> in`.
+- `nav-finish` is the `Finish workout?` sheet (`#finish-workout-dialog`) a tap on the running button opens: the program, the start time and running time, `N of M exercises done`, `Go to workout` (hidden on the workout's own page) and `Finish workout`, which completes the workout with the sets left undone. On gymtime it shows `Workout done!`; elsewhere a `Workout finished` toast, and the page draws again.
 
 ## How to get to it (user POV)
 
 - Open `/` in the browser, or the installed app.
 - Choose `Home` in the bottom nav from any other page.
+- Tap the nav's Start disc from any page to start or finish a workout.
 
 ## Driving it with control-jimbro
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `01-home-empty` shows the empty home. `04-home` shows the week, highlights and a suggested `Start ›` pick after the tour imports a year of history ending last Sunday.
+- **Tour stops.** `01-home-empty` shows the empty home. `04-home` shows the week, highlights and a suggested `Start ›` pick after the tour imports a year of history ending last Sunday. `46-nav-start-running` shows Home with a workout running from the nav's Start, and `47-nav-finish-sheet` its `Finish workout?` sheet.
 - **By hand: start the suggested program.** Click `.program-pick[data-suggested]`. The URL matches `/gymtime/?programId=`. Save the workout there, return Home, and the same pick reads `Continue ›` with an `?id=` link.
 - **By hand: Settings.** Click `getByRole('link', { name: 'Settings', exact: true })`. The URL is `/settings/`.
 - **By hand: Install.** Register `page.once('dialog', …)` first, then click `getByRole('button', { name: 'Install' })`. The alert mentions `Add to Home Screen`.

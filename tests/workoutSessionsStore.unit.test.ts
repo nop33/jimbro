@@ -110,7 +110,8 @@ describe('workoutSessionsStore', () => {
       (current) => workoutSessionsStore.addExercise(current, exercise('squat', 3)),
       (current) => workoutSessionsStore.swapExercise(current, 'squat', exercise('lunge', 3)),
       (current) => workoutSessionsStore.removeExercise(current, 'lunge'),
-      (current) => workoutSessionsStore.update(current, { notes: 'Felt strong' })
+      (current) => workoutSessionsStore.update(current, { notes: 'Felt strong' }),
+      (current) => workoutSessionsStore.finish(current)
     ]
 
     let current = session
@@ -126,6 +127,42 @@ describe('workoutSessionsStore', () => {
       ['bench', [lift(45)]]
     ])
     expect(await workoutSessionsStore.getById(session.id)).toEqual(current)
+  })
+
+  it('starts the workout now, and keeps its start through later writes', async () => {
+    const before = Date.now()
+    const session = await start(exercise('start-bench', 2))
+    const startedAt = Date.parse(session.startedAt ?? '')
+    expect(startedAt).toBeGreaterThanOrEqual(before)
+    expect(startedAt).toBeLessThanOrEqual(Date.now())
+    const logged = await workoutSessionsStore.addSet(session, 'start-bench', lift(40))
+    expect(logged.startedAt).toBe(session.startedAt)
+    expect((await workoutSessionsStore.getById(session.id))?.startedAt).toBe(session.startedAt)
+  })
+
+  it('finishes a workout early as completed, and stays completed whatever is left', async () => {
+    let session = await start(exercise('early-bench', 3), exercise('early-row', 2))
+    session = await workoutSessionsStore.addSet(session, 'early-bench', lift(40))
+    session = await workoutSessionsStore.finish(session)
+    expect(session.finishedAt).toEqual(expect.any(String))
+    expect([session.status, await storedStatus(session)]).toEqual(['completed', 'completed'])
+    session = await workoutSessionsStore.addSetSlot(session, 'early-row')
+    expect([session.status, await storedStatus(session)]).toEqual(['completed', 'completed'])
+    // A workout already done has nothing to finish.
+    expect(await workoutSessionsStore.finish(session)).toBe(session)
+  })
+
+  it('finds the workout running on a day, and none once it is completed', async () => {
+    const other = await workoutSessionsStore.create({
+      date: '2031-02-03',
+      programId: 'program',
+      location: 'Zurich',
+      exercises: [snapshotFromExercise(exercise('run-squat', 1))]
+    })
+    expect((await workoutSessionsStore.runningOn('2031-02-03'))?.id).toBe(other.id)
+    expect(await workoutSessionsStore.runningOn('2031-02-04')).toBeUndefined()
+    await workoutSessionsStore.addSet(other, 'run-squat', lift(60))
+    expect(await workoutSessionsStore.runningOn('2031-02-03')).toBeUndefined()
   })
 
   it('keeps each exercise once', async () => {
