@@ -98,6 +98,8 @@ class StartButton {
   private draw() {
     const session = this.running
     this.button.toggleAttribute('data-running', session !== undefined)
+    // Until the button has read whether a workout runs, it shows Start, so the specs and the tour wait for this.
+    this.button.dataset.state = session ? 'running' : 'idle'
     if (!session) {
       this.stopTicking()
       this.label.textContent = 'Start'

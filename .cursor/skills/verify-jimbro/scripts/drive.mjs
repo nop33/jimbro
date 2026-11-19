@@ -630,8 +630,9 @@ const STOPS = [
     // Start in the middle of the nav starts the suggested workout, after the watch reminder, and then shows how long it
     // has run. Earlier stops may have left one running today, which it shows straight away.
     await page.goto('/')
-    await see(page.locator('#start-button'))
-    if (!(await page.locator('#start-button[data-running]').isVisible())) {
+    // The button reads whether a workout runs just after the page draws.
+    await see(page.locator('#start-button[data-state]'))
+    if (await page.locator('#start-button[data-state="idle"]').isVisible()) {
       await page.getByRole('button', { name: 'Start next workout' }).click()
       const watch = page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' })
       await see(page.locator('#watch-reminder-dialog[open], #start-button[data-running]'))

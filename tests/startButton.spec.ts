@@ -17,6 +17,7 @@ const storedSession = (page: Page) =>
 const startFromHome = async (page: Page) => {
   await page.goto('/')
   const name = (await page.locator('.program-pick[data-suggested] .program-pick-name').textContent())?.trim() ?? ''
+  await expect(startButton(page)).toHaveAttribute('data-state', 'idle')
   await page.getByRole('button', { name: 'Start next workout' }).click()
   await expect(page).toHaveURL(/\/gymtime\/\?id=/)
   await expect(page.locator('.app-header-title')).toHaveText(name)
@@ -53,7 +54,7 @@ test.describe('Start button', () => {
     await expect(page).toHaveURL(/\/gymtime\/\?programId=/)
     await expect(page.locator('.app-header-title')).toHaveText(name)
     await expect(page.locator('#exercises-list > .card').first()).toBeVisible()
-    await expect(startButton(page)).not.toHaveAttribute('data-running')
+    await expect(startButton(page)).toHaveAttribute('data-state', 'idle')
 
     await startButton(page).click()
     await expect(page).toHaveURL(/\/gymtime\/\?id=/)
