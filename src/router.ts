@@ -1,5 +1,6 @@
 import { buildChanged } from './appUpdates'
 import { breakTimer } from './features/breakTimer'
+import { wireStartButton } from './features/startButton'
 import './features/installPrompt'
 import { keepPagesFresh } from './redraw'
 import { markRendered } from './sync/freshness'
@@ -40,6 +41,8 @@ const mount = async (page: Page) => {
   shown = new AbortController()
   try {
     await page.mount(shown.signal)
+    // The nav comes with each page, so its Start button is wired with it.
+    wireStartButton(shown.signal)
     return true
   } catch (error) {
     console.error('The page failed to mount:', error)

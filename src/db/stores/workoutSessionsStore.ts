@@ -16,7 +16,10 @@ import { exercisesStore, type Exercise } from './exercisesStore'
 
 // What starting a workout provides. The store adds the id, the status and updatedAt, and sets each exercise's
 // starting target.
-export type NewWorkoutSession = Omit<WorkoutSession, 'id' | 'status' | 'updatedAt' | 'exercises'> & {
+export type NewWorkoutSession = Omit<
+  WorkoutSession,
+  'id' | 'status' | 'updatedAt' | 'exercises' | 'startedAt' | 'finishedAt'
+> & {
   exercises: Array<ExerciseSnapshot>
 }
 
@@ -73,8 +76,9 @@ export const progressOf = ({ targetSets, sets }: Pick<ExerciseExecution, 'target
 // Whether removeSetSlot can drop one of the exercise's sets: one that isn't logged, while more than one is left.
 export const canRemoveSetSlot = ({ logged, target }: ExerciseProgress): boolean => target > Math.max(logged, 1)
 
-// A session is completed when every exercise in it is done.
-export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises'>): SessionStatus {
+// A session is completed when every exercise in it is done, or once the lifter finished it early.
+export function computeWorkoutSessionStatus(session: Pick<WorkoutSession, 'exercises' | 'finishedAt'>): SessionStatus {
+  if (session.finishedAt !== undefined) return 'completed'
   if (session.exercises.length === 0) return 'incomplete'
   return session.exercises.every((exercise) => progressOf(exercise).done) ? 'completed' : 'incomplete'
 }
@@ -207,10 +211,24 @@ class WorkoutSessionsStore {
       .filter((lastTime): lastTime is LastTime => lastTime !== undefined)
   }
 
-  // Each exercise starts with the target startingTargetSets gives for last time at the session's gym.
+  // Each exercise starts with the target startingTargetSets gives for last time at the session's gym. The workout
+  // starts now, which its running time counts from.
   async create(fields: NewWorkoutSession): Promise<WorkoutSession> {
     const exercises = await Promise.all(fields.exercises.map((snapshot) => this.starting(snapshot, fields)))
-    return this.save({ ...fields, id: crypto.randomUUID(), exercises })
+    return this.save({ ...fields, id: crypto.randomUUID(), exercises, startedAt: nowIso() })
+  }
+
+  // Finishes the workout now, with whatever sets are left undone, which makes it completed.
+  async finish(session: WorkoutSession): Promise<WorkoutSession> {
+    if (session.status === 'completed') return session
+    return this.save({ ...session, finishedAt: nowIso() })
+  }
+
+  // The workout started on the day and not completed yet, the latest one when there are several.
+  async runningOn(date: string): Promise<WorkoutSession | undefined> {
+    const running = (header: SessionHeader) => header.date === date && header.status === 'incomplete'
+    const header = await this.firstHeader('prev', running)
+    return header ? this.assemble(header) : undefined
   }
 
   async update(session: WorkoutSession, fields: SessionFields): Promise<WorkoutSession> {

@@ -43,19 +43,19 @@ The data lives in the browser's IndexedDB. Anyone can use the app without an acc
 
 The app stores four kinds of rows, and the worker syncs the same rows.
 
-| Row            | Fields                                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------------------------- |
-| Exercise       | `id`, `name`, `kind`, `preset`, `muscle`, `targetSets`, `defaults`, `isDeleted`, `updatedAt`             |
-| Program        | `id`, `name`, `exercises` as an ordered list of exercise IDs, `isDeleted`, `updatedAt`                   |
-| Session header | `id` (a UUID), `date`, `programId`, `location`, `status`, `notes`, `exercises`, `isDeleted`, `updatedAt` |
-| Set            | `id`, `sessionId`, `exerciseId`, `position`, `set`, `isDeleted`, `updatedAt`                             |
+| Row            | Fields                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Exercise       | `id`, `name`, `kind`, `preset`, `muscle`, `targetSets`, `defaults`, `isDeleted`, `updatedAt`                                        |
+| Program        | `id`, `name`, `exercises` as an ordered list of exercise IDs, `isDeleted`, `updatedAt`                                              |
+| Session header | `id` (a UUID), `date`, `programId`, `location`, `status`, `notes`, `exercises`, `startedAt`, `finishedAt`, `isDeleted`, `updatedAt` |
+| Set            | `id`, `sessionId`, `exerciseId`, `position`, `set`, `isDeleted`, `updatedAt`                                                        |
 
 - A session header's `exercises` holds a snapshot of each exercise in the workout: name, kind, preset, muscle, target sets and defaults. Renaming or deleting an exercise later leaves old workouts alone.
 - A set row's `id` is `sessionId:exerciseId:position`. The app builds a `WorkoutSession` from a header and its live set rows.
 - `set` is a union discriminated by `preset`: `lifting` (reps, weight), `rehabReps` (reps, optional weight), `rehabHold` (durationSec, optional weight), `cardioTreadmill` (durationSec, speed, incline).
 - Exercise kinds are `lifting`, `rehab` and `cardio`. Each kind owns one or more log presets, and rehab is the only kind that offers a choice. `src/db/exerciseLogging.ts` is the registry that maps a preset to its slots, labels, break-timer behaviour and prescription text.
 - Muscle groups are slugs (`quads`, `chest`, …) with display labels (`Quads`, `Chest`, …). Cardio exercises have no muscle group.
-- A session is `completed` once every exercise has its target number of sets, and `incomplete` until then. `pending` and `skipped` exist only in the workouts calendar, for workouts nobody started.
+- A session is `completed` once every exercise has its target number of sets, or once the lifter finished it early from the nav's Start button (`finishedAt`), and `incomplete` until then. `startedAt` is when it started, which the Start button counts its running time from; workouts stored before it existed have none. `pending` and `skipped` exist only in the workouts calendar, for workouts nobody started.
 - Deletes are soft. A deleted row stays with `isDeleted: true`, so the deletion syncs like any other change.
 - Device settings live in localStorage and are neither synced nor exported: workout mode and weekly goal, break time, cloud credentials with how they were set up (passkey or token), the last sync time, and when the passkey offer's "Not now" ends.
 

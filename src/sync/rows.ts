@@ -44,6 +44,8 @@ export const rowsFromSession = (session: NestedSession): { header: SessionHeader
     updatedAt: session.updatedAt
   }
   if ('notes' in session) header.notes = session.notes
+  if (session.startedAt !== undefined) header.startedAt = session.startedAt
+  if (session.finishedAt !== undefined) header.finishedAt = session.finishedAt
 
   const sets: Array<SetRow> = []
   for (const exercise of session.exercises) {
@@ -84,6 +86,8 @@ export const sessionFromRows = (header: SessionHeader, sets: ReadonlyArray<SetRo
     updatedAt: header.updatedAt
   }
   if ('notes' in header) session.notes = header.notes
+  if (header.startedAt !== undefined) session.startedAt = header.startedAt
+  if (header.finishedAt !== undefined) session.finishedAt = header.finishedAt
   return session
 }
 

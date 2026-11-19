@@ -1,4 +1,4 @@
-<!-- Icons: Lucide (https://lucide.dev), house, calendar-check, dumbbell and clipboard-list, inlined so they cost no
+<!-- Icons: Lucide (https://lucide.dev), house, calendar-check, play, dumbbell and clipboard-list, inlined so they cost no
      dependency and no request. ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as
      part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022. Permission to use,
      copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that
@@ -24,6 +24,20 @@
       </svg>
       <span class="text-xs font-medium">Workouts</span>
     </a>
+    <!-- Starts the next workout, then shows how long it has run and offers to finish it (src/features/startButton.ts). -->
+    <button type="button" id="start-button" class="nav-start" aria-label="Start next workout">
+      <span class="nav-start-disc" aria-hidden="true">
+        <svg class="nav-start-ring" viewBox="0 0 64 64">
+          <circle class="nav-start-track" cx="32" cy="32" r="29" />
+          <circle class="nav-start-done" cx="32" cy="32" r="29" pathLength="100" stroke-dasharray="0 100" />
+        </svg>
+        <svg class="nav-start-play" viewBox="0 0 24 24">
+          <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+        </svg>
+        <span class="nav-start-time"></span>
+      </span>
+      <span class="nav-start-label text-xs font-medium">Start</span>
+    </button>
     <a href="/exercises/" class="nav-link">
       <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M14.4 14.4 9.6 9.6" />
@@ -51,3 +65,23 @@
     </a>
   </div>
 </nav>
+<!-- Finishing a workout early asks first, with what is left of it. -->
+<dialog id="finish-workout-dialog" class="dialog-sheet" aria-labelledby="finish-workout-title">
+  <!-- partial:sheet-grabber -->
+  <header class="dialog-sheet-header">
+    <h2 id="finish-workout-title" class="text-xl font-bold focus:outline-none" tabindex="-1" autofocus>
+      Finish workout?
+    </h2>
+  </header>
+  <div class="dialog-sheet-body">
+    <p class="text-jim-neutral">
+      <span id="finish-workout-name"></span> · started <span id="finish-workout-started"></span>
+      <span id="finish-workout-elapsed" class="font-bold tabular-nums"></span>
+    </p>
+    <p id="finish-workout-left" class="text-sm text-neutral-400"></p>
+  </div>
+  <footer class="dialog-sheet-footer">
+    <a id="finish-workout-go" class="btn-secondary flex-1 text-center">Go to workout</a>
+    <button type="button" id="finish-workout-confirm" class="btn-primary flex-1">Finish workout</button>
+  </footer>
+</dialog>

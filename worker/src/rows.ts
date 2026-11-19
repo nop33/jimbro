@@ -175,6 +175,8 @@ const isSession = (row: unknown): row is SessionHeader =>
   isString(row.location) &&
   isStatus(row.status) &&
   (row.notes === undefined || isString(row.notes)) &&
+  (row.startedAt === undefined || isString(row.startedAt)) &&
+  (row.finishedAt === undefined || isString(row.finishedAt)) &&
   Array.isArray(row.exercises) &&
   row.exercises.every((exercise) => isSnapshot(exercise)) &&
   isBoolean(row.isDeleted) &&
