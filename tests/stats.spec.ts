@@ -64,6 +64,39 @@ test.describe('Stats Page', () => {
       new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(1 / weeks)
     )
   })
+
+  test('shades the last twelve months by sets or volume, and names a tapped day', async ({ page }) => {
+    await page.goto('/stats/')
+    const today = await page.evaluate(async () => {
+      const { getSimpleDate } = await import('/src/dateUtils.ts')
+      return getSimpleDate(new Date())
+    })
+    await logBench(page, today, [
+      { reps: 5, weight: 60 },
+      { reps: 8, weight: 50 }
+    ])
+    await page.reload()
+
+    const map = page.locator('#activity-map')
+    const summary = page.locator('#activity-summary')
+    await expect(summary).toHaveText('2 sets on 1 day')
+    const todayCell = map.locator(`[data-date="${today}"]`)
+    await expect(todayCell).toHaveAttribute('aria-current', 'date')
+    await expect(todayCell).toHaveAttribute('data-level', '4')
+    await expect(map.locator('.activity-cell[data-level="0"]').first()).toBeVisible()
+
+    // The radios are hidden inside their labels, which take the tap.
+    await page.locator('.activity-metric').getByText('Volume').click()
+    await expect(page.getByRole('radio', { name: 'Volume' })).toBeChecked()
+    // 5 × 60 + 8 × 50
+    await expect(summary).toHaveText('700 kg on 1 day')
+
+    await todayCell.click()
+    await expect(summary).toContainText('· 700 kg')
+    await expect(todayCell).toHaveAttribute('data-selected', '')
+    await todayCell.click()
+    await expect(summary).toHaveText('700 kg on 1 day')
+  })
 })
 
 test.describe('Stats Page west of UTC', () => {

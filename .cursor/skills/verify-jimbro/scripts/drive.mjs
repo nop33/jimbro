@@ -330,7 +330,14 @@ const STOPS = [
   ['stats', async (page) => {
     await page.goto('/')
     await page.getByRole('link', { name: /lifted this week/ }).click()
+    await see(page.locator('#activity-map .activity-cell[data-level="4"]').first())
     await see(page.locator('#stat-total-sets'))
+  }],
+  ['stats-volume-day', async (page) => {
+    // The map shaded by volume, with the latest workout's day tapped and named under it.
+    await page.locator('.activity-metric').getByText('Volume').click()
+    await page.locator('#activity-map .activity-cell:not([data-level="0"])').last().click()
+    await see(page.locator('#activity-summary').getByText('kg'))
   }],
   ['settings', async (page) => {
     // The break time stepper, the rows that open the other settings pages, and the version at the foot.

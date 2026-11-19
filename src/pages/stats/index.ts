@@ -1,10 +1,15 @@
+import { activityWeeks } from '../../activityMap'
 import { getSimpleDate, parseSimpleDate } from '../../dateUtils'
 import { workoutSessionsStore } from '../../db/stores/workoutSessionsStore'
 import { trainingTotals } from '../../trainingNumbers'
 import { setTextContent } from '../../utils'
+import { ActivityMap } from './ActivityMap'
 
 async function calculateAndRenderStats() {
-  const totals = trainingTotals(await workoutSessionsStore.getAll(), getSimpleDate(new Date()))
+  const sessions = await workoutSessionsStore.getAll()
+  const today = getSimpleDate(new Date())
+  const totals = trainingTotals(sessions, today)
+  new ActivityMap().show(activityWeeks(sessions, today), today)
 
   const formatNumber = (num: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(num)
 

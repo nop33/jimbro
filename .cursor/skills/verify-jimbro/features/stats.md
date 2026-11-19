@@ -4,6 +4,8 @@ Stats is `/stats/`: lifetime totals worked out from completed workouts.
 
 ## Sub-features
 
+- `stats-activity` is the `Last 12 months` card at the top: a GitHub-style heat map (`#activity-map`), one column per week (Monday at the top, this week at the right, scrolled there on load), shaded in four orange levels by the sets logged each day, or by volume with the `Sets` / `Volume` switch (`.activity-metric`, radios inside labels: tap the label). The line under it (`#activity-summary`) gives the year's total and active days, and a tapped day names it and its amount (`Sun, Nov 15 · 10,568 kg`, or `Rest day`); a second tap goes back to the total. Today has a thin outline, days after it are blank. Workouts store no start or end time, so there is no Time view.
+
 - `stats-since` shows `Active since` with the first workout's date and how long ago it was.
 - `stats-totals` shows days active, workouts (with `+N incomplete` when any are unfinished), exercises, total sets, total reps, total volume and average workouts per week.
 
@@ -16,7 +18,7 @@ Stats is `/stats/`: lifetime totals worked out from completed workouts.
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stop.** `17-stats`, reached by choosing Home's volume tile after the tour imports a year of history.
+- **Tour stops.** `17-stats`, reached by choosing Home's volume tile after the tour imports a year of history, shows the map by sets. `18-stats-volume-day` switches it to volume and taps the latest workout day.
 - **By hand.** On a fresh or seeded database every number reads 0. Start a workout and the workouts tile shows `+1 incomplete`. Totals change only when a workout is completed.
 
 ## Gotchas
