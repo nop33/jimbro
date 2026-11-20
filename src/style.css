@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './features/season.css';
 
 @view-transition {
   navigation: auto;
@@ -1680,6 +1681,10 @@
 
   .settings-icon-blue {
     --icon-color: #7fb0f0;
+  }
+
+  .settings-icon-festive {
+    --icon-color: #ef6461;
   }
 
   .settings-icon-violet {

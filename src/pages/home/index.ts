@@ -8,6 +8,9 @@ import { onAppInstalled, promptInstall } from '../../features/installPrompt'
 import { carryNote, fillGoalBar } from '../goalBar'
 import { buildWeekOverview, type WeekOverview } from './weekOverview'
 import { renderProgramPicks } from '../programPicks'
+import { christmas } from '../../features/season'
+import { SantaHat } from './santaHat'
+import { AdventCalendar, adventShown } from './advent'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 const longDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -104,6 +107,13 @@ export const mount = async (signal: AbortSignal) => {
   renderWeek(overview)
   if (sessions.length > 0) renderHighlights(overview)
   renderPicks(overview)
+
+  if (christmas()) {
+    new SantaHat()
+    if (adventShown(today)) {
+      new AdventCalendar((programId) => programsStore.find(programId)?.name ?? 'Workout').show(sessions, today)
+    }
+  }
 
   redrawOnNewDay(today, signal)
 }

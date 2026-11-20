@@ -8,7 +8,19 @@
   <body class="app">
     <div class="app-page md:pb-0">
       <header class="app-header">
-        <h1 class="app-header-title">Hey, gymbro.</h1>
+        <!-- In the Christmas season (src/features/season.ts) the greeting is "Ho ho ho" and the H wears a Santa hat,
+             which a tap knocks off in a puff of snow. -->
+        <div class="relative">
+          <h1 class="app-header-title"><span id="greeting">Hey</span>, gymbro.</h1>
+          <button id="santa-hat" type="button" class="santa-hat" aria-label="Knock off the Santa hat" hidden>
+            <svg viewBox="0 0 60 50" aria-hidden="true">
+              <path d="M6 38C10 18 24 4 40 6c8 1 12 8 11 18-3-6-8-9-14-8C27 18 20 28 18 40z" fill="#d93a3a" />
+              <path d="M6 38C10 18 24 4 40 6c-10 4-16 16-18 34z" fill="#b3261f" opacity=".55" />
+              <rect x="2" y="36" width="36" height="11" rx="5.5" fill="#f4f6f8" />
+              <circle cx="51" cy="26" r="6.5" fill="#f4f6f8" />
+            </svg>
+          </button>
+        </div>
         <a href="/settings/" class="link-primary ml-auto">Settings</a>
       </header>
       <main class="app-page-content gap-5">
@@ -20,6 +32,17 @@
           <div id="week-goal" class="week-goal" aria-hidden="true"></div>
           <ol id="week-days" class="week-days fills-in"></ol>
           <p id="week-carry" class="text-xs text-neutral-400 -mt-1" hidden></p>
+        </section>
+
+        <!-- Advent of gains, from Dec 1 to Dec 26 in the Christmas season: a door for each day up to Christmas Eve,
+             which a workout that day opens (src/pages/home/advent.ts). -->
+        <section id="advent" class="card advent flex flex-col gap-3 py-4" aria-labelledby="advent-heading" hidden>
+          <div class="flex items-baseline justify-between">
+            <h2 id="advent-heading" class="home-eyebrow advent-eyebrow">Advent of gains</h2>
+            <p id="advent-count" class="text-sm text-neutral-400"></p>
+          </div>
+          <ol id="advent-doors" class="advent-doors"></ol>
+          <p id="advent-note" class="text-sm text-neutral-400"></p>
         </section>
 
         <ul id="highlights" class="highlights fills-in" aria-label="Highlights" hidden>
@@ -69,6 +92,29 @@
         <span class="week-day-label sr-only"></span>
       </li>
     </template>
+
+    <!-- What was behind an open advent door: a fun fact from that day's workout. -->
+    <dialog id="advent-door-dialog" class="dialog-sheet" aria-labelledby="advent-door-title">
+      <!-- partial:sheet-grabber -->
+      <header class="dialog-sheet-header">
+        <div class="flex items-center gap-4">
+          <span class="advent-present advent-present-large" aria-hidden="true"></span>
+          <div>
+            <p id="advent-door-day" class="home-eyebrow advent-eyebrow"></p>
+            <h2
+              id="advent-door-title"
+              class="text-xl font-bold text-white focus:outline-none"
+              tabindex="-1"
+              autofocus
+            ></h2>
+          </div>
+        </div>
+      </header>
+      <div class="dialog-sheet-body flex flex-col gap-2 pb-6">
+        <p id="advent-door-line" class="text-lg text-jim-neutral"></p>
+        <p id="advent-door-detail" class="text-sm text-neutral-400"></p>
+      </div>
+    </dialog>
 
     <!-- partial:program-pick -->
     <!-- partial:break-timer -->

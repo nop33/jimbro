@@ -1,0 +1,414 @@
+/* Christmas, from Dec 1 to Jan 6 (src/features/season.ts, which puts data-season="christmas" on <html>). Everything
+   here stays still under reduced motion, as the rest of the app does. */
+
+:root {
+  --xmas-red: #d93a3a;
+  --xmas-gold: #f2c14e;
+  --xmas-green: #2f8a4c;
+  --xmas-snow: #eef3f8;
+}
+
+/* Lights hang under every header: two strings of bulbs over each other, which twinkle in turn. */
+[data-season='christmas'] .app-header {
+  position: relative;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 4px);
+    height: 30px;
+    pointer-events: none;
+    z-index: 5;
+    background-repeat: repeat-x;
+    background-size: 128px 30px;
+    animation: season-twinkle 2.6s ease-in-out infinite alternate;
+  }
+
+  &::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='30' viewBox='0 0 128 30'%3E%3Cdefs%3E%3Cfilter id='g' x='-2' y='-2' width='5' height='5'%3E%3CfeGaussianBlur stdDeviation='2.2' result='b'/%3E%3CfeMerge%3E%3CfeMergeNode in='b'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M0 4Q64 20 128 4' fill='none' stroke='%233a3f47' stroke-width='1.6'/%3E%3Cg transform='translate(16 7.5) rotate(-11)'%3E%3Crect x='-2.5' y='0' width='5' height='4' rx='1' fill='%234b5058'/%3E%3Cellipse cy='9' rx='4.2' ry='6' fill='%23ff4d4d' filter='url(%23g)'/%3E%3Cellipse cx='-1.3' cy='7' rx='1.2' ry='2' fill='%23fff' opacity='.45'/%3E%3C/g%3E%3Cg transform='translate(80 11.5) rotate(4)'%3E%3Crect x='-2.5' y='0' width='5' height='4' rx='1' fill='%234b5058'/%3E%3Cellipse cy='9' rx='4.2' ry='6' fill='%233fbf6a' filter='url(%23g)'/%3E%3Cellipse cx='-1.3' cy='7' rx='1.2' ry='2' fill='%23fff' opacity='.45'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  &::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='30' viewBox='0 0 128 30'%3E%3Cdefs%3E%3Cfilter id='g' x='-2' y='-2' width='5' height='5'%3E%3CfeGaussianBlur stdDeviation='2.2' result='b'/%3E%3CfeMerge%3E%3CfeMergeNode in='b'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cg transform='translate(48 11.5) rotate(-4)'%3E%3Crect x='-2.5' y='0' width='5' height='4' rx='1' fill='%234b5058'/%3E%3Cellipse cy='9' rx='4.2' ry='6' fill='%23f2c14e' filter='url(%23g)'/%3E%3Cellipse cx='-1.3' cy='7' rx='1.2' ry='2' fill='%23fff' opacity='.45'/%3E%3C/g%3E%3Cg transform='translate(112 7.5) rotate(11)'%3E%3Crect x='-2.5' y='0' width='5' height='4' rx='1' fill='%234b5058'/%3E%3Cellipse cy='9' rx='4.2' ry='6' fill='%235ab4f0' filter='url(%23g)'/%3E%3Cellipse cx='-1.3' cy='7' rx='1.2' ry='2' fill='%23fff' opacity='.45'/%3E%3C/g%3E%3C/svg%3E");
+    animation-delay: -1.3s;
+  }
+}
+
+@keyframes season-twinkle {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* A drift of snow on top of the nav. */
+[data-season='christmas'] .bottom-nav::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  height: 8px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='8' viewBox='0 0 96 8'%3E%3Cpath d='M0 8V5Q12 0 24 4T48 3T72 5T96 5V8z' fill='%23e8eef5' opacity='.9'/%3E%3C/svg%3E")
+    repeat-x;
+  background-size: 96px 8px;
+}
+
+/* The snowfall, under the nav and over the page, behind taps. Each flake falls from above the screen to below it from
+   its own place (--y), so under reduced motion, which ends the animation at once, it stays scattered there. */
+.season-snow {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+
+  i {
+    position: absolute;
+    top: 0;
+    left: var(--x);
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    background: var(--xmas-snow);
+    opacity: var(--opacity);
+    translate: 0 var(--y);
+    animation: season-snow-fall linear infinite;
+  }
+}
+
+@keyframes season-snow-fall {
+  from {
+    transform: translate(0, calc(-1 * var(--y) - 10px));
+  }
+  50% {
+    transform: translate(var(--sway), calc(50vh - var(--y)));
+  }
+  to {
+    transform: translate(0, calc(100vh - var(--y) + 10px));
+  }
+}
+
+/* Home: the Santa hat on the H of "Ho ho ho", a button as big as a finger. */
+.santa-hat {
+  position: absolute;
+  left: -16px;
+  top: -33px;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  svg {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    width: 36px;
+    height: 30px;
+    rotate: -16deg;
+  }
+}
+
+.santa-hat-puff {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+
+  i {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--xmas-snow);
+  }
+}
+
+/* The Start button is a red glass bauble with a gold cap and a hook, and keeps them while a workout runs. */
+[data-season='christmas'] .nav-start-disc {
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    translate: -50% 0;
+  }
+
+  &::before {
+    top: -8px;
+    width: 18px;
+    height: 10px;
+    border-radius: 3px 3px 1px 1px;
+    background: linear-gradient(90deg, #a77b1c, #f6d77a 40%, #c89a2b 70%, #8a6413);
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
+  }
+
+  &::after {
+    top: -16px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #d9b45a;
+    border-bottom-color: transparent;
+    border-radius: 50%;
+  }
+}
+
+[data-season='christmas'] .nav-start:not([data-running]) .nav-start-disc {
+  background: radial-gradient(circle at 34% 30%, #ff8a7a 0 8%, #e2463b 22%, #b3201f 62%, #6e0f12 100%);
+  box-shadow:
+    0 0 0 5px var(--color-jim-dark),
+    0 6px 18px rgb(217 58 58 / 0.45);
+}
+
+/* The Workouts calendar: December's done workouts are wrapped presents, Christmas week is a candy cane, and the 25th
+   has a tree. */
+[data-season='christmas']
+  .calendar-day[data-date*='-12-']
+  .calendar-workout:not([data-status='incomplete'])
+  .calendar-check {
+  border-radius: 0.5rem;
+  background-color: var(--xmas-red);
+  background-image:
+    linear-gradient(90deg, transparent 42%, var(--xmas-gold) 42% 58%, transparent 58%),
+    linear-gradient(0deg, transparent 42%, var(--xmas-gold) 42% 58%, transparent 58%);
+  box-shadow:
+    inset 0 -3px 0 rgb(0 0 0 / 0.18),
+    0 2px 4px rgb(0 0 0 / 0.25);
+
+  &::before {
+    content: '';
+  }
+}
+
+[data-season='christmas']
+  .calendar-week:is([data-state='next'], [data-state='current']):has([data-date$='-12-25'])
+  .calendar-band {
+  background: repeating-linear-gradient(-45deg, rgb(217 58 58 / 0.22) 0 10px, rgb(255 255 255 / 0.06) 10px 20px);
+  outline: 2px solid rgb(217 58 58 / 0.55);
+  outline-offset: -2px;
+}
+
+[data-season='christmas'] .calendar-day[data-date$='-12-25'] {
+  .calendar-date {
+    color: var(--xmas-gold);
+  }
+
+  &:not(:has(.calendar-workout))::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -17px;
+    z-index: 2;
+    width: 22px;
+    height: 24px;
+    translate: -50% 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 20'%3E%3Cpath d='M9 1 3 9h3l-4 6h14l-4-6h3z' fill='%232f8a4c'/%3E%3Crect x='7.5' y='15' width='3' height='4' fill='%237a4a24'/%3E%3Ccircle cx='7' cy='8' r='1' fill='%23f2c14e'/%3E%3Ccircle cx='11' cy='12' r='1' fill='%23d93a3a'/%3E%3Cpath d='M9 .5l.6 1.2 1.3.2-1 .9.3 1.3L9 3.5 7.8 4.1l.3-1.3-1-.9 1.3-.2z' fill='%23f2c14e'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}
+
+/* The celebrations: snowflakes and gold stars instead of confetti, and a gift tag for a finished workout. */
+.confetti-flake {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20' fill='none' stroke='%23eef3f8' stroke-width='2' stroke-linecap='round'%3E%3Cpath transform='rotate(0)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3Cpath transform='rotate(60)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3Cpath transform='rotate(120)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.confetti-star {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Cpath fill='%23f2c14e' d='M0-9 2.6-2.8 9.4-2.8 4-1 6 6.6 0 2.4-6 6.6-4-1-9.4-2.8-2.6-2.8z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.confetti-ribbon {
+  position: absolute;
+  width: 5px;
+  height: 14px;
+  margin: -7px 0 0 -2.5px;
+  border-radius: 2px;
+}
+
+.confetti-ring-gold {
+  border-color: rgb(242 193 78 / 0.6);
+}
+
+.confetti-text.confetti-tag {
+  padding: 0.5em 1.1em 0.55em;
+  border: 2px solid var(--xmas-gold);
+  outline: 2px dashed rgb(242 193 78 / 0.55);
+  outline-offset: 5px;
+  background: linear-gradient(180deg, #c62f30, #8f1f22);
+  color: #fff4d6;
+  font-weight: 800;
+  text-align: center;
+
+  small {
+    display: block;
+    margin-bottom: 0.15em;
+    font-size: 0.42em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--xmas-gold);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -18px;
+    right: -14px;
+    width: 44px;
+    height: 32px;
+    rotate: 18deg;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 32'%3E%3Cpath d='M22 18C16 8 8 6 2 10c4 1 4 5 2 7 4-1 6 2 6 5 4-4 9-4 12-4z' fill='%232f8a4c'/%3E%3Cpath d='M22 18c6-10 14-12 20-8-4 1-4 5-2 7-4-1-6 2-6 5-4-4-9-4-12-4z' fill='%23267541'/%3E%3Ccircle cx='19' cy='20' r='4' fill='%23d93a3a'/%3E%3Ccircle cx='25' cy='21' r='4' fill='%23c62f30'/%3E%3Ccircle cx='22' cy='15.5' r='4' fill='%23e2463b'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}
+
+.confetti-text.confetti-snow {
+  border-color: rgb(238 243 248 / 0.45);
+  color: var(--xmas-snow);
+
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-right: 0.35em;
+    vertical-align: -0.05em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20' fill='none' stroke='%23eef3f8' stroke-width='2' stroke-linecap='round'%3E%3Cpath transform='rotate(0)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3Cpath transform='rotate(60)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3Cpath transform='rotate(120)' d='M0-9V9M-3-6.5 0-4 3-6.5M-3 6.5 0 4 3 6.5'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}
+
+/* Home's Advent of gains card and the sheet behind an open door (src/pages/home/advent.ts). */
+.advent-eyebrow {
+  color: var(--xmas-gold);
+}
+
+.advent-doors {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.advent-door {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  aspect-ratio: 1 / 0.82;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #23262c, #1b1d22);
+  color: #b9c0c9;
+  font-size: 0.8rem;
+  font-weight: 800;
+
+  &[data-state='open'] {
+    border-color: rgb(242 193 78 / 0.55);
+    background: radial-gradient(circle at 50% 40%, rgb(242 193 78 / 0.35), rgb(242 193 78 / 0.06) 70%), #2a2216;
+    color: transparent;
+    cursor: pointer;
+
+    /* The door stands ajar on its hinge. */
+    &::after {
+      content: '';
+      position: absolute;
+      left: -1px;
+      top: -1px;
+      bottom: -1px;
+      width: 32%;
+      border: 1px solid rgb(255 255 255 / 0.08);
+      border-radius: 0.5rem 0.2rem 0.2rem 0.5rem;
+      background: linear-gradient(90deg, #2c3038, #23262c);
+      transform: perspective(60px) rotateY(48deg);
+      transform-origin: left;
+    }
+  }
+
+  &[data-state='missed'] {
+    color: #575c64;
+  }
+
+  &[data-state='today'] {
+    border: 2px dashed var(--color-jim-accent);
+    color: var(--color-jim-accent);
+  }
+
+  &[data-eve]:not([data-state='open']) {
+    border-color: rgb(242 193 78 / 0.35);
+    color: var(--xmas-gold);
+  }
+
+  &[data-eve]::before {
+    content: '★';
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    font-size: 0.55rem;
+    color: var(--xmas-gold);
+  }
+}
+
+.advent-present {
+  position: absolute;
+  width: 58%;
+  height: 58%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Crect x='3' y='8' width='14' height='10' rx='1.5' fill='%23d93a3a'/%3E%3Crect x='2' y='5.5' width='16' height='4' rx='1' fill='%23e2463b'/%3E%3Crect x='8.75' y='5.5' width='2.5' height='12.5' fill='%23f2c14e'/%3E%3Cpath d='M10 5.5C8 1.5 4.5 2.5 5.5 4.5 6.3 6 10 5.5 10 5.5zM10 5.5c2-4 5.5-3 4.5-1-.8 1.5-4.5 1-4.5 1z' fill='none' stroke='%23f2c14e' stroke-width='1.5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.advent-present-large {
+  position: static;
+  display: block;
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+}
+
+/* The break timer: a line from the elves, a Santa hat on the countdown and snow behind it. */
+.break-elf-line {
+  max-width: 18rem;
+  text-align: center;
+  color: var(--color-neutral-300);
+}
+
+[data-season='christmas'] #break-countdown-dialog.dialog-full-screen {
+  background-image:
+    radial-gradient(circle at 8% 12%, rgb(238 243 248 / 0.35) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 22% 30%, rgb(238 243 248 / 0.2) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 37% 8%, rgb(238 243 248 / 0.3) 0 2.5px, transparent 3px),
+    radial-gradient(circle at 55% 22%, rgb(238 243 248 / 0.25) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 71% 10%, rgb(238 243 248 / 0.35) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 88% 28%, rgb(238 243 248 / 0.2) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 14% 52%, rgb(238 243 248 / 0.25) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 30% 66%, rgb(238 243 248 / 0.2) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 62% 58%, rgb(238 243 248 / 0.3) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 84% 70%, rgb(238 243 248 / 0.25) 0 2.5px, transparent 3px),
+    radial-gradient(circle at 46% 84%, rgb(238 243 248 / 0.2) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 92% 88%, rgb(238 243 248 / 0.3) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 6% 90%, rgb(238 243 248 / 0.2) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 76% 40%, rgb(238 243 248 / 0.15) 0 1.5px, transparent 2px);
+
+  #countdown {
+    position: relative;
+  }
+
+  #countdown::before {
+    content: '';
+    position: absolute;
+    left: 2%;
+    top: -24%;
+    width: 22%;
+    aspect-ratio: 60 / 50;
+    rotate: -20deg;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 50'%3E%3Cpath d='M6 38C10 18 24 4 40 6c8 1 12 8 11 18-3-6-8-9-14-8C27 18 20 28 18 40z' fill='%23d93a3a'/%3E%3Cpath d='M6 38C10 18 24 4 40 6c-10 4-16 16-18 34z' fill='%23b3261f' opacity='.55'/%3E%3Crect x='2' y='36' width='36' height='11' rx='5.5' fill='%23f4f6f8'/%3E%3Ccircle cx='51' cy='26' r='6.5' fill='%23f4f6f8'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}

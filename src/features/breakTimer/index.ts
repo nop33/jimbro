@@ -3,6 +3,31 @@ import { historyChartEnabled } from '../../db/exerciseLogging'
 import { breakAlertsOn, cancelBreakAlert, scheduleBreakAlert } from '../../sync/breakAlerts'
 import AlertsBell from './alertsBell'
 import { playDingSound } from './sound'
+import { christmas } from '../season'
+
+// In the Christmas season the full timer says one of these under the countdown, a new one each break.
+const ELF_LINES = [
+  'The elves are re-racking your plates.',
+  "Santa's checking his list. You're on the strong one.",
+  'Rudolph says: breathe in, breathe out.',
+  'Mrs Claus baked cookies. Earn them.',
+  'Even reindeer rest between flights.',
+  'An elf is chalking your hands.',
+  'Somewhere, a snowman is doing squats.',
+  'Santa carries tonnes on Christmas Eve. Keep up.',
+  'Deck the halls with sets of plenty.',
+  'Hydrate like a melting snowman.',
+  'The North Pole gym never closes.',
+  "Prancer's doing mobility work. Join him.",
+  'Rest now. Sleigh later.',
+  'The elves logged that set. Nice form.',
+  'Christmas pudding is earned, not given.',
+  'Frosty says: stay cool.',
+  "Rudolph's nose glows brighter with every rep.",
+  'Not a creature was stirring, except you.',
+  "'Tis the season to be lifting.",
+  'Dasher, Dancer and you. Next set.'
+] as const
 
 // A break after a set in a workout: its length, the exercise's sets logged and to do, the next set's values in words,
 // and the next exercise with sets to do.
@@ -29,6 +54,7 @@ class BreakTimer {
   private nextExerciseNameEl = this.dialog.querySelector('#next-exercise-name') as HTMLParagraphElement
   private nextExerciseMessageEl = this.dialog.querySelector('#next-exercise-message') as HTMLParagraphElement
   private stripNextEl = this.dialog.querySelector('#break-strip-next') as HTMLSpanElement
+  private elfLineEl = this.dialog.querySelector('#break-elf-line') as HTMLParagraphElement
   private breakMs = 0
   private countdownInterval: ReturnType<typeof setInterval> | null = null
   private targetTime: number | null = null
@@ -268,6 +294,8 @@ class BreakTimer {
     this.targetTime = Date.now() + seconds * 1000
     this.breakMs = seconds * 1000
     this.stripNextEl.textContent = `· ${exercise.name} set ${setsDone + 1} next`
+    this.elfLineEl.hidden = !christmas()
+    this.elfLineEl.textContent = ELF_LINES[Math.floor(Math.random() * ELF_LINES.length)]
     // A break only follows a set of an exercise with sets still to do, so the lifter goes back to it, not to next.
     this.alert = { title: `${exercise.name} · set ${setsDone + 1} of ${setsTotal}`, body: nextSet }
     this.alertsBell.reset()

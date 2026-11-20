@@ -1,11 +1,23 @@
 import { playFunnySound } from './sounds'
+import { christmas } from '../season'
 
 // Celebrations for a finished exercise (popConfetti) and a finished workout (stampConfetti). Both move pieces with the
 // Web Animations API on transform and opacity only, which the compositor plays even while the page re-renders the
 // cards and downloads the export. Under reduced motion only the message fades in and out. src/style.css styles the
-// layer and its parts.
+// layer and its parts. In the Christmas season (src/features/season.ts) the pieces are snowflakes and gold stars, and
+// the workout's stamp is a gift tag with a festive line.
 
 const COLORS = ['#f2613f', '#fbbf24', '#34d399', '#60a5fa', '#a78bfa', '#f472b6', '#fde68a'] as const
+const FESTIVE_COLORS = ['#d93a3a', '#f2c14e', '#2f8a4c'] as const
+// What the gift tag says when a workout is done, under a small "Workout done!".
+const FESTIVE_LINES = [
+  "Sleigh'd it!",
+  'Jingle all the weigh!',
+  'Yule be sore tomorrow!',
+  'Ho ho ho-ly gains!',
+  'Rock around the rack!',
+  'Merry lift-mas!'
+] as const
 // The --ease-out curve in src/style.css. The Web Animations API can't read a CSS variable.
 const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
 const EASE_IN = 'cubic-bezier(0.5, 0, 0.75, 0)'
@@ -39,11 +51,23 @@ const closeWhenDone = (layer: HTMLElement, animations: Array<Animation>) => {
 }
 
 // The message pops in, holds and fades out. A stamp drops onto the screen from above at a tilt instead.
-const showMessage = (layer: HTMLElement, text: string, { holdMs, stamp }: { holdMs: number; stamp: boolean }) => {
+const showMessage = (
+  layer: HTMLElement,
+  text: string,
+  { holdMs, stamp, festive }: { holdMs: number; stamp: boolean; festive: boolean }
+) => {
   const message = document.createElement('div')
   message.className = 'confetti-text'
   message.setAttribute('role', 'status')
   message.textContent = text
+  if (festive) {
+    message.classList.add(stamp ? 'confetti-tag' : 'confetti-snow')
+    if (stamp) {
+      const eyebrow = document.createElement('small')
+      eyebrow.textContent = text
+      message.replaceChildren(eyebrow, pick(FESTIVE_LINES))
+    }
+  }
   layer.append(message)
   const enter = stamp ? 260 : 420
   const duration = enter + holdMs + 260
@@ -108,6 +132,16 @@ const flightKeyframes = ({ x, y, vx, vy, gravity, drag, duration }: Flight): Arr
   return keyframes
 }
 
+// A snowflake or, now and then, a gold star, drawn by src/style.css.
+const addFlake = (layer: HTMLElement, size: number): HTMLElement => {
+  const piece = document.createElement('i')
+  piece.className = `confetti-piece ${Math.random() < 0.3 ? 'confetti-star' : 'confetti-flake'}`
+  piece.style.width = piece.style.height = `${size}px`
+  piece.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`
+  layer.append(piece)
+  return piece
+}
+
 const addPiece = (layer: HTMLElement, size: number): HTMLElement => {
   const piece = document.createElement('i')
   const round = Math.random() < 0.25
@@ -135,7 +169,8 @@ const cornerOf = (element: Element | null): { x: number; y: number } | undefined
 export const popConfetti = (text: string, card: Element | null) => {
   playFunnySound()
   const layer = openLayer()
-  const animations = [showMessage(layer, text, { holdMs: 1100, stamp: false })]
+  const festive = christmas()
+  const animations = [showMessage(layer, text, { holdMs: 1100, stamp: false, festive })]
   if (!reducedMotion()) {
     const height = window.innerHeight
     const from = cornerOf(card) ?? { x: window.innerWidth / 2, y: height * 0.42 }
@@ -152,7 +187,10 @@ export const popConfetti = (text: string, card: Element | null) => {
         duration: random(1000, 1400)
       }
       animations.push(
-        addPiece(layer, random(5, 9)).animate(flightKeyframes(flight), { duration: flight.duration, fill: 'both' })
+        (festive ? addFlake(layer, random(10, 16)) : addPiece(layer, random(5, 9))).animate(flightKeyframes(flight), {
+          duration: flight.duration,
+          fill: 'both'
+        })
       )
     }
   }
@@ -163,14 +201,15 @@ export const popConfetti = (text: string, card: Element | null) => {
 export const stampConfetti = (text: string) => {
   playFunnySound()
   const layer = openLayer()
-  const animations = [showMessage(layer, text, { holdMs: 1600, stamp: true })]
+  const festive = christmas()
+  const animations = [showMessage(layer, text, { holdMs: 1600, stamp: true, festive })]
   if (!reducedMotion()) {
     const cx = window.innerWidth / 2
     const cy = window.innerHeight * 0.42
     const ringSize = Math.min(window.innerWidth * 0.7, 300)
     for (let i = 0; i < 2; i++) {
       const ring = document.createElement('i')
-      ring.className = 'confetti-ring'
+      ring.className = festive ? 'confetti-ring confetti-ring-gold' : 'confetti-ring'
       ring.style.width = ring.style.height = `${ringSize}px`
       ring.style.left = `${cx - ringSize / 2}px`
       ring.style.top = `${cy - ringSize / 2}px`
@@ -188,9 +227,37 @@ export const stampConfetti = (text: string) => {
     const sparks = 24
     const near = Math.min(window.innerWidth * 0.36, 150)
     for (let i = 0; i < sparks; i++) {
-      const spark = document.createElement('i')
       const degrees = (360 * i) / sparks + random(-6, 6)
       const far = near + random(40, 120)
+      if (festive) {
+        // Snowflakes, stars and ribbon bits fly out and spin, instead of sparks.
+        const size = random(12, 22)
+        const flake = i % 3 === 2 ? document.createElement('i') : addFlake(layer, size)
+        if (i % 3 === 2) {
+          flake.className = 'confetti-ribbon'
+          flake.style.background = pick(FESTIVE_COLORS)
+          layer.prepend(flake)
+        }
+        flake.style.left = `${cx}px`
+        flake.style.top = `${cy}px`
+        const spin = random(-180, 180)
+        animations.push(
+          flake.animate(
+            [
+              { transform: `rotate(${degrees}deg) translateX(${near * 0.6}px) rotate(0deg)`, opacity: 0 },
+              {
+                transform: `rotate(${degrees}deg) translateX(${near}px) rotate(${spin / 3}deg)`,
+                opacity: 1,
+                offset: 0.25
+              },
+              { transform: `rotate(${degrees}deg) translateX(${far}px) rotate(${spin}deg)`, opacity: 0 }
+            ],
+            { duration: 900, delay: 180, easing: EASE_OUT, fill: 'both' }
+          )
+        )
+        continue
+      }
+      const spark = document.createElement('i')
       spark.className = 'confetti-spark'
       spark.style.left = `${cx}px`
       spark.style.top = `${cy}px`

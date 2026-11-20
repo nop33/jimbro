@@ -44,6 +44,8 @@ export const renderWorkoutCalendar = (
     const { shown } = day
     const item = nodeFromTemplate(shown ? '#calendar-workout-template' : '#calendar-day-template')
     const li = item.querySelector('li') as HTMLLIElement
+    // In the Christmas season src/style.css wraps December's workouts as presents and puts a tree on the 25th.
+    li.dataset.date = day.date
     if (day.isToday) li.setAttribute('aria-current', 'date')
     if (!shown) {
       setTextContent('.calendar-date', String(date.getDate()), item)

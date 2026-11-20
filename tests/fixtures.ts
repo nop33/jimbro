@@ -9,6 +9,9 @@ export interface RouterOptions {
   // Whether a workout's first change asks to start the watch too. Off unless a spec turns it on, so the specs that
   // start a workout need not answer it; watchReminder.spec.ts covers it.
   watchReminder: boolean
+  // Whether the Christmas decorations show in season (src/features/season.ts). Off unless a spec turns them on, so a
+  // run in December sees the app as every other month; christmas.spec.ts covers them.
+  festive: boolean
 }
 
 // Playwright's test, with the Navigation API taken away where a project sets navigationApi to false. Without it the
@@ -17,7 +20,8 @@ export interface RouterOptions {
 export const test = base.extend<RouterOptions>({
   navigationApi: [true, { option: true }],
   watchReminder: [false, { option: true }],
-  context: async ({ context, navigationApi, watchReminder }, use) => {
+  festive: [false, { option: true }],
+  context: async ({ context, navigationApi, watchReminder, festive }, use) => {
     if (!navigationApi) {
       await context.addInitScript(() => Object.defineProperty(globalThis, 'navigation', { value: undefined }))
     }
@@ -25,6 +29,12 @@ export const test = base.extend<RouterOptions>({
     if (!watchReminder) {
       await context.addInitScript(() => {
         if (localStorage.getItem('jimbro.watchReminder') === null) localStorage.setItem('jimbro.watchReminder', 'off')
+      })
+    }
+    // As if Settings turned festive touches off, unless the spec or the app stored a choice since.
+    if (!festive) {
+      await context.addInitScript(() => {
+        if (localStorage.getItem('jimbro.festive') === null) localStorage.setItem('jimbro.festive', 'off')
       })
     }
     await use(context)
