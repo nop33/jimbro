@@ -123,9 +123,9 @@ The page you keep open during a workout.
 
 Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile shares. Every logged set counts, in a finished workout or not: the first day with a set and how long ago it was, days active, exercises, sets, reps and volume as weight × reps. Workouts count completed ones, with a count of incomplete ones, and the average per week divides them by the calendar weeks, Monday to Sunday, from the first day's week through this one.
 
-### Christmas (Dec 1 to Jan 6)
+### Christmas (Nov 20 to Jan 6)
 
-- From Dec 1 to Jan 6 the app dresses up for Christmas, unless Settings' "Festive touches" is off: lights twinkle under every header, a light snow falls behind the page and settles on the nav, and the Start button is a red bauble. Under reduced motion the lights and snow stay still.
+- From Nov 20 to Jan 6 the app dresses up for Christmas, unless Settings' "Festive touches" is off: lights twinkle under every header, a light snow falls behind the page and settles on the nav, and the Start button is a red bauble. Under reduced motion the lights and snow stay still.
 - Home says "Ho ho ho, gymbro." with a Santa hat on the H, which a tap knocks off in a puff of snow.
 - From Dec 1 to 26 Home has "Advent of gains": 24 doors, where a workout on a day opens its door and Christmas Eve's opens with any workout from Dec 21. A tap on an open door shows a fun fact from that day's workouts (tonnes as reindeer, sleighs, presents or gingerbread men).
 - December's finished workouts are presents on the Workouts calendar, Christmas week is a candy cane, and the 25th has a tree.

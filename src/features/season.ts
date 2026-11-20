@@ -1,7 +1,7 @@
 import { getSimpleDate } from '../dateUtils'
 import { getFestive } from '../settings'
 
-// Christmas, from Dec 1 to Jan 6 on the phone's own calendar, unless Settings turned festive touches off. In season
+// Christmas, from Nov 20 to Jan 6 on the phone's own calendar, unless Settings turned festive touches off. In season
 // <html> carries data-season="christmas", which every decoration in src/style.css keys on: the lights under each header,
 // the snow, the bauble Start button, the presents on the calendar and the Santa hat on the break timer. The few that
 // need script (Home's greeting, hat and advent calendar, the festive celebrations and the break's elf lines) ask
@@ -9,7 +9,7 @@ import { getFestive } from '../settings'
 
 export const inChristmasSeason = (date: string): boolean => {
   const monthDay = date.slice(5)
-  return monthDay >= '12-01' || monthDay <= '01-06'
+  return monthDay >= '11-20' || monthDay <= '01-06'
 }
 
 export const christmas = (): boolean => getFestive() && inChristmasSeason(getSimpleDate(new Date()))

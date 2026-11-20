@@ -15,8 +15,9 @@ const workout = (date: string, sets: Array<{ preset: 'lifting'; reps: number; we
   }) as unknown as WorkoutSession
 
 describe('the Christmas season', () => {
-  test('runs from Dec 1 to Jan 6', () => {
-    expect(inChristmasSeason('2026-11-30')).toBe(false)
+  test('runs from Nov 20 to Jan 6', () => {
+    expect(inChristmasSeason('2026-11-19')).toBe(false)
+    expect(inChristmasSeason('2026-11-20')).toBe(true)
     expect(inChristmasSeason('2026-12-01')).toBe(true)
     expect(inChristmasSeason('2026-12-31')).toBe(true)
     expect(inChristmasSeason('2027-01-06')).toBe(true)

@@ -53,7 +53,7 @@ export const storeWatchReminder = (on: boolean) => {
   localStorage.setItem(WATCH_REMINDER_STORAGE_KEY, on ? 'on' : 'off')
 }
 
-// Festive touches: the Christmas decorations from Dec 1 to Jan 6 (src/features/season.ts). On unless Settings turns
+// Festive touches: the Christmas decorations from Nov 20 to Jan 6 (src/features/season.ts). On unless Settings turns
 // them off.
 const FESTIVE_STORAGE_KEY = 'jimbro.festive'
 

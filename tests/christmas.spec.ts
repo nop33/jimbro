@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
 import { seedDatabase } from './seed'
 
-// The Christmas touches from Dec 1 to Jan 6 (src/features/season.ts). The fixture turns them off for every other spec.
+// The Christmas touches from Nov 20 to Jan 6 (src/features/season.ts). The fixture turns them off for every other spec.
 test.use({ festive: true })
 
 const DECEMBER = new Date(2026, 11, 16, 10, 0)
@@ -100,7 +100,7 @@ test.describe('Christmas', () => {
 })
 
 test('stays plain outside the Christmas season', async ({ page }) => {
-  await page.clock.setFixedTime(new Date(2026, 10, 20, 10, 0))
+  await page.clock.setFixedTime(new Date(2026, 10, 19, 10, 0))
   await seedDatabase(page)
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Hey, gymbro.' })).toBeVisible()
