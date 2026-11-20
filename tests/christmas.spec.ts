@@ -50,9 +50,13 @@ test.describe('Christmas', () => {
     await logSet(page)
     await expect(page.locator('#break-elf-line')).toBeVisible()
     await expect(page.locator('#break-elf-line')).not.toBeEmpty()
+    // A finger pulling the timer down moves its own layer, with the snow behind it still, so the drag never stutters.
+    await expect(page.locator('#break-countdown-dialog')).toHaveCSS('will-change', 'translate')
+    await expect(page.locator('.season-snow i').first()).toHaveCSS('animation-play-state', 'paused')
     await page.locator('#skip-break').click()
 
     await page.goto('/')
+    await expect(page.locator('.season-snow i').first()).toHaveCSS('animation-play-state', 'running')
     await expect(page.locator('#advent')).toContainText('1 of 24 open')
     await page.getByRole('button', { name: 'Door 16, open' }).click()
     const sheet = page.locator('#advent-door-dialog')
