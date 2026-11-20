@@ -6,7 +6,7 @@
     <script type="module" src="/src/pages/settings/index.ts"></script>
   </head>
   <body class="app">
-    <!-- Icons: Lucide (https://lucide.dev), timer, watch, cloud, bot and database, inlined. ISC License. -->
+    <!-- Icons: Lucide (https://lucide.dev), timer, watch, snowflake, cloud, bot and database, inlined. ISC License. -->
     <div class="app-page md:pb-0">
       <header class="app-header">
         <!-- partial:back-button -->
@@ -50,6 +50,29 @@
                   <span class="settings-row-detail">Start your watch as a workout starts</span>
                 </span>
                 <input id="watch-reminder" type="checkbox" role="switch" class="settings-switch" />
+              </label>
+              <label class="settings-row">
+                <span class="settings-icon settings-icon-festive">
+                  <svg class="lucide" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m10 20-1.25-2.5L6 18" />
+                    <path d="M10 4 8.75 6.5 6 6" />
+                    <path d="m14 20 1.25-2.5L18 18" />
+                    <path d="m14 4 1.25 2.5L18 6" />
+                    <path d="m17 21-3-6h-4" />
+                    <path d="m17 3-3 6 1.5 3" />
+                    <path d="M2 12h6.5L10 9" />
+                    <path d="m20 10-1.5 2 1.5 2" />
+                    <path d="M22 12h-6.5L14 15" />
+                    <path d="m4 10 1.5 2L4 14" />
+                    <path d="m7 21 3-6-1.5-3" />
+                    <path d="m7 3 3 6h4" />
+                  </svg>
+                </span>
+                <span class="settings-row-label">
+                  Festive touches
+                  <span class="settings-row-detail">Lights and snow, Nov 20 to Jan 6</span>
+                </span>
+                <input id="festive" type="checkbox" role="switch" class="settings-switch" />
               </label>
             </div>
           </section>

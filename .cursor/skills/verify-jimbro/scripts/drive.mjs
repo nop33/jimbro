@@ -645,6 +645,26 @@ const STOPS = [
     // A tap on the running time offers to finish the workout early, and asks first.
     await page.locator('#start-button').click()
     await see(page.locator('#finish-workout-dialog').getByRole('button', { name: 'Finish workout' }))
+  }],
+  ['christmas-home', async (page) => {
+    // Dec 16 this year: lights, snow, the Santa hat and the advent calendar (src/features/season.ts). A workout started
+    // from the nav opens today's door.
+    const year = todayIn(TIME_ZONE).slice(0, 4)
+    await page.clock.setFixedTime(new Date(`${year}-12-16T10:00:00+02:00`))
+    await page.goto('/')
+    await see(page.locator('#start-button[data-state="idle"]'))
+    await page.getByRole('button', { name: 'Start next workout' }).click()
+    const watch = page.locator('#watch-reminder-dialog').getByRole('button', { name: 'Start workout' })
+    await see(page.locator('#watch-reminder-dialog[open], #start-button[data-running]'))
+    if (await watch.isVisible()) await watch.click()
+    await see(page.locator('#start-button[data-running]'))
+    await page.goto('/')
+    await see(page.getByRole('button', { name: 'Door 16, open' }))
+    await gone(page.locator('.toast-message-popup'))
+  }],
+  ['christmas-advent-door', async (page) => {
+    await page.getByRole('button', { name: 'Door 16, open' }).click()
+    await see(page.locator('#advent-door-dialog').getByRole('heading'))
   }]
 ]
 

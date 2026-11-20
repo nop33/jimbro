@@ -5,6 +5,7 @@ import { account } from './sync/account'
 import Toasts from './features/toasts'
 import { followKeyboard } from './features/bottomSheet'
 import { PROBLEM_MESSAGES } from './pages/syncProblems'
+import { applySeason } from './features/season'
 
 let rowsWrittenTimer = 0
 let toldProblem = false
@@ -42,7 +43,9 @@ function initNavigation() {
   })
   window.addEventListener('online', startSync)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') startSync()
+    if (document.visibilityState !== 'visible') return
+    startSync()
+    applySeason()
   })
   onPageNotice((notice) => {
     if (notice !== 'rows-written') return
@@ -51,4 +54,6 @@ function initNavigation() {
   })
 }
 
+// The season goes on before the page shows, so the first frame is already festive in December.
+applySeason()
 document.addEventListener('DOMContentLoaded', initNavigation)

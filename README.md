@@ -123,9 +123,17 @@ The page you keep open during a workout.
 
 Training totals, counted by `src/trainingNumbers.ts`, which Home's volume tile shares. Every logged set counts, in a finished workout or not: the first day with a set and how long ago it was, days active, exercises, sets, reps and volume as weight × reps. Workouts count completed ones, with a count of incomplete ones, and the average per week divides them by the calendar weeks, Monday to Sunday, from the first day's week through this one.
 
+### Christmas (Nov 20 to Jan 6)
+
+- From Nov 20 to Jan 6 the app dresses up for Christmas, unless Settings' "Festive touches" is off: lights twinkle under every header, a light snow falls behind the page and settles on the nav, and the Start button is a red bauble. Under reduced motion the lights and snow stay still.
+- Home says "Ho ho ho, gymbro." with a Santa hat on the H, which a tap knocks off in a puff of snow.
+- From Dec 1 to 26 Home has "Advent of gains": 24 doors, where a workout on a day opens its door and Christmas Eve's opens with any workout from Dec 21. A tap on an open door shows a fun fact from that day's workouts (tonnes as reindeer, sleighs, presents or gingerbread men).
+- December's finished workouts are presents on the Workouts calendar, Christmas week is a candy cane, and the 25th has a tree.
+- Celebrations throw snowflakes and gold stars, and a finished workout stamps a gift tag such as "Sleigh'd it!". The break timer wears a Santa hat and says a new line from the elves each break.
+
 ### Settings (`/settings/`)
 
-- Settings is a grouped list, like the phone's own settings. Break time is a stepper on the list itself: 15 seconds less or more, from 0:15 to 10:00, saved on each tap. The other rows open a page of their own, show their status underneath, and carry a chevron, and only they do. The build's version sits at the foot of the screen.
+- Settings is a grouped list, like the phone's own settings. "Festive touches" turns the Christmas decorations off and on. Break time is a stepper on the list itself: 15 seconds less or more, from 0:15 to 10:00, saved on each tap. The other rows open a page of their own, show their status underneath, and carry a chevron, and only they do. The build's version sits at the foot of the screen.
 - Cloud backup (`/settings/backup/`), whose status line, also on the Settings row, shows how many changes wait to sync and when the last sync ran.
   - Without a passkey backup, "Back up your workouts" explains the backup and offers "Create passkey" and "Sign in with passkey", with "Sign in with passkey" first on a phone that signed out. A browser without passkeys says it can't back up.
   - Signing in keeps the account's copy of every row both the phone and the account have, and rows only on the phone stay and back up. When that would replace a row on the phone with a different copy, it asks first. A phone that signed out after backing up signs in again without asking.
