@@ -83,6 +83,12 @@
   }
 }
 
+/* While a sheet or the full break timer is open, the snow holds still behind it, where it barely shows. Falling, it
+   ticks every frame a finger drags the sheet, and the drag stutters on the phone. The minimized timer leaves it falling. */
+:root:has(dialog[open]:not(.dialog-minimized)) .season-snow i {
+  animation-play-state: paused;
+}
+
 @keyframes season-snow-fall {
   from {
     transform: translate(0, calc(-1 * var(--y) - 10px));

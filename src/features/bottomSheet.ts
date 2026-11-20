@@ -57,6 +57,8 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
         pull.pulling = dy > 0 && dy >= Math.abs(dx) && scrolledToTop(event.target, dialog)
         if (!pull.pulling) return
         dialog.style.transition = 'none'
+        // Its own layer while it follows the finger, so each move only moves it instead of painting it again.
+        dialog.style.willChange = 'translate'
       }
       event.preventDefault()
       // Pixels per millisecond over the last move, to tell a flick from a slow pull.
@@ -75,6 +77,7 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
     pull = null
     if (!pulling) return
     dialog.style.transition = ''
+    dialog.style.willChange = ''
     const far = distance > Math.min(120, dialog.offsetHeight / 3) || (distance > 40 && speed > 0.5)
     if (event.type === 'touchend' && far) slideAway(dialog, distance, closeSheet)
     else dialog.style.translate = ''
@@ -94,6 +97,7 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
   dialog.addEventListener('close', () => {
     dialog.style.translate = ''
     dialog.style.transition = ''
+    dialog.style.willChange = ''
   })
 }
 

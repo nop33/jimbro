@@ -829,6 +829,9 @@
   #break-countdown-dialog.dialog-full-screen {
     @apply select-none;
     touch-action: none;
+    /* Its own layer, which the pull moves without painting it again: the festive snow on it (src/features/season.css)
+       repainted on every move made the drag stutter. */
+    will-change: translate;
   }
 
   .dialog-minimized {
