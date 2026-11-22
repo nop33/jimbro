@@ -21,6 +21,10 @@ import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 import { pullDownToClose } from '../../features/bottomSheet'
 
+// A new exercise starts at 4 sets of 8 reps, so the steppers start from a usual prescription instead of from empty.
+const STARTING_SETS = 4
+const STARTING_DEFAULTS: Exercise['defaults'] = { reps: 8 }
+
 // One choice of a segmented switch: a radio filling its label, so a tap anywhere on the segment picks it.
 const segment = (name: string, value: string, text: string): HTMLLabelElement => {
   const label = document.createElement('label')
@@ -101,7 +105,7 @@ class ExerciseDialog {
     this.populateForm()
 
     this.exerciseKindPicker.addEventListener('change', () => this.onKindChanged())
-    this.exercisePresetPicker.addEventListener('change', () => this.renderPresetFields())
+    this.exercisePresetPicker.addEventListener('change', () => this.renderPresetFields(STARTING_DEFAULTS))
     this.exerciseDefaults.addEventListener('click', (event) => this.onStepperClick(event))
     this.exerciseDefaults.addEventListener('input', () => this.updateSteppers())
 
@@ -172,6 +176,7 @@ class ExerciseDialog {
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
       this.checkRadio('kind', 'lifting')
+      this.exerciseSetsInput.value = String(STARTING_SETS)
       this.deleteExerciseBtn.hidden = true
       this.onKindChanged()
     }
@@ -190,7 +195,7 @@ class ExerciseDialog {
   private onKindChanged() {
     const kind = this.selectedKind()
     this.renderPresetPicker(kind, defaultPresetForKind(kind))
-    this.renderPresetFields()
+    this.renderPresetFields(STARTING_DEFAULTS)
   }
 
   private renderKindPicker() {

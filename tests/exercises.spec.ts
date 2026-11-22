@@ -29,6 +29,9 @@ test.describe('Exercises Page', () => {
     await page.getByLabel('Name').fill('Bench Press')
     await expect(page.locator('#exercise-dialog').getByRole('radio', { name: 'Lifting' })).toBeChecked()
     await expect(page.locator('#exercise-preset-field')).toBeHidden()
+    // A new exercise starts at 4 sets of 8 reps.
+    await expect(page.getByLabel('Default sets')).toHaveValue('4')
+    await expect(page.getByLabel('Default reps')).toHaveValue('8')
     await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
     await page.getByLabel('Default sets').fill('3')
     await page.getByLabel('Default reps').fill('10')
