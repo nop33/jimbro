@@ -13,12 +13,74 @@ import {
   presetsForKind,
   toDisplayValues,
   type ExerciseKind,
-  type LogPreset
+  type LogPreset,
+  type SetSlotSpec
 } from '../../db/exerciseLogging'
 import { exercisesStore, type Exercise } from '../../db/stores/exercisesStore'
 import Toasts from '../../features/toasts'
 import MuscleGroupSelect from './MuscleGroupSelect'
 import { pullDownToClose } from '../../features/bottomSheet'
+
+// A new exercise starts at 4 sets of 8 reps, so the steppers start from a usual prescription instead of from empty.
+const STARTING_SETS = 4
+const STARTING_DEFAULTS: Exercise['defaults'] = { reps: 8 }
+
+// One choice of a segmented switch: a hidden radio in its label, so a tap anywhere on the segment picks it.
+const segment = (name: string, value: string, text: string): HTMLLabelElement => {
+  const label = document.createElement('label')
+  const radio = document.createElement('input')
+  radio.type = 'radio'
+  radio.name = name
+  radio.value = value
+  label.append(radio, text)
+  return label
+}
+
+// A default as a Settings row: its name on the left, and − and + around the number on the right.
+const stepperRow = (spec: SetSlotSpec, value: number | undefined): HTMLDivElement => {
+  const inputId = defaultFieldName(spec.slot)
+  const row = document.createElement('div')
+  row.className = 'settings-row'
+  row.dataset.default = spec.slot
+
+  const label = document.createElement('label')
+  label.htmlFor = inputId
+  label.className = 'settings-row-label'
+  label.textContent = spec.rowLabel
+  if (spec.unit) {
+    const unit = document.createElement('span')
+    unit.className = 'settings-row-detail'
+    unit.textContent = spec.unit
+    label.append(unit)
+  }
+
+  const input = document.createElement('input')
+  input.type = 'number'
+  input.id = inputId
+  input.name = inputId
+  input.min = String(spec.min)
+  input.step = String(spec.step)
+  input.inputMode = Number.isInteger(spec.step) ? 'numeric' : 'decimal'
+  input.ariaLabel = defaultLabel(spec)
+  input.required = true
+  if (value !== undefined) input.value = String(value)
+
+  const stepper = document.createElement('div')
+  stepper.className = 'stepper'
+  stepper.append(stepButton(spec, -1), input, stepButton(spec, 1))
+
+  row.append(label, stepper)
+  return row
+}
+
+const stepButton = (spec: SetSlotSpec, direction: 1 | -1): HTMLButtonElement => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.dataset.step = String(direction)
+  button.ariaLabel = `${spec.rowLabel} ${direction > 0 ? 'up' : 'down'}`
+  button.textContent = direction > 0 ? '+' : '−'
+  return button
+}
 
 class ExerciseDialog {
   private newExerciseButton = document.querySelector('#new-exercise-btn') as HTMLButtonElement
@@ -26,9 +88,9 @@ class ExerciseDialog {
   private exerciseForm = document.querySelector('#exercise-form') as HTMLFormElement
   private exerciseIdInput = document.querySelector('#exercise-id') as HTMLInputElement
   private exerciseNameInput = document.querySelector('#exercise-name') as HTMLInputElement
-  private exerciseKindSelect = document.querySelector('#exercise-kind') as HTMLSelectElement
-  private exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLDivElement
-  private exercisePresetSelect = document.querySelector('#exercise-preset') as HTMLSelectElement
+  private exerciseKindPicker = document.querySelector('#exercise-kind') as HTMLDivElement
+  private exercisePresetField = document.querySelector('#exercise-preset-field') as HTMLFieldSetElement
+  private exercisePresetPicker = document.querySelector('#exercise-preset') as HTMLDivElement
   private exerciseMuscleField = document.querySelector('#exercise-muscle-field') as HTMLDivElement
   private exerciseMuscleSelect = document.querySelector('#exercise-muscle') as HTMLSelectElement
   private exerciseSetsInput = document.querySelector('#exercise-sets') as HTMLInputElement
@@ -42,8 +104,10 @@ class ExerciseDialog {
     this.renderMusclePicker()
     this.populateForm()
 
-    this.exerciseKindSelect.addEventListener('change', () => this.onKindChanged())
-    this.exercisePresetSelect.addEventListener('change', () => this.renderPresetFields())
+    this.exerciseKindPicker.addEventListener('change', () => this.onKindChanged())
+    this.exercisePresetPicker.addEventListener('change', () => this.renderPresetFields(STARTING_DEFAULTS))
+    this.exerciseDefaults.addEventListener('click', (event) => this.onStepperClick(event))
+    this.exerciseDefaults.addEventListener('input', () => this.updateSteppers())
 
     this.newExerciseButton.addEventListener('click', () => this.open())
 
@@ -102,7 +166,7 @@ class ExerciseDialog {
       this.exerciseIdInput.value = exercise.id
       this.deleteExerciseBtn.hidden = false
       this.exerciseNameInput.value = exercise.name
-      this.exerciseKindSelect.value = exercise.kind
+      this.checkRadio('kind', exercise.kind)
       this.exerciseMuscleSelect.value = exercise.muscle ?? ''
       this.exerciseSetsInput.value = exercise.targetSets.toString()
       this.renderPresetPicker(exercise.kind, exercise.preset)
@@ -111,42 +175,75 @@ class ExerciseDialog {
       this.dialogTitle.textContent = 'New Exercise'
       this.exerciseForm.reset()
       this.exerciseIdInput.value = ''
-      this.exerciseKindSelect.value = 'lifting'
+      this.checkRadio('kind', 'lifting')
+      this.exerciseSetsInput.value = String(STARTING_SETS)
       this.deleteExerciseBtn.hidden = true
       this.onKindChanged()
     }
   }
 
   private selectedKind(): ExerciseKind {
-    return parseExerciseKind(this.exerciseKindSelect.value) ?? 'lifting'
+    return parseExerciseKind(this.radioValue('kind')) ?? 'lifting'
   }
 
   private selectedPreset(): LogPreset {
     const kind = this.selectedKind()
-    const preset = parseLogPreset(this.exercisePresetSelect.value)
+    const preset = parseLogPreset(this.radioValue('preset'))
     return preset && LOG_PRESET_SPECS[preset].kind === kind ? preset : defaultPresetForKind(kind)
   }
 
   private onKindChanged() {
     const kind = this.selectedKind()
     this.renderPresetPicker(kind, defaultPresetForKind(kind))
-    this.renderPresetFields()
+    this.renderPresetFields(STARTING_DEFAULTS)
   }
 
   private renderKindPicker() {
-    this.exerciseKindSelect.replaceChildren(
-      ...EXERCISE_KINDS.map((kind) => new Option(EXERCISE_KIND_LABELS[kind], kind))
+    this.exerciseKindPicker.replaceChildren(
+      ...EXERCISE_KINDS.map((kind) => segment('kind', kind, EXERCISE_KIND_LABELS[kind]))
     )
   }
 
   private renderPresetPicker(kind: ExerciseKind, preset: LogPreset) {
     const presets = presetsForKind(kind)
 
-    this.exercisePresetSelect.replaceChildren(
-      ...presets.map((option) => new Option(LOG_PRESET_SPECS[option].label, option))
+    this.exercisePresetPicker.replaceChildren(
+      ...presets.map((option) => segment('preset', option, LOG_PRESET_SPECS[option].label))
     )
-    this.exercisePresetSelect.value = presets.includes(preset) ? preset : presets[0]
+    this.checkRadio('preset', presets.includes(preset) ? preset : presets[0])
     this.exercisePresetField.classList.toggle('hidden', presets.length < 2)
+  }
+
+  private radios(name: 'kind' | 'preset'): HTMLInputElement[] {
+    return [...this.exerciseForm.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${name}"]`)]
+  }
+
+  private radioValue(name: 'kind' | 'preset'): string {
+    return this.radios(name).find((radio) => radio.checked)?.value ?? ''
+  }
+
+  private checkRadio(name: 'kind' | 'preset', value: string) {
+    for (const radio of this.radios(name)) radio.checked = radio.value === value
+  }
+
+  // − and + step the number in their row through the input's own stepDown() and stepUp(), which keep to its min
+  // and step. The number stays a field, so a value far from the default can still be typed.
+  private onStepperClick(event: Event) {
+    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-step]')
+    const input = button?.parentElement?.querySelector('input')
+    if (!button || !input) return
+
+    if (button.dataset.step === '1') input.stepUp()
+    else input.stepDown()
+    this.updateSteppers()
+  }
+
+  // A − at the input's minimum can take nothing off, so it shows as disabled.
+  private updateSteppers() {
+    for (const input of this.exerciseDefaults.querySelectorAll('input')) {
+      const less = input.parentElement?.querySelector<HTMLButtonElement>('button[data-step="-1"]')
+      if (less) less.disabled = input.value !== '' && Number(input.value) <= Number(input.min)
+    }
   }
 
   private renderPresetFields(defaults: Exercise['defaults'] = {}) {
@@ -157,30 +254,10 @@ class ExerciseDialog {
     this.exerciseMuscleField.classList.toggle('hidden', !needsMuscle)
     this.exerciseMuscleSelect.required = needsMuscle
 
-    this.exerciseDefaults.replaceChildren(
-      ...defaultSlotsForPreset(preset).map((spec) => {
-        const wrapper = document.createElement('div')
-        const inputId = defaultFieldName(spec.slot)
-
-        const label = document.createElement('label')
-        label.htmlFor = inputId
-        label.textContent = defaultLabel(spec)
-
-        const input = document.createElement('input')
-        input.type = 'number'
-        input.id = inputId
-        input.name = inputId
-        input.min = String(spec.min)
-        input.step = String(spec.step)
-        input.required = true
-
-        const value = display[spec.slot]
-        if (value !== undefined) input.value = String(value)
-
-        wrapper.append(label, input)
-        return wrapper
-      })
-    )
+    // The sets row stays, and each of the preset's defaults gets a row after it.
+    for (const row of this.exerciseDefaults.querySelectorAll('[data-default]')) row.remove()
+    this.exerciseDefaults.append(...defaultSlotsForPreset(preset).map((spec) => stepperRow(spec, display[spec.slot])))
+    this.updateSteppers()
   }
 
   private enteredDefaults(preset: LogPreset): Record<string, FormDataEntryValue | null> {

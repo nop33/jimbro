@@ -1643,7 +1643,7 @@
   }
 
   .settings-row-label {
-    @apply flex min-w-0 flex-1 flex-col font-medium;
+    @apply m-0 flex min-w-0 flex-1 flex-col text-base font-medium;
   }
 
   .settings-row-detail {
@@ -1711,8 +1711,47 @@
       }
     }
 
-    output {
+    output,
+    input[type='number'] {
       @apply min-w-14 text-center text-lg font-semibold tabular-nums text-jim-neutral;
+    }
+
+    /* A stepper's number stays a field to type in, drawn as plain text between − and +. */
+    input[type='number'] {
+      @apply w-16 rounded-lg border-transparent bg-transparent px-1 py-2;
+      appearance: textfield;
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+      }
+    }
+  }
+
+  /* A form's group title, set like a field's label. */
+  legend {
+    @apply mb-2 text-sm font-semibold;
+  }
+
+  /* Choices drawn as one switch, like Stats' Sets or volume: a tap anywhere on a segment's label picks its radio. */
+  .segmented {
+    @apply flex rounded-full bg-black/30 p-0.5;
+
+    label {
+      @apply m-0 flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-full px-3 text-sm font-semibold text-neutral-400 transition-colors duration-150;
+
+      &:has(:checked) {
+        @apply bg-jim-accent text-neutral-950;
+      }
+
+      &:has(:focus-visible) {
+        @apply outline-2 outline-offset-2 outline-blue-400;
+      }
+    }
+
+    input {
+      @apply sr-only;
     }
   }
 
