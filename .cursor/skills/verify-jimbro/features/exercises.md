@@ -5,8 +5,8 @@ Exercises is the library. The user creates, edits, filters and deletes exercises
 ## Sub-features
 
 - `exercise-list` shows one card per exercise: name, muscle badge (or `Cardio`), a `Rehab` badge for rehab, and a prescription such as `3 sets × 10 reps`, `3 sets × 30s hold` or `1 set`. An empty library is an empty grid with no message.
-- `exercise-new` opens `dialog#exercise-dialog` titled `New Exercise` with Name, Kind, Muscle group, Default sets and Default reps. The empty form opens on Name, so the keyboard comes up.
-- `exercise-kinds` changes the form by Kind: Rehab shows `Log as` (Reps or Hold, Hold asking `Default hold (sec)`). Cardio hides Muscle group and the defaults.
+- `exercise-new` opens `dialog#exercise-dialog` titled `New Exercise` with Name, Kind (a segmented switch of Lifting, Rehab and Cardio radios), Muscle group, and an `Each time` list of Settings-style rows: Sets and Reps, each a number between − and + (`Sets down`, `Sets up`, `Reps down`, `Reps up`). The numbers are labelled `Default sets` and `Default reps`, and can be typed too. − is disabled at the minimum. The empty form opens on Name, so the keyboard comes up.
+- `exercise-kinds` changes the form by Kind: Rehab shows a `Log as` switch (Reps or Hold, Hold asking `Default hold (sec)` in a Hold row). Cardio hides Muscle group and leaves only the Sets row.
 - `exercise-save` saves and shows `Exercise saved!`. Empty required fields keep the dialog open with the browser's validation.
 - `exercise-edit` opens the same dialog titled `Edit Exercise`, prefilled, with `Delete` on the left of `Save`. A new exercise has no `Delete`, and no dialog has a `Cancel`. The focus goes to the title, not a field, so no keyboard covers the form.
 - `exercise-filter` filters by `Filter by muscle group`. A muscle filter hides cardio, which has no muscle.
@@ -23,7 +23,7 @@ Exercises is the library. The user creates, edits, filters and deletes exercises
 Preconditions: `control-jimbro doctor` passes.
 
 - **Tour stops.** `08-exercises` (the library), `09-exercise-dialog-edit`, `10-exercise-dialog-new-cardio`, `11-exercise-dialog-new-rehab`.
-- **By hand: create, edit, delete.** Click `New`, fill `getByLabel('Name')`, choose `getByLabel('Muscle group', { exact: true })`, fill `Default sets` and `Default reps`, Save. Wait for `Exercise saved!` and the card. Reload and click the card: the title is `Edit Exercise`. Register `page.once('dialog', d => d.accept())`, click the dialog's `Delete` button, and wait for `Exercise deleted.`.
+- **By hand: create, edit, delete.** Click `New`, fill `getByLabel('Name')`, choose `getByLabel('Muscle group', { exact: true })`, fill `Default sets` and `Default reps` (or tap their − and +), Save. Wait for `Exercise saved!` and the card. Reload and click the card: the title is `Edit Exercise`. Register `page.once('dialog', d => d.accept())`, click the dialog's `Delete` button, and wait for `Exercise deleted.`.
 - **Proof of a delete.** The grid has no empty state to wait for, so read the `exercises` store: the row has `isDeleted: true`.
 
 ## Gotchas
@@ -32,4 +32,5 @@ Preconditions: `control-jimbro doctor` passes.
 - Scope `Delete` to `#exercise-dialog`: `page.locator('#exercise-dialog').getByRole('button', { name: 'Delete' })`.
 - Register the confirm handler before clicking delete. A missed handler hangs the page.
 - The filter starts on `Select muscle group...`, which shows everything, and is not remembered across loads.
+- Pick a kind with `page.locator('#exercise-dialog').getByRole('radio', { name: 'Cardio' }).check()`, scoped to the dialog, since the exercise picker's filter chips use the same names.
 - Seeded exercises are all lifting. Cardio and rehab need one created here.

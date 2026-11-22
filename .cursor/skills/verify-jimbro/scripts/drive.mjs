@@ -296,11 +296,11 @@ const STOPS = [
     await page.locator('#exercise-dialog').getByRole('button', { name: 'Close dialog' }).click()
     await gone(page.locator('#exercise-dialog'))
     await page.getByRole('button', { name: 'New' }).click()
-    await page.getByLabel('Kind').selectOption('cardio')
+    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Cardio' }).check()
     await gone(page.locator('#exercise-muscle-field'))
   }],
   ['exercise-dialog-new-rehab', async (page) => {
-    await page.getByLabel('Kind').selectOption('rehab')
+    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Rehab' }).check()
     await see(page.locator('#exercise-preset-field'))
   }],
   ['programs', async (page) => {
