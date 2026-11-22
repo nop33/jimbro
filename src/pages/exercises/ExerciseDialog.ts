@@ -25,7 +25,7 @@ import { pullDownToClose } from '../../features/bottomSheet'
 const STARTING_SETS = 4
 const STARTING_DEFAULTS: Exercise['defaults'] = { reps: 8 }
 
-// One choice of a segmented switch: a radio filling its label, so a tap anywhere on the segment picks it.
+// One choice of a segmented switch: a hidden radio in its label, so a tap anywhere on the segment picks it.
 const segment = (name: string, value: string, text: string): HTMLLabelElement => {
   const label = document.createElement('label')
   const radio = document.createElement('input')

@@ -103,7 +103,7 @@ test.describe('Programs Page', () => {
     await page.goto('/exercises/')
     await page.getByRole('button', { name: 'New' }).click()
     await page.getByLabel('Name').fill('Band rotation')
-    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Rehab' }).check()
+    await page.locator('#exercise-dialog .segmented').getByText('Rehab', { exact: true }).click()
     await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Chest' })
     await page.getByLabel('Default sets').fill('3')
     await page.getByLabel('Default reps').fill('15')
@@ -111,7 +111,7 @@ test.describe('Programs Page', () => {
     await expect(page.locator('.toast-message-popup')).toContainText('Exercise saved')
     await page.getByRole('button', { name: 'New' }).click()
     await page.getByLabel('Name').fill('Treadmill walk')
-    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Cardio' }).check()
+    await page.locator('#exercise-dialog .segmented').getByText('Cardio', { exact: true }).click()
     await page.getByLabel('Default sets').fill('1')
     await page.getByRole('button', { name: 'Save' }).click()
     // The card shows before the exercise is stored, so wait for the stored row before leaving the page.

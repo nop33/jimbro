@@ -32,5 +32,5 @@ Preconditions: `control-jimbro doctor` passes.
 - Scope `Delete` to `#exercise-dialog`: `page.locator('#exercise-dialog').getByRole('button', { name: 'Delete' })`.
 - Register the confirm handler before clicking delete. A missed handler hangs the page.
 - The filter starts on `Select muscle group...`, which shows everything, and is not remembered across loads.
-- Pick a kind with `page.locator('#exercise-dialog').getByRole('radio', { name: 'Cardio' }).check()`, scoped to the dialog, since the exercise picker's filter chips use the same names.
+- Pick a kind by its label, as Stats' switch does: `page.locator('#exercise-dialog .segmented').getByText('Cardio', { exact: true }).click()`. The radios are visually hidden, and the exercise picker's filter chips use the same names, so scope it to the dialog.
 - Seeded exercises are all lifting. Cardio and rehab need one created here.

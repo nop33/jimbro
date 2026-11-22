@@ -98,7 +98,7 @@ test.describe('Exercises Page', () => {
     await expect(dialog).toBeVisible()
 
     await page.getByLabel('Name').fill('Treadmill walk')
-    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Cardio' }).check()
+    await page.locator('#exercise-dialog .segmented').getByText('Cardio', { exact: true }).click()
 
     await expect(page.locator('#exercise-preset-field')).toBeHidden()
     await expect(page.locator('#exercise-muscle-field')).toBeHidden()
@@ -128,12 +128,12 @@ test.describe('Exercises Page', () => {
     await expect(dialog).toBeVisible()
 
     await page.getByLabel('Name').fill('Side plank')
-    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Rehab' }).check()
+    await page.locator('#exercise-dialog .segmented').getByText('Rehab', { exact: true }).click()
 
     await expect(page.locator('#exercise-preset-field')).toBeVisible()
     await expect(page.getByLabel('Default reps')).toBeVisible()
 
-    await page.locator('#exercise-dialog').getByRole('radio', { name: 'Hold' }).check()
+    await page.locator('#exercise-dialog .segmented').getByText('Hold', { exact: true }).click()
     await expect(page.getByLabel('Default reps')).toHaveCount(0)
 
     await page.getByLabel('Muscle group', { exact: true }).selectOption({ label: 'Core' })

@@ -1734,12 +1734,12 @@
     @apply mb-2 text-sm font-semibold;
   }
 
-  /* Choices drawn as one switch: each radio fills its segment, so a tap anywhere on it picks it. */
+  /* Choices drawn as one switch, like Stats' Sets or volume: a tap anywhere on a segment's label picks its radio. */
   .segmented {
     @apply flex rounded-full bg-black/30 p-0.5;
 
     label {
-      @apply relative m-0 flex min-h-11 flex-1 items-center justify-center rounded-full px-3 text-sm font-semibold text-neutral-400 transition-colors duration-150;
+      @apply m-0 flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-full px-3 text-sm font-semibold text-neutral-400 transition-colors duration-150;
 
       &:has(:checked) {
         @apply bg-jim-accent text-neutral-950;
@@ -1751,7 +1751,7 @@
     }
 
     input {
-      @apply absolute inset-0 m-0 size-full cursor-pointer appearance-none rounded-full opacity-0;
+      @apply sr-only;
     }
   }
 
