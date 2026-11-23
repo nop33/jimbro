@@ -1,6 +1,6 @@
 # Stats
 
-Stats is `/stats/`: lifetime totals worked out from completed workouts.
+Stats is `/stats/`: a 12-month activity map and lifetime totals, worked out from completed workouts.
 
 ## Sub-features
 

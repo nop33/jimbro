@@ -67,6 +67,11 @@ async function withPage(device, fn) {
     timezoneId: TIME_ZONE,
     reducedMotion: 'reduce'
   })
+  // As if Settings turned festive touches off, as the specs start, so every stop looks the same whatever the date.
+  // The Christmas stops at the end turn them on in Settings.
+  await context.addInitScript(() => {
+    if (localStorage.getItem('jimbro.festive') === null) localStorage.setItem('jimbro.festive', 'off')
+  })
   // Safari on the iPhone has passkeys, but Playwright's WebKit build has no WebAuthn, so the app would hide every passkey
   // button. Stand-ins for the parts passkeysSupported() checks bring them back. No stop taps one in WebKit, since
   // CHROMIUM_ONLY skips the ceremonies.
@@ -109,6 +114,65 @@ const openSheet = async (card) => {
   await see(sheet)
   // It rises from the bottom edge, so whatever is in it moves until then.
   await sheet.evaluate((dialog) => Promise.allSettled(dialog.getAnimations().map(({ finished }) => finished)))
+}
+
+// Logs a gymtime card's sets with Finished set until `left` are still to do, skipping each break it starts. The first
+// change of a workout not started yet asks to start the watch first, which it answers.
+const logSets = async (page, card, left = 0) => {
+  const pending = card.locator('.completed-sets .set.isPending')
+  const breakTimer = page.locator('#break-countdown-dialog')
+  for (let count = await pending.count(); count > left; count = await pending.count()) {
+    await openSheet(card)
+    await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
+    await answerWatchReminder(page)
+    await page.waitForFunction(
+      ([id, before]) =>
+        document.querySelectorAll(`[data-exercise-id="${id}"] .completed-sets .set.isPending`).length < before,
+      [await card.getAttribute('data-exercise-id'), count]
+    )
+    if (await breakTimer.isVisible()) {
+      await page.locator('#skip-break').click()
+      await gone(breakTimer)
+    }
+  }
+}
+
+// Answers the watch reminder that the first change of a workout not started yet asks, and waits for the start.
+const answerWatchReminder = async (page) => {
+  if (new URL(page.url()).searchParams.has('id')) return
+  await page.waitForFunction(
+    () => document.querySelector('#watch-reminder-dialog')?.open || new URLSearchParams(location.search).has('id')
+  )
+  const watch = page.locator('#watch-reminder-dialog[open]').getByRole('button', { name: 'Start workout' })
+  if (await watch.isVisible()) await watch.click()
+  await page.waitForURL('**/gymtime/?id=*')
+}
+
+// Removes the open workout's exercises after the first `keep`, through each card's menu and its confirm.
+const keepExercises = async (page, keep) => {
+  const cards = page.locator('#exercises-list > [data-exercise-id]')
+  for (let count = await cards.count(); count > keep; count = await cards.count()) {
+    const card = cards.nth(keep)
+    await card.locator('.exercise-actions-btn').click()
+    await card.locator('.delete-workout-session-exercise-btn').click()
+    await page.waitForFunction(
+      (before) => document.querySelectorAll('#exercises-list > [data-exercise-id]').length < before,
+      count
+    )
+  }
+}
+
+// Waits for a celebration's message to show in full. The tour runs under reduced motion, so only the message fades in,
+// without the pieces.
+const celebrates = async (page, text) => {
+  await see(page.locator('.confetti-text', { hasText: text }))
+  await page.waitForFunction(
+    (text) =>
+      [...document.querySelectorAll('.confetti-text')].some(
+        (message) => message.textContent.includes(text) && getComputedStyle(message).opacity === '1'
+      ),
+    text
+  )
 }
 
 // Waits until a canvas keeps its size and pixels for five frames in a row, so a chart has finished drawing and
@@ -268,6 +332,8 @@ const STOPS = [
     await page.getByRole('link', { name: 'Home' }).click()
     await see(page.locator('.program-pick[data-suggested]'))
     await see(page.locator('#highlights'))
+    // The import's toast would cover the header here and on Workouts.
+    await gone(page.locator('.toast-message-popup'))
   }],
   ['workouts', async (page) => {
     await page.getByRole('link', { name: 'Workouts' }).click()
@@ -386,6 +452,8 @@ const STOPS = [
     await openSheet(card)
     await see(card.locator('.next-set-form button[type=submit]'))
     await card.locator('.next-set-form button[type=submit]').scrollIntoViewIfNeeded()
+    // The previous stop shows the "Workout started" toast. This one shows the sheet under the progress it covers.
+    await gone(page.locator('.toast-message-popup'))
   }],
   ['gymtime-set-menu', async (page) => {
     const card = page.locator('#exercises-list > .card').first()
@@ -463,32 +531,8 @@ const STOPS = [
     await page.keyboard.press('Escape')
     await gone(page.locator('#exercise-picker'))
     // Leaves only the first exercise, then logs its sets until the workout is done.
-    const cards = page.locator('#exercises-list > [data-exercise-id]')
-    for (let count = await cards.count(); count > 1; count = await cards.count()) {
-      const card = cards.nth(1)
-      await card.locator('.exercise-actions-btn').click()
-      await card.locator('.delete-workout-session-exercise-btn').click()
-      await page.waitForFunction(
-        (before) => document.querySelectorAll('#exercises-list > [data-exercise-id]').length < before,
-        count
-      )
-    }
-    const card = cards.first()
-    const pending = card.locator('.completed-sets .set.isPending')
-    const breakTimer = page.locator('#break-countdown-dialog')
-    for (let left = await pending.count(); left > 0; left = await pending.count()) {
-      await openSheet(card)
-      await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
-      await page.waitForFunction(
-        ([id, before]) =>
-          document.querySelectorAll(`[data-exercise-id="${id}"] .completed-sets .set.isPending`).length < before,
-        [await card.getAttribute('data-exercise-id'), left]
-      )
-      if (await breakTimer.isVisible()) {
-        await page.locator('#skip-break').click()
-        await gone(breakTimer)
-      }
-    }
+    await keepExercises(page, 1)
+    await logSets(page, page.locator('#exercises-list > [data-exercise-id]').first())
     const offer = page.getByRole('region', { name: 'Back up your workouts' })
     await see(offer)
     // The "Workout done!" stamp covers the card for a few seconds.
@@ -646,11 +690,47 @@ const STOPS = [
     await page.locator('#start-button').click()
     await see(page.locator('#finish-workout-dialog').getByRole('button', { name: 'Finish workout' }))
   }],
+  ['gymtime-swap-picker', async (page) => {
+    // A new workout of the first program, whose second card's menu swaps it for another exercise from the picker.
+    await page.goto('/programs/')
+    const href = await page.locator('a.program-card').first().getAttribute('href')
+    const programId = new URL(href, base).searchParams.get('id')
+    await page.goto(`/gymtime/?programId=${programId}`)
+    await see(page.locator('#exercises-list > .card').nth(1))
+    const card = page.locator('[data-exercise-id]').nth(1)
+    await card.locator('.exercise-actions-btn').click()
+    await card.locator('.swap-workout-session-exercise-btn').click()
+    await see(page.locator('#exercise-picker .exercise-choice'))
+  }],
+  ['gymtime-exercise-done', async (page) => {
+    // Closed without a swap. The first exercise's last set celebrates it.
+    await page.keyboard.press('Escape')
+    await gone(page.locator('#exercise-picker'))
+    const card = page.locator('#exercises-list > [data-exercise-id]').first()
+    await logSets(page, card, 1)
+    await gone(page.locator('.toast-message-popup'))
+    await openSheet(card)
+    await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
+    await celebrates(page, 'Exercise done!')
+  }],
+  ['gymtime-workout-done', async (page) => {
+    // The second exercise is the workout's last: its last set stamps the workout done.
+    await gone(page.locator('.confetti'))
+    await keepExercises(page, 2)
+    const card = page.locator('#exercises-list > [data-exercise-id]').nth(1)
+    await logSets(page, card, 1)
+    await gone(page.locator('.toast-message-popup'))
+    await openSheet(card)
+    await card.locator('.next-set-form').getByRole('button', { name: 'Finished set' }).click()
+    await celebrates(page, 'Workout done!')
+  }],
   ['christmas-home', async (page) => {
-    // Dec 16 this year: lights, snow, the Santa hat and the advent calendar (src/features/season.ts). A workout started
-    // from the nav opens today's door.
+    // Dec 16 this year: lights, snow, the Santa hat and the advent calendar (src/features/season.ts), with festive
+    // touches turned back on in Settings. A workout started from the nav opens today's door.
     const year = todayIn(TIME_ZONE).slice(0, 4)
     await page.clock.setFixedTime(new Date(`${year}-12-16T10:00:00+02:00`))
+    await page.goto('/settings/')
+    await page.getByRole('switch', { name: 'Festive touches' }).check()
     await page.goto('/')
     await see(page.locator('#start-button[data-state="idle"]'))
     await page.getByRole('button', { name: 'Start next workout' }).click()

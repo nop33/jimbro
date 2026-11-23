@@ -44,12 +44,12 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
-- [Home and start workout](./home.md) covers the heading, empty state, week, highlights, program picks, install row and bottom nav.
-- [Workouts](./workouts.md) covers seeding, intro texts, weekly cards, the New workout dialog and the workout mode.
-- [Gymtime](./gymtime.md) covers the workout form, exercise cards and their menu, logging and editing sets, the break timer, previous sets, the history chart, adding exercises, completion with its passkey offer, and deletion.
+- [Home and start workout](./home.md) covers the heading, empty state, week, highlights, program picks, install row, the bottom nav with its Start button, and the Christmas touches.
+- [Workouts](./workouts.md) covers seeding, intro texts, the calendar of weeks, the New workout dialog and the workout mode.
+- [Gymtime](./gymtime.md) covers the workout form, exercise cards and their menu, logging and editing sets, the break timer, previous sets, the history chart, adding and swapping exercises, the celebrations, completion with its passkey offer, and deletion.
 - [Exercises](./exercises.md) covers the library, the three kinds, create, edit, filter and delete.
 - [Programs](./programs.md) covers the list, a program's page, create, reorder, remove, add, rename and delete.
-- [Stats](./stats.md) covers the lifetime totals.
-- [Settings](./settings.md) covers break time, the passkey cloud backup, AI assistants, and export, import and reset.
+- [Stats](./stats.md) covers the lifetime totals and the 12-month activity map.
+- [Settings](./settings.md) covers break time, the watch reminder, festive touches, the passkey cloud backup, AI assistants, and export, import and reset.
 
 Not mapped: offline use and the installed app (they need `vp build` and `vp preview`, since only the build registers the service worker), and a real sync (it needs the local worker from `tests/localWorker.ts`). `tests/offline.spec.ts` and `tests/sync.spec.ts` cover them. Do not claim them verified here.
