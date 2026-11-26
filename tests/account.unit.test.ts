@@ -90,6 +90,28 @@ describe('the saved account', () => {
     expect(device.accounts.current()).toBeNull()
   })
 
+  it('reads what an earlier build saved, so a device stays signed in across updates', () => {
+    device.values.set('jimbro.cloudBackup', JSON.stringify({ userId: 'someone', token: 'secret', method: 'passkey' }))
+    device.values.set('jimbro.cloudBackup.signedOut', '1')
+    device.values.set('jimbro.sync.lastAt', AT)
+    device.values.set('jimbro.sync.problem', 'row_limit')
+    expect(device.accounts.current()).toEqual({ userId: 'someone', token: 'secret', method: 'passkey' })
+    expect(device.accounts.signedOut()).toBe(true)
+    expect(device.accounts.status()).toEqual({ lastSyncAt: AT, problem: 'row_limit' })
+  })
+
+  it('calls a listener added twice twice, and one abort removes only its own', async () => {
+    const heard = vi.fn()
+    const first = new AbortController()
+    device.accounts.onChange(heard, first.signal)
+    device.accounts.onChange(heard)
+    await device.accounts.switchTo(A)
+    expect(heard).toHaveBeenCalledTimes(2)
+    first.abort()
+    await device.accounts.switchTo(B)
+    expect(heard).toHaveBeenCalledTimes(3)
+  })
+
   it('keeps the sync status until the next sync succeeds, and a full account as a problem', () => {
     device.accounts.failed(new ServerError(413, 'row_limit'))
     device.accounts.failed(new ServerError(429, 'rate_limited'))

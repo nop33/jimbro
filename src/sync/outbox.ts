@@ -41,10 +41,6 @@ const rowOf = (table: RowTable, stored: IDBRequest): Row => {
   }
 }
 
-// Reads the oldest entries and their rows, drops entries whose row is gone and stamps the rest with
-// the seq and body about to be sent, all in one transaction. A stamp already there stays: it records
-// a push that may have reached the server without an ack, and first sync compares against it.
-// Resolves to null when the outbox is empty, and to [] when every entry read pointed at a missing row.
 const takeChunk = async (storage: Storage, limit: number): Promise<Taken[] | null> => {
   const tx = await storage.transaction(
     [
@@ -84,10 +80,7 @@ const takeChunk = async (storage: Storage, limit: number): Promise<Taken[] | nul
   return taken && taken.filter((item): item is Taken => item !== undefined)
 }
 
-// Drops each sent entry whose seq is unchanged, so an edit made during the push stays queued.
-// The meta advance lands in the same transaction: a stop between the two would leave a database
-// that looks unsynced with nothing queued, and the next first sync could drop a later edit.
-const acknowledge = async (
+const acknowledgeAndAdvance = async (
   storage: Storage,
   sent: Taken[],
   advance: { name: 'cursor' | 'bootstrapped'; value: number } | null
@@ -125,7 +118,6 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
     const unsynced = await firstSyncDue(deps.storage)
     let acked = false
     for (;;) {
-      // Skip the lock when nothing is queued, so an idle page never waits on another page's push.
       if ((await deps.storage.count(OBJECT_STORES.OUTBOX)) === 0) break
       const pushed = await deps.lock(async () => {
         let taken = await takeChunk(deps.storage, PUSH_CHUNK)
@@ -137,13 +129,12 @@ export const createOutbox = (deps: { storage: Storage; lock: PushLock }): Outbox
           : result !== null && result > 0
             ? { name: 'cursor' as const, value: result }
             : { name: 'bootstrapped' as const, value: 1 }
-        await acknowledge(deps.storage, taken, advance)
+        await acknowledgeAndAdvance(deps.storage, taken, advance)
         return true
       })
       if (!pushed) break
       acked = true
     }
-    // Every ack above already recorded the sync, so only a drain that sent nothing is left to mark.
     if (unsynced && !acked) await markBootstrapped(deps.storage)
   }
 })

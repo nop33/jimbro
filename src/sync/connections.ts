@@ -2,11 +2,6 @@ import { account } from './account'
 import { isRedirect } from './passkeys'
 import { API_BASE, requestJson, ServerError } from './server'
 
-// AI assistants that read the account through the worker's MCP server. An assistant connects over OAuth: the worker
-// sends its request to the /connect/ page, which approves it with a passkey (approveConnection in passkeys.ts) or
-// turns it down. Settings lists the connected ones, and Disconnect ends one.
-
-// The link an assistant connects with.
 export const MCP_URL = `${API_BASE}/mcp`
 
 // What the /connect/ page shows about a request: the name the assistant gave, and the host the browser goes back to,

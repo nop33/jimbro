@@ -71,8 +71,7 @@ export const queueRows = (tx: IDBTransaction, writes: ReadonlyArray<Row>) => {
 
 // Forgets which account this database synced with, so the next sync runs a first sync with the account the saved
 // credentials name now: it pulls that account's rows and pushes every row only this device has. The inflight stamps go
-// too, since they record pushes to the account before. Signing up or signing in with a passkey calls it, whether or
-// not the device synced with another account before.
+// too, since they record pushes to the account before.
 export const restartFirstSync = async (storage: Storage) => {
   const tx = await storage.transaction([OBJECT_STORES.OUTBOX, OBJECT_STORES.META], 'readwrite')
   const done = transactionDone(tx, 'restartFirstSync')

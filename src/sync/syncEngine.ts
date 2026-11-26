@@ -9,7 +9,6 @@ import type { SyncServer } from './server'
 
 // What a sync needs from the page that runs it.
 export interface SyncPage {
-  // Tells the page.
   announce(notice: Extract<PageNotice, 'sync-settled'>): void
   // Whether the page is going away. Leaving aborts the sync's requests, so a sync that fails then resolves quietly.
   leaving(): boolean

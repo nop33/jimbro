@@ -7,7 +7,6 @@ import type { MetaRecord, OutboxEntry } from './queue'
 import { canonical } from './rows'
 import type { PullPage } from './server'
 
-// A pulled entry without its revision.
 const rowFromWire = (entry: Row & { rev: number }): Row => {
   switch (entry.table) {
     case 'exercises':
@@ -163,7 +162,6 @@ export async function commitFirstSync(
             droppedBySession.set(set.sessionId, dropped)
           }
           updateSetGroups(tx, keptSets, droppedBySession)
-          // seq moves with every change of rows, local or restored, which tells a page on screen that it is stale.
           if (rowsChanged) seq += 1
           tx.objectStore(OBJECT_STORES.META).put({ name: 'seq', value: seq })
           tx.objectStore(OBJECT_STORES.META).put({ name: 'cursor', value: input.cursor })

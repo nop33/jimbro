@@ -25,7 +25,6 @@ export interface AccountStatus {
   problem: SyncProblem | null
 }
 
-// The keys the account keeps in localStorage. They never change, so a device stays signed in across updates.
 const KEYS = {
   account: 'jimbro.cloudBackup',
   signedOut: 'jimbro.cloudBackup.signedOut',
@@ -33,7 +32,6 @@ const KEYS = {
   problem: 'jimbro.sync.problem'
 } as const
 
-// The part of localStorage the account needs, so the unit tests can pass a Map.
 export type KeyValue = Pick<globalThis.Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 // The one owner of which account this device syncs with. Every change of account goes through switchTo, signOut or a
@@ -78,6 +76,45 @@ const parseAccount = (raw: string | null): Account | null => {
   }
 }
 
+const readersWriterGate = () => {
+  let readers = 0
+  let idle: Array<() => void> = []
+  let writing: Promise<void> | null = null
+
+  const settle = () => {
+    if (readers > 0) return
+    const waiting = idle
+    idle = []
+    for (const resolve of waiting) resolve()
+  }
+
+  return {
+    async read<T>(task: () => Promise<T>): Promise<T> {
+      while (writing) await writing.catch(() => undefined)
+      readers += 1
+      try {
+        return await task()
+      } finally {
+        readers -= 1
+        settle()
+      }
+    },
+    async write(task: () => Promise<void>) {
+      while (writing) await writing.catch(() => undefined)
+      const change = (async () => {
+        if (readers > 0) await new Promise<void>((resolve) => idle.push(resolve))
+        await task()
+      })()
+      writing = change
+      try {
+        await change
+      } finally {
+        writing = null
+      }
+    }
+  }
+}
+
 export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: () => KeyValue }): Accounts => {
   const { storage, lock, local } = deps
 
@@ -85,9 +122,7 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
   const quietly = (task: () => void) => {
     try {
       task()
-    } catch {
-      // The value stays as it was.
-    }
+    } catch {}
   }
   const read = (key: string) => {
     try {
@@ -106,7 +141,6 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
       local().removeItem(KEYS.lastSyncAt)
       local().removeItem(KEYS.problem)
     })
-  // Forgets the account and remembers why, so Settings offers signing in first.
   const forget = (problem: SyncProblem | null) => {
     local().removeItem(KEYS.account)
     quietly(() => local().setItem(KEYS.signedOut, '1'))
@@ -114,36 +148,11 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
     setProblem(problem)
   }
 
-  // A readers-writer gate: syncs run side by side, and a change of account runs alone.
-  let running = 0
-  let idle: Array<() => void> = []
-  let changing: Promise<void> | null = null
-
-  const settle = () => {
-    if (running > 0) return
-    const waiting = idle
-    idle = []
-    for (const resolve of waiting) resolve()
-  }
-
-  const alone = async (task: () => Promise<void>) => {
-    while (changing) await changing.catch(() => undefined)
-    const change = (async () => {
-      if (running > 0) await new Promise<void>((resolve) => idle.push(resolve))
-      await task()
-    })()
-    changing = change
-    try {
-      await change
-    } finally {
-      changing = null
-    }
-  }
-
+  const gate = readersWriterGate()
   const current = () => parseAccount(read(KEYS.account))
+  const movedAway = (error: ServerError) => error.status === 401 && current()?.method === 'passkey'
 
   const listeners = new Set<() => void>()
-  // A listener that throws doesn't stop the others, or the change.
   const changed = () => {
     for (const listener of listeners) {
       try {
@@ -156,31 +165,23 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
 
   return {
     current,
-    async use(task) {
-      while (changing) await changing.catch(() => undefined)
-      const account = current()
-      if (!account) return null
-      running += 1
-      try {
-        return await task(account)
-      } finally {
-        running -= 1
-        settle()
-      }
-    },
-    // The sync state resets before the account is saved, under the push lock, so no chunk is on its way to the account
-    // before while the account changes, and a switch that stops half way leaves a first sync to run with the account
-    // before, which only merges again, never a device that skips the first sync with the new one.
+    use: (task) =>
+      gate.read(async () => {
+        const account = current()
+        return account ? task(account) : null
+      }),
     switchTo: (account) =>
-      alone(() =>
-        lock(async () => {
-          await restartFirstSync(storage)
-          local().setItem(KEYS.account, JSON.stringify(account))
-          quietly(() => local().removeItem(KEYS.signedOut))
-          clearStatus()
-        })
-      ).then(changed),
-    signOut: () => alone(async () => forget(null)).then(changed),
+      gate
+        .write(() =>
+          lock(async () => {
+            await restartFirstSync(storage)
+            local().setItem(KEYS.account, JSON.stringify(account))
+            quietly(() => local().removeItem(KEYS.signedOut))
+            clearStatus()
+          })
+        )
+        .then(changed),
+    signOut: () => gate.write(async () => forget(null)).then(changed),
     signedOut: () => read(KEYS.signedOut) === '1',
     status: () => {
       const problem = read(KEYS.problem)
@@ -191,21 +192,16 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
         local().setItem(KEYS.lastSyncAt, at)
         local().removeItem(KEYS.problem)
       }),
-    // A full backup refuses every push from now on, so the pages say so instead of failing quietly. A passkey token the
-    // worker no longer knows means a sign-in on another device moved the account there, since signing out here forgets
-    // the account first. This device then stops syncing, keeps its data, and offers signing in to move it back. It runs
-    // inside the failed sync's use, so it changes the account without waiting for the gate.
     failed: (error) => {
       if (!(error instanceof ServerError)) return
       if (error.code === 'row_limit') setProblem('row_limit')
-      if (error.status === 401 && current()?.method === 'passkey') {
+      if (movedAway(error)) {
         quietly(() => forget('moved'))
         changed()
       }
     },
     onChange: (listener, signal) => {
       if (signal?.aborted) return
-      // Each call adds its own entry, so one function added twice is called twice and one abort removes only its own.
       const entry = () => listener()
       listeners.add(entry)
       signal?.addEventListener('abort', () => listeners.delete(entry), { once: true })
@@ -213,5 +209,4 @@ export const createAccounts = (deps: { storage: Storage; lock: PushLock; local: 
   }
 }
 
-// The app's account, kept in this origin's localStorage.
 export const account = createAccounts({ storage: appStorage, lock: pushLock, local: () => localStorage })
