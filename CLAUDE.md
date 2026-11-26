@@ -130,6 +130,12 @@ The gymtime page is the most complex. An `OpenSession` from `openSession.ts` hol
 
 Configured in `vite.config.ts` under `fmt`: single quotes, no semicolons, no trailing commas, printWidth 120. Run `vp fmt` to apply. It formats Markdown too.
 
+## Comments
+
+Write code that needs no comment: a name, a type, an extracted function or a check says it instead. A comment stays only for a license header, behaviour forced by something we cannot reshape (a browser or platform quirk, a web spec, Cloudflare, WebAuthn, a vendor API), a doc comment on a contract other code relies on, a formatter or justified lint directive, or a link to an issue or spec. A comment that claims a rule (`do not remove`, `keep in sync with`) becomes a check in the table below instead.
+
+Before opening or updating a pull request, run the `no-comments` skill on its diff. It lives in `.cursor/skills/no-comments/`, which `.claude/skills/` links to, adapted from Lauren Tan's pstack (MIT). It hands the comments to a fresh agent that didn't write them, fixes the code surprises they hid, and offers a check for each claimed rule. Comments outside the diff stay until someone asks for a sweep.
+
 ## Rules and their checks
 
 Each rule below has a check that fails when the rule is broken, and CI runs all of them on every pull request. Change the code until the check passes. Don't loosen the check.
