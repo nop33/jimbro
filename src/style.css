@@ -24,6 +24,16 @@
   --app-header-height: calc(5.25rem + 1px);
 }
 
+/* While a dialog covers the page, the page under it holds still: a swipe on the backdrop, or one that runs past the end
+   of a sheet's list, would otherwise scroll it. The exercise sheet opens without being modal but covers the page all the
+   same. The minimized break timer is not modal either, and leaves the page free, since the lifter keeps using it. The
+   root keeps its scroll position, so the page is where it was when the dialog closes. Safari on the iPhone honours
+   overflow on the root for touch scrolling since iOS 16, and overscroll-behavior stops the rubber band behind a sheet. */
+:root:has(dialog:modal, dialog.exercise-sheet[open]) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 :root:has(#break-countdown-dialog.dialog-minimized[open]) .app-page {
   margin-top: var(--break-bar-height);
 }
