@@ -17,14 +17,12 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error(`WORKER_PORT must be a port number, got "${process.env.WORKER_PORT}".`)
 }
 
-// Global setup starts a fresh `wrangler dev` on this port for every run, and
-// playwright.config.ts points the dev server's VITE_API_BASE at it.
 export const WORKER_PORT = port
 export const API_BASE = `http://127.0.0.1:${WORKER_PORT}`
 
 const WORKER_DIR = path.join(import.meta.dirname, '..', 'worker')
-// The worker's own wrangler, run with this Node the way `vp exec wrangler` would, minus vp's banner.
 const WRANGLER = path.join(WORKER_DIR, 'node_modules', 'wrangler', 'bin', 'wrangler.js')
+const SERVE_LOCAL = path.join(WORKER_DIR, 'scripts', 'serve-local.mjs')
 // Every wrangler call gets the run's --env-file, which keeps .dev.vars and .env out.
 // These keep the developer's shell out too, and send no telemetry from test runs.
 const WRANGLER_ENV = {
@@ -75,6 +73,7 @@ export const claimUser = (): WorkerUser => {
 }
 
 const stateDir = (dir: string) => path.join(dir, 'state')
+const bundleDir = (dir: string) => path.join(dir, 'bundle')
 const envFile = (dir: string) => path.join(dir, 'worker.env')
 
 const runWrangler = async (dir: string, args: string[]) => {
@@ -123,7 +122,6 @@ const workerVars = (probe: WorkerUser, pageOrigin: string | undefined) => {
   return `${lines.join('\n')}\n`
 }
 
-// A negative pid signals the whole process group: wrangler, workerd and their helpers.
 const signalGroup = (pid: number, signal: string | number) => {
   try {
     process.kill(-pid, signal)
@@ -143,7 +141,7 @@ const stop = async (worker: ChildProcess) => {
 }
 
 // A new connection for every ping. fetch would keep reusing its first connection, and
-// that one may belong to another server on the port even after wrangler binds 127.0.0.1.
+// that one may belong to another server on the port even after Miniflare binds 127.0.0.1.
 const pingAs = (token: string) =>
   new Promise<unknown>((resolve) => {
     const options = { agent: false, headers: { Authorization: `Bearer ${token}` }, timeout: 2_000 }
@@ -177,14 +175,14 @@ const waitUntilReady = async (worker: ChildProcess, probe: WorkerUser) => {
   })
   const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {
-    if (ended) throw new Error(`wrangler dev ${ended} before it answered. Its output is above.`)
+    if (ended) throw new Error(`The local worker ${ended} before it answered. Its output is above.`)
     // Only this run's worker knows the probe token, so a match means the answer came from
     // it. On macOS the port check misses a server listening on all addresses, and until
-    // wrangler binds 127.0.0.1 that server gets the requests.
+    // Miniflare binds 127.0.0.1 that server gets the requests.
     if ((await pingAs(probe.token)) === probe.userId) return
     await sleep(200)
   }
-  throw new Error(`wrangler dev did not answer on port ${WORKER_PORT} within a minute.`)
+  throw new Error(`The local worker did not answer on port ${WORKER_PORT} within a minute.`)
 }
 
 const launch = async (dir: string, pageOrigin: string | undefined) => {
@@ -193,25 +191,10 @@ const launch = async (dir: string, pageOrigin: string | undefined) => {
   const probe = { token: randomUUID(), userId: 'probe' }
   writeFileSync(envFile(dir), workerVars(probe, pageOrigin))
   await runWrangler(dir, ['d1', 'migrations', 'apply', 'jimbro', '--local', '--persist-to', stateDir(dir)])
+  await runWrangler(dir, ['deploy', '--dry-run', '--outdir', bundleDir(dir)])
   const worker = spawn(
     process.execPath,
-    [
-      WRANGLER,
-      'dev',
-      '--local',
-      '--ip',
-      '127.0.0.1',
-      '--port',
-      String(WORKER_PORT),
-      '--inspector-port',
-      '0',
-      '--persist-to',
-      stateDir(dir),
-      '--env-file',
-      envFile(dir),
-      '--log-level',
-      'warn'
-    ],
+    [SERVE_LOCAL, path.join(bundleDir(dir), 'index.js'), String(WORKER_PORT), stateDir(dir), envFile(dir)],
     // Its own process group, so stopping it also stops the workerd it spawns.
     { cwd: WORKER_DIR, detached: true, stdio: ['ignore', 'inherit', 'inherit'], env: WRANGLER_ENV }
   )

@@ -114,13 +114,6 @@ jobs:
       - run: vp install
       - name: Install worker dependencies
         run: cd worker && vp install
-      - name: DIAG patch wrangler ProxyWorker to log hop failures
-        run: |
-          P=$(find worker/node_modules -path '*wrangler/wrangler-dist/ProxyWorker.js' | head -1)
-          sed -i 's|      }).catch((error) => {|      }).catch((error) => {\n        console.error("[proxy-hop-failed]", new Date().toISOString(), request.method, request.url, String(error \&\& error.stack \|\| error), "cause:", String(error \&\& error.cause));|' "$P"
-          grep -n "proxy-hop-failed" "$P"
-      - name: DIAG break alerts on repeat
-        run: xvfb-run vp exec playwright test --project="${{ matrix.project }}" tests/breakAlerts.spec.ts tests/sync.spec.ts --repeat-each 6 --retries 0 --reporter=line 2>&1 | grep -v "^\s*$" | grep -v "\[[0-9]*/[0-9]*\]" | tail -150 || true
       - name: Run Playwright tests
         run: xvfb-run vp exec playwright test --project="${{ matrix.project }}"
       # What each failed attempt's page showed and logged, readable from the job log alone.
@@ -130,13 +123,6 @@ jobs:
           find test-results -name error-context.md -o -name diagnostics.txt | sort | while read -r file; do
             echo "::group::$file"
             cat "$file"
-            echo "::endgroup::"
-          done
-          # wrangler's own debug log says when the local worker restarted or failed, which turns a request into a 503.
-          for file in "$HOME"/.config/.wrangler/logs/*.log; do
-            [ -f "$file" ] || continue
-            echo "::group::$file (reloads, restarts and errors)"
-            grep -E '"type":"reload|restarted|Error:|exited' "$file" | tail -n 200
             echo "::endgroup::"
           done
       - uses: actions/upload-artifact@v6
