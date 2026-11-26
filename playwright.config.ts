@@ -18,7 +18,6 @@ export default defineConfig<RouterOptions>({
   // Each test has its own browser context and worker user, so tests run side by side, one per core of a CI runner.
   workers: process.env.CI ? 4 : 2,
   reporter: 'html',
-  // Starts the local worker (wrangler dev) that tests/sync.spec.ts talks to, on WORKER_PORT (default 8790).
   globalSetup: './tests/localWorker.ts',
   use: {
     baseURL: 'http://localhost:5173',
