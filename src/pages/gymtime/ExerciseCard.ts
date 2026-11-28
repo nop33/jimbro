@@ -7,7 +7,7 @@ import {
   type SetSlot
 } from '../../db/exerciseLogging'
 import { muscleGroupLabel } from '../../db/muscleGroups'
-import { pullDownToClose } from '../../features/bottomSheet'
+import { dismissSheet, isDismissing, pullDownToClose } from '../../features/bottomSheet'
 import {
   canRemoveSetSlot,
   progressOf,
@@ -161,8 +161,8 @@ class ExerciseCard {
     return this.snapshot.exerciseId
   }
 
-  private closeSheet() {
-    if (this.sheet.open) this.sheet.close()
+  private slideSheetAway() {
+    dismissSheet(this.sheet)
   }
 
   // The sheet opens without being modal, so the break timer's bar, which isn't modal either, stays on screen over it
@@ -189,8 +189,11 @@ class ExerciseCard {
         (event) => {
           const target = event.target instanceof Element ? event.target : null
           swallowClick =
-            !sheet.contains(target) && !target?.closest('dialog, [popover]') && !document.querySelector('dialog:modal')
-          if (swallowClick) this.closeSheet()
+            !isDismissing(sheet) &&
+            !sheet.contains(target) &&
+            !target?.closest('dialog, [popover]') &&
+            !document.querySelector('dialog:modal')
+          if (swallowClick) this.slideSheetAway()
         },
         { capture: true, signal }
       )
@@ -209,7 +212,7 @@ class ExerciseCard {
     })
     // Esc closes a menu open in the sheet first.
     sheet.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !sheet.querySelector(':popover-open')) this.closeSheet()
+      if (event.key === 'Escape' && !sheet.querySelector(':popover-open')) this.slideSheetAway()
     })
     sheet.addEventListener('close', () => {
       // A tap outside keeps the listeners until its click, which they swallow.
@@ -272,7 +275,7 @@ class ExerciseCard {
     // done, and keeps the next set's form until then.
     const closing = progress.done && this.closeWhenDone
     return traced.then(() => {
-      if (closing) this.closeSheet()
+      if (closing) this.sheet.close()
       {
         this.nextSetDiv.classList.toggle('hidden', this.plan?.progress.done)
         this.nextSetFooter.classList.toggle('hidden', this.plan?.progress.done)
