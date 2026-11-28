@@ -25,7 +25,7 @@ Home is `/`. It greets the user, shows this week's workouts and highlights, and 
 
 Preconditions: `control-jimbro doctor` passes.
 
-- **Tour stops.** `01-home-empty` shows the empty home. `04-home` shows the week, highlights and a suggested `Start ›` pick after the tour imports a year of history ending last Sunday. `46-nav-start-running` shows Home with a workout running from the nav's Start, and `47-nav-finish-sheet` its `Finish workout?` sheet. `christmas-home` fixes the clock at Dec 16 this year, starts a workout from the nav and shows Home in season with door 16 open, and `christmas-advent-door` its sheet.
+- **Tour stops.** `01-home-empty` shows the empty home. `04-home` shows the week, highlights and a suggested `Start ›` pick after the tour imports a year of history ending last Sunday. `47-nav-start-running` shows Home with a workout running from the nav's Start, and `48-nav-finish-sheet` its `Finish workout?` sheet. Every stop before the Christmas ones runs with `Festive touches` off, as the specs do, so the shots look the same whatever the date. `52-christmas-home` fixes the clock at Dec 16 this year, turns `Festive touches` on in Settings, starts a workout from the nav and shows Home in season with door 16 open, and `53-christmas-advent-door` its sheet.
 - **By hand: start the suggested program.** Click `.program-pick[data-suggested]`. The URL matches `/gymtime/?programId=`. Save the workout there, return Home, and the same pick reads `Continue ›` with an `?id=` link.
 - **By hand: Settings.** Click `getByRole('link', { name: 'Settings', exact: true })`. The URL is `/settings/`.
 - **By hand: Install.** Register `page.once('dialog', …)` first, then click `getByRole('button', { name: 'Install' })`. The alert mentions `Add to Home Screen`.
