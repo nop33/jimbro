@@ -1,8 +1,6 @@
 // A sheet (a `dialog.dialog-sheet`) behaves as the phone's own sheets do: it follows a finger that pulls it down, and
 // closes once pulled far or flicked, or slides back up when let go before then. A tap on the backdrop above it closes
 // it too, and so does its grabber (partials/sheet-grabber.html), which is a button for the keyboard and screen readers.
-// Esc closes a modal sheet as the browser's own cancel, and the exercise sheet, which isn't modal, through its own
-// keydown. Whatever a sheet does on closing listens for its `close` event.
 //
 // A pull starts only where the content under the finger is scrolled to its top and the finger moves more down than
 // sideways, so the body still scrolls, a chip row still scrolls sideways, and pulling a scrolled list scrolls it back up
@@ -22,7 +20,7 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
     speed: number
   } | null = null
 
-  const closeSheet = () => dialog.close()
+  const closeSheet = () => dismissSheet(dialog)
   dialog.querySelector('.sheet-grabber')?.addEventListener('click', closeSheet)
 
   dialog.addEventListener(
@@ -79,7 +77,7 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
     dialog.style.transition = ''
     dialog.style.willChange = ''
     const far = distance > Math.min(120, dialog.offsetHeight / 3) || (distance > 40 && speed > 0.5)
-    if (event.type === 'touchend' && far) slideAway(dialog, distance, closeSheet)
+    if (event.type === 'touchend' && far) dismissSheet(dialog, distance)
     else dialog.style.translate = ''
   }
   dialog.addEventListener('touchend', release)
@@ -94,7 +92,17 @@ export function pullDownToClose(dialog: HTMLDialogElement) {
     if (!inside) closeSheet()
   })
 
+  // The browser closes a modal dialog at once on Esc or the back gesture. It lets the page take over only after a tap or
+  // a key since the last cancel, and otherwise the sheet closes at once, as the browser wants.
+  dialog.addEventListener('cancel', (event) => {
+    if (!event.cancelable) return
+    event.preventDefault()
+    closeSheet()
+  })
+
   dialog.addEventListener('close', () => {
+    for (const animation of dialog.getAnimations()) if (animation.id === dismissal) animation.cancel()
+    dialog.classList.remove('sheet-closing')
     dialog.style.translate = ''
     dialog.style.transition = ''
     dialog.style.willChange = ''
@@ -113,25 +121,29 @@ function scrolledToTop(target: EventTarget | null, dialog: HTMLDialogElement) {
   return true
 }
 
-// The sheet carries on down from where the finger left it, then closes. Without motion it closes at once.
-function slideAway(dialog: HTMLDialogElement, from: number, close: () => void) {
+const dismissal = 'sheet-dismissal'
+
+export function dismissSheet(dialog: HTMLDialogElement, from = 0) {
+  if (!dialog.open || isDismissing(dialog)) return
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    close()
+    dialog.close()
     return
   }
+  dialog.classList.add('sheet-closing')
   const slide = dialog.animate([{ translate: `0 ${from}px` }, { translate: '0 100%' }], {
+    id: dismissal,
     duration: 200,
     easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
     fill: 'forwards'
   })
   slide.finished.then(
-    () => {
-      close()
-      dialog.style.translate = ''
-      slide.cancel()
-    },
-    () => close()
+    () => dialog.close(),
+    () => dialog.close()
   )
+}
+
+export function isDismissing(dialog: HTMLDialogElement) {
+  return dialog.classList.contains('sheet-closing')
 }
 
 // The phone's keyboard covers the bottom of the screen without moving what is fixed there, on iPhone and on Android

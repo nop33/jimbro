@@ -122,3 +122,27 @@ test('a sheet closes from its grabber and from Esc', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(sheet).toBeHidden()
 })
+
+test('a dismissed sheet slides away before it closes, unless motion is reduced', async ({ page }) => {
+  await page.goto('/programs/')
+  const sheet = page.locator('dialog#new-program-dialog')
+  const dismissAndReadAtOnce = (from: 'backdrop' | 'grabber') =>
+    sheet.evaluate((dialog: HTMLDialogElement, from) => {
+      const target = from === 'grabber' ? dialog.querySelector('.sheet-grabber') : dialog
+      target?.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }))
+      return { open: dialog.open, sliding: dialog.getAnimations().some(({ id }) => id === 'sheet-dismissal') }
+    }, from)
+
+  for (const from of ['backdrop', 'grabber'] as const) {
+    await page.getByRole('button', { name: 'New' }).click()
+    await expect(sheet).toBeVisible()
+    expect(await dismissAndReadAtOnce(from)).toEqual({ open: true, sliding: true })
+    await expect(sheet).toBeHidden()
+    await expect(sheet).not.toHaveClass(/sheet-closing/)
+  }
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.getByRole('button', { name: 'New' }).click()
+  await expect(sheet).toBeVisible()
+  expect(await dismissAndReadAtOnce('backdrop')).toEqual({ open: false, sliding: false })
+})

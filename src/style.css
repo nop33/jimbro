@@ -771,7 +771,7 @@
   }
 
   /* A dialog grows in from just under its size while its backdrop fades in, so it arrives instead of appearing.
-     It closes at once: the tap that closes it has already shown its result. The scale property, not transform,
+     The scale property, not transform,
      leaves the transform that turns the history chart sideways alone. */
   dialog[open] {
     transition:
@@ -1198,6 +1198,15 @@
       opacity: 1;
       scale: 1;
       translate: 0 100%;
+    }
+  }
+
+  dialog.sheet-closing {
+    pointer-events: none;
+
+    &::backdrop {
+      opacity: 0;
+      transition-duration: 200ms;
     }
   }
 
@@ -1847,6 +1856,11 @@ dialog.exercise-sheet[open] {
   z-index: 60;
   margin-top: 0;
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6);
+}
+
+dialog.exercise-sheet.sheet-closing {
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0);
+  transition: box-shadow 200ms var(--ease-out);
 }
 
 :root:has(#break-countdown-dialog.dialog-minimized[open]) dialog.exercise-sheet[open] {
