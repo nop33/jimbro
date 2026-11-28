@@ -9,6 +9,7 @@ import { onPageNotice } from '../sync/pageChannel'
 import { trainingWeeks } from '../weeks'
 import { pullDownToClose } from './bottomSheet'
 import { breakTimer } from './breakTimer'
+import { screenWakeLock } from './screenWakeLock'
 import Toasts from './toasts'
 
 // The Start button in the middle of the bottom nav. Before a workout, a tap starts the one Home suggests. While one
@@ -57,6 +58,8 @@ const nextWorkoutUrl = async (): Promise<string> => {
   return `/gymtime/?programId=${suggested.program.id}&start`
 }
 
+const onWorkoutNotStarted = () => workoutPage !== undefined && workoutPage.current() === undefined
+
 const exercisesDone = (session: WorkoutSession) =>
   session.exercises.filter((exercise) => progressOf(exercise).done).length
 
@@ -77,9 +80,11 @@ class StartButton {
   private elapsedText = this.elapsed.appendChild(document.createTextNode(''))
   private busy = false
   private signal: AbortSignal
+  private keepScreenOn: (keepAwake: boolean) => void
 
   constructor(signal: AbortSignal) {
     this.signal = signal
+    this.keepScreenOn = screenWakeLock(signal)
     pullDownToClose(this.dialog)
     this.button.addEventListener('click', () => void this.tap())
     this.confirmButton.addEventListener('click', () => void this.finish())
@@ -100,6 +105,7 @@ class StartButton {
 
   private draw() {
     const session = this.running
+    this.keepScreenOn(session !== undefined || onWorkoutNotStarted())
     this.button.toggleAttribute('data-running', session !== undefined)
     // Until the button has read whether a workout runs, it shows Start, so the specs and the tour wait for this.
     this.button.dataset.state = session ? 'running' : 'idle'

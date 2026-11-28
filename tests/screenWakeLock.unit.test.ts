@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { keepScreenAwake } from '../src/pages/gymtime/keepScreenAwake'
+import { screenWakeLock } from '../src/features/screenWakeLock'
 
 class FakeSentinel {
   released = false
@@ -27,7 +27,7 @@ const show = async (state: DocumentVisibilityState) => {
 
 const held = () => locks.filter((lock) => !lock.released).length
 
-describe('keepScreenAwake', () => {
+describe('screenWakeLock', () => {
   beforeEach(() => {
     visibility.state = 'visible'
     locks.length = 0
@@ -49,7 +49,7 @@ describe('keepScreenAwake', () => {
 
   it('takes the lock again each time the page comes back into view', async () => {
     const mounted = new AbortController()
-    keepScreenAwake(mounted.signal)
+    screenWakeLock(mounted.signal)(true)
     await vi.waitFor(() => expect(held()).toBe(1))
 
     await show('hidden')
@@ -62,7 +62,7 @@ describe('keepScreenAwake', () => {
   it('takes the lock once the page shows when it mounted out of view', async () => {
     visibility.state = 'hidden'
     const mounted = new AbortController()
-    keepScreenAwake(mounted.signal)
+    screenWakeLock(mounted.signal)(true)
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(0))
 
     await show('visible')
@@ -73,7 +73,7 @@ describe('keepScreenAwake', () => {
   it('takes the lock when the page shows again after the browser refused it', async () => {
     request.mockRejectedValueOnce(new DOMException('Battery saver', 'NotAllowedError'))
     const mounted = new AbortController()
-    keepScreenAwake(mounted.signal)
+    screenWakeLock(mounted.signal)(true)
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1))
     expect(held()).toBe(0)
 
@@ -85,7 +85,7 @@ describe('keepScreenAwake', () => {
 
   it('asks for no second lock while it holds one', async () => {
     const mounted = new AbortController()
-    keepScreenAwake(mounted.signal)
+    screenWakeLock(mounted.signal)(true)
     await vi.waitFor(() => expect(held()).toBe(1))
 
     page.dispatchEvent(new Event('visibilitychange'))
@@ -94,9 +94,26 @@ describe('keepScreenAwake', () => {
     mounted.abort()
   })
 
+  it('takes no lock until it is wanted, and lets it go once it is not', async () => {
+    const mounted = new AbortController()
+    const keepAwake = screenWakeLock(mounted.signal)
+    await show('hidden')
+    await show('visible')
+    expect(request).toHaveBeenCalledTimes(0)
+
+    keepAwake(true)
+    await vi.waitFor(() => expect(held()).toBe(1))
+    keepAwake(false)
+    expect(held()).toBe(0)
+    await show('hidden')
+    await show('visible')
+    expect(request).toHaveBeenCalledTimes(1)
+    mounted.abort()
+  })
+
   it('lets the lock go when the page goes', async () => {
     const mounted = new AbortController()
-    keepScreenAwake(mounted.signal)
+    screenWakeLock(mounted.signal)(true)
     await vi.waitFor(() => expect(held()).toBe(1))
 
     mounted.abort()
