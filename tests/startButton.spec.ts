@@ -104,3 +104,54 @@ test.describe('Start button', () => {
     await expect(startButton(page)).not.toHaveAttribute('data-running')
   })
 })
+
+test.describe('Screen wake lock', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const held = new Set<EventTarget>()
+      const request = async () => {
+        const lock = Object.assign(new EventTarget(), {
+          type: 'screen',
+          released: false,
+          release: async () => {
+            lock.released = true
+            held.delete(lock)
+          }
+        })
+        held.add(lock)
+        return lock
+      }
+      Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true })
+      Object.assign(window, { screenLocksHeld: () => held.size })
+    })
+    await seedDatabase(page)
+  })
+
+  const locksHeld = (page: Page) =>
+    expect.poll(() => page.evaluate(() => (window as unknown as { screenLocksHeld: () => number }).screenLocksHeld()))
+
+  test('keeps the screen on on every page while a workout runs, and lets it go once it is done', async ({ page }) => {
+    await page.goto('/')
+    await expect(startButton(page)).toHaveAttribute('data-state', 'idle')
+    await locksHeld(page).toBe(0)
+
+    await startFromHome(page)
+    await locksHeld(page).toBe(1)
+    await page.goto('/exercises/')
+    await expect(startButton(page)).toHaveAttribute('data-running', '')
+    await locksHeld(page).toBe(1)
+
+    await startButton(page).click()
+    await finishSheet(page).getByRole('button', { name: 'Finish workout' }).click()
+    await expect(startButton(page)).not.toHaveAttribute('data-running')
+    await locksHeld(page).toBe(0)
+  })
+
+  test('keeps the screen on on the page of a workout not started yet', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('.program-pick:not([data-suggested])').first().click()
+    await expect(page).toHaveURL(/\/gymtime\/\?programId=/)
+    await expect(startButton(page)).toHaveAttribute('data-state', 'idle')
+    await locksHeld(page).toBe(1)
+  })
+})
