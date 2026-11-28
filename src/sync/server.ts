@@ -56,9 +56,7 @@ export const requestJson = async (
   try {
     const body = (await response.json()) as { error?: unknown }
     if (typeof body.error === 'string') code = body.error
-  } catch {
-    // The body was not JSON, so the status stands.
-  }
+  } catch {}
   throw new ServerError(response.status, code)
 }
 

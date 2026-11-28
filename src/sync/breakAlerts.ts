@@ -2,16 +2,8 @@ import { account } from './account'
 import { fromBase64Url } from './base64url'
 import { requestJson, ServerError } from './server'
 
-// Break alerts: a push notification at the end of a break while Jimbro is in the background, where the page itself
-// can't ring. The worker keeps this device's push subscription and sends the push (worker/src/breakAlerts.ts), so they
-// need cloud backup. The break timer schedules an alert when the page goes out of sight and cancels it when it comes
-// back.
-
 const ENABLED_KEY = 'jimbro.breakAlerts'
 
-// Whether this document handed the subscription to the account it backs up to now. Another account's worker may hold
-// it, after a switch, or none, after a sign-out, or another device's, after the account moved away and back with the
-// same user ID, so each document hands it over once, at its first break, and again after each change of account.
 let handedOver = false
 account.onChange(() => {
   handedOver = false
@@ -40,9 +32,7 @@ const writeEnabled = (on: boolean) => {
   try {
     if (on) localStorage.setItem(ENABLED_KEY, 'on')
     else localStorage.removeItem(ENABLED_KEY)
-  } catch {
-    // Without storage the alerts stay off, which the bell then shows.
-  }
+  } catch {}
 }
 
 // Whether a break that goes out of sight is announced: the user turned alerts on, still allows notifications, and
@@ -101,7 +91,6 @@ export const keepBreakAlertsWithAccount = async () => {
     const registration = await navigator.serviceWorker.getRegistration()
     const subscription = await registration?.pushManager.getSubscription()
     if (!subscription) {
-      // The browser dropped the subscription, so turning alerts on again makes a new one.
       writeEnabled(false)
       return
     }
@@ -110,10 +99,8 @@ export const keepBreakAlertsWithAccount = async () => {
       token: current.token,
       body: subscription.toJSON()
     })
-    // A change of account while the request was on its way leaves it to the next break.
     if (account.current()?.token === current.token) handedOver = true
   } catch (error) {
-    // The next break tries again.
     console.error('break alerts could not follow the account', error)
   }
 }
@@ -128,8 +115,6 @@ export const releaseBreakAlerts = async () => {
   )
 }
 
-// The worker had no subscription to notify, as when the push service said it was gone. Alerts go off on this device,
-// with its subscription, so the bell shows them off and turning them on again subscribes afresh.
 const lostSubscription = async () => {
   writeEnabled(false)
   handedOver = false
@@ -147,8 +132,7 @@ export const disableBreakAlerts = async () => {
   if (current) await requestJson('/api/break-alerts/unsubscribe', { method: 'POST', token: current.token })
 }
 
-// Sent as the page goes out of sight, so the request outlives the page's suspension, and nothing waits for it.
-const send = async (path: string, body: unknown) => {
+const sendKeepalive = async (path: string, body: unknown) => {
   const current = account.current()
   if (!current) return null
   return requestJson(path, { method: 'POST', token: current.token, body, keepalive: true })
@@ -159,13 +143,13 @@ const unscheduled = (answer: unknown) =>
 
 // Asks the worker for an alert at the end of the break. When it holds no subscription for this device, alerts go off.
 export const scheduleBreakAlert = (alert: BreakAlert) =>
-  void send('/api/break-alerts/schedule', alert)
+  void sendKeepalive('/api/break-alerts/schedule', alert)
     .then(async (answer) => {
       if (unscheduled(answer)) await lostSubscription()
     })
     .catch((error: unknown) => console.error('break alert request failed', error))
 
 export const cancelBreakAlert = () =>
-  void send('/api/break-alerts/cancel', {}).catch((error: unknown) =>
+  void sendKeepalive('/api/break-alerts/cancel', {}).catch((error: unknown) =>
     console.error('break alert request failed', error)
   )

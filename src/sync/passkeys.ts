@@ -9,11 +9,6 @@ import { pullAll, readFirstSyncSnapshot, type PulledAccount } from './pull'
 import { PULL_LIMIT, requestJson, ServerError, type PullPage } from './server'
 import { sync } from './syncClient'
 
-// A passkey is the account: signing up makes one on the worker, and the phone's password manager (iCloud Keychain,
-// Google Password Manager) keeps the passkey and brings it to a new phone, where signing in restores the backup. The
-// browser's own WebAuthn API does the ceremony, and the worker checks it. Every function throws when the browser, the
-// user or the worker says no, and the page decides what to tell the user.
-
 // Whether this browser can make and use passkeys, and report a new one's public key, which the worker needs since it
 // parses no attestation. Pages hide every passkey button where it cannot.
 export const passkeysSupported = () => {
@@ -60,15 +55,13 @@ interface Prefetched {
 
 const prefetched = new Map<Ceremony, Prefetched>()
 
-// The signal of the page that last prepared each ceremony. A tap uses its options up, so the ceremony prepares new ones
-// for that page, which stop when it goes too.
-const owners = new Map<Ceremony, AbortSignal>()
+const buttonPages = new Map<Ceremony, AbortSignal>()
 
 // Fetches the ceremony's options now, for a tap to come, and keeps them fresh until signal aborts, as when the page
 // with the button goes.
 export const preparePasskey = (ceremony: Ceremony, signal: AbortSignal) => {
   if (signal.aborted) return
-  owners.set(ceremony, signal)
+  buttonPages.set(ceremony, signal)
   const previous = prefetched.get(ceremony)
   if (previous) window.clearTimeout(previous.refresh)
   const options = fetchOptions(ceremony)
@@ -80,14 +73,13 @@ export const preparePasskey = (ceremony: Ceremony, signal: AbortSignal) => {
   signal.addEventListener(
     'abort',
     () => {
-      if (owners.get(ceremony) === signal) owners.delete(ceremony)
+      if (buttonPages.get(ceremony) === signal) buttonPages.delete(ceremony)
       if (prefetched.get(ceremony) !== entry) return
       window.clearTimeout(entry.refresh)
       prefetched.delete(ceremony)
     },
     { once: true }
   )
-  // A failed prefetch leaves the tap to fetch.
   options.catch(() => {
     if (prefetched.get(ceremony) !== entry) return
     window.clearTimeout(entry.refresh)
@@ -96,9 +88,6 @@ export const preparePasskey = (ceremony: Ceremony, signal: AbortSignal) => {
   prefetched.set(ceremony, entry)
 }
 
-// Adding a passkey signs its options with the saved token, so options prepared for the account before are no good
-// after a change of account: a tap on them would save a passkey on the phone that the worker never registers. The page
-// that shows the button prepares new ones when it hears the change.
 account.onChange(() => {
   const entry = prefetched.get('add')
   if (!entry) return
@@ -106,15 +95,11 @@ account.onChange(() => {
   prefetched.delete('add')
 })
 
-// Prepares the ceremony again for the page that showed its button, after a tap used its options up. Without such a page
-// there is no button left to tap.
 const prepareAgain = (ceremony: Ceremony) => {
-  const signal = owners.get(ceremony)
+  const signal = buttonPages.get(ceremony)
   if (signal) preparePasskey(ceremony, signal)
 }
 
-// The options for this tap: the prefetched ones while fresh, else fetched now. A challenge is good once, so either way
-// they are used up.
 const takeOptions = async (ceremony: Ceremony) => {
   const entry = prefetched.get(ceremony)
   prefetched.delete(ceremony)
@@ -123,15 +108,12 @@ const takeOptions = async (ceremony: Ceremony) => {
     if (Date.now() - entry.at < FRESH_MS) {
       try {
         return await entry.options
-      } catch {
-        // The prefetch failed, so the tap fetches.
-      }
+      } catch {}
     }
   }
   return fetchOptions(ceremony)
 }
 
-// Runs a ceremony on its options, and prepares new ones when it fails, since the challenge is used up.
 const withOptions = async <T>(ceremony: Ceremony, run: (options: unknown) => Promise<T>) => {
   try {
     return await run(await takeOptions(ceremony))
@@ -159,7 +141,6 @@ interface RequestOptionsJson {
   timeout: number
 }
 
-// The account a sign-up or sign-in hands this device.
 interface Issued {
   userId: string
   token: string
@@ -209,8 +190,6 @@ const register = async (options: CreationOptionsJson) => {
   }
 }
 
-// Uses any passkey this phone has for Jimbro, which the browser lets the user pick, and resolves to the assertion the
-// worker checks.
 const assert = async (options: unknown) => {
   const { challenge, rpId, userVerification, timeout } = options as RequestOptionsJson
   const credential = await navigator.credentials.get({
@@ -239,9 +218,6 @@ export const approveConnection = async (request: string) => {
 export const isRedirect = (value: unknown): value is { redirect: string } =>
   typeof value === 'object' && value !== null && 'redirect' in value && typeof value.redirect === 'string'
 
-// Saves the account and has the next sync run a first sync with it, which restores the account's rows and pushes every
-// row only this device has. A device that synced with another account, through a token or another passkey, leaves
-// that account's backup behind.
 const switchTo = (issued: Issued) => account.switchTo({ userId: issued.userId, token: issued.token, method: 'passkey' })
 
 // Signs up: makes a new account with a new passkey and backs this device up to it. A new account has no rows, so
@@ -254,7 +230,6 @@ export const createPasskeyAccount = async () => {
   await switchTo(issued)
 }
 
-// Whether this device holds any exercise, program or workout, which signing in can replace with the account's copy.
 const hasLocalRows = async () => {
   for (const store of [OBJECT_STORES.EXERCISES, OBJECT_STORES.PROGRAMS, OBJECT_STORES.WORKOUT_SESSIONS]) {
     if ((await storage.count(store)) > 0) return true
@@ -262,14 +237,11 @@ const hasLocalRows = async () => {
   return false
 }
 
-// Every row of the account the token signs in to, as the first sync would pull them.
 const pullAccount = (token: string) =>
   pullAll(
     async (cursor) => (await requestJson(`/api/pull?cursor=${cursor}&limit=${PULL_LIMIT}`, { token })) as PullPage
   )
 
-// Whether signing in to the account would replace any row on this device: one both sides have, with a different copy.
-// A phone that signed out after backing up holds the account's own copies, so signing in again replaces nothing.
 const signInReplacesLocalRows = async (pulled: PulledAccount) => {
   if (!(await hasLocalRows())) return false
   const local = await readFirstSyncSnapshot(storage)
@@ -312,7 +284,6 @@ export const signInWithPasskey = async ({
     await forget()
     return false
   }
-  // The other devices are signed out before this one switches, so a failed claim leaves everything as it was.
   try {
     await requestJson('/api/claim', { method: 'POST', token: issued.token })
   } catch (error) {
@@ -320,7 +291,6 @@ export const signInWithPasskey = async ({
     throw error
   }
   await switchTo(issued)
-  // A failed restore leaves the first sync to the callers' next sync, which pulls again.
   await sync({ again: false, restoring: pulled }).catch(() => undefined)
   return true
 }
@@ -340,6 +310,8 @@ export const backUpBeforeSignOut = async () => {
   return outbox.pending()
 }
 
+const signedOutAlready = (error: unknown) => error instanceof ServerError && error.code === 'unauthorized'
+
 // Signs out: the worker forgets this device's token, and the device stops syncing. Its data stays on the device.
 export const signOut = async () => {
   if (account.current()) {
@@ -347,8 +319,7 @@ export const signOut = async () => {
     try {
       await postSignedIn('/api/signout')
     } catch (error) {
-      // A token the worker no longer knows is signed out already.
-      if (!(error instanceof ServerError && error.code === 'unauthorized')) throw error
+      if (!signedOutAlready(error)) throw error
     }
   }
   await account.signOut()
